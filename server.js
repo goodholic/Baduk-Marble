@@ -3,13 +3,17 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const mysql = require('mysql2/promise');
+const path = require('path'); // 파일 경로를 다루기 위해 추가된 모듈
 
 const app = express();
 const server = http.createServer(app);
 
-// 웹 브라우저 접속 시 404 에러 방지 및 서버 작동 확인용 라우트
+// 유니티 WebGL 빌드 폴더(public)를 정적 파일로 제공하도록 설정하는 부분
+app.use(express.static(path.join(__dirname, 'public')));
+
+// 웹 브라우저 접속 시 public 폴더 안의 유니티 웹 빌드(index.html)를 띄워줌
 app.get('/', (req, res) => {
-    res.send('<h1>바둑 마블 서버가 정상적으로 실행 중입니다!</h1><p>유니티 클라이언트에서 웹소켓으로 접속해주세요.</p>');
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Railway 환경에서는 CORS 설정을 열어두는 것이 좋습니다.
