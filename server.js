@@ -6,6 +6,12 @@ const mysql = require('mysql2/promise');
 
 const app = express();
 const server = http.createServer(app);
+
+// 웹 브라우저 접속 시 404 에러 방지 및 서버 작동 확인용 라우트
+app.get('/', (req, res) => {
+    res.send('<h1>바둑 마블 서버가 정상적으로 실행 중입니다!</h1><p>유니티 클라이언트에서 웹소켓으로 접속해주세요.</p>');
+});
+
 // Railway 환경에서는 CORS 설정을 열어두는 것이 좋습니다.
 const io = new Server(server, {
     cors: { origin: "*" }
@@ -35,7 +41,7 @@ function initBoard() {
     for (let y = 0; y < 19; y++) {
         let row = [];
         for (let x = 0; x < 19; x++) {
-            row.push(0); // 0: 중립, 1: 백팀, 2: 흑팀
+            row.push(0); // 0: 중립(빈 공간), 1: 백팀, 2: 흑팀
         }
         board.push(row);
     }
@@ -68,28 +74,79 @@ gameInterval = setInterval(() => {
     }
 }, 1000);
 
-// 게임 종료 계산 및 MySQL 저장 로직
+// 게임 종료 계산 (바둑의 '집' 계산 로직) 및 MySQL 저장 로직
 async function endGame() {
-    let team1Tiles = 0;
-    let team2Tiles = 0;
+    let team1Score = 0;
+    let team2Score = 0;
+    
+    // 방문 여부를 체크할 19x19 배열 생성
+    let visited = [];
+    for (let y = 0; y < 19; y++) {
+        let row = [];
+        for (let x = 0; x < 19; x++) {
+            row.push(false);
+        }
+        visited.push(row);
+    }
 
+    // BFS 기반 바둑 집(영역) 계산 알고리즘
     for (let y = 0; y < 19; y++) {
         for (let x = 0; x < 19; x++) {
-            if (board[y][x] === 1) team1Tiles++;
-            else if (board[y][x] === 2) team2Tiles++;
+            // 빈 공간(0)이면서 아직 방문하지 않은 곳 탐색
+            if (board[y][x] === 0 && !visited[y][x]) {
+                let queue = [{x: x, y: y}];
+                visited[y][x] = true;
+                
+                let territorySize = 0; // 이 빈 공간 덩어리의 크기 (집 개수)
+                let surroundingTeams = new Set(); // 이 공간을 둘러싸고 있는 팀 목록
+                
+                while (queue.length > 0) {
+                    let curr = queue.shift();
+                    territorySize++;
+                    
+                    // 상하좌우 탐색
+                    let directions = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+                    for (let dir of directions) {
+                        let nx = curr.x + dir[0];
+                        let ny = curr.y + dir[1];
+                        
+                        // 보드 범위 내에 있는지 확인 (외곽선은 바둑에서 자연스러운 벽으로 간주됨)
+                        if (nx >= 0 && nx < 19 && ny >= 0 && ny < 19) {
+                            if (board[ny][nx] === 0) {
+                                if (!visited[ny][nx]) {
+                                    visited[ny][nx] = true;
+                                    queue.push({x: nx, y: ny});
+                                }
+                            } else {
+                                // 빈 공간이 아니라면 건물을 지은 팀(1 또는 2) 기록
+                                surroundingTeams.add(board[ny][nx]);
+                            }
+                        }
+                    }
+                }
+                
+                // 해당 빈 공간(집)을 완벽하게 단 하나의 팀만이 둘러싸고 있을 때만 점수로 인정!
+                if (surroundingTeams.size === 1) {
+                    if (surroundingTeams.has(1)) {
+                        team1Score += territorySize; // 백팀 집 점수 획득
+                    } else if (surroundingTeams.has(2)) {
+                        team2Score += territorySize; // 흑팀 집 점수 획득
+                    }
+                }
+            }
         }
     }
 
     let winner = 0;
-    if (team1Tiles > team2Tiles) winner = 1;
-    else if (team2Tiles > team1Tiles) winner = 2;
+    if (team1Score > team2Score) winner = 1;
+    else if (team2Score > team1Score) winner = 2;
 
-    io.emit("game_over", { winner: winner });
+    io.emit("game_over", { winner: winner, team1Score: team1Score, team2Score: team2Score });
 
     // DB에 결과 기록 시도
     try {
-        await pool.query('INSERT INTO match_history (winner_team, team1_score, team2_score) VALUES (?, ?, ?)', [winner, team1Tiles, team2Tiles]);
-        console.log("게임 결과 DB 저장 성공!");
+        await pool.query('INSERT INTO match_history (winner_team, team1_score, team2_score) VALUES (?, ?, ?)', [winner, team1Score, team2Score]);
+        console.log(`게임 결과 DB 저장 성공! (백팀 집: ${team1Score}, 흑팀 집: ${team2Score})`);
     } catch (err) {
         console.error("DB 저장 에러:", err.message);
     }
@@ -112,9 +169,11 @@ function broadcastState() {
             let row = [];
             for (let x = 0; x < 19; x++) {
                 let tile = board[y][x];
+                // 자기 팀이 그린 모양이거나 중립 구역은 보임
                 if (tile === p.team || tile === 0) {
                     row.push(tile);
                 } else {
+                    // 적팀이 그린 모양은 가려짐
                     row.push(0);
                 }
             }
@@ -129,6 +188,7 @@ function broadcastState() {
             } else {
                 let distX = Math.abs(other.x - p.x);
                 let distY = Math.abs(other.y - p.y);
+                // 상하좌우대각선 8칸 이내 (거리가 1 이하)
                 if (distX <= 1 && distY <= 1) {
                     personalPlayers[otherId] = other;
                 }
@@ -148,13 +208,14 @@ function broadcastState() {
 io.on("connection", (socket) => {
     console.log("플레이어 접속:", socket.id);
 
-    // 팀 배정
+    // 팀 배정 (n vs n 균형 맞추기)
     let team1Count = 0;
     let team2Count = 0;
     for (let id in players) {
         if (players[id].team === 1) team1Count++;
         else team2Count++;
     }
+    // 백(1) 팀부터 배정 후 인원수 맞춤
     let assignedTeam = (team1Count <= team2Count) ? 1 : 2;
 
     // 플레이어 초기 생성
@@ -162,7 +223,7 @@ io.on("connection", (socket) => {
         x: 9, 
         y: 9,
         team: assignedTeam,
-        gold: 100,
+        gold: 100, // 초반 100원
         remainingMoves: 0,
         isBankrupt: false
     };
@@ -172,6 +233,7 @@ io.on("connection", (socket) => {
     // 주사위 굴리기 처리
     socket.on("roll_dice", () => {
         let p = players[socket.id];
+        // 파산했거나 아직 이동 횟수가 남아있으면 굴릴 수 없음
         if (!p || p.isBankrupt || p.remainingMoves > 0) return;
 
         let diceValue = Math.floor(Math.random() * 6) + 1;
@@ -200,21 +262,24 @@ io.on("connection", (socket) => {
         let currentTile = board[ny][nx];
         let enemyTeam = (p.team === 1) ? 2 : 1;
 
+        // 이동 중인 경우
         if (p.remainingMoves > 0) {
             if (currentTile === enemyTeam) {
-                p.gold += 1; 
+                p.gold += 1; // 이동하는 칸에 상대방 건물이 있으면 +1원 획득
             } else if (currentTile === 0) {
-                board[ny][nx] = p.team;
+                board[ny][nx] = p.team; // 빈 땅이면 우리 타일 그림
             }
         } 
+        // 이동이 끝난 마지막 칸인 경우
         else if (p.remainingMoves === 0) {
             if (currentTile === enemyTeam) {
-                p.gold -= 5; 
-                board[ny][nx] = p.team; 
+                p.gold -= 5; // 도착지에 상대방 건물이 있으면 -5원 통행료
+                board[ny][nx] = p.team; // 땅 뺏기
             } else if (currentTile === 0) {
                 board[ny][nx] = p.team; 
             }
 
+            // 통행료 지불 후 파산 판정
             if (p.gold <= 0) {
                 p.isBankrupt = true;
                 socket.emit("bankrupt_notify", {});
@@ -233,7 +298,7 @@ io.on("connection", (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-// 배포 환경을 위해 '0.0.0.0' 바인딩 추가
+// 배포 환경을 위해 '0.0.0.0' 바인딩
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`서버가 ${PORT} 포트에서 열렸습니다.`);
 });

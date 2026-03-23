@@ -633,7 +633,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5fb6708b491d5834d81aaf852f3d6d6c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameManager
-  serverUrl: http://localhost:3000
+  serverUrl: https://baduk-marble-production.up.railway.app
   timeText: {fileID: 1284396959}
   goldText: {fileID: 309586512}
   diceText: {fileID: 15710489}

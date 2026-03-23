@@ -10,7 +10,7 @@ public class GameManager : MonoBehaviour
 {
     private SocketIOUnity socket;
     
-    // [수정 핵심] Railway에서 발급받은 Public URL을 적용했습니다.
+    // Railway에서 발급받은 Public URL
     public string serverUrl = "https://baduk-marble-production.up.railway.app"; 
 
     [Header("UI 연결 (장비창)")]
@@ -303,9 +303,11 @@ public class GameManager : MonoBehaviour
 
     void TryMove(int dx, int dy)
     {
-        JObject moveData = new JObject();
-        moveData["dx"] = dx;
-        moveData["dy"] = dy;
+        // JObject를 사용하면 시스템 직렬화 과정에서 전송이 누락되므로 Dictionary로 교체합니다.
+        Dictionary<string, int> moveData = new Dictionary<string, int>();
+        moveData.Add("dx", dx);
+        moveData.Add("dy", dy);
+        
         socket.Emit("move", moveData);
     }
 
