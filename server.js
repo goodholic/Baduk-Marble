@@ -3,12 +3,15 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const mysql = require('mysql2/promise');
-const path = require('path'); // 파일 경로를 다루기 위해 추가된 모듈
+const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
 
-// 유니티 WebGL 빌드 폴더(public)를 정적 파일로 제공하도록 설정하는 부분
+// 유니티 WebGL 파일(.wasm 등)을 브라우저가 올바르게 인식하도록 MIME 타입 강제 지정
+express.static.mime.define({'application/wasm': ['wasm']});
+
+// 유니티 WebGL 빌드 폴더(public)를 정적 파일로 제공하도록 설정
 app.use(express.static(path.join(__dirname, 'public')));
 
 // 웹 브라우저 접속 시 public 폴더 안의 유니티 웹 빌드(index.html)를 띄워줌
