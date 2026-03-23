@@ -9,7 +9,9 @@ using TMPro;
 public class GameManager : MonoBehaviour
 {
     private SocketIOUnity socket;
-    public string serverUrl = "http://localhost:3000"; // 추후 Railway 서버 주소로 변경
+    
+    // [수정 핵심] Railway에서 발급받은 Public URL을 적용했습니다.
+    public string serverUrl = "https://baduk-marble-production.up.railway.app"; 
 
     [Header("UI 연결 (장비창)")]
     public TextMeshProUGUI timeText;
@@ -31,7 +33,7 @@ public class GameManager : MonoBehaviour
 
     void Start()
     {
-        // [수정 핵심] 백그라운드 스레드 에러 방지를 위해 메인 스레드에서 미리 디스패처를 초기화합니다.
+        // 백그라운드 스레드 에러 방지를 위해 메인 스레드에서 미리 디스패처를 초기화합니다.
         UnityMainThreadDispatcher.Instance();
 
         InitializeBoard();
