@@ -14,6 +14,7 @@ public class GameManager : MonoBehaviour
     [Header("UI 연결")]
     public TextMeshProUGUI timeText;
     public TextMeshProUGUI infoText;
+    public VirtualJoystick virtualJoystick; // 조이스틱 연결 변수 추가
 
     private string mySocketId;
     private int myTeam = 0;
@@ -24,6 +25,10 @@ public class GameManager : MonoBehaviour
 
     private GameObject[,] tiles = new GameObject[19, 19];
     private Dictionary<string, GameObject> playerObjects = new Dictionary<string, GameObject>();
+
+    // 조이스틱 이동 쿨타임 (너무 빠른 연속 이동 방지)
+    private float moveCooldown = 0.2f; 
+    private float lastMoveTime = 0f;
 
     // SocketIOPlugin.jslib와 연결되는 외부 JS 함수들
     [DllImport("__Internal")]
@@ -58,7 +63,6 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    // JS 플러그인에서 SendMessage를 통해 호출되는 함수
     public void OnUpdateState(string jsonString)
     {
         try 
@@ -73,7 +77,6 @@ public class GameManager : MonoBehaviour
                 timeText.text = $"남은 시간: {timeRemaining / 60}:{timeRemaining % 60:D2}";
             }
 
-            // 바둑판 색상 칠하기 업데이트
             if (data["board"] != null)
             {
                 JArray boardData = (JArray)data["board"];
@@ -91,7 +94,6 @@ public class GameManager : MonoBehaviour
                 }
             }
 
-            // 실시간 집(점수) 업데이트 및 UI 표기
             if (data["team1Score"] != null && data["team2Score"] != null)
             {
                 int t1Score = (int)data["team1Score"];
@@ -104,7 +106,6 @@ public class GameManager : MonoBehaviour
                 }
             }
 
-            // 플레이어 위치 업데이트
             if (data["players"] != null)
             {
                 JObject playersData = (JObject)data["players"];
@@ -143,7 +144,6 @@ public class GameManager : MonoBehaviour
                     }
                 }
 
-                // 나간 플레이어 삭제 처리
                 List<string> toRemove = new List<string>();
                 foreach (var key in playerObjects.Keys)
                 {
@@ -159,7 +159,6 @@ public class GameManager : MonoBehaviour
         catch (Exception e) { Debug.LogError("Update State Error: " + e.Message); }
     }
 
-    // JS 플러그인에서 게임 종료 시 호출
     public void OnGameOver(string jsonString)
     {
         try 
@@ -176,17 +175,38 @@ public class GameManager : MonoBehaviour
 
     void Update()
     {
-        // 십자 방향키 이동 로직 (주사위 조건 완전 삭제)
+        // PC 키보드 입력
         if (Input.GetKeyDown(KeyCode.UpArrow)) TryMove(0, 1);
         else if (Input.GetKeyDown(KeyCode.DownArrow)) TryMove(0, -1);
         else if (Input.GetKeyDown(KeyCode.LeftArrow)) TryMove(-1, 0);
         else if (Input.GetKeyDown(KeyCode.RightArrow)) TryMove(1, 0);
+
+        // 조이스틱 입력 처리
+        if (virtualJoystick != null && virtualJoystick.InputVector.magnitude > 0.3f)
+        {
+            if (Time.time - lastMoveTime >= moveCooldown)
+            {
+                float absX = Mathf.Abs(virtualJoystick.InputVector.x);
+                float absY = Mathf.Abs(virtualJoystick.InputVector.y);
+
+                // 대각선 입력을 방지하고 상하좌우 중 더 많이 꺾은 방향으로 이동
+                if (absX > absY)
+                {
+                    TryMove((virtualJoystick.InputVector.x > 0) ? 1 : -1, 0);
+                }
+                else
+                {
+                    TryMove(0, (virtualJoystick.InputVector.y > 0) ? 1 : -1);
+                }
+            }
+        }
     }
 
     void TryMove(int dx, int dy)
     {
+        lastMoveTime = Time.time;
         #if UNITY_WEBGL && !UNITY_EDITOR
-            EmitMove(dx, dy); // 외부 JS 함수로 이동 이벤트 전달
+            EmitMove(dx, dy);
         #endif
     }
 }

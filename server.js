@@ -68,7 +68,66 @@ gameInterval = setInterval(() => {
     }
 }, 1000);
 
-// 실시간 바둑 집(점수) 계산 로직
+// 특정 위치의 돌이 속한 그룹과 그 그룹의 활로(숨구멍) 수를 계산
+function getGroupAndLiberties(startX, startY, team) {
+    let visited = Array.from({ length: 19 }, () => Array(19).fill(false));
+    let queue = [{x: startX, y: startY}];
+    visited[startY][startX] = true;
+    let group = [];
+    let liberties = 0;
+
+    while (queue.length > 0) {
+        let curr = queue.shift();
+        group.push(curr);
+
+        let directions = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+        for (let dir of directions) {
+            let nx = curr.x + dir[0];
+            let ny = curr.y + dir[1];
+
+            if (nx >= 0 && nx < 19 && ny >= 0 && ny < 19) {
+                if (board[ny][nx] === 0) {
+                    liberties++;
+                } else if (board[ny][nx] === team && !visited[ny][nx]) {
+                    visited[ny][nx] = true;
+                    queue.push({x: nx, y: ny});
+                }
+            }
+        }
+    }
+    return { group, liberties };
+}
+
+// 바둑 따내기 로직 (활로가 0이 된 돌을 제거)
+function processGoRules(x, y, team) {
+    let enemyTeam = (team === 1) ? 2 : 1;
+    let directions = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+    
+    // 1. 내가 돌을 놓음으로써 상대방 돌이 죽었는지 확인 및 제거
+    directions.forEach(dir => {
+        let nx = x + dir[0];
+        let ny = y + dir[1];
+        if (nx >= 0 && nx < 19 && ny >= 0 && ny < 19 && board[ny][nx] === enemyTeam) {
+            let result = getGroupAndLiberties(nx, ny, enemyTeam);
+            if (result.liberties === 0) {
+                // 상대방 돌 따내기 (빈 공간으로 만듦)
+                result.group.forEach(pos => {
+                    board[pos.y][pos.x] = 0;
+                });
+            }
+        }
+    });
+
+    // 2. 자충수 체크 (내 돌을 놓았는데 내 활로가 0이면 내 돌이 죽음)
+    let selfResult = getGroupAndLiberties(x, y, team);
+    if (selfResult.liberties === 0) {
+        selfResult.group.forEach(pos => {
+            board[pos.y][pos.x] = 0;
+        });
+    }
+}
+
+// 실시간 바둑 집(점수) 계산 로직 (비어있는 땅을 내 타일로 완벽히 둘러싼 경우)
 function calculateScores() {
     let team1Score = 0;
     let team2Score = 0;
@@ -76,7 +135,6 @@ function calculateScores() {
 
     for (let y = 0; y < 19; y++) {
         for (let x = 0; x < 19; x++) {
-            // 빈 공간(0)을 발견하면 탐색 시작
             if (board[y][x] === 0 && !visited[y][x]) {
                 let queue = [{x: x, y: y}];
                 visited[y][x] = true;
@@ -99,14 +157,12 @@ function calculateScores() {
                                     queue.push({x: nx, y: ny});
                                 }
                             } else {
-                                // 벽을 만났을 때 어떤 팀의 벽인지 기록
                                 surroundingTeams.add(board[ny][nx]);
                             }
                         }
                     }
                 }
                 
-                // 오직 한 팀에 의해서만 완전히 둘러싸인 집일 경우 점수 인정
                 if (surroundingTeams.size === 1) {
                     if (surroundingTeams.has(1)) team1Score += territorySize;
                     else if (surroundingTeams.has(2)) team2Score += territorySize;
@@ -134,14 +190,12 @@ async function endGame() {
         console.error("DB 저장 에러:", err.message);
     }
 
-    // 5초 대기 후 게임 초기화
     setTimeout(() => { resetGame(); }, 5000);
 }
 
 function broadcastState() {
     const scores = calculateScores();
     
-    // 각 개인별 ID와 실시간 점수를 포함하여 전송
     for (let socketId in players) {
         io.to(socketId).emit("update_state", JSON.stringify({
             myId: socketId,
@@ -155,7 +209,6 @@ function broadcastState() {
 }
 
 io.on("connection", (socket) => {
-    // 인원수 균형을 맞추어 흑/백 배정
     let team1Count = 0;
     let team2Count = 0;
     for (let id in players) {
@@ -183,14 +236,16 @@ io.on("connection", (socket) => {
         let nx = p.x + data.dx;
         let ny = p.y + data.dy;
 
-        // 보드 밖으로 나가지 못하게 제한
         if (nx < 0 || nx > 18 || ny < 0 || ny > 18) return;
 
         p.x = nx;
         p.y = ny;
 
-        // 이동하는 즉시 해당 타일을 내 팀의 색으로 칠함
+        // 타일을 칠함
         board[ny][nx] = p.team;
+
+        // 바둑 포위 규칙(따내기) 실행
+        processGoRules(nx, ny, p.team);
 
         broadcastState();
     });
