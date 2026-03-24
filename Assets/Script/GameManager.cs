@@ -1,15 +1,13 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using SocketIOClient;
 using System;
 using Newtonsoft.Json.Linq;
 using TMPro;
+using System.Runtime.InteropServices;
 
 public class GameManager : MonoBehaviour
 {
-    private SocketIOUnity socket;
-    
     // Railway에서 발급받은 Public URL
     public string serverUrl = "https://baduk-marble-production.up.railway.app"; 
 
@@ -31,13 +29,30 @@ public class GameManager : MonoBehaviour
     private GameObject[,] tiles = new GameObject[19, 19];
     private Dictionary<string, GameObject> playerObjects = new Dictionary<string, GameObject>();
 
+    // JavaScript 플러그인(SocketIO.jslib)과 연결하기 위한 DllImport 설정
+    [DllImport("__Internal")]
+    private static extern void InitSocketIO(string url);
+
+    [DllImport("__Internal")]
+    private static extern void EmitRollDice();
+
+    [DllImport("__Internal")]
+    private static extern void EmitMove(int dx, int dy);
+
     void Start()
     {
-        // 백그라운드 스레드 에러 방지를 위해 메인 스레드에서 미리 디스패처를 초기화합니다.
-        UnityMainThreadDispatcher.Instance();
+        // JSLIB의 SendMessage가 이 게임 오브젝트를 정확히 찾을 수 있도록 이름을 강제로 고정
+        this.gameObject.name = "GameManager";
 
         InitializeBoard();
-        ConnectToServer();
+
+        // WebGL 빌드 환경에서만 JS 플러그인이 동작합니다.
+        #if UNITY_WEBGL && !UNITY_EDITOR
+            InitSocketIO(serverUrl);
+        #else
+            Debug.LogWarning("에디터 모드에서는 Socket 통신이 지원되지 않습니다. WebGL로 빌드해주세요.");
+            infoText.text = "WebGL 환경에서 접속해주세요!";
+        #endif
     }
 
     void InitializeBoard()
@@ -53,135 +68,17 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    void ConnectToServer()
-    {
-        var uri = new Uri(serverUrl);
-        socket = new SocketIOUnity(uri, new SocketIOOptions
-        {
-            // WebGL 빌드 시 System.Net.WebSockets 미지원 문제를 피하기 위해 Polling 사용
-            Transport = SocketIOClient.Transport.TransportProtocol.Polling
-        });
+    // =========================================================================
+    // JS 플러그인에서 호출되는 수신 함수들 (SendMessage를 통해 호출됨)
+    // =========================================================================
 
-        socket.OnConnected += (sender, e) =>
-        {
-            Debug.Log("서버에 성공적으로 연결되었습니다!");
-        };
-
-        socket.On("update_state", response =>
-        {
-            try 
-            {
-                JObject data = ParseResponseData(response);
-                if (data != null)
-                {
-                    UnityMainThreadDispatcher.Instance().Enqueue(() =>
-                    {
-                        UpdateGameState(data);
-                    });
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError("update_state 파싱 에러: " + ex.Message);
-            }
-        });
-
-        socket.On("dice_result", response =>
-        {
-            try 
-            {
-                JObject data = ParseResponseData(response);
-                if (data != null)
-                {
-                    UnityMainThreadDispatcher.Instance().Enqueue(() =>
-                    {
-                        if (data["value"] != null)
-                        {
-                            remainingMoves = (int)data["value"];
-                            diceText.text = "남은 이동 칸: " + remainingMoves;
-                            infoText.text = "십자 방향키로 캐릭터를 이동시키세요!";
-                        }
-                    });
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError("dice_result 에러: " + ex.Message);
-            }
-        });
-
-        socket.On("bankrupt_notify", response =>
-        {
-            UnityMainThreadDispatcher.Instance().Enqueue(() =>
-            {
-                isBankrupt = true;
-                infoText.text = "앗! 파산했습니다... 관전 모드로 전환됩니다.";
-            });
-        });
-
-        socket.On("game_over", response =>
-        {
-            try 
-            {
-                JObject data = ParseResponseData(response);
-                if (data != null)
-                {
-                    UnityMainThreadDispatcher.Instance().Enqueue(() =>
-                    {
-                        if (data["winner"] != null)
-                        {
-                            int winner = (int)data["winner"];
-                            string winnerTeam = winner == 1 ? "백(White)" : "흑(Black)";
-                            infoText.text = $"게임 종료! {winnerTeam} 팀 승리!";
-                        }
-                    });
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError("game_over 에러: " + ex.Message);
-            }
-        });
-
-        socket.Connect();
-    }
-
-    private JObject ParseResponseData(SocketIOResponse response)
-    {
-        try
-        {
-            // SocketIOClient 내부 직렬화 모듈을 완전히 우회하기 위해 바로 문자열로 추출합니다.
-            string rawResponse = response.ToString();
-            
-            if (!string.IsNullOrEmpty(rawResponse))
-            {
-                JArray jsonArray = JArray.Parse(rawResponse);
-                
-                if (jsonArray.Count > 0)
-                {
-                    if (jsonArray[0].Type == JTokenType.String)
-                    {
-                        return JObject.Parse(jsonArray[0].ToString());
-                    }
-                    else if (jsonArray[0].Type == JTokenType.Object)
-                    {
-                        return (JObject)jsonArray[0];
-                    }
-                }
-            }
-            return null;
-        }
-        catch (Exception ex)
-        {
-            Debug.LogError("JSON 파싱 중 상세 에러: " + ex.Message + " | 원본 텍스트: " + response.ToString());
-            return null;
-        }
-    }
-
-    void UpdateGameState(JObject data)
+    public void OnUpdateState(string jsonString)
     {
         try 
         {
+            // 이제 에러를 일으키는 C# Socket 패키지가 없으므로, Newtonsoft로 순수하게 파싱합니다.
+            JObject data = JObject.Parse(jsonString);
+
             if (data["myId"] != null)
             {
                 mySocketId = (string)data["myId"];
@@ -208,7 +105,7 @@ public class GameManager : MonoBehaviour
                             // 1: 백, 2: 흑, 0: 중립
                             if (tileTeam == 1) sr.color = Color.white;
                             else if (tileTeam == 2) sr.color = Color.black;
-                            else sr.color = new Color(0.8f, 0.6f, 0.4f); // 기본 나무판자 색상
+                            else sr.color = new Color(0.8f, 0.6f, 0.4f);
                         }
                     }
                 }
@@ -285,9 +182,53 @@ public class GameManager : MonoBehaviour
         }
         catch (Exception e)
         {
-            Debug.LogError("UpdateGameState 실행 중 에러: " + e.Message);
+            Debug.LogError("OnUpdateState 파싱 에러: " + e.Message);
         }
     }
+
+    public void OnDiceResult(string jsonString)
+    {
+        try 
+        {
+            JObject data = JObject.Parse(jsonString);
+            if (data["value"] != null)
+            {
+                remainingMoves = (int)data["value"];
+                diceText.text = "남은 이동 칸: " + remainingMoves;
+                infoText.text = "십자 방향키로 캐릭터를 이동시키세요!";
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogError("OnDiceResult 파싱 에러: " + e.Message);
+        }
+    }
+
+    public void OnBankruptNotify(string message)
+    {
+        isBankrupt = true;
+        infoText.text = "앗! 파산했습니다... 관전 모드로 전환됩니다.";
+    }
+
+    public void OnGameOver(string jsonString)
+    {
+        try 
+        {
+            JObject data = JObject.Parse(jsonString);
+            if (data["winner"] != null)
+            {
+                int winner = (int)data["winner"];
+                string winnerTeam = winner == 1 ? "백(White)" : "흑(Black)";
+                infoText.text = $"게임 종료! {winnerTeam} 팀 승리!";
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogError("OnGameOver 파싱 에러: " + e.Message);
+        }
+    }
+
+    // =========================================================================
 
     void Update()
     {
@@ -296,7 +237,9 @@ public class GameManager : MonoBehaviour
         // Space 또는 Enter(중간 버튼 역할)로 주사위 굴리기
         if ((Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Return)) && remainingMoves == 0)
         {
-            socket.Emit("roll_dice");
+            #if UNITY_WEBGL && !UNITY_EDITOR
+                EmitRollDice();
+            #endif
         }
 
         // 주사위 굴린 후 이동 (십자 방향키)
@@ -311,16 +254,8 @@ public class GameManager : MonoBehaviour
 
     void TryMove(int dx, int dy)
     {
-        // Dictionary를 지우고, 확실하게 IL2CPP 직렬화 에러를 피하기 위해 JSON 문자열을 조립해 전송합니다.
-        string moveJson = $"{{\"dx\":{dx},\"dy\":{dy}}}";
-        socket.Emit("move", moveJson);
-    }
-
-    void OnDestroy()
-    {
-        if (socket != null)
-        {
-            socket.Disconnect();
-        }
+        #if UNITY_WEBGL && !UNITY_EDITOR
+            EmitMove(dx, dy);
+        #endif
     }
 }
