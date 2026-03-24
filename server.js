@@ -159,10 +159,14 @@ function calculateScores() {
                             } else {
                                 surroundingTeams.add(board[ny][nx]);
                             }
+                        } else {
+                            // [수정된 핵심 로직] 맵 가장자리(테두리)에 닿은 빈 공간은 가상의 'edge' 벽에 닿은 것으로 처리
+                            surroundingTeams.add('edge');
                         }
                     }
                 }
                 
+                // 오직 한 팀(1 또는 2)의 돌로만 '완벽히' 둘러싸여 있어야만 집(점수)으로 인정
                 if (surroundingTeams.size === 1) {
                     if (surroundingTeams.has(1)) team1Score += territorySize;
                     else if (surroundingTeams.has(2)) team2Score += territorySize;
