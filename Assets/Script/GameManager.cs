@@ -146,24 +146,39 @@ public class GameManager : MonoBehaviour
         socket.Connect();
     }
 
-    // IL2CPP (WebGL) 환경에서 발생하는 System.Text.Json.JsonElement 역직렬화 에러를
-    // 원천적으로 차단하기 위해 문자열 처리 방식으로 전면 수정
+    // 핵심 수정 부분: GetValue<T>() 자체를 호출하지 않고 순수 문자열(ToString)로 해결합니다!
     private JObject ParseResponseData(SocketIOResponse response)
     {
         try
         {
-            // 서버에서 JSON.stringify()로 보낸 순수 문자열을 가져옵니다.
-            string jsonString = response.GetValue<string>();
+            // SocketIOClient 라이브러리 내부의 System.Text.Json 의존성을 완벽히 회피하기 위해
+            // 응답 객체를 곧바로 문자열로 변환합니다. 보통 "[\"{\\\"myId\\\":...}\"]" 형태의 배열 문자열이 반환됩니다.
+            string rawResponse = response.ToString();
             
-            if (!string.IsNullOrEmpty(jsonString))
+            if (!string.IsNullOrEmpty(rawResponse))
             {
-                return JObject.Parse(jsonString);
+                // 먼저 전체를 Newtonsoft.Json의 JArray로 파싱합니다.
+                JArray jsonArray = JArray.Parse(rawResponse);
+                
+                if (jsonArray.Count > 0)
+                {
+                    // 배열의 첫 번째 요소가 서버에서 보낸 JSON 문자열인 경우
+                    if (jsonArray[0].Type == JTokenType.String)
+                    {
+                        return JObject.Parse(jsonArray[0].ToString());
+                    }
+                    // 서버에서 JSON 객체 자체로 인식되어 들어온 경우
+                    else if (jsonArray[0].Type == JTokenType.Object)
+                    {
+                        return (JObject)jsonArray[0];
+                    }
+                }
             }
             return null;
         }
         catch (Exception ex)
         {
-            Debug.LogError("JSON 파싱 중 상세 에러: " + ex.Message);
+            Debug.LogError("JSON 파싱 중 상세 에러: " + ex.Message + " | 원본 텍스트: " + response.ToString());
             return null;
         }
     }
