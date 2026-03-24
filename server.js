@@ -255,6 +255,11 @@ io.on("connection", (socket) => {
 
     // 이동 처리
     socket.on("move", (data) => {
+        // 클라이언트(WebGL) 측 직렬화 에러를 피하기 위해 문자열로 전송된 경우를 대비한 파싱
+        if (typeof data === 'string') {
+            try { data = JSON.parse(data); } catch (e) { console.error("이동 데이터 파싱 실패", e); return; }
+        }
+
         let p = players[socket.id];
         if (!p || p.isBankrupt || p.remainingMoves <= 0) return;
 

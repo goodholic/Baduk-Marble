@@ -146,28 +146,23 @@ public class GameManager : MonoBehaviour
         socket.Connect();
     }
 
-    // 핵심 수정 부분: GetValue<T>() 자체를 호출하지 않고 순수 문자열(ToString)로 해결합니다!
     private JObject ParseResponseData(SocketIOResponse response)
     {
         try
         {
-            // SocketIOClient 라이브러리 내부의 System.Text.Json 의존성을 완벽히 회피하기 위해
-            // 응답 객체를 곧바로 문자열로 변환합니다. 보통 "[\"{\\\"myId\\\":...}\"]" 형태의 배열 문자열이 반환됩니다.
+            // SocketIOClient 내부 직렬화 모듈을 완전히 우회하기 위해 바로 문자열로 추출합니다.
             string rawResponse = response.ToString();
             
             if (!string.IsNullOrEmpty(rawResponse))
             {
-                // 먼저 전체를 Newtonsoft.Json의 JArray로 파싱합니다.
                 JArray jsonArray = JArray.Parse(rawResponse);
                 
                 if (jsonArray.Count > 0)
                 {
-                    // 배열의 첫 번째 요소가 서버에서 보낸 JSON 문자열인 경우
                     if (jsonArray[0].Type == JTokenType.String)
                     {
                         return JObject.Parse(jsonArray[0].ToString());
                     }
-                    // 서버에서 JSON 객체 자체로 인식되어 들어온 경우
                     else if (jsonArray[0].Type == JTokenType.Object)
                     {
                         return (JObject)jsonArray[0];
@@ -316,12 +311,9 @@ public class GameManager : MonoBehaviour
 
     void TryMove(int dx, int dy)
     {
-        // JObject를 사용하면 시스템 직렬화 과정에서 전송이 누락되므로 Dictionary로 교체합니다.
-        Dictionary<string, int> moveData = new Dictionary<string, int>();
-        moveData.Add("dx", dx);
-        moveData.Add("dy", dy);
-        
-        socket.Emit("move", moveData);
+        // Dictionary를 지우고, 확실하게 IL2CPP 직렬화 에러를 피하기 위해 JSON 문자열을 조립해 전송합니다.
+        string moveJson = $"{{\"dx\":{dx},\"dy\":{dy}}}";
+        socket.Emit("move", moveJson);
     }
 
     void OnDestroy()
