@@ -58,7 +58,8 @@ public class GameManager : MonoBehaviour
         var uri = new Uri(serverUrl);
         socket = new SocketIOUnity(uri, new SocketIOOptions
         {
-            Transport = SocketIOClient.Transport.TransportProtocol.WebSocket
+            // WebGL 빌드 시 System.Net.WebSockets 미지원 문제를 피하기 위해 Polling 사용
+            Transport = SocketIOClient.Transport.TransportProtocol.Polling
         });
 
         socket.OnConnected += (sender, e) =>
@@ -145,23 +146,20 @@ public class GameManager : MonoBehaviour
         socket.Connect();
     }
 
-    // 서버 응답 데이터를 System.Text.Json.JsonElement를 거쳐 안전하게 JObject로 변환하는 헬퍼 함수
+    // IL2CPP (WebGL) 환경에서 발생하는 System.Text.Json.JsonElement 역직렬화 에러를
+    // 원천적으로 차단하기 위해 문자열 처리 방식으로 전면 수정
     private JObject ParseResponseData(SocketIOResponse response)
     {
         try
         {
-            var element = response.GetValue<System.Text.Json.JsonElement>();
+            // 서버에서 JSON.stringify()로 보낸 순수 문자열을 가져옵니다.
+            string jsonString = response.GetValue<string>();
             
-            // 서버에서 문자열 형태로 보낸 경우
-            if (element.ValueKind == System.Text.Json.JsonValueKind.String)
+            if (!string.IsNullOrEmpty(jsonString))
             {
-                return JObject.Parse(element.GetString());
+                return JObject.Parse(jsonString);
             }
-            // 서버에서 JSON 객체 형태로 보낸 경우
-            else
-            {
-                return JObject.Parse(element.GetRawText());
-            }
+            return null;
         }
         catch (Exception ex)
         {

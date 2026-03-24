@@ -148,7 +148,8 @@ async function endGame() {
     if (team1Score > team2Score) winner = 1;
     else if (team2Score > team1Score) winner = 2;
 
-    io.emit("game_over", { winner: winner, team1Score: team1Score, team2Score: team2Score });
+    // WebGL IL2CPP 에러 방지를 위해 JSON.stringify 사용
+    io.emit("game_over", JSON.stringify({ winner: winner, team1Score: team1Score, team2Score: team2Score }));
 
     // DB에 결과 기록 시도
     try {
@@ -202,12 +203,13 @@ function broadcastState() {
             }
         }
 
-        io.to(socketId).emit("update_state", {
+        // WebGL IL2CPP 에러 방지를 위해 JSON.stringify 사용
+        io.to(socketId).emit("update_state", JSON.stringify({
             myId: socketId,
             time: gameTime,
             board: personalBoard,
             players: personalPlayers
-        });
+        }));
     }
 }
 
@@ -246,7 +248,8 @@ io.on("connection", (socket) => {
         let diceValue = Math.floor(Math.random() * 6) + 1;
         p.remainingMoves = diceValue;
         
-        socket.emit("dice_result", { value: diceValue });
+        // WebGL IL2CPP 에러 방지를 위해 JSON.stringify 사용
+        socket.emit("dice_result", JSON.stringify({ value: diceValue }));
         broadcastState();
     });
 
@@ -289,7 +292,8 @@ io.on("connection", (socket) => {
             // 통행료 지불 후 파산 판정
             if (p.gold <= 0) {
                 p.isBankrupt = true;
-                socket.emit("bankrupt_notify", {});
+                // WebGL IL2CPP 에러 방지를 위해 JSON.stringify 사용
+                socket.emit("bankrupt_notify", JSON.stringify({}));
             }
         }
 
