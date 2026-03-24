@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <title>Unity WebGL Player</title>
+    <style>
+      /* 화면에 꽉 차게 만드는 심플한 스타일 */
+      body { padding: 0; margin: 0; overflow: hidden; background-color: #231F20; }
+      #unity-canvas { width: 100vw; height: 100vh; display: block; outline: none; }
+    </style>
+  </head>
+  <body>
+    <canvas id="unity-canvas" tabindex="-1"></canvas>
+    
+    <script src="Build/{{{ LOADER_FILENAME }}}"></script>
+    
+    <script>
+      // VS Code 에러를 유발하는 복잡한 매크로를 모두 빼고 필수 설정만 남겼습니다.
+      var config = {
+        dataUrl: "Build/{{{ DATA_FILENAME }}}",
+        frameworkUrl: "Build/{{{ FRAMEWORK_FILENAME }}}",
+        codeUrl: "Build/{{{ CODE_FILENAME }}}",
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: "{{{ COMPANY_NAME }}}",
+        productName: "{{{ PRODUCT_NAME }}}",
+        productVersion: "{{{ PRODUCT_VERSION }}}"
+      };
+
+      var canvas = document.querySelector("#unity-canvas");
+
+      // 유니티 실행 및 소켓 연결용 변수 할당
+      createUnityInstance(canvas, config).then((unityInstance) => {
+        // [핵심] 유니티 빌드 완료 시 자동으로 소켓 연결용 변수가 세팅됩니다!
+        window.myUnityInstance = unityInstance;
+        console.log("유니티 웹 빌드 실행 및 소켓 연결 준비 완료!");
+      }).catch((message) => {
+        console.error("유니티 로딩 에러:", message);
+      });
+    </script>
+  </body>
+</html>
