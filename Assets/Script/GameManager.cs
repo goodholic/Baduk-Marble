@@ -39,7 +39,8 @@ public class GameManager : MonoBehaviour
 
     private class NetworkAxe {
         public GameObject go;
-        public Vector3 targetPos;
+        public Vector3 dir;    // 추가: 도끼가 날아갈 방향
+        public float speed;    // 추가: 도끼의 비행 속도
     }
 
     private Dictionary<string, NetworkPlayer> players = new Dictionary<string, NetworkPlayer>();
@@ -141,7 +142,7 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        // 2. 맵에 생성된 도끼들의 비행 궤적 및 회전 보간
+        // 2. 맵에 생성된 도끼들의 비행 궤적 및 회전 보간 처리 (수정됨)
         foreach (var kvp in axes)
         {
             GameObject axeGo = kvp.Value.go;
@@ -149,7 +150,9 @@ public class GameManager : MonoBehaviour
             {
                 // 2D 환경에서의 도끼 회전 (Z축 기준 회전)
                 axeGo.transform.Rotate(0, 0, -1080f * Time.deltaTime); 
-                axeGo.transform.position = Vector3.Lerp(axeGo.transform.position, kvp.Value.targetPos, Time.deltaTime * 15f);
+                
+                // 클라이언트 상에서 목표 방향과 속도로 지속 이동 처리
+                axeGo.transform.position += kvp.Value.dir * kvp.Value.speed * Time.deltaTime;
             }
         }
     }
@@ -234,19 +237,24 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    // 수정됨: 서버에서 전달한 도끼 속도(speed)와 방향(dirX, dirY) 정보를 받아 저장합니다.
     public void OnAxeSpawn(string jsonStr)
     {
         JObject aData = JObject.Parse(jsonStr);
         int axeId = (int)aData["id"];
         float ax = (float)aData["x"];
         float ay = (float)aData["y"];
+        float dirX = (float)aData["dirX"];
+        float dirY = (float)aData["dirY"];
+        float speed = (float)aData["speed"];
 
         // 2D 환경에 맞추어 Z축을 0으로 생성
         GameObject newAxe = Instantiate(axePrefab, new Vector3(ax, ay, 0f), Quaternion.identity);
         
         NetworkAxe nAxe = new NetworkAxe();
         nAxe.go = newAxe;
-        nAxe.targetPos = newAxe.transform.position;
+        nAxe.dir = new Vector3(dirX, dirY, 0).normalized;
+        nAxe.speed = speed;
 
         axes[axeId] = nAxe;
     }

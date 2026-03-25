@@ -6,10 +6,11 @@ public class CameraFollow : MonoBehaviour
     public Transform target; // 따라갈 대상 (나의 캐릭터)
     
     // 2D 뷰에 맞게 카메라 위치 조정 (x, y는 따라가고, z는 뒤로 고정)
+    // 플레이어가 화면 중앙에 오도록 오프셋을 설정합니다.
     public Vector3 offset = new Vector3(0f, 0f, -10f); 
     
-    // 카메라 이동 부드러움 정도 (숫자가 클수록 더 빨리 따라감)
-    public float smoothSpeed = 5f; 
+    // "화면의 중간"에 완벽하게 고정하기 위해 smoothSpeed 변수는 제거합니다.
+    // public float smoothSpeed = 5f; 
 
     void LateUpdate()
     {
@@ -17,14 +18,12 @@ public class CameraFollow : MonoBehaviour
         if (target == null)
             return;
 
-        // 카메라가 이동해야 할 목표 위치 계산
+        // "화면의 중간"에 위치시키기 위해 Lerp를 제거하고 즉시 이동합니다.
+        // 카메라의 위치를 타겟 위치 + 오프셋으로 직접 설정하여 지연 없이 따라갑니다.
         Vector3 desiredPosition = target.position + offset;
         
-        // 현재 위치에서 목표 위치로 부드럽게 이동 (Lerp 사용)
-        Vector3 smoothedPosition = Vector3.Lerp(transform.position, desiredPosition, smoothSpeed * Time.deltaTime);
-        
-        // 카메라 위치 적용
-        transform.position = smoothedPosition;
+        // 카메라 위치 즉시 적용
+        transform.position = desiredPosition;
         
         // 2D 시점이므로 LookAt 회전은 사용하지 않습니다. 
         // 카메라는 항상 Z축을 정면으로 바라보게 세팅해두시면 됩니다.
