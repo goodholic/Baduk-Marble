@@ -8,7 +8,6 @@ public class VirtualJoystick : MonoBehaviour, IPointerDownHandler, IDragHandler,
     public Image backgroundImage; // 조이스틱 배경 동그라미
     public Image joystickImage;   // 움직이는 핸들 동그라미
 
-    // GameManager에서 참조하는 변수 복구 (에러 해결)
     public Vector2 InputVector { get; private set; }
 
     private void Start()
@@ -16,13 +15,17 @@ public class VirtualJoystick : MonoBehaviour, IPointerDownHandler, IDragHandler,
         if (backgroundImage == null) backgroundImage = GetComponent<Image>();
         if (joystickImage == null) joystickImage = transform.GetChild(0).GetComponent<Image>();
 
-        // [추가된 로직] 조이스틱을 화면 하단 중앙으로 강제 배치하여 캐릭터와 겹치지 않게 합니다.
+        // [핵심 수정] 조이스틱을 화면 "하단 중앙"으로 강제 고정합니다.
         RectTransform rect = backgroundImage.rectTransform;
+        
+        // 앵커와 피벗을 하단 중앙(0.5, 0)으로 설정
         rect.anchorMin = new Vector2(0.5f, 0f);
         rect.anchorMax = new Vector2(0.5f, 0f);
         rect.pivot = new Vector2(0.5f, 0f);
-        // 하단에서 100 픽셀만큼 띄워서 배치 (필요시 100f 값을 조절하세요)
-        rect.anchoredPosition = new Vector2(0f, 100f); 
+        
+        // 화면 맨 아래에서 위로 150 픽셀만큼 띄워줍니다. 
+        // (만약 조이스틱을 더 올리거나 내리고 싶다면 이 150f 값을 조절하세요!)
+        rect.anchoredPosition = new Vector2(0f, 150f); 
     }
 
     public void OnDrag(PointerEventData eventData)
