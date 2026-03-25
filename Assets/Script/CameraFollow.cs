@@ -6,11 +6,9 @@ public class CameraFollow : MonoBehaviour
     public Transform target; // 따라갈 대상 (나의 캐릭터)
     
     // 2D 뷰에 맞게 카메라 위치 조정 (x, y는 따라가고, z는 뒤로 고정)
-    // 플레이어가 화면 중앙에 오도록 오프셋을 설정합니다.
-    public Vector3 offset = new Vector3(0f, 0f, -10f); 
-    
-    // "화면의 중간"에 완벽하게 고정하기 위해 smoothSpeed 변수는 제거합니다.
-    // public float smoothSpeed = 5f; 
+    // 캐릭터가 조이스틱과 겹치지 않고 화면 상단 쪽에 위치하도록 y값을 -4f로 설정했습니다.
+    // 만약 캐릭터가 너무 위에 있다면 -3f로, 더 위로 올려야 한다면 -5f 등으로 조절하시면 됩니다.
+    public Vector3 offset = new Vector3(0f, -4f, -10f); 
 
     void LateUpdate()
     {
