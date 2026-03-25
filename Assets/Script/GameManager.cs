@@ -93,17 +93,18 @@ public class GameManager : MonoBehaviour
         {
             currentDir = new Vector2(h, v).normalized;
             
-            // 로컬 이동 즉시 적용 (반응성을 위해 클라이언트 선이동 처리)
-            Vector3 movement = new Vector3(h, 0, v).normalized * moveSpeed * Time.deltaTime;
+            // 로컬 이동 즉시 적용 (반응성을 위해 클라이언트 선이동 처리 - 2D는 x, y를 사용)
+            Vector3 movement = new Vector3(h, v, 0).normalized * moveSpeed * Time.deltaTime;
             players[myId].go.transform.position += movement;
             
-            // 캐릭터 회전 (진행 방향 응시)
-            players[myId].go.transform.rotation = Quaternion.LookRotation(new Vector3(currentDir.x, 0, currentDir.y));
+            // 캐릭터 회전 (2D Z축 회전 적용. 스프라이트의 정면이 위쪽(Up)이라고 가정)
+            float angle = Mathf.Atan2(currentDir.y, currentDir.x) * Mathf.Rad2Deg - 90f;
+            players[myId].go.transform.rotation = Quaternion.Euler(0, 0, angle);
 
-            // 서버로 지속적인 좌표 및 방향 전송
+            // 서버로 지속적인 좌표 및 방향 전송 (2D 환경이므로 z대신 y 전송)
             JObject moveData = new JObject();
             moveData["x"] = players[myId].go.transform.position.x;
-            moveData["y"] = players[myId].go.transform.position.z; // Unity Z축 = 2D의 Y축
+            moveData["y"] = players[myId].go.transform.position.y; 
             moveData["dirX"] = currentDir.x;
             moveData["dirY"] = currentDir.y;
 
@@ -146,7 +147,8 @@ public class GameManager : MonoBehaviour
             GameObject axeGo = kvp.Value.go;
             if (axeGo != null)
             {
-                axeGo.transform.Rotate(0, 1080f * Time.deltaTime, 0); // 날아갈 때 회전 효과
+                // 2D 환경에서의 도끼 회전 (Z축 기준 회전)
+                axeGo.transform.Rotate(0, 0, -1080f * Time.deltaTime); 
                 axeGo.transform.position = Vector3.Lerp(axeGo.transform.position, kvp.Value.targetPos, Time.deltaTime * 15f);
             }
         }
@@ -220,7 +222,8 @@ public class GameManager : MonoBehaviour
                 float sy = (float)pData["y"];
                 int sScore = (int)pData["score"];
                 
-                players[pId].targetPos = new Vector3(sx, 0, sy);
+                // 2D 이므로 X, Y 좌표 사용
+                players[pId].targetPos = new Vector3(sx, sy, 0);
                 players[pId].score = sScore;
 
                 if (pId == myId && scoreText != null)
@@ -238,8 +241,8 @@ public class GameManager : MonoBehaviour
         float ax = (float)aData["x"];
         float ay = (float)aData["y"];
 
-        // 도끼를 생성하고 y축은 1f(캐릭터 가슴 높이 정도)로 고정
-        GameObject newAxe = Instantiate(axePrefab, new Vector3(ax, 1f, ay), Quaternion.identity);
+        // 2D 환경에 맞추어 Z축을 0으로 생성
+        GameObject newAxe = Instantiate(axePrefab, new Vector3(ax, ay, 0f), Quaternion.identity);
         
         NetworkAxe nAxe = new NetworkAxe();
         nAxe.go = newAxe;
@@ -307,8 +310,9 @@ public class GameManager : MonoBehaviour
 
             players[pId].isAlive = true;
             players[pId].hp = 100;
-            players[pId].go.transform.position = new Vector3(rx, 0, ry);
-            players[pId].targetPos = new Vector3(rx, 0, ry);
+            // 2D 이므로 X, Y에 좌표 배정
+            players[pId].go.transform.position = new Vector3(rx, ry, 0);
+            players[pId].targetPos = new Vector3(rx, ry, 0);
             players[pId].go.SetActive(true);
 
             if (pId == myId)
@@ -327,7 +331,8 @@ public class GameManager : MonoBehaviour
         float startY = (float)data["y"];
         bool alive = (bool)data["isAlive"];
 
-        GameObject newPlayer = Instantiate(playerPrefab, new Vector3(startX, 0, startY), Quaternion.identity);
+        // 2D 이므로 X, Y에 좌표 배정
+        GameObject newPlayer = Instantiate(playerPrefab, new Vector3(startX, startY, 0), Quaternion.identity);
         newPlayer.SetActive(alive);
 
         NetworkPlayer np = new NetworkPlayer();
@@ -350,7 +355,6 @@ public class GameManager : MonoBehaviour
                 respawnPanel.SetActive(true);
             }
 
-            // [추가된 부분] 메인 카메라에 부착된 CameraFollow 스크립트를 찾아 내 캐릭터를 따라가도록 타겟 설정
             if (Camera.main != null)
             {
                 CameraFollow camFollow = Camera.main.GetComponent<CameraFollow>();

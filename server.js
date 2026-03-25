@@ -66,17 +66,51 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 3. 도끼 투척 이벤트 수신
+    // 3. 도끼 투척 이벤트 수신 (자동 타겟팅 또는 랜덤 발사로 수정)
     socket.on('throw', () => {
         const p = players[socket.id];
         if (p && p.isAlive) {
+            let targetDirX = 0;
+            let targetDirY = 0;
+            let closestDist = Infinity;
+            let targetFound = false;
+
+            // 맵에 있는 다른 플레이어 중 가장 가까운 생존자 찾기
+            for (const otherId in players) {
+                if (otherId !== socket.id && players[otherId].isAlive) {
+                    const other = players[otherId];
+                    const dx = other.x - p.x;
+                    const dy = other.y - p.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist < closestDist) {
+                        closestDist = dist;
+                        targetDirX = dx;
+                        targetDirY = dy;
+                        targetFound = true;
+                    }
+                }
+            }
+
+            // 타겟을 찾았다면 해당 방향으로 정규화
+            if (targetFound && closestDist > 0) {
+                const mag = Math.sqrt(targetDirX * targetDirX + targetDirY * targetDirY);
+                targetDirX /= mag;
+                targetDirY /= mag;
+            } else {
+                // 타겟이 없다면 랜덤 방향으로 투척
+                const randomAngle = Math.random() * Math.PI * 2;
+                targetDirX = Math.cos(randomAngle);
+                targetDirY = Math.sin(randomAngle);
+            }
+
             const axe = {
                 id: axeIdCounter++,
                 ownerId: socket.id,
                 x: p.x,
                 y: p.y,
-                dirX: p.dirX,
-                dirY: p.dirY,
+                dirX: targetDirX,
+                dirY: targetDirY,
                 speed: 20, // 도끼 비행 속도
                 lifeTime: 1.2 // 1.2초 후 자동 소멸 (사거리)
             };

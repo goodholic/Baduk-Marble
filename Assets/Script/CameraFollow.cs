@@ -5,8 +5,8 @@ public class CameraFollow : MonoBehaviour
     [Header("카메라 설정")]
     public Transform target; // 따라갈 대상 (나의 캐릭터)
     
-    // 탑다운 뷰에 맞게 카메라 위치 조정 (y: 높이, z: 뒤로 물러나는 거리)
-    public Vector3 offset = new Vector3(0f, 15f, -10f); 
+    // 2D 뷰에 맞게 카메라 위치 조정 (x, y는 따라가고, z는 뒤로 고정)
+    public Vector3 offset = new Vector3(0f, 0f, -10f); 
     
     // 카메라 이동 부드러움 정도 (숫자가 클수록 더 빨리 따라감)
     public float smoothSpeed = 5f; 
@@ -25,9 +25,9 @@ public class CameraFollow : MonoBehaviour
         
         // 카메라 위치 적용
         transform.position = smoothedPosition;
-
-        // 카메라가 항상 플레이어를 내려다보도록 회전 설정
-        transform.LookAt(target.position);
+        
+        // 2D 시점이므로 LookAt 회전은 사용하지 않습니다. 
+        // 카메라는 항상 Z축을 정면으로 바라보게 세팅해두시면 됩니다.
     }
 
     // 외부(GameManager 등)에서 타겟을 지정해줄 때 사용하는 함수
