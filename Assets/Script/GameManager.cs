@@ -8,57 +8,86 @@ using System.Runtime.InteropServices;
 
 public class GameManager : MonoBehaviour
 {
-    // Railway 서버 URL
     public string serverUrl = "https://baduk-marble-production.up.railway.app";
     
     [Header("UI 연결")]
-    public TextMeshProUGUI scoreText;     // 자신의 점수 UI
-    public TextMeshProUGUI hpText;        // 자신의 체력 UI
-    public GameObject respawnPanel;       // 사망 시 나타날 부활 패널
+    public TextMeshProUGUI scoreText;     
+    public TextMeshProUGUI hpText;        
+    public TextMeshProUGUI levelText;     
+    public TextMeshProUGUI teamText;      
+    public GameObject respawnPanel;       
     
     [Header("게임 오브젝트 & 프리팹")]
-    public GameObject playerPrefab;       // 플레이어 프리팹
-    public GameObject axePrefab;          // 날아가는 도끼 프리팹
-    public VirtualJoystick joystick;      // 조이스틱 컴포넌트
+    public GameObject playerPrefab;       
+    public GameObject axePrefab;          
+    public GameObject monsterPrefab;      
+    public GameObject aoePrefab;          
+    public VirtualJoystick joystick;      
 
-    // JSLib(WebGL) 통신용
     [DllImport("__Internal")]
     private static extern void SocketConnect(string url);
 
     [DllImport("__Internal")]
     private static extern void SocketEmit(string eventName, string data);
 
-    // 내부 네트워크 데이터 구조체
     private class NetworkPlayer {
         public GameObject go;
         public Vector3 targetPos;
         public float hp;
+        public float maxHp;
         public int score;
+        public int level;
+        public string className;
+        public string team;
         public bool isAlive;
     }
 
     private class NetworkAxe {
         public GameObject go;
-        public Vector3 dir;    // 추가: 도끼가 날아갈 방향
-        public float speed;    // 추가: 도끼의 비행 속도
+        public Vector3 dir;    
+        public float speed;    
+    }
+
+    private class NetworkMonster {
+        public GameObject go;
+        public Vector3 targetPos;
+        public float hp;
     }
 
     private Dictionary<string, NetworkPlayer> players = new Dictionary<string, NetworkPlayer>();
     private Dictionary<int, NetworkAxe> axes = new Dictionary<int, NetworkAxe>();
+    private Dictionary<int, GameObject> aoes = new Dictionary<int, GameObject>();
+    private Dictionary<string, NetworkMonster> monsters = new Dictionary<string, NetworkMonster>();
 
     private string myId;
-    public float moveSpeed = 8f;
+    public float baseMoveSpeed = 8f; 
+    private float currentMoveSpeed = 8f;
     private bool isMyPlayerAlive = false;
 
-    // 플레이어의 현재 이동/바라보는 방향
     private Vector2 currentDir = new Vector2(0, 1);
-
-    // 자동 공격 쿨다운 관련
-    public float attackCooldown = 0.5f; // 0.5초마다 자동 공격 (원하는 시간으로 조절 가능)
+    
+    public float attackCooldown = 0.5f; 
     private float lastAttackTime = 0f;
+    private string myClassName = "광전사"; 
+
+    // 저장을 위한 기기 고유 ID 및 직업 특성 스킬 변수
+    private string deviceId;
+    private bool hasSelectedClass = false;
+    private bool isMoving = false;
+    private float moveSkillCooldown = 0f;
+    private float boostSpeed = 0f;
+    private float boostEndTime = 0f;
 
     void Start()
     {
+        // 데이터베이스 저장을 위한 고유 식별자 생성 및 저장
+        deviceId = PlayerPrefs.GetString("DeviceId", "");
+        if (string.IsNullOrEmpty(deviceId)) {
+            deviceId = Guid.NewGuid().ToString();
+            PlayerPrefs.SetString("DeviceId", deviceId);
+            PlayerPrefs.Save();
+        }
+
         if (respawnPanel != null)
             respawnPanel.SetActive(false);
             
@@ -67,11 +96,70 @@ public class GameManager : MonoBehaviour
         #endif
     }
 
+    // 캐릭터 선택을 위한 간단한 UI 레이어
+    void OnGUI()
+    {
+        if (!hasSelectedClass)
+        {
+            DrawClassSelection("게임 시작 - 캐릭터 선택", false);
+        }
+        else if (myId != null && !isMyPlayerAlive)
+        {
+            DrawClassSelection("사망 - 새로운 캐릭터로 부활", true);
+        }
+
+        // 평화 모드일때 언제든지 화면 상단 버튼으로 PvP(숙주 좀비화) 가능
+        if (hasSelectedClass && isMyPlayerAlive && players.ContainsKey(myId))
+        {
+            if (players[myId].team == "peace")
+            {
+                if (GUI.Button(new Rect(Screen.width - 150, 20, 130, 40), "PvP 모드 (숙주 좀비)"))
+                {
+                    TogglePvP();
+                }
+            }
+        }
+    }
+
+    private void DrawClassSelection(string title, bool isRespawn)
+    {
+        GUI.Box(new Rect(Screen.width / 2 - 150, Screen.height / 2 - 150, 300, 300), title);
+
+        if (GUI.Button(new Rect(Screen.width / 2 - 100, Screen.height / 2 - 100, 200, 40), "번개 (근접 암살자)")) SelectClass("번개", isRespawn);
+        if (GUI.Button(new Rect(Screen.width / 2 - 100, Screen.height / 2 - 40, 200, 40), "광전사 (원거리 전사)")) SelectClass("광전사", isRespawn);
+        if (GUI.Button(new Rect(Screen.width / 2 - 100, Screen.height / 2 + 20, 200, 40), "스톤 (방패병)")) SelectClass("스톤", isRespawn);
+        if (GUI.Button(new Rect(Screen.width / 2 - 100, Screen.height / 2 + 80, 200, 40), "페인터 (광역 마법사)")) SelectClass("페인터", isRespawn);
+    }
+
+    private void SelectClass(string className, bool isRespawn)
+    {
+        myClassName = className;
+        if (!isRespawn)
+        {
+            hasSelectedClass = true;
+            JObject initReq = new JObject();
+            initReq["className"] = myClassName;
+            initReq["deviceId"] = deviceId;
+            #if UNITY_WEBGL && !UNITY_EDITOR
+            SocketEmit("init_request", initReq.ToString(Newtonsoft.Json.Formatting.None));
+            #endif
+        }
+        else
+        {
+            JObject respawnReq = new JObject();
+            respawnReq["className"] = myClassName;
+            #if UNITY_WEBGL && !UNITY_EDITOR
+            SocketEmit("respawn", respawnReq.ToString(Newtonsoft.Json.Formatting.None));
+            #endif
+            if (respawnPanel != null) respawnPanel.SetActive(false);
+        }
+    }
+
     void Update()
     {
         HandleLocalInput();
         InterpolateNetworkEntities();
-        HandleAutoAttack(); // 매 프레임 자동 공격 판정
+        HandleAutoAttack();
     }
 
     private void HandleLocalInput()
@@ -79,30 +167,57 @@ public class GameManager : MonoBehaviour
         if (string.IsNullOrEmpty(myId) || !players.ContainsKey(myId) || !isMyPlayerAlive)
             return;
 
-        // 조이스틱 입력 (VirtualJoystick의 InputVector 사용)
         float h = joystick != null ? joystick.InputVector.x : 0f;
         float v = joystick != null ? joystick.InputVector.y : 0f;
 
-        // 조이스틱 입력이 없으면 키보드 입력 체크
         if (h == 0 && v == 0)
         {
             h = Input.GetAxisRaw("Horizontal");
             v = Input.GetAxisRaw("Vertical");
         }
 
-        if (h != 0 || v != 0)
+        bool wasMoving = isMoving;
+        isMoving = (h != 0 || v != 0);
+
+        if (isMoving)
         {
             currentDir = new Vector2(h, v).normalized;
             
-            // 로컬 이동 즉시 적용 (반응성을 위해 클라이언트 선이동 처리 - 2D는 x, y를 사용)
-            Vector3 movement = new Vector3(h, v, 0).normalized * moveSpeed * Time.deltaTime;
+            // 직업별 기본 이동속도 특성
+            if (myClassName == "번개") currentMoveSpeed = 8f;
+            else if (myClassName == "스톤") currentMoveSpeed = 7f;
+            else if (myClassName == "광전사") currentMoveSpeed = 8f;
+            else if (myClassName == "페인터") currentMoveSpeed = 6f;
+
+            // 이동 시작 시 특정 직업 대쉬 / 구르기 효과 트리거
+            if (!wasMoving && Time.time >= moveSkillCooldown)
+            {
+                if (myClassName == "번개")
+                {
+                    boostSpeed = 20f; // 순간 대쉬 속도
+                    boostEndTime = Time.time + 0.15f; 
+                    moveSkillCooldown = Time.time + 0.5f;
+                }
+                else if (myClassName == "스톤")
+                {
+                    boostSpeed = 12f; // 구르기 속도
+                    boostEndTime = Time.time + 0.3f; 
+                    moveSkillCooldown = Time.time + 1.0f;
+                }
+            }
+
+            float finalSpeed = currentMoveSpeed;
+            if (Time.time < boostEndTime)
+            {
+                finalSpeed += boostSpeed;
+            }
+
+            Vector3 movement = new Vector3(h, v, 0).normalized * finalSpeed * Time.deltaTime;
             players[myId].go.transform.position += movement;
             
-            // 캐릭터 회전 (2D Z축 회전 적용. 스프라이트의 정면이 위쪽(Up)이라고 가정)
             float angle = Mathf.Atan2(currentDir.y, currentDir.x) * Mathf.Rad2Deg - 90f;
             players[myId].go.transform.rotation = Quaternion.Euler(0, 0, angle);
 
-            // 서버로 지속적인 좌표 및 방향 전송 (2D 환경이므로 z대신 y 전송)
             JObject moveData = new JObject();
             moveData["x"] = players[myId].go.transform.position.x;
             moveData["y"] = players[myId].go.transform.position.y; 
@@ -119,7 +234,12 @@ public class GameManager : MonoBehaviour
     {
         if (!isMyPlayerAlive) return;
 
-        // 마지막 공격 이후 쿨다운 시간이 지났는지 확인
+        // 직업별 공속 조절
+        if(myClassName == "번개") attackCooldown = 0.3f; // 매우 빠름
+        else if(myClassName == "광전사") attackCooldown = 0.35f; // 빠름 (자동으로 빠르게)
+        else if(myClassName == "스톤") attackCooldown = 0.7f; // 보통
+        else if(myClassName == "페인터") attackCooldown = 1.5f; // 느림
+
         if (Time.time - lastAttackTime >= attackCooldown)
         {
             ThrowAxe();
@@ -129,56 +249,51 @@ public class GameManager : MonoBehaviour
 
     private void InterpolateNetworkEntities()
     {
-        // 1. 타 플레이어의 위치를 부드럽게 보간(Lerp)하여 이동
         foreach (var kvp in players)
         {
-            if (kvp.Key == myId) continue; // 나 자신은 위에서 직접 제어
+            if (kvp.Key == myId) continue; 
             if (!kvp.Value.isAlive) continue;
 
             GameObject pGo = kvp.Value.go;
             if (pGo != null)
-            {
                 pGo.transform.position = Vector3.Lerp(pGo.transform.position, kvp.Value.targetPos, Time.deltaTime * 10f);
-            }
         }
 
-        // 2. 맵에 생성된 도끼들의 비행 궤적 및 회전 보간 처리 (수정됨)
+        foreach (var kvp in monsters)
+        {
+            GameObject mGo = kvp.Value.go;
+            if (mGo != null)
+                mGo.transform.position = Vector3.Lerp(mGo.transform.position, kvp.Value.targetPos, Time.deltaTime * 5f);
+        }
+
         foreach (var kvp in axes)
         {
             GameObject axeGo = kvp.Value.go;
             if (axeGo != null)
             {
-                // 2D 환경에서의 도끼 회전 (Z축 기준 회전)
                 axeGo.transform.Rotate(0, 0, -1080f * Time.deltaTime); 
-                
-                // 클라이언트 상에서 목표 방향과 속도로 지속 이동 처리
                 axeGo.transform.position += kvp.Value.dir * kvp.Value.speed * Time.deltaTime;
             }
         }
     }
 
-    // 도끼 던지기 (서버에 투척 이벤트 전송)
     public void ThrowAxe()
     {
         if (!isMyPlayerAlive) return;
-
         #if UNITY_WEBGL && !UNITY_EDITOR
         SocketEmit("throw", "{}");
         #endif
     }
 
-    // 부활 요청 (부활 패널의 버튼 OnClick에 연결하세요)
-    public void Respawn()
+    public void TogglePvP()
     {
         #if UNITY_WEBGL && !UNITY_EDITOR
-        SocketEmit("respawn", "{}");
+        SocketEmit("toggle_pvp", "{}");
         #endif
-        if (respawnPanel != null)
-            respawnPanel.SetActive(false);
     }
 
     // ==========================================
-    // JS 플러그인에서 호출받는 서버 이벤트 리스너들
+    // JS 플러그인 이벤트 리스너들
     // ==========================================
 
     public void OnInit(string jsonStr)
@@ -186,20 +301,23 @@ public class GameManager : MonoBehaviour
         JObject data = JObject.Parse(jsonStr);
         myId = (string)data["id"];
         JObject playersData = (JObject)data["players"];
+        JObject monstersData = (JObject)data["monsters"];
 
         foreach (var playerProp in playersData)
         {
-            string pId = playerProp.Key;
-            JObject pData = (JObject)playerProp.Value;
-            SpawnPlayer(pId, pData);
+            SpawnPlayer(playerProp.Key, (JObject)playerProp.Value);
+        }
+
+        foreach (var mProp in monstersData)
+        {
+            SpawnMonster(mProp.Key, (JObject)mProp.Value);
         }
     }
 
     public void OnPlayerJoin(string jsonStr)
     {
         JObject pData = JObject.Parse(jsonStr);
-        string pId = (string)pData["id"];
-        SpawnPlayer(pId, pData);
+        SpawnPlayer((string)pData["id"], pData);
     }
 
     public void OnPlayerLeave(string pId)
@@ -211,50 +329,65 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    public void OnSync(string jsonStr)
+    public void OnPlayerUpdate(string jsonStr)
     {
-        JObject playersData = JObject.Parse(jsonStr);
-        foreach (var playerProp in playersData)
+        JObject data = JObject.Parse(jsonStr);
+        string id = (string)data["id"];
+        if (players.ContainsKey(id))
         {
-            string pId = playerProp.Key;
-            JObject pData = (JObject)playerProp.Value;
+            players[id].level = (int)data["level"];
+            players[id].className = (string)data["className"];
+            players[id].maxHp = (float)data["maxHp"];
+            players[id].hp = (float)data["hp"];
+            players[id].team = (string)data["team"];
 
-            if (players.ContainsKey(pId))
+            if(id == myId)
             {
-                float sx = (float)pData["x"];
-                float sy = (float)pData["y"];
-                int sScore = (int)pData["score"];
-                
-                // 2D 이므로 X, Y 좌표 사용
-                players[pId].targetPos = new Vector3(sx, sy, 0);
-                players[pId].score = sScore;
-
-                if (pId == myId && scoreText != null)
-                {
-                    scoreText.text = "점수: " + sScore.ToString();
-                }
+                myClassName = players[id].className;
+                UpdateMyUI();
             }
         }
     }
 
-    // 수정됨: 서버에서 전달한 도끼 속도(speed)와 방향(dirX, dirY) 정보를 받아 저장합니다.
+    public void OnSync(string jsonStr)
+    {
+        JObject syncData = JObject.Parse(jsonStr);
+        JObject pData = (JObject)syncData["players"];
+        JObject mData = (JObject)syncData["monsters"];
+
+        foreach (var pProp in pData)
+        {
+            string pId = pProp.Key;
+            JObject pObj = (JObject)pProp.Value;
+            if (players.ContainsKey(pId))
+            {
+                players[pId].targetPos = new Vector3((float)pObj["x"], (float)pObj["y"], 0);
+                players[pId].score = (int)pObj["score"];
+                if (pId == myId && scoreText != null) scoreText.text = "점수: " + players[pId].score;
+            }
+        }
+
+        foreach (var mProp in mData)
+        {
+            string mId = mProp.Key;
+            JObject mObj = (JObject)mProp.Value;
+            if (monsters.ContainsKey(mId))
+            {
+                monsters[mId].targetPos = new Vector3((float)mObj["x"], (float)mObj["y"], 0);
+            }
+        }
+    }
+
     public void OnAxeSpawn(string jsonStr)
     {
         JObject aData = JObject.Parse(jsonStr);
         int axeId = (int)aData["id"];
-        float ax = (float)aData["x"];
-        float ay = (float)aData["y"];
-        float dirX = (float)aData["dirX"];
-        float dirY = (float)aData["dirY"];
-        float speed = (float)aData["speed"];
-
-        // 2D 환경에 맞추어 Z축을 0으로 생성
-        GameObject newAxe = Instantiate(axePrefab, new Vector3(ax, ay, 0f), Quaternion.identity);
+        GameObject newAxe = Instantiate(axePrefab, new Vector3((float)aData["x"], (float)aData["y"], 0f), Quaternion.identity);
         
         NetworkAxe nAxe = new NetworkAxe();
         nAxe.go = newAxe;
-        nAxe.dir = new Vector3(dirX, dirY, 0).normalized;
-        nAxe.speed = speed;
+        nAxe.dir = new Vector3((float)aData["dirX"], (float)aData["dirY"], 0).normalized;
+        nAxe.speed = (float)aData["speed"];
 
         axes[axeId] = nAxe;
     }
@@ -269,20 +402,34 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    public void OnAoeSpawn(string jsonStr)
+    {
+        JObject data = JObject.Parse(jsonStr);
+        int id = (int)data["id"];
+        if(aoePrefab != null) {
+            GameObject aoe = Instantiate(aoePrefab, new Vector3((float)data["x"], (float)data["y"], 0), Quaternion.identity);
+            aoe.transform.localScale = new Vector3((float)data["radius"] * 2, (float)data["radius"] * 2, 1);
+            aoes[id] = aoe;
+        }
+    }
+
+    public void OnAoeDestroy(string idStr)
+    {
+        int id = int.Parse(idStr);
+        if(aoes.ContainsKey(id)) {
+            Destroy(aoes[id]);
+            aoes.Remove(id);
+        }
+    }
+
     public void OnPlayerHit(string jsonStr)
     {
         JObject hitData = JObject.Parse(jsonStr);
         string pId = (string)hitData["id"];
-        float currentHp = (float)hitData["hp"];
-
         if (players.ContainsKey(pId))
         {
-            players[pId].hp = currentHp;
-            
-            if (pId == myId && hpText != null)
-            {
-                hpText.text = "HP: " + currentHp;
-            }
+            players[pId].hp = (float)hitData["hp"];
+            if (pId == myId) UpdateMyUI();
         }
     }
 
@@ -296,12 +443,13 @@ public class GameManager : MonoBehaviour
             players[victimId].isAlive = false;
             players[victimId].go.SetActive(false); 
 
-            // 내가 죽었을 때 처리
             if (victimId == myId)
             {
                 isMyPlayerAlive = false;
                 if (hpText != null) hpText.text = "HP: 0";
-                if (respawnPanel != null) respawnPanel.SetActive(true); 
+                
+                // OnGUI에서 선택 레이어가 나타나도록 기존 기본 패널은 가립니다.
+                if (respawnPanel != null) respawnPanel.SetActive(false); 
             }
         }
     }
@@ -313,21 +461,41 @@ public class GameManager : MonoBehaviour
 
         if (players.ContainsKey(pId))
         {
-            float rx = (float)respawnData["x"];
-            float ry = (float)respawnData["y"];
-
             players[pId].isAlive = true;
-            players[pId].hp = 100;
-            // 2D 이므로 X, Y에 좌표 배정
-            players[pId].go.transform.position = new Vector3(rx, ry, 0);
-            players[pId].targetPos = new Vector3(rx, ry, 0);
+            players[pId].hp = (float)respawnData["hp"];
+            Vector3 pos = new Vector3((float)respawnData["x"], (float)respawnData["y"], 0);
+            players[pId].go.transform.position = pos;
+            players[pId].targetPos = pos;
             players[pId].go.SetActive(true);
 
             if (pId == myId)
             {
                 isMyPlayerAlive = true;
-                if (hpText != null) hpText.text = "HP: 100";
+                UpdateMyUI();
             }
+        }
+    }
+
+    public void OnMonsterSpawn(string jsonStr)
+    {
+        JObject mData = JObject.Parse(jsonStr);
+        SpawnMonster((string)mData["id"], mData);
+    }
+
+    public void OnMonsterHit(string jsonStr)
+    {
+        JObject mData = JObject.Parse(jsonStr);
+        string mId = (string)mData["id"];
+        if(monsters.ContainsKey(mId)) {
+            monsters[mId].hp = (float)mData["hp"];
+        }
+    }
+
+    public void OnMonsterDie(string mId)
+    {
+        if(monsters.ContainsKey(mId)) {
+            Destroy(monsters[mId].go);
+            monsters.Remove(mId);
         }
     }
 
@@ -335,42 +503,63 @@ public class GameManager : MonoBehaviour
     {
         if (players.ContainsKey(id)) return;
 
-        float startX = (float)data["x"];
-        float startY = (float)data["y"];
         bool alive = (bool)data["isAlive"];
-
-        // 2D 이므로 X, Y에 좌표 배정
-        GameObject newPlayer = Instantiate(playerPrefab, new Vector3(startX, startY, 0), Quaternion.identity);
+        GameObject newPlayer = Instantiate(playerPrefab, new Vector3((float)data["x"], (float)data["y"], 0), Quaternion.identity);
         newPlayer.SetActive(alive);
 
         NetworkPlayer np = new NetworkPlayer();
         np.go = newPlayer;
         np.targetPos = newPlayer.transform.position;
         np.hp = (float)data["hp"];
+        np.maxHp = (float)data["maxHp"];
         np.score = (int)data["score"];
+        np.level = (int)data["level"];
+        np.className = (string)data["className"];
+        np.team = (string)data["team"];
         np.isAlive = alive;
 
         players[id] = np;
 
-        // 자신일 경우 초기 UI 세팅 및 카메라 타겟 설정
         if (id == myId)
         {
             isMyPlayerAlive = alive;
-            if (hpText != null) hpText.text = "HP: " + np.hp;
-            if (scoreText != null) scoreText.text = "점수: " + np.score;
+            myClassName = np.className;
+            UpdateMyUI();
             
-            if (!alive && respawnPanel != null) {
-                respawnPanel.SetActive(true);
-            }
+            if (!alive && respawnPanel != null) respawnPanel.SetActive(false);
 
             if (Camera.main != null)
             {
                 CameraFollow camFollow = Camera.main.GetComponent<CameraFollow>();
-                if (camFollow != null)
-                {
-                    camFollow.SetTarget(newPlayer.transform);
-                }
+                if (camFollow != null) camFollow.SetTarget(newPlayer.transform);
             }
+        }
+    }
+
+    private void SpawnMonster(string id, JObject data)
+    {
+        if(monsters.ContainsKey(id) || monsterPrefab == null) return;
+
+        GameObject mGo = Instantiate(monsterPrefab, new Vector3((float)data["x"], (float)data["y"], 0), Quaternion.identity);
+        NetworkMonster nm = new NetworkMonster();
+        nm.go = mGo;
+        nm.targetPos = mGo.transform.position;
+        nm.hp = (float)data["hp"];
+        monsters[id] = nm;
+    }
+
+    private void UpdateMyUI()
+    {
+        if(!players.ContainsKey(myId)) return;
+        var p = players[myId];
+
+        if(hpText != null) hpText.text = $"HP: {p.hp}/{p.maxHp}";
+        if(levelText != null) levelText.text = $"Lv.{p.level} {p.className}";
+        
+        if(teamText != null) {
+            if(p.team == "peace") teamText.text = "<color=green>평화 모드</color>";
+            else if(p.team == "zombie_" + myId) teamText.text = "<color=red>숙주 좀비</color>";
+            else teamText.text = "<color=orange>감염자 (좀비팀)</color>";
         }
     }
 }

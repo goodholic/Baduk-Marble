@@ -1,17 +1,17 @@
 // ==========================================
-// Node.js Multiplay Server with Socket.IO
-// Railway Deployment Ready
+// Node.js Multiplay Server with Socket.IO & MySQL
+// Railway Deployment Ready (RPG & Zombie IO Mode)
 // ==========================================
 
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
+const mysql = require('mysql2/promise');
 
 const app = express();
 const server = http.createServer(app);
 
-// CORS 설정: 모든 도메인에서의 접속을 허용합니다 (보안이 필요하면 나중에 특정 도메인만 지정 가능)
 const io = socketIo(server, {
     cors: {
         origin: "*",
@@ -19,13 +19,9 @@ const io = socketIo(server, {
     }
 });
 
-// 클라이언트 웹페이지 배포를 위한 정적 파일 서빙 (유니티 WebGL 빌드 파일 위치)
 app.use(express.static(path.join(__dirname, 'public')));
-
-// 기본 포트 설정 (Railway 환경에 맞춤)
 const PORT = process.env.PORT || 3000;
 
-// 서버 상태 확인용 엔드포인트
 app.get('/health', (req, res) => {
     res.send('Server is running normally');
 });
@@ -36,102 +32,228 @@ server.listen(PORT, () => {
 });
 
 // ==========================================
+// Database 설정 및 초기화 (Railway MySQL)
+// ==========================================
+const pool = mysql.createPool({
+    host: process.env.MYSQLHOST || 'localhost',
+    user: process.env.MYSQLUSER || 'root',
+    password: process.env.MYSQLPASSWORD || '',
+    database: process.env.MYSQLDATABASE || 'railway', 
+    port: process.env.MYSQLPORT || 3306,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
+});
+
+async function initDB() {
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS players_save (
+                device_id VARCHAR(255) PRIMARY KEY,
+                class_name VARCHAR(50),
+                level INT,
+                exp INT,
+                score INT,
+                kill_count INT,
+                team VARCHAR(50),
+                is_alive BOOLEAN
+            )
+        `);
+        console.log("MySQL Database Initialized successfully.");
+    } catch (error) {
+        console.error("MySQL Initialization Error:", error);
+    }
+}
+initDB();
+
+async function savePlayer(player) {
+    if (!player || !player.deviceId) return;
+    try {
+        await pool.query(`
+            INSERT INTO players_save (device_id, class_name, level, exp, score, kill_count, team, is_alive)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+            class_name = VALUES(class_name), level = VALUES(level), exp = VALUES(exp), score = VALUES(score), kill_count = VALUES(kill_count), team = VALUES(team), is_alive = VALUES(is_alive)
+        `, [player.deviceId, player.className, player.level, player.exp, player.score, player.killCount, player.team, player.isAlive]);
+    } catch (error) {
+        console.error("DB Save Error:", error);
+    }
+}
+
+// ==========================================
 // 게임 논리 데이터 및 통신 관리
 // ==========================================
 
-// 현재 접속한 플레이어 정보 저장소
 const players = {};
-// 맵에 존재하는 도끼(투사체) 정보 저장소
 let axes = {};
-let axeIdCounter = 0;
+let aoes = {}; 
+let monsters = {}; 
 
-// 도끼 관련 상수 설정
-const AXE_SPEED = 15;        // 도끼 비행 속도
-const AXE_LIFETIME = 1500;   // 도끼 수명 (ms)
-const AXE_DAMAGE = 20;       // 도끼 데미지
-const MAX_PLAYERS = 20;      // 동시 접속 최대 인원
+let entityIdCounter = 0;
+const MAX_PLAYERS = 20;
+const MAX_MONSTERS = 15; 
 
-// Socket.IO 이벤트 리스너
+// 직업 기본 스탯 정의 (사거리, 공격력, 체력 세부 조정 반영)
+const CLASSES = {
+    '번개':   { maxHp: 100, dmg: 40, speed: 20, aoe: false, projSpeed: 30, projLife: 150 }, // 근접 암살자 (투사체 생명력이 매우 짧아 사거리 짧음)
+    '광전사': { maxHp: 120, dmg: 25, speed: 10, aoe: false, projSpeed: 15, projLife: 1500 }, // 원거리 전사 (일반 투사체)
+    '스톤':   { maxHp: 250, dmg: 10, speed: 15, aoe: false, projSpeed: 12, projLife: 1000 }, // 방패병 (체력 매우 높음, 데미지 낮음)
+    '페인터': { maxHp: 80,  dmg: 0,  speed: 8,  aoe: true,  projSpeed: 0,  projLife: 3000 }  // 마법사 (장판 생성, 데미지는 %로 계산되므로 0)
+};
+
+for(let i=0; i<MAX_MONSTERS; i++) {
+    spawnMonster();
+}
+
+function spawnMonster() {
+    entityIdCounter++;
+    const mId = 'monster_' + entityIdCounter;
+    monsters[mId] = {
+        id: mId,
+        x: Math.random() * 40 - 20,
+        y: Math.random() * 40 - 20,
+        hp: 50,
+        maxHp: 50,
+        isAlive: true
+    };
+}
+
 io.on('connection', (socket) => {
     const playerId = socket.id;
     console.log(`New user connected: ${playerId}`);
 
-    // 서버 풀 상태 체크
     if (Object.keys(players).length >= MAX_PLAYERS) {
-        console.log(`Connection rejected: Server full (${MAX_PLAYERS}/${MAX_PLAYERS})`);
         socket.emit('server_full', { message: 'The server is currently full.' });
         socket.disconnect();
         return;
     }
 
-    // 1. 유니티 클라이언트가 준비 완료되었을 때 호출 (초기 데이터 전송)
-    socket.on('init_request', () => {
-        // 새 플레이어 객체 생성 및 초기화
-        players[playerId] = {
-            id: playerId,
-            
-            // ==========================================
-            // [수정 사항] 플레이어 초기 스폰 위치 Y축 변경
-            // ==========================================
-            // 기존: 맵 중앙 근처 랜덤 (Y: -15 ~ 15)
-            // x: Math.random() * 30 - 15,
-            // y: Math.random() * 30 - 15,
+    socket.on('init_request', async (dataStr) => {
+        let selectedClass = '광전사'; 
+        let deviceId = playerId; 
+        
+        try {
+            if(dataStr) {
+                const data = JSON.parse(dataStr);
+                if(data.className && CLASSES[data.className]) {
+                    selectedClass = data.className;
+                }
+                if(data.deviceId) {
+                    deviceId = data.deviceId;
+                }
+            }
+        } catch(e) {}
 
-            // 수정: 플레이어 위치를 위로 올려서 조이스틱과 겹치지 않게 함.
-            // X는 좌우로 넓게 배치 (-15 ~ 15)
+        socket.deviceId = deviceId;
+
+        // 데이터베이스에서 캐릭터 정보 불러오기
+        let loadedData = null;
+        try {
+            const [rows] = await pool.query('SELECT * FROM players_save WHERE device_id = ?', [deviceId]);
+            if(rows.length > 0) {
+                loadedData = rows[0];
+            }
+        } catch(e) { console.error("DB Load Error:", e); }
+
+        let pInfo = {
+            id: playerId,
+            deviceId: deviceId,
+            className: selectedClass,
             x: Math.random() * 30 - 15,
-            // Y는 맵의 위쪽 영역에 배치 (5 ~ 15 사이 양수 영역)
             y: Math.random() * 10 + 5, 
-            
-            hp: 100,
+            hp: CLASSES[selectedClass].maxHp,
+            maxHp: CLASSES[selectedClass].maxHp,
+            dmgMulti: 1.0,
             dirX: 0,
-            dirY: -1, // 초기에는 아래를 바라봄
+            dirY: -1,
             score: 0,
+            level: 1,
+            exp: 0,
             isAlive: true,
-            killCount: 0
+            killCount: 0,
+            team: 'peace' // 기본 평화주의
         };
 
-        // 요청한 클라이언트에게 현재 서버 상태 전송 (내 ID, 다른 플레이어 목록, 도끼 목록)
+        // 살아있는 세이브 데이터가 있으면 복구
+        if(loadedData && loadedData.is_alive) {
+            pInfo.className = loadedData.class_name;
+            pInfo.level = loadedData.level;
+            pInfo.exp = loadedData.exp;
+            pInfo.score = loadedData.score;
+            pInfo.killCount = loadedData.kill_count;
+            pInfo.team = loadedData.team;
+            
+            pInfo.maxHp = CLASSES[pInfo.className].maxHp + (pInfo.level - 1) * 20;
+            pInfo.hp = pInfo.maxHp;
+            pInfo.dmgMulti = 1.0 + (pInfo.level - 1) * 0.1;
+
+            // 숙주 감염자 혜택 복구
+            if(pInfo.team.startsWith('zombie_')) {
+                pInfo.maxHp *= 2;
+                pInfo.hp = pInfo.maxHp;
+                pInfo.dmgMulti *= 1.5;
+            }
+        } else {
+            // 새 캐릭터 생성 시 저장
+            savePlayer(pInfo);
+        }
+
+        players[playerId] = pInfo;
+
         socket.emit('init', {
             id: playerId,
             players: players,
-            axes: axes
+            axes: axes,
+            aoes: aoes,
+            monsters: monsters
         });
 
-        // 다른 모든 클라이언트에게 새 플레이어 접속 알림
         socket.broadcast.emit('player_join', players[playerId]);
     });
 
-    // 2. 플레이어 이동 및 방향 데이터 수신 (주기적인 동기화)
     socket.on('move', (data) => {
         try {
             const moveData = JSON.parse(data);
             if (players[playerId] && players[playerId].isAlive) {
-                // 클라이언트에서 계산된 위치를 서버 데이터에 즉시 반영
                 players[playerId].x = moveData.x;
                 players[playerId].y = moveData.y;
-                
-                // 플레이어가 바라보는 방향 업데이트 (도끼 발사 방향용)
                 if (moveData.dirX !== undefined && moveData.dirY !== undefined) {
                     players[playerId].dirX = moveData.dirX;
                     players[playerId].dirY = moveData.dirY;
                 }
             }
-        } catch (e) {
-            console.error('Invalid move data from ' + playerId);
+        } catch (e) { }
+    });
+
+    socket.on('change_class', (className) => {
+        if(players[playerId] && CLASSES[className]) {
+            players[playerId].className = className;
+            players[playerId].maxHp = CLASSES[className].maxHp;
+            if(players[playerId].isAlive) {
+                players[playerId].hp = players[playerId].maxHp;
+            }
+            savePlayer(players[playerId]);
+            io.emit('player_update', players[playerId]);
         }
     });
 
-    // 3. 도끼 투척 (공격) 요청 수신
+    socket.on('toggle_pvp', () => {
+        const p = players[playerId];
+        if(p && p.isAlive && p.team === 'peace') {
+            p.team = 'zombie_' + playerId;
+            p.maxHp *= 2; 
+            p.hp = p.maxHp;
+            p.dmgMulti *= 1.5; 
+            savePlayer(p);
+            io.emit('player_update', p);
+            console.log(`${playerId} became a ZOMBIE HOST!`);
+        }
+    });
+
     socket.on('throw', (data) => {
         const player = players[playerId];
-        // 살아있고, 바라보는 방향이 정의되어 있을 때만 발사 가능
         if (player && player.isAlive && player.dirX !== undefined) {
-            
-            // 바라보는 방향 벡터 크기 계산 (정규화용)
             const mag = Math.sqrt(player.dirX * player.dirX + player.dirY * player.dirY);
-            
-            // 방향 데이터가 비정상적일 경우 기본값 설정
             let finalDirX = 0;
             let finalDirY = 1;
 
@@ -139,169 +261,293 @@ io.on('connection', (socket) => {
                 finalDirX = player.dirX / mag;
                 finalDirY = player.dirY / mag;
             } else if (player.dirX === 0 && player.dirY === 0) {
-                // 움직임이 없을 때 기본 방향 (위쪽)
                 finalDirX = 0;
                 finalDirY = 1;
             }
 
-            // 도끼 객체 생성
-            axeIdCounter++;
-            const currentAxeId = axeIdCounter;
-            
-            axes[currentAxeId] = {
-                id: currentAxeId,
-                ownerId: playerId,
-                // 플레이어의 위치(발치)보다 살짝 앞(0.5)에서 생성
-                x: player.x + finalDirX * 0.5, 
-                y: player.y + finalDirY * 0.5,
-                dirX: finalDirX,
-                dirY: finalDirY,
-                speed: AXE_SPEED,
-                timer: null // 서버 내부 관리용 타이머
-            };
+            const classInfo = CLASSES[player.className];
+            entityIdCounter++;
+            const currentObjId = entityIdCounter;
 
-            // 모든 클라이언트에게 도끼 생성 이벤트 전송
-            io.emit('axe_spawn', axes[currentAxeId]);
+            if(classInfo.aoe) {
+                aoes[currentObjId] = {
+                    id: currentObjId,
+                    ownerId: playerId,
+                    x: player.x,
+                    y: player.y,
+                    radius: 3.0,
+                    timer: null
+                };
+                io.emit('aoe_spawn', aoes[currentObjId]);
 
-            // 일정 시간(LIFETIME) 후 도끼 자동 소멸 타이머 설정
-            axes[currentAxeId].timer = setTimeout(() => {
-                if (axes[currentAxeId]) {
-                    // 클라이언트에 소멸 알림
-                    io.emit('axe_destroy', currentAxeId);
-                    delete axes[currentAxeId];
+                aoes[currentObjId].timer = setTimeout(() => {
+                    if (aoes[currentObjId]) {
+                        io.emit('aoe_destroy', currentObjId);
+                        delete aoes[currentObjId];
+                    }
+                }, classInfo.projLife);
+            } else {
+                axes[currentObjId] = {
+                    id: currentObjId,
+                    ownerId: playerId,
+                    x: player.x + finalDirX * 0.5, 
+                    y: player.y + finalDirY * 0.5,
+                    dirX: finalDirX,
+                    dirY: finalDirY,
+                    speed: classInfo.projSpeed,
+                    dmg: classInfo.dmg * player.dmgMulti,
+                    timer: null
+                };
+
+                io.emit('axe_spawn', axes[currentObjId]);
+
+                axes[currentObjId].timer = setTimeout(() => {
+                    if (axes[currentObjId]) {
+                        io.emit('axe_destroy', currentObjId);
+                        delete axes[currentObjId];
+                    }
+                }, classInfo.projLife);
+            }
+        }
+    });
+
+    // 죽은 후 완전히 새로운 캐릭터로 리스폰
+    socket.on('respawn', (dataStr) => {
+        let newClass = '광전사'; 
+        try {
+            if(dataStr) {
+                const data = JSON.parse(dataStr);
+                if(data.className && CLASSES[data.className]) {
+                    newClass = data.className;
                 }
-            }, AXE_LIFETIME);
-        }
-    });
+            }
+        } catch(e) {}
 
-    // 4. 플레이어 부활 요청 수신
-    socket.on('respawn', () => {
         if (players[playerId] && !players[playerId].isAlive) {
+            const p = players[playerId];
+            p.className = newClass;
+            p.level = 1;
+            p.exp = 0;
+            p.score = 0;
+            p.killCount = 0;
+            // 죽기 전 감염된 상태였다면 그 팀을 유지, 아니라면 peace 유지
+            p.maxHp = CLASSES[newClass].maxHp;
+            p.hp = p.maxHp;
+            p.dmgMulti = 1.0;
+            p.isAlive = true;
+            p.x = Math.random() * 30 - 15;
+            p.y = Math.random() * 10 + 5; 
             
-            // ==========================================
-            // [수정 사항] 플레이어 부활 위치 Y축 변경
-            // ==========================================
-            // 기존: 맵 중앙 근처 랜덤 부활 (Y: -10 ~ 10)
-            // players[playerId].x = Math.random() * 20 - 10;
-            // players[playerId].y = Math.random() * 20 - 10;
-
-            // 수정: 부활 위치도 초기 스폰과 동일하게 위쪽 영역으로 설정
-            players[playerId].x = Math.random() * 30 - 15;
-            players[playerId].y = Math.random() * 10 + 5; 
-
-            // 능력치 초기화
-            players[playerId].hp = 100;
-            players[playerId].isAlive = true;
-            players[playerId].killCount = 0;
-
-            // 모든 클라이언트에게 부활 사실과 새로운 위치 알림
-            io.emit('player_respawn', {
-                id: playerId,
-                x: players[playerId].x,
-                y: players[playerId].y
-            });
-            console.log(`Player respawned: ${playerId}`);
+            savePlayer(p);
+            io.emit('player_respawn', p);
         }
     });
 
-    // 5. 접속 종료 처리
     socket.on('disconnect', () => {
         console.log(`User disconnected: ${playerId}`);
         if (players[playerId]) {
+            savePlayer(players[playerId]);
             delete players[playerId];
-            // 다른 클라이언트에게 퇴장 알림
             io.emit('player_leave', playerId);
         }
     });
 });
 
-// ==========================================
-// 서버 핵심 로직 루프 (메인 타이머)
-// ==========================================
-
-// 게임 상태 업데이트 주기 (1초에 약 33번 업데이트 - 30 FPS 수준)
 const TICK_RATE = 30;
 const TICK_TIME = 1000 / TICK_RATE;
 
+let tickCounter = 0;
+
 setInterval(() => {
-    handleCollisions();  // 충돌 감지
-    syncGameState();     // 상태 동기화 패킷 전송
+    tickCounter++;
+    handleCollisions();
+    
+    if(tickCounter % 30 === 0) {
+        for(let mId in monsters) {
+            monsters[mId].x += (Math.random() * 2 - 1);
+            monsters[mId].y += (Math.random() * 2 - 1);
+        }
+    }
+
+    if(tickCounter % 15 === 0) {
+        handleAoeDamage();
+    }
+
+    syncGameState();
 }, TICK_TIME);
 
-// 1. 도끼와 타 플레이어 간의 충돌 판정 루틴
 function handleCollisions() {
     for (const axeId in axes) {
         const axe = axes[axeId];
-        
-        // 도끼 소유자 정보가 없으면 무시
-        if (!players[axe.ownerId]) continue;
+        const owner = players[axe.ownerId];
+        if (!owner) continue;
 
-        // 모든 플레이어를 대상으로 충돌 체크
+        let axeDestroyed = false;
+
+        for(const mId in monsters) {
+            const mob = monsters[mId];
+            if(!mob.isAlive) continue;
+
+            const dx = axe.x - mob.x;
+            const dy = axe.y - mob.y;
+            if(dx*dx + dy*dy < 1.0) {
+                mob.hp -= axe.dmg;
+                if(mob.hp <= 0) {
+                    mob.isAlive = false;
+                    delete monsters[mId];
+                    io.emit('monster_die', mId);
+                    giveExp(owner, 20); 
+                    spawnMonster(); 
+                    io.emit('monster_spawn', monsters['monster_' + entityIdCounter]);
+                } else {
+                    io.emit('monster_hit', { id: mId, hp: mob.hp });
+                }
+                destroyAxe(axeId);
+                axeDestroyed = true;
+                break;
+            }
+        }
+
+        if(axeDestroyed) continue;
+
         for (const targetId in players) {
             const target = players[targetId];
-
-            // 자기 자신이나 이미 죽은 플레이어는 무시
             if (targetId === axe.ownerId || !target.isAlive) continue;
 
-            // 도끼 중심과 타겟 중심 간의 2D 평면 거리 계산
+            if (owner.team === 'peace' && target.team === 'peace') continue;
+            if (owner.team === target.team) continue;
+
             const dx = axe.x - target.x;
             const dy = axe.y - target.y;
-            // 거리의 제곱값 (성능을 위해 제곱근 계산 생략)
             const distSq = dx * dx + dy * dy; 
 
-            // 충돌 반경 설정 (예: 0.6 미터 이내면 충돌로 간주)
-            const hitRadius = 0.6;
-            
-            // 충돌 발생 시
-            if (distSq < hitRadius * hitRadius) {
-                // 타겟 플레이어 체력 차감
-                target.hp -= AXE_DAMAGE;
-                
-                // 타겟 데미지 이벤트 전송
+            if (distSq < 0.6 * 0.6) {
+                target.hp -= axe.dmg;
                 io.emit('player_hit', { id: targetId, hp: target.hp });
 
-                // 도끼 적중 즉시 소멸
-                clearTimeout(axe.timer); // 수명 타이머 취소
-                io.emit('axe_destroy', axeId);
-                delete axes[axeId];
+                destroyAxe(axeId);
 
-                // 타겟이 사망했는지 확인
                 if (target.hp <= 0) {
                     target.isAlive = false;
+                    owner.killCount++;
+                    owner.score += 100;
                     
-                    // 공격자 킬 카운트 및 점수 증가
-                    players[axe.ownerId].killCount++;
-                    players[axe.ownerId].score += 100; // 1킬당 100점
+                    // 감염 로직: 타겟이 죽으면 나를 죽인 사람의 팀으로 편입
+                    target.team = owner.team;
+                    
+                    savePlayer(owner);
+                    savePlayer(target);
 
-                    // 모든 클라이언트에게 사망 정보 및 처치 정보 전송
-                    io.emit('player_die', { 
-                        victimId: targetId, 
-                        attackerId: axe.ownerId 
-                    });
-                    console.log(`Player ${targetId} was killed by ${axe.ownerId}`);
+                    io.emit('player_update', target); 
+                    io.emit('player_die', { victimId: targetId, attackerId: axe.ownerId });
                 }
-                
-                // 하나의 도끼는 한 프레임에 한 명의 대상만 타격 (관통 없음)
                 break; 
             }
         }
     }
 }
 
-// 2. 모든 클라이언트에게 동기화된 게임 상태 패킷 전송
+function handleAoeDamage() {
+    for(const aoeId in aoes) {
+        const aoe = aoes[aoeId];
+        const owner = players[aoe.ownerId];
+        if(!owner) continue;
+
+        for(const mId in monsters) {
+            const mob = monsters[mId];
+            if(!mob.isAlive) continue;
+            const dx = aoe.x - mob.x;
+            const dy = aoe.y - mob.y;
+            if(dx*dx + dy*dy <= aoe.radius * aoe.radius) {
+                const dmg = mob.maxHp * 0.1; 
+                mob.hp -= dmg;
+                if(mob.hp <= 0) {
+                    mob.isAlive = false;
+                    delete monsters[mId];
+                    io.emit('monster_die', mId);
+                    giveExp(owner, 20);
+                    spawnMonster();
+                    io.emit('monster_spawn', monsters['monster_' + entityIdCounter]);
+                } else {
+                    io.emit('monster_hit', { id: mId, hp: mob.hp });
+                }
+            }
+        }
+
+        for(const targetId in players) {
+            const target = players[targetId];
+            if(!target.isAlive || targetId === aoe.ownerId) continue;
+            
+            if (owner.team === 'peace' && target.team === 'peace') continue;
+            if (owner.team === target.team) continue;
+
+            const dx = aoe.x - target.x;
+            const dy = aoe.y - target.y;
+            if(dx*dx + dy*dy <= aoe.radius * aoe.radius) {
+                const dmg = target.maxHp * 0.05 * owner.dmgMulti; 
+                target.hp -= dmg;
+                io.emit('player_hit', { id: targetId, hp: target.hp });
+
+                if(target.hp <= 0) {
+                    target.isAlive = false;
+                    owner.killCount++;
+                    owner.score += 100;
+                    target.team = owner.team; 
+                    
+                    savePlayer(owner);
+                    savePlayer(target);
+
+                    io.emit('player_update', target);
+                    io.emit('player_die', { victimId: targetId, attackerId: aoe.ownerId });
+                }
+            }
+        }
+    }
+}
+
+function destroyAxe(axeId) {
+    if(axes[axeId]) {
+        clearTimeout(axes[axeId].timer);
+        io.emit('axe_destroy', axeId);
+        delete axes[axeId];
+    }
+}
+
+function giveExp(player, amount) {
+    player.exp += amount;
+    if(player.exp >= player.level * 100) {
+        player.exp = 0;
+        player.level++;
+        player.maxHp += 20;
+        player.hp = player.maxHp;
+        player.dmgMulti += 0.1; 
+        savePlayer(player);
+        io.emit('player_update', player); 
+    }
+}
+
 function syncGameState() {
     if (Object.keys(players).length === 0) return;
     
-    const syncData = {};
+    const syncData = {
+        players: {},
+        monsters: {}
+    };
+
     for (const pId in players) {
-        // 네트워크 대역폭 절약을 위해 꼭 필요한 데이터만 추출하여 전송
-        syncData[pId] = {
+        syncData.players[pId] = {
             x: players[pId].x,
             y: players[pId].y,
             score: players[pId].score
         };
     }
+
+    for (const mId in monsters) {
+        syncData.monsters[mId] = {
+            x: monsters[mId].x,
+            y: monsters[mId].y
+        };
+    }
     
-    // 'sync' 이벤트를 통해 상태 데이터 일괄 전송 (Unreliable)
     io.volatile.emit('sync', syncData);
 }
