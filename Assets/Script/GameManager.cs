@@ -96,7 +96,7 @@ public class GameManager : MonoBehaviour
         #endif
     }
 
-    // 캐릭터 선택을 위한 간단한 UI 레이어
+    // 캐릭터 선택을 위한 간단한 UI 레이어 (요청하신 대로 텍스트 형식 수정)
     void OnGUI()
     {
         if (!hasSelectedClass)
@@ -125,10 +125,10 @@ public class GameManager : MonoBehaviour
     {
         GUI.Box(new Rect(Screen.width / 2 - 150, Screen.height / 2 - 150, 300, 300), title);
 
-        if (GUI.Button(new Rect(Screen.width / 2 - 100, Screen.height / 2 - 100, 200, 40), "번개 (근접 암살자)")) SelectClass("번개", isRespawn);
-        if (GUI.Button(new Rect(Screen.width / 2 - 100, Screen.height / 2 - 40, 200, 40), "광전사 (원거리 전사)")) SelectClass("광전사", isRespawn);
-        if (GUI.Button(new Rect(Screen.width / 2 - 100, Screen.height / 2 + 20, 200, 40), "스톤 (방패병)")) SelectClass("스톤", isRespawn);
-        if (GUI.Button(new Rect(Screen.width / 2 - 100, Screen.height / 2 + 80, 200, 40), "페인터 (광역 마법사)")) SelectClass("페인터", isRespawn);
+        if (GUI.Button(new Rect(Screen.width / 2 - 100, Screen.height / 2 - 100, 200, 40), "근접 암살자 (번개)")) SelectClass("번개", isRespawn);
+        if (GUI.Button(new Rect(Screen.width / 2 - 100, Screen.height / 2 - 40, 200, 40), "원거리 전사 (광전사)")) SelectClass("광전사", isRespawn);
+        if (GUI.Button(new Rect(Screen.width / 2 - 100, Screen.height / 2 + 20, 200, 40), "방패병 (스톤)")) SelectClass("스톤", isRespawn);
+        if (GUI.Button(new Rect(Screen.width / 2 - 100, Screen.height / 2 + 80, 200, 40), "광역 마법사 (페인터)")) SelectClass("페인터", isRespawn);
     }
 
     private void SelectClass(string className, bool isRespawn)
@@ -176,7 +176,6 @@ public class GameManager : MonoBehaviour
             v = Input.GetAxisRaw("Vertical");
         }
 
-        bool wasMoving = isMoving;
         isMoving = (h != 0 || v != 0);
 
         if (isMoving)
@@ -189,20 +188,20 @@ public class GameManager : MonoBehaviour
             else if (myClassName == "광전사") currentMoveSpeed = 8f;
             else if (myClassName == "페인터") currentMoveSpeed = 6f;
 
-            // 이동 시작 시 특정 직업 대쉬 / 구르기 효과 트리거
-            if (!wasMoving && Time.time >= moveSkillCooldown)
+            // 이동 중일 때 쿨타임이 돌면 자동으로 대쉬/구르기 스킬 발동
+            if (Time.time >= moveSkillCooldown)
             {
                 if (myClassName == "번개")
                 {
                     boostSpeed = 20f; // 순간 대쉬 속도
                     boostEndTime = Time.time + 0.15f; 
-                    moveSkillCooldown = Time.time + 0.5f;
+                    moveSkillCooldown = Time.time + 0.8f; // 대쉬 쿨타임
                 }
                 else if (myClassName == "스톤")
                 {
                     boostSpeed = 12f; // 구르기 속도
                     boostEndTime = Time.time + 0.3f; 
-                    moveSkillCooldown = Time.time + 1.0f;
+                    moveSkillCooldown = Time.time + 1.2f; // 구르기 쿨타임
                 }
             }
 

@@ -275,7 +275,7 @@ io.on('connection', (socket) => {
                     ownerId: playerId,
                     x: player.x,
                     y: player.y,
-                    radius: 3.0,
+                    radius: 1.5, // 장판 반경 축소 (기존 3.0 -> 1.5)
                     timer: null
                 };
                 io.emit('aoe_spawn', aoes[currentObjId]);
