@@ -15,7 +15,7 @@ public class VirtualJoystick : MonoBehaviour, IPointerDownHandler, IDragHandler,
         if (backgroundImage == null) backgroundImage = GetComponent<Image>();
         if (joystickImage == null) joystickImage = transform.GetChild(0).GetComponent<Image>();
 
-        // [핵심 수정] 조이스틱을 화면 "하단 중앙"으로 강제 고정합니다.
+        // [핵심 수정] 조이스틱을 화면 하단으로 훨씬 더 내립니다.
         RectTransform rect = backgroundImage.rectTransform;
         
         // 앵커와 피벗을 하단 중앙(0.5, 0)으로 설정
@@ -23,9 +23,9 @@ public class VirtualJoystick : MonoBehaviour, IPointerDownHandler, IDragHandler,
         rect.anchorMax = new Vector2(0.5f, 0f);
         rect.pivot = new Vector2(0.5f, 0f);
         
-        // 화면 맨 아래에서 위로 150 픽셀만큼 띄워줍니다. 
-        // (만약 조이스틱을 더 올리거나 내리고 싶다면 이 150f 값을 조절하세요!)
-        rect.anchoredPosition = new Vector2(0f, 150f); 
+        // 화면 맨 아래에서 위로 60 픽셀만큼만 띄워줍니다. (기존 150f -> 60f로 변경)
+        // 만약 이것도 높거나 낮다면 이 숫자를 미세하게 조절하시면 됩니다!
+        rect.anchoredPosition = new Vector2(0f, 60f); 
     }
 
     public void OnDrag(PointerEventData eventData)
