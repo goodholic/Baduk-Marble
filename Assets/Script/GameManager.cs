@@ -40,6 +40,7 @@ public class GameManager : MonoBehaviour
         public int level;
         public string className;
         public string team;
+        public string ownerId; // 병사의 주인(본체) ID
         public bool isAlive;
     }
 
@@ -77,10 +78,9 @@ public class GameManager : MonoBehaviour
     private float boostSpeed = 0f;
     private float boostEndTime = 0f;
 
-    // 미니 스크린용 배열
-    private Camera[] miniCameras = new Camera[3];
-    private RawImage[] miniScreens = new RawImage[3];
-    private string[] miniTargets = new string[3];
+    private List<Camera> miniCameras = new List<Camera>();
+    private List<RawImage> miniScreens = new List<RawImage>();
+    private List<string> miniTargets = new List<string>();
 
     void Start()
     {
@@ -94,63 +94,62 @@ public class GameManager : MonoBehaviour
         if (respawnPanel != null)
             respawnPanel.SetActive(false);
         
-        SetupMiniScreens(); // 작은 관전 스크린들 동적 생성
+        InvokeRepeating("UpdateMiniCameraTargets", 2f, 5f);
 
         #if UNITY_WEBGL && !UNITY_EDITOR
         SocketConnect(serverUrl);
         #endif
     }
 
-    private void SetupMiniScreens()
+    private void AddMiniScreen()
     {
+        int index = miniCameras.Count;
         GameObject canvasObj = GameObject.Find("Canvas");
         if(canvasObj == null) return;
 
-        for(int i = 0; i < 3; i++)
-        {
-            RenderTexture rt = new RenderTexture(256, 256, 16);
-            
-            // 미니 카메라 생성
-            GameObject camObj = new GameObject("MiniCam_" + i);
-            Camera cam = camObj.AddComponent<Camera>();
-            cam.targetTexture = rt;
-            cam.orthographic = true;
-            cam.orthographicSize = 4f;
-            cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = new Color(0.1f, 0.1f, 0.1f);
-            miniCameras[i] = cam;
-
-            // 미니 스크린 (RawImage) 생성 및 우측 배치
-            GameObject imgObj = new GameObject("MiniScreen_" + i);
-            imgObj.transform.SetParent(canvasObj.transform, false);
-            RawImage rawImage = imgObj.AddComponent<RawImage>();
-            rawImage.texture = rt;
-            
-            RectTransform rect = imgObj.GetComponent<RectTransform>();
-            rect.anchorMin = new Vector2(1, 1);
-            rect.anchorMax = new Vector2(1, 1);
-            rect.pivot = new Vector2(1, 1);
-            rect.anchoredPosition = new Vector2(-20, -100 - (i * 180));
-            rect.sizeDelta = new Vector2(150, 150);
-            
-            miniScreens[i] = rawImage;
-        }
+        RenderTexture rt = new RenderTexture(256, 256, 16);
         
-        InvokeRepeating("UpdateMiniCameraTargets", 2f, 5f); // 5초마다 관전 대상 변경
+        GameObject camObj = new GameObject("MiniCam_" + index);
+        Camera cam = camObj.AddComponent<Camera>();
+        cam.targetTexture = rt;
+        cam.orthographic = true;
+        cam.orthographicSize = 4f;
+        cam.clearFlags = CameraClearFlags.SolidColor;
+        cam.backgroundColor = new Color(0.1f, 0.1f, 0.1f);
+        miniCameras.Add(cam);
+
+        GameObject imgObj = new GameObject("MiniScreen_" + index);
+        imgObj.transform.SetParent(canvasObj.transform, false);
+        RawImage rawImage = imgObj.AddComponent<RawImage>();
+        rawImage.texture = rt;
+        
+        RectTransform rect = imgObj.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(1, 1);
+        rect.anchorMax = new Vector2(1, 1);
+        rect.pivot = new Vector2(1, 1);
+        rect.anchoredPosition = new Vector2(-20, -100 - (index * 180));
+        rect.sizeDelta = new Vector2(150, 150);
+        
+        miniScreens.Add(rawImage);
+        miniTargets.Add(null);
     }
 
     private void UpdateMiniCameraTargets()
     {
-        List<string> validTargets = new List<string>();
+        // '내 군대' (ownerId가 내 ID인 병사들)만 찾아 리스트업
+        List<string> myArmy = new List<string>();
         foreach(var kvp in players) {
-            if(kvp.Key != myId && kvp.Value.isAlive) validTargets.Add(kvp.Key);
+            if(kvp.Key != myId && kvp.Value.isAlive && kvp.Value.ownerId == myId) {
+                myArmy.Add(kvp.Key);
+            }
         }
 
-        for(int i = 0; i < 3; i++) {
-            if (validTargets.Count > 0) {
-                int rnd = UnityEngine.Random.Range(0, validTargets.Count);
-                miniTargets[i] = validTargets[rnd];
+        for(int i = 0; i < miniTargets.Count; i++) {
+            if (myArmy.Count > 0) {
+                int rnd = UnityEngine.Random.Range(0, myArmy.Count);
+                miniTargets[i] = myArmy[rnd];
             } else {
+                // 내 병사가 없으면 화면 비우기
                 miniTargets[i] = null;
             }
         }
@@ -171,9 +170,25 @@ public class GameManager : MonoBehaviour
         {
             if (players[myId].team == "peace")
             {
-                if (GUI.Button(new Rect(Screen.width / 2 - 75, 20, 150, 40), "PvP 모드 켜기 (왕 되기)"))
+                if (GUI.Button(new Rect(Screen.width / 2 - 75, 20, 150, 40), "PvP 모드 켜기"))
                 {
                     TogglePvP();
+                }
+            }
+            else
+            {
+                if (GUI.Button(new Rect(Screen.width / 2 - 75, 20, 150, 40), "PvP 모드 끄기"))
+                {
+                    TogglePvP();
+                }
+            }
+
+            if (GUI.Button(new Rect(Screen.width - 200, 20, 180, 40), "내 병사 추가 (+)"))
+            {
+                AddBot();
+                if (miniCameras.Count < 5)
+                {
+                    AddMiniScreen();
                 }
             }
         }
@@ -222,8 +237,7 @@ public class GameManager : MonoBehaviour
 
     void LateUpdate()
     {
-        // 미니 카메라들이 할당된 타겟을 부드럽게 추적
-        for(int i = 0; i < 3; i++) {
+        for(int i = 0; i < miniCameras.Count; i++) {
             if (miniTargets[i] != null && players.ContainsKey(miniTargets[i])) {
                 GameObject targetGo = players[miniTargets[i]].go;
                 if (targetGo != null && targetGo.activeSelf) {
@@ -241,7 +255,6 @@ public class GameManager : MonoBehaviour
 
         bool isPvP = players[myId].team != "peace";
 
-        // PvP 모드일때만 조이스틱 표시
         if (joystick != null)
         {
             joystick.gameObject.SetActive(isPvP);
@@ -252,7 +265,6 @@ public class GameManager : MonoBehaviour
 
         if (isPvP)
         {
-            // 수동 조작
             h = joystick != null ? joystick.InputVector.x : 0f;
             v = joystick != null ? joystick.InputVector.y : 0f;
             if (h == 0 && v == 0)
@@ -263,7 +275,6 @@ public class GameManager : MonoBehaviour
         }
         else
         {
-            // AutoBattle 로직: 가장 가까운 몬스터를 찾아 자동으로 이동
             Vector3 closestPos = Vector3.zero;
             float closestDist = float.MaxValue;
 
@@ -394,6 +405,13 @@ public class GameManager : MonoBehaviour
         #endif
     }
 
+    public void AddBot()
+    {
+        #if UNITY_WEBGL && !UNITY_EDITOR
+        SocketEmit("add_bot", "{}");
+        #endif
+    }
+
     // ==========================================
     // JS 플러그인 이벤트 리스너들
     // ==========================================
@@ -435,6 +453,7 @@ public class GameManager : MonoBehaviour
             players[id].maxHp = (float)data["maxHp"];
             players[id].hp = (float)data["hp"];
             players[id].team = (string)data["team"];
+            players[id].ownerId = data["ownerId"]?.ToString(); // 소유권 동기화
 
             if(id == myId)
             {
@@ -614,6 +633,7 @@ public class GameManager : MonoBehaviour
         np.level = (int)data["level"];
         np.className = (string)data["className"];
         np.team = (string)data["team"];
+        np.ownerId = data["ownerId"]?.ToString(); // 소유권 정보 세팅
         np.isAlive = alive;
 
         players[id] = np;
@@ -634,6 +654,7 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    // [복구됨] 누락되었던 몬스터 생성 함수
     private void SpawnMonster(string id, JObject data)
     {
         if(monsters.ContainsKey(id) || monsterPrefab == null) return;
