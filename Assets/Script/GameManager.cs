@@ -4,6 +4,7 @@ using UnityEngine;
 using System;
 using Newtonsoft.Json.Linq;
 using TMPro;
+using UnityEngine.UI;
 using System.Runtime.InteropServices;
 
 public class GameManager : MonoBehaviour
@@ -70,17 +71,19 @@ public class GameManager : MonoBehaviour
     private float lastAttackTime = 0f;
     private string myClassName = "광전사"; 
 
-    // 저장을 위한 기기 고유 ID 및 직업 특성 스킬 변수
     private string deviceId;
     private bool hasSelectedClass = false;
-    private bool isMoving = false;
     private float moveSkillCooldown = 0f;
     private float boostSpeed = 0f;
     private float boostEndTime = 0f;
 
+    // 미니 스크린용 배열
+    private Camera[] miniCameras = new Camera[3];
+    private RawImage[] miniScreens = new RawImage[3];
+    private string[] miniTargets = new string[3];
+
     void Start()
     {
-        // 데이터베이스 저장을 위한 고유 식별자 생성 및 저장
         deviceId = PlayerPrefs.GetString("DeviceId", "");
         if (string.IsNullOrEmpty(deviceId)) {
             deviceId = Guid.NewGuid().ToString();
@@ -90,13 +93,69 @@ public class GameManager : MonoBehaviour
 
         if (respawnPanel != null)
             respawnPanel.SetActive(false);
-            
+        
+        SetupMiniScreens(); // 작은 관전 스크린들 동적 생성
+
         #if UNITY_WEBGL && !UNITY_EDITOR
         SocketConnect(serverUrl);
         #endif
     }
 
-    // 캐릭터 선택을 위한 간단한 UI 레이어 (요청하신 대로 텍스트 형식 수정)
+    private void SetupMiniScreens()
+    {
+        GameObject canvasObj = GameObject.Find("Canvas");
+        if(canvasObj == null) return;
+
+        for(int i = 0; i < 3; i++)
+        {
+            RenderTexture rt = new RenderTexture(256, 256, 16);
+            
+            // 미니 카메라 생성
+            GameObject camObj = new GameObject("MiniCam_" + i);
+            Camera cam = camObj.AddComponent<Camera>();
+            cam.targetTexture = rt;
+            cam.orthographic = true;
+            cam.orthographicSize = 4f;
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = new Color(0.1f, 0.1f, 0.1f);
+            miniCameras[i] = cam;
+
+            // 미니 스크린 (RawImage) 생성 및 우측 배치
+            GameObject imgObj = new GameObject("MiniScreen_" + i);
+            imgObj.transform.SetParent(canvasObj.transform, false);
+            RawImage rawImage = imgObj.AddComponent<RawImage>();
+            rawImage.texture = rt;
+            
+            RectTransform rect = imgObj.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(1, 1);
+            rect.anchorMax = new Vector2(1, 1);
+            rect.pivot = new Vector2(1, 1);
+            rect.anchoredPosition = new Vector2(-20, -100 - (i * 180));
+            rect.sizeDelta = new Vector2(150, 150);
+            
+            miniScreens[i] = rawImage;
+        }
+        
+        InvokeRepeating("UpdateMiniCameraTargets", 2f, 5f); // 5초마다 관전 대상 변경
+    }
+
+    private void UpdateMiniCameraTargets()
+    {
+        List<string> validTargets = new List<string>();
+        foreach(var kvp in players) {
+            if(kvp.Key != myId && kvp.Value.isAlive) validTargets.Add(kvp.Key);
+        }
+
+        for(int i = 0; i < 3; i++) {
+            if (validTargets.Count > 0) {
+                int rnd = UnityEngine.Random.Range(0, validTargets.Count);
+                miniTargets[i] = validTargets[rnd];
+            } else {
+                miniTargets[i] = null;
+            }
+        }
+    }
+
     void OnGUI()
     {
         if (!hasSelectedClass)
@@ -108,12 +167,11 @@ public class GameManager : MonoBehaviour
             DrawClassSelection("사망 - 새로운 캐릭터로 부활", true);
         }
 
-        // 평화 모드일때 언제든지 화면 상단 버튼으로 PvP(숙주 좀비화) 가능
         if (hasSelectedClass && isMyPlayerAlive && players.ContainsKey(myId))
         {
             if (players[myId].team == "peace")
             {
-                if (GUI.Button(new Rect(Screen.width - 150, 20, 130, 40), "PvP 모드 (숙주 좀비)"))
+                if (GUI.Button(new Rect(Screen.width / 2 - 75, 20, 150, 40), "PvP 모드 켜기 (왕 되기)"))
                 {
                     TogglePvP();
                 }
@@ -125,7 +183,6 @@ public class GameManager : MonoBehaviour
     {
         GUI.Box(new Rect(Screen.width / 2 - 150, Screen.height / 2 - 150, 300, 300), title);
 
-        // 요청하신 캐릭터 이름 형태로 정확히 적용했습니다.
         if (GUI.Button(new Rect(Screen.width / 2 - 100, Screen.height / 2 - 100, 200, 40), "번개 (근접 암살자)")) SelectClass("번개", isRespawn);
         if (GUI.Button(new Rect(Screen.width / 2 - 100, Screen.height / 2 - 40, 200, 40), "광전사 (원거리 전사)")) SelectClass("광전사", isRespawn);
         if (GUI.Button(new Rect(Screen.width / 2 - 100, Screen.height / 2 + 20, 200, 40), "스톤 (방패병)")) SelectClass("스톤", isRespawn);
@@ -163,54 +220,100 @@ public class GameManager : MonoBehaviour
         HandleAutoAttack();
     }
 
+    void LateUpdate()
+    {
+        // 미니 카메라들이 할당된 타겟을 부드럽게 추적
+        for(int i = 0; i < 3; i++) {
+            if (miniTargets[i] != null && players.ContainsKey(miniTargets[i])) {
+                GameObject targetGo = players[miniTargets[i]].go;
+                if (targetGo != null && targetGo.activeSelf) {
+                    Vector3 desiredPos = targetGo.transform.position + new Vector3(0, 0, -10f);
+                    miniCameras[i].transform.position = Vector3.Lerp(miniCameras[i].transform.position, desiredPos, Time.deltaTime * 5f);
+                }
+            }
+        }
+    }
+
     private void HandleLocalInput()
     {
         if (string.IsNullOrEmpty(myId) || !players.ContainsKey(myId) || !isMyPlayerAlive)
             return;
 
-        float h = joystick != null ? joystick.InputVector.x : 0f;
-        float v = joystick != null ? joystick.InputVector.y : 0f;
+        bool isPvP = players[myId].team != "peace";
 
-        if (h == 0 && v == 0)
+        // PvP 모드일때만 조이스틱 표시
+        if (joystick != null)
         {
-            h = Input.GetAxisRaw("Horizontal");
-            v = Input.GetAxisRaw("Vertical");
+            joystick.gameObject.SetActive(isPvP);
         }
 
-        isMoving = (h != 0 || v != 0);
+        float h = 0f;
+        float v = 0f;
+
+        if (isPvP)
+        {
+            // 수동 조작
+            h = joystick != null ? joystick.InputVector.x : 0f;
+            v = joystick != null ? joystick.InputVector.y : 0f;
+            if (h == 0 && v == 0)
+            {
+                h = Input.GetAxisRaw("Horizontal");
+                v = Input.GetAxisRaw("Vertical");
+            }
+        }
+        else
+        {
+            // AutoBattle 로직: 가장 가까운 몬스터를 찾아 자동으로 이동
+            Vector3 closestPos = Vector3.zero;
+            float closestDist = float.MaxValue;
+
+            foreach (var m in monsters.Values)
+            {
+                float dist = Vector3.Distance(players[myId].go.transform.position, m.targetPos);
+                if (dist < closestDist)
+                {
+                    closestDist = dist;
+                    closestPos = m.targetPos;
+                }
+            }
+
+            if (closestDist != float.MaxValue && closestDist > 0.5f)
+            {
+                Vector3 dir = (closestPos - players[myId].go.transform.position).normalized;
+                h = dir.x;
+                v = dir.y;
+            }
+        }
+
+        bool isMoving = (h != 0 || v != 0);
 
         if (isMoving)
         {
             currentDir = new Vector2(h, v).normalized;
             
-            // 직업별 기본 이동속도 특성
             if (myClassName == "번개") currentMoveSpeed = 8f;
             else if (myClassName == "스톤") currentMoveSpeed = 7f;
             else if (myClassName == "광전사") currentMoveSpeed = 8f;
             else if (myClassName == "페인터") currentMoveSpeed = 6f;
 
-            // 이동 중일 때 쿨타임이 돌면 자동으로 대쉬/구르기 스킬 발동
             if (Time.time >= moveSkillCooldown)
             {
                 if (myClassName == "번개")
                 {
-                    boostSpeed = 20f; // 순간 대쉬 속도
+                    boostSpeed = 20f; 
                     boostEndTime = Time.time + 0.15f; 
-                    moveSkillCooldown = Time.time + 0.4f; // 번개 대쉬 쿨타임 매우 짧게 수정
+                    moveSkillCooldown = Time.time + 0.4f; 
                 }
                 else if (myClassName == "스톤")
                 {
-                    boostSpeed = 12f; // 구르기 속도
+                    boostSpeed = 12f; 
                     boostEndTime = Time.time + 0.3f; 
-                    moveSkillCooldown = Time.time; // 스톤 구르기 쿨타임 없음 (항시 발동)
+                    moveSkillCooldown = Time.time; 
                 }
             }
 
             float finalSpeed = currentMoveSpeed;
-            if (Time.time < boostEndTime)
-            {
-                finalSpeed += boostSpeed;
-            }
+            if (Time.time < boostEndTime) finalSpeed += boostSpeed;
 
             Vector3 movement = new Vector3(h, v, 0).normalized * finalSpeed * Time.deltaTime;
             players[myId].go.transform.position += movement;
@@ -234,11 +337,10 @@ public class GameManager : MonoBehaviour
     {
         if (!isMyPlayerAlive) return;
 
-        // 직업별 공속 조절
-        if(myClassName == "번개") attackCooldown = 0.3f; // 매우 빠름
-        else if(myClassName == "광전사") attackCooldown = 0.35f; // 빠름 (자동으로 빠르게)
-        else if(myClassName == "스톤") attackCooldown = 0.7f; // 보통
-        else if(myClassName == "페인터") attackCooldown = 1.5f; // 느림
+        if(myClassName == "번개") attackCooldown = 0.3f; 
+        else if(myClassName == "광전사") attackCooldown = 0.35f; 
+        else if(myClassName == "스톤") attackCooldown = 0.7f; 
+        else if(myClassName == "페인터") attackCooldown = 1.5f; 
 
         if (Time.time - lastAttackTime >= attackCooldown)
         {
@@ -303,15 +405,8 @@ public class GameManager : MonoBehaviour
         JObject playersData = (JObject)data["players"];
         JObject monstersData = (JObject)data["monsters"];
 
-        foreach (var playerProp in playersData)
-        {
-            SpawnPlayer(playerProp.Key, (JObject)playerProp.Value);
-        }
-
-        foreach (var mProp in monstersData)
-        {
-            SpawnMonster(mProp.Key, (JObject)mProp.Value);
-        }
+        foreach (var playerProp in playersData) SpawnPlayer(playerProp.Key, (JObject)playerProp.Value);
+        foreach (var mProp in monstersData) SpawnMonster(mProp.Key, (JObject)mProp.Value);
     }
 
     public void OnPlayerJoin(string jsonStr)
@@ -437,6 +532,7 @@ public class GameManager : MonoBehaviour
     {
         JObject dieData = JObject.Parse(jsonStr);
         string victimId = (string)dieData["victimId"];
+        bool stolen = dieData["stolen"] != null ? (bool)dieData["stolen"] : false;
 
         if (players.ContainsKey(victimId))
         {
@@ -446,9 +542,11 @@ public class GameManager : MonoBehaviour
             if (victimId == myId)
             {
                 isMyPlayerAlive = false;
-                if (hpText != null) hpText.text = "HP: 0";
+                if (hpText != null) 
+                {
+                    hpText.text = stolen ? "캐릭터를 왕에게 빼앗겼습니다!" : "HP: 0 (사망)";
+                }
                 
-                // OnGUI에서 선택 레이어가 나타나도록 기존 기본 패널은 가립니다.
                 if (respawnPanel != null) respawnPanel.SetActive(false); 
             }
         }
@@ -557,9 +655,9 @@ public class GameManager : MonoBehaviour
         if(levelText != null) levelText.text = $"Lv.{p.level} {p.className}";
         
         if(teamText != null) {
-            if(p.team == "peace") teamText.text = "<color=green>평화 모드</color>";
-            else if(p.team == "zombie_" + myId) teamText.text = "<color=red>숙주 좀비</color>";
-            else teamText.text = "<color=orange>감염자 (좀비팀)</color>";
+            if(p.team == "peace") teamText.text = "<color=green>평화 모드 (자동 사냥 중)</color>";
+            else if(p.team.StartsWith("king_")) teamText.text = "<color=red>왕 (PvP 활성화 됨)</color>";
+            else teamText.text = "<color=orange>PvP 유저</color>";
         }
     }
 }

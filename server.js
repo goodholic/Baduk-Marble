@@ -1,6 +1,6 @@
 // ==========================================
 // Node.js Multiplay Server with Socket.IO & MySQL
-// Railway Deployment Ready (RPG & Zombie IO Mode)
+// AutoBattle.io (RPG & King/Steal Mode)
 // ==========================================
 
 const express = require('express');
@@ -28,7 +28,6 @@ app.get('/health', (req, res) => {
 
 server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
-    console.log(`Open http://localhost:${PORT} in your browser`);
 });
 
 // ==========================================
@@ -67,7 +66,7 @@ async function initDB() {
 initDB();
 
 async function savePlayer(player) {
-    if (!player || !player.deviceId) return;
+    if (!player || !player.deviceId || player.isBot) return; // 봇은 저장하지 않음
     try {
         await pool.query(`
             INSERT INTO players_save (device_id, class_name, level, exp, score, kill_count, team, is_alive)
@@ -90,15 +89,16 @@ let aoes = {};
 let monsters = {}; 
 
 let entityIdCounter = 0;
-const MAX_PLAYERS = 20;
-const MAX_MONSTERS = 15; 
+const MAX_PLAYERS = 50;
+const MAX_MONSTERS = 25; 
+let hasKing = false; // 최초 PvP 선택자를 왕으로 지정하기 위한 플래그
 
 // 직업 기본 스탯 정의 (사거리, 공격력, 체력 세부 조정 반영)
 const CLASSES = {
-    '번개':   { maxHp: 100, dmg: 40, speed: 20, aoe: false, projSpeed: 30, projLife: 150 }, // 근접 암살자 (투사체 생명력이 매우 짧아 사거리 짧음)
-    '광전사': { maxHp: 120, dmg: 25, speed: 10, aoe: false, projSpeed: 15, projLife: 1500 }, // 원거리 전사 (일반 투사체)
-    '스톤':   { maxHp: 250, dmg: 10, speed: 15, aoe: false, projSpeed: 12, projLife: 1000 }, // 방패병 (체력 매우 높음, 데미지 낮음)
-    '페인터': { maxHp: 80,  dmg: 0,  speed: 8,  aoe: true,  projSpeed: 0,  projLife: 3000 }  // 마법사 (장판 생성, 데미지는 %로 계산되므로 0)
+    '번개':   { maxHp: 100, dmg: 40, speed: 20, aoe: false, projSpeed: 40, projLife: 100 }, // 근접 암살자 (투사체 생명력 매우 짧음)
+    '광전사': { maxHp: 120, dmg: 25, speed: 10, aoe: false, projSpeed: 15, projLife: 1500 }, // 원거리 전사 
+    '스톤':   { maxHp: 250, dmg: 10, speed: 15, aoe: false, projSpeed: 12, projLife: 1000 }, // 방패병 
+    '페인터': { maxHp: 80,  dmg: 0,  speed: 8,  aoe: true,  projSpeed: 0,  projLife: 3000 }  // 마법사 (% 데미지)
 };
 
 for(let i=0; i<MAX_MONSTERS; i++) {
@@ -120,7 +120,6 @@ function spawnMonster() {
 
 io.on('connection', (socket) => {
     const playerId = socket.id;
-    console.log(`New user connected: ${playerId}`);
 
     if (Object.keys(players).length >= MAX_PLAYERS) {
         socket.emit('server_full', { message: 'The server is currently full.' });
@@ -135,25 +134,18 @@ io.on('connection', (socket) => {
         try {
             if(dataStr) {
                 const data = JSON.parse(dataStr);
-                if(data.className && CLASSES[data.className]) {
-                    selectedClass = data.className;
-                }
-                if(data.deviceId) {
-                    deviceId = data.deviceId;
-                }
+                if(data.className && CLASSES[data.className]) selectedClass = data.className;
+                if(data.deviceId) deviceId = data.deviceId;
             }
         } catch(e) {}
 
         socket.deviceId = deviceId;
 
-        // 데이터베이스에서 캐릭터 정보 불러오기
         let loadedData = null;
         try {
             const [rows] = await pool.query('SELECT * FROM players_save WHERE device_id = ?', [deviceId]);
-            if(rows.length > 0) {
-                loadedData = rows[0];
-            }
-        } catch(e) { console.error("DB Load Error:", e); }
+            if(rows.length > 0) loadedData = rows[0];
+        } catch(e) {}
 
         let pInfo = {
             id: playerId,
@@ -171,10 +163,11 @@ io.on('connection', (socket) => {
             exp: 0,
             isAlive: true,
             killCount: 0,
-            team: 'peace' // 기본 평화주의
+            team: 'peace',
+            isKing: false,
+            isBot: false
         };
 
-        // 살아있는 세이브 데이터가 있으면 복구
         if(loadedData && loadedData.is_alive) {
             pInfo.className = loadedData.class_name;
             pInfo.level = loadedData.level;
@@ -187,14 +180,13 @@ io.on('connection', (socket) => {
             pInfo.hp = pInfo.maxHp;
             pInfo.dmgMulti = 1.0 + (pInfo.level - 1) * 0.1;
 
-            // 숙주 감염자 혜택 복구
-            if(pInfo.team.startsWith('zombie_')) {
-                pInfo.maxHp *= 2;
+            if(pInfo.team.startsWith('king_')) {
+                pInfo.isKing = true;
+                pInfo.maxHp *= 3;
                 pInfo.hp = pInfo.maxHp;
-                pInfo.dmgMulti *= 1.5;
+                pInfo.dmgMulti *= 2.0;
             }
         } else {
-            // 새 캐릭터 생성 시 저장
             savePlayer(pInfo);
         }
 
@@ -214,7 +206,7 @@ io.on('connection', (socket) => {
     socket.on('move', (data) => {
         try {
             const moveData = JSON.parse(data);
-            if (players[playerId] && players[playerId].isAlive) {
+            if (players[playerId] && players[playerId].isAlive && !players[playerId].isBot) {
                 players[playerId].x = moveData.x;
                 players[playerId].y = moveData.y;
                 if (moveData.dirX !== undefined && moveData.dirY !== undefined) {
@@ -225,112 +217,48 @@ io.on('connection', (socket) => {
         } catch (e) { }
     });
 
-    socket.on('change_class', (className) => {
-        if(players[playerId] && CLASSES[className]) {
-            players[playerId].className = className;
-            players[playerId].maxHp = CLASSES[className].maxHp;
-            if(players[playerId].isAlive) {
-                players[playerId].hp = players[playerId].maxHp;
-            }
-            savePlayer(players[playerId]);
-            io.emit('player_update', players[playerId]);
-        }
-    });
-
     socket.on('toggle_pvp', () => {
         const p = players[playerId];
         if(p && p.isAlive && p.team === 'peace') {
-            p.team = 'zombie_' + playerId;
-            p.maxHp *= 2; 
-            p.hp = p.maxHp;
-            p.dmgMulti *= 1.5; 
+            if (!hasKing) {
+                p.team = 'king_' + playerId;
+                p.isKing = true;
+                p.maxHp *= 3; 
+                p.hp = p.maxHp;
+                p.dmgMulti *= 2.0; 
+                hasKing = true;
+                console.log(`${playerId} became the FIRST KING!`);
+            } else {
+                p.team = 'pvp_' + playerId;
+                p.maxHp *= 1.5;
+                p.hp = p.maxHp;
+                p.dmgMulti *= 1.2;
+            }
             savePlayer(p);
             io.emit('player_update', p);
-            console.log(`${playerId} became a ZOMBIE HOST!`);
         }
     });
 
     socket.on('throw', (data) => {
-        const player = players[playerId];
-        if (player && player.isAlive && player.dirX !== undefined) {
-            const mag = Math.sqrt(player.dirX * player.dirX + player.dirY * player.dirY);
-            let finalDirX = 0;
-            let finalDirY = 1;
-
-            if (mag > 0.01) {
-                finalDirX = player.dirX / mag;
-                finalDirY = player.dirY / mag;
-            } else if (player.dirX === 0 && player.dirY === 0) {
-                finalDirX = 0;
-                finalDirY = 1;
-            }
-
-            const classInfo = CLASSES[player.className];
-            entityIdCounter++;
-            const currentObjId = entityIdCounter;
-
-            if(classInfo.aoe) {
-                aoes[currentObjId] = {
-                    id: currentObjId,
-                    ownerId: playerId,
-                    x: player.x,
-                    y: player.y,
-                    radius: 1.5, // 장판 반경 축소 (기존 3.0 -> 1.5)
-                    timer: null
-                };
-                io.emit('aoe_spawn', aoes[currentObjId]);
-
-                aoes[currentObjId].timer = setTimeout(() => {
-                    if (aoes[currentObjId]) {
-                        io.emit('aoe_destroy', currentObjId);
-                        delete aoes[currentObjId];
-                    }
-                }, classInfo.projLife);
-            } else {
-                axes[currentObjId] = {
-                    id: currentObjId,
-                    ownerId: playerId,
-                    x: player.x + finalDirX * 0.5, 
-                    y: player.y + finalDirY * 0.5,
-                    dirX: finalDirX,
-                    dirY: finalDirY,
-                    speed: classInfo.projSpeed,
-                    dmg: classInfo.dmg * player.dmgMulti,
-                    timer: null
-                };
-
-                io.emit('axe_spawn', axes[currentObjId]);
-
-                axes[currentObjId].timer = setTimeout(() => {
-                    if (axes[currentObjId]) {
-                        io.emit('axe_destroy', currentObjId);
-                        delete axes[currentObjId];
-                    }
-                }, classInfo.projLife);
-            }
-        }
+        executeThrow(playerId);
     });
 
-    // 죽은 후 완전히 새로운 캐릭터로 리스폰
     socket.on('respawn', (dataStr) => {
         let newClass = '광전사'; 
         try {
             if(dataStr) {
                 const data = JSON.parse(dataStr);
-                if(data.className && CLASSES[data.className]) {
-                    newClass = data.className;
-                }
+                if(data.className && CLASSES[data.className]) newClass = data.className;
             }
         } catch(e) {}
 
         if (players[playerId] && !players[playerId].isAlive) {
             const p = players[playerId];
             p.className = newClass;
-            p.level = 1;
-            p.exp = 0;
-            p.score = 0;
-            p.killCount = 0;
-            // 죽기 전 감염된 상태였다면 그 팀을 유지, 아니라면 peace 유지
+            p.level = 1; p.exp = 0; p.score = 0; p.killCount = 0;
+            p.team = 'peace'; // 죽으면 무조건 평화 모드로 처음부터
+            p.isKing = false;
+            
             p.maxHp = CLASSES[newClass].maxHp;
             p.hp = p.maxHp;
             p.dmgMulti = 1.0;
@@ -344,8 +272,8 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
-        console.log(`User disconnected: ${playerId}`);
         if (players[playerId]) {
+            if(players[playerId].isKing) hasKing = false; // 왕이 나가면 초기화
             savePlayer(players[playerId]);
             delete players[playerId];
             io.emit('player_leave', playerId);
@@ -353,15 +281,74 @@ io.on('connection', (socket) => {
     });
 });
 
+function executeThrow(pId) {
+    const player = players[pId];
+    if (player && player.isAlive && player.dirX !== undefined) {
+        const mag = Math.sqrt(player.dirX * player.dirX + player.dirY * player.dirY);
+        let finalDirX = 0; let finalDirY = 1;
+
+        if (mag > 0.01) {
+            finalDirX = player.dirX / mag;
+            finalDirY = player.dirY / mag;
+        }
+
+        const classInfo = CLASSES[player.className];
+        entityIdCounter++;
+        const currentObjId = entityIdCounter;
+
+        if(classInfo.aoe) {
+            aoes[currentObjId] = {
+                id: currentObjId, ownerId: pId, x: player.x, y: player.y, radius: 1.5, timer: null
+            };
+            io.emit('aoe_spawn', aoes[currentObjId]);
+            aoes[currentObjId].timer = setTimeout(() => {
+                if (aoes[currentObjId]) { io.emit('aoe_destroy', currentObjId); delete aoes[currentObjId]; }
+            }, classInfo.projLife);
+        } else {
+            axes[currentObjId] = {
+                id: currentObjId, ownerId: pId, x: player.x + finalDirX * 0.5, y: player.y + finalDirY * 0.5,
+                dirX: finalDirX, dirY: finalDirY, speed: classInfo.projSpeed, dmg: classInfo.dmg * player.dmgMulti, timer: null
+            };
+            io.emit('axe_spawn', axes[currentObjId]);
+            axes[currentObjId].timer = setTimeout(() => {
+                if (axes[currentObjId]) { io.emit('axe_destroy', currentObjId); delete axes[currentObjId]; }
+            }, classInfo.projLife);
+        }
+    }
+}
+
+// 뺏긴 캐릭터를 왕의 봇(미니언)으로 생성
+function createBot(victimPlayer, ownerTeam) {
+    entityIdCounter++;
+    const botId = 'bot_' + entityIdCounter;
+    players[botId] = {
+        id: botId,
+        deviceId: 'bot',
+        className: victimPlayer.className,
+        x: victimPlayer.x,
+        y: victimPlayer.y,
+        hp: victimPlayer.maxHp,
+        maxHp: victimPlayer.maxHp,
+        dmgMulti: victimPlayer.dmgMulti,
+        dirX: 0, dirY: -1,
+        score: 0, level: victimPlayer.level, exp: 0,
+        isAlive: true, killCount: 0,
+        team: ownerTeam,
+        isKing: false,
+        isBot: true
+    };
+    io.emit('player_join', players[botId]);
+}
+
 const TICK_RATE = 30;
 const TICK_TIME = 1000 / TICK_RATE;
-
 let tickCounter = 0;
 
 setInterval(() => {
     tickCounter++;
     handleCollisions();
     
+    // 몬스터 랜덤 이동
     if(tickCounter % 30 === 0) {
         for(let mId in monsters) {
             monsters[mId].x += (Math.random() * 2 - 1);
@@ -369,12 +356,40 @@ setInterval(() => {
         }
     }
 
-    if(tickCounter % 15 === 0) {
-        handleAoeDamage();
-    }
+    // 봇 자동 사냥 로직
+    updateBots();
+
+    if(tickCounter % 15 === 0) handleAoeDamage();
 
     syncGameState();
 }, TICK_TIME);
+
+function updateBots() {
+    for (let id in players) {
+        let p = players[id];
+        if (p.isBot && p.isAlive) {
+            let target = null;
+            let minDist = 9999;
+            for (let mId in monsters) {
+                if (!monsters[mId].isAlive) continue;
+                let dist = Math.hypot(p.x - monsters[mId].x, p.y - monsters[mId].y);
+                if (dist < minDist) { minDist = dist; target = monsters[mId]; }
+            }
+            if (target) {
+                let dx = target.x - p.x;
+                let dy = target.y - p.y;
+                let mag = Math.hypot(dx, dy);
+                if (mag > 0) {
+                    p.dirX = dx / mag; p.dirY = dy / mag;
+                }
+                p.x += p.dirX * (CLASSES[p.className].speed / 100);
+                p.y += p.dirY * (CLASSES[p.className].speed / 100);
+
+                if (Math.random() < 0.05) executeThrow(id);
+            }
+        }
+    }
+}
 
 function handleCollisions() {
     for (const axeId in axes) {
@@ -388,23 +403,16 @@ function handleCollisions() {
             const mob = monsters[mId];
             if(!mob.isAlive) continue;
 
-            const dx = axe.x - mob.x;
-            const dy = axe.y - mob.y;
+            const dx = axe.x - mob.x; const dy = axe.y - mob.y;
             if(dx*dx + dy*dy < 1.0) {
                 mob.hp -= axe.dmg;
                 if(mob.hp <= 0) {
-                    mob.isAlive = false;
-                    delete monsters[mId];
-                    io.emit('monster_die', mId);
-                    giveExp(owner, 20); 
-                    spawnMonster(); 
-                    io.emit('monster_spawn', monsters['monster_' + entityIdCounter]);
+                    mob.isAlive = false; delete monsters[mId]; io.emit('monster_die', mId);
+                    giveExp(owner, 20); spawnMonster(); io.emit('monster_spawn', monsters['monster_' + entityIdCounter]);
                 } else {
                     io.emit('monster_hit', { id: mId, hp: mob.hp });
                 }
-                destroyAxe(axeId);
-                axeDestroyed = true;
-                break;
+                destroyAxe(axeId); axeDestroyed = true; break;
             }
         }
 
@@ -413,33 +421,17 @@ function handleCollisions() {
         for (const targetId in players) {
             const target = players[targetId];
             if (targetId === axe.ownerId || !target.isAlive) continue;
+            if (owner.team === 'peace' && target.team === 'peace') continue; // 평화주의자끼리는 공격 불가
+            if (owner.team === target.team) continue; // 같은 팀 공격 불가
 
-            if (owner.team === 'peace' && target.team === 'peace') continue;
-            if (owner.team === target.team) continue;
-
-            const dx = axe.x - target.x;
-            const dy = axe.y - target.y;
-            const distSq = dx * dx + dy * dy; 
-
-            if (distSq < 0.6 * 0.6) {
+            const dx = axe.x - target.x; const dy = axe.y - target.y;
+            if (dx * dx + dy * dy < 0.6 * 0.6) {
                 target.hp -= axe.dmg;
                 io.emit('player_hit', { id: targetId, hp: target.hp });
-
                 destroyAxe(axeId);
 
                 if (target.hp <= 0) {
-                    target.isAlive = false;
-                    owner.killCount++;
-                    owner.score += 100;
-                    
-                    // 감염 로직: 타겟이 죽으면 나를 죽인 사람의 팀으로 편입
-                    target.team = owner.team;
-                    
-                    savePlayer(owner);
-                    savePlayer(target);
-
-                    io.emit('player_update', target); 
-                    io.emit('player_die', { victimId: targetId, attackerId: axe.ownerId });
+                    handlePlayerDeath(target, targetId, owner, axe.ownerId);
                 }
                 break; 
             }
@@ -456,53 +448,54 @@ function handleAoeDamage() {
         for(const mId in monsters) {
             const mob = monsters[mId];
             if(!mob.isAlive) continue;
-            const dx = aoe.x - mob.x;
-            const dy = aoe.y - mob.y;
+            const dx = aoe.x - mob.x; const dy = aoe.y - mob.y;
             if(dx*dx + dy*dy <= aoe.radius * aoe.radius) {
-                const dmg = mob.maxHp * 0.1; 
-                mob.hp -= dmg;
+                mob.hp -= (mob.maxHp * 0.1); 
                 if(mob.hp <= 0) {
-                    mob.isAlive = false;
-                    delete monsters[mId];
-                    io.emit('monster_die', mId);
-                    giveExp(owner, 20);
-                    spawnMonster();
-                    io.emit('monster_spawn', monsters['monster_' + entityIdCounter]);
-                } else {
-                    io.emit('monster_hit', { id: mId, hp: mob.hp });
-                }
+                    mob.isAlive = false; delete monsters[mId]; io.emit('monster_die', mId);
+                    giveExp(owner, 20); spawnMonster(); io.emit('monster_spawn', monsters['monster_' + entityIdCounter]);
+                } else { io.emit('monster_hit', { id: mId, hp: mob.hp }); }
             }
         }
 
         for(const targetId in players) {
             const target = players[targetId];
             if(!target.isAlive || targetId === aoe.ownerId) continue;
-            
             if (owner.team === 'peace' && target.team === 'peace') continue;
             if (owner.team === target.team) continue;
 
-            const dx = aoe.x - target.x;
-            const dy = aoe.y - target.y;
+            const dx = aoe.x - target.x; const dy = aoe.y - target.y;
             if(dx*dx + dy*dy <= aoe.radius * aoe.radius) {
-                const dmg = target.maxHp * 0.05 * owner.dmgMulti; 
-                target.hp -= dmg;
+                target.hp -= (target.maxHp * 0.05 * owner.dmgMulti); 
                 io.emit('player_hit', { id: targetId, hp: target.hp });
 
                 if(target.hp <= 0) {
-                    target.isAlive = false;
-                    owner.killCount++;
-                    owner.score += 100;
-                    target.team = owner.team; 
-                    
-                    savePlayer(owner);
-                    savePlayer(target);
-
-                    io.emit('player_update', target);
-                    io.emit('player_die', { victimId: targetId, attackerId: aoe.ownerId });
+                    handlePlayerDeath(target, targetId, owner, aoe.ownerId);
                 }
             }
         }
     }
+}
+
+function handlePlayerDeath(target, targetId, owner, attackerId) {
+    target.isAlive = false;
+    owner.killCount++;
+    owner.score += 100;
+
+    // 왕에게 죽었을 시 5% 확률로 봇으로 뺏김
+    let stolen = false;
+    if (owner.isKing && Math.random() < 0.05) {
+        stolen = true;
+        createBot(target, owner.team); // 봇으로 부활시켜 왕의 팀으로 귀속
+    }
+
+    // 죽으면 데이터 초기화 (다시 키워야 함)
+    target.level = 1; target.exp = 0; target.score = 0; target.killCount = 0; target.team = 'peace'; target.isKing = false;
+    savePlayer(target);
+    savePlayer(owner);
+
+    io.emit('player_update', target);
+    io.emit('player_die', { victimId: targetId, attackerId: attackerId, stolen: stolen });
 }
 
 function destroyAxe(axeId) {
@@ -516,11 +509,7 @@ function destroyAxe(axeId) {
 function giveExp(player, amount) {
     player.exp += amount;
     if(player.exp >= player.level * 100) {
-        player.exp = 0;
-        player.level++;
-        player.maxHp += 20;
-        player.hp = player.maxHp;
-        player.dmgMulti += 0.1; 
+        player.exp = 0; player.level++; player.maxHp += 20; player.hp = player.maxHp; player.dmgMulti += 0.1; 
         savePlayer(player);
         io.emit('player_update', player); 
     }
@@ -529,24 +518,15 @@ function giveExp(player, amount) {
 function syncGameState() {
     if (Object.keys(players).length === 0) return;
     
-    const syncData = {
-        players: {},
-        monsters: {}
-    };
+    const syncData = { players: {}, monsters: {} };
 
     for (const pId in players) {
-        syncData.players[pId] = {
-            x: players[pId].x,
-            y: players[pId].y,
-            score: players[pId].score
-        };
+        if(players[pId].isAlive) {
+            syncData.players[pId] = { x: players[pId].x, y: players[pId].y, score: players[pId].score };
+        }
     }
-
     for (const mId in monsters) {
-        syncData.monsters[mId] = {
-            x: monsters[mId].x,
-            y: monsters[mId].y
-        };
+        syncData.monsters[mId] = { x: monsters[mId].x, y: monsters[mId].y };
     }
     
     io.volatile.emit('sync', syncData);

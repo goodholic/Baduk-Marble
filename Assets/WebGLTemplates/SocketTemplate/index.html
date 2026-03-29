@@ -3,11 +3,38 @@
   <head>
     <meta charset="utf-8">
     <title>Unity WebGL Player</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes">
     <style>
-      /* 화면에 꽉 차게 만드는 심플한 스타일 */
-      body { padding: 0; margin: 0; overflow: hidden; background-color: #231F20; touch-action: none; }
-      #unity-container { position: absolute; width: 100%; height: 100%; left: 0; top: 0; }
+      /* 화면 배경을 검게 하고, 컨테이너를 화면 정중앙에 배치 */
+      body { 
+        padding: 0; 
+        margin: 0; 
+        overflow: hidden; 
+        background-color: #231F20; 
+        touch-action: none; 
+        display: flex; 
+        justify-content: center; 
+        align-items: center; 
+        height: 100vh; 
+        width: 100vw;
+      }
+      
+      /* 1920x1080 (16:9) 가로 비율을 강제 유지하며 브라우저 크기에 맞게 자동 축소/확대 */
+      #unity-container {
+        position: relative;
+        width: 100vw;
+        max-height: 100vh;
+        aspect-ratio: 16 / 9;
+      }
+      
+      /* 브라우저가 가로로 너무 긴 경우 (울트라와이드 모니터 등) 높이에 맞춰 너비를 제한 */
+      @media (min-aspect-ratio: 16/9) {
+        #unity-container {
+          width: calc(100vh * (16 / 9));
+          height: 100vh;
+        }
+      }
+
       #unity-canvas { width: 100%; height: 100%; display: block; outline: none; }
       
       /* 접속 즉시 보여질 로딩 화면 스타일 */
@@ -24,7 +51,7 @@
   </head>
   <body>
     <div id="unity-container">
-      <canvas id="unity-canvas" tabindex="-1"></canvas>
+      <canvas id="unity-canvas" width="1920" height="1080" tabindex="-1"></canvas>
       
       <div id="loading-screen">
         <div id="loading-text">게임을 불러오는 중...</div>
@@ -49,7 +76,7 @@
         companyName: "{{{ COMPANY_NAME }}}",
         productName: "{{{ PRODUCT_NAME }}}",
         productVersion: "{{{ PRODUCT_VERSION }}}",
-        matchWebGLToCanvasSize: true, // 캔버스 크기를 브라우저에 맞춤
+        matchWebGLToCanvasSize: true, // 캔버스 크기를 브라우저(CSS 비율)에 맞춤
         devicePixelRatio: window.devicePixelRatio // 모바일 화면 선명도 유지
       };
 
