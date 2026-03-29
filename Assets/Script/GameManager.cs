@@ -147,7 +147,7 @@ public class GameManager : MonoBehaviour
         contentRect.sizeDelta = new Vector2(0, 0);
 
         VerticalLayoutGroup vlg = contentObj.AddComponent<VerticalLayoutGroup>();
-        vlg.childAlignment = TextAnchor.UpperCenter; // 오류 수정: TopCenter -> UpperCenter
+        vlg.childAlignment = TextAnchor.UpperCenter;
         vlg.spacing = 10;
         vlg.padding = new RectOffset(10, 10, 10, 10);
         vlg.childControlHeight = false;
@@ -381,7 +381,8 @@ public class GameManager : MonoBehaviour
                 {
                     boostSpeed = 12f; 
                     boostEndTime = Time.time + 0.3f; 
-                    moveSkillCooldown = Time.time; 
+                    // 수정됨: 쿨타임이 0초였던 버그를 고쳐 대쉬 스킬이 프레임 단위로 무한 발동되지 않도록 2.0초 쿨타임 부여
+                    moveSkillCooldown = Time.time + 2.0f; 
                 }
             }
 
