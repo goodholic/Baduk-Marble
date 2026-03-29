@@ -40,7 +40,7 @@ public class GameManager : MonoBehaviour
         public int level;
         public string className;
         public string team;
-        public string ownerId; // 병사의 주인(본체) ID
+        public string ownerId; 
         public bool isAlive;
     }
 
@@ -78,6 +78,7 @@ public class GameManager : MonoBehaviour
     private float boostSpeed = 0f;
     private float boostEndTime = 0f;
 
+    private RectTransform contentRect;
     private List<Camera> miniCameras = new List<Camera>();
     private List<RawImage> miniScreens = new List<RawImage>();
     private List<string> miniTargets = new List<string>();
@@ -94,6 +95,7 @@ public class GameManager : MonoBehaviour
         if (respawnPanel != null)
             respawnPanel.SetActive(false);
         
+        SetupScrollableMiniScreens();
         InvokeRepeating("UpdateMiniCameraTargets", 2f, 5f);
 
         #if UNITY_WEBGL && !UNITY_EDITOR
@@ -101,12 +103,79 @@ public class GameManager : MonoBehaviour
         #endif
     }
 
-    private void AddMiniScreen()
+    private void SetupScrollableMiniScreens()
+    {
+        GameObject canvasObj = GameObject.Find("Canvas");
+        if (canvasObj == null) return;
+
+        GameObject scrollViewObj = new GameObject("MiniCamScrollView");
+        scrollViewObj.transform.SetParent(canvasObj.transform, false);
+        RectTransform scrollRectTransform = scrollViewObj.AddComponent<RectTransform>();
+        scrollRectTransform.anchorMin = new Vector2(1, 0); 
+        scrollRectTransform.anchorMax = new Vector2(1, 1); 
+        scrollRectTransform.pivot = new Vector2(1, 0.5f);
+        scrollRectTransform.anchoredPosition = new Vector2(-10, 0); 
+        scrollRectTransform.sizeDelta = new Vector2(180, -40); 
+
+        Image bgImage = scrollViewObj.AddComponent<Image>();
+        bgImage.color = new Color(0, 0, 0, 0.3f); 
+
+        ScrollRect scrollRect = scrollViewObj.AddComponent<ScrollRect>();
+        scrollRect.horizontal = false;
+        scrollRect.vertical = true;
+        scrollRect.scrollSensitivity = 20f;
+
+        GameObject viewportObj = new GameObject("Viewport");
+        viewportObj.transform.SetParent(scrollViewObj.transform, false);
+        RectTransform viewportRect = viewportObj.AddComponent<RectTransform>();
+        viewportRect.anchorMin = Vector2.zero;
+        viewportRect.anchorMax = Vector2.one;
+        viewportRect.sizeDelta = Vector2.zero;
+        viewportRect.pivot = new Vector2(0, 1);
+        
+        Image viewportImage = viewportObj.AddComponent<Image>();
+        viewportImage.color = Color.white;
+        Mask mask = viewportObj.AddComponent<Mask>();
+        mask.showMaskGraphic = false;
+
+        GameObject contentObj = new GameObject("Content");
+        contentObj.transform.SetParent(viewportObj.transform, false);
+        contentRect = contentObj.AddComponent<RectTransform>();
+        contentRect.anchorMin = new Vector2(0, 1);
+        contentRect.anchorMax = new Vector2(1, 1);
+        contentRect.pivot = new Vector2(0.5f, 1);
+        contentRect.sizeDelta = new Vector2(0, 0);
+
+        VerticalLayoutGroup vlg = contentObj.AddComponent<VerticalLayoutGroup>();
+        vlg.childAlignment = TextAnchor.UpperCenter; // 오류 수정: TopCenter -> UpperCenter
+        vlg.spacing = 10;
+        vlg.padding = new RectOffset(10, 10, 10, 10);
+        vlg.childControlHeight = false;
+        vlg.childControlWidth = false;
+
+        ContentSizeFitter csf = contentObj.AddComponent<ContentSizeFitter>();
+        csf.verticalFit = ContentSizeFitter.FitMode.MinSize;
+
+        scrollRect.viewport = viewportRect;
+        scrollRect.content = contentRect;
+    }
+
+    private void AdjustMiniScreensToArmySize(int armyCount)
+    {
+        while (miniCameras.Count < armyCount && miniCameras.Count < 30)
+        {
+            AddMiniScreenToScroll();
+        }
+
+        for (int i = 0; i < miniScreens.Count; i++)
+        {
+            miniScreens[i].gameObject.SetActive(i < armyCount);
+        }
+    }
+
+    private void AddMiniScreenToScroll()
     {
         int index = miniCameras.Count;
-        GameObject canvasObj = GameObject.Find("Canvas");
-        if(canvasObj == null) return;
-
         RenderTexture rt = new RenderTexture(256, 256, 16);
         
         GameObject camObj = new GameObject("MiniCam_" + index);
@@ -119,16 +188,13 @@ public class GameManager : MonoBehaviour
         miniCameras.Add(cam);
 
         GameObject imgObj = new GameObject("MiniScreen_" + index);
-        imgObj.transform.SetParent(canvasObj.transform, false);
+        imgObj.transform.SetParent(contentRect, false);
         RawImage rawImage = imgObj.AddComponent<RawImage>();
         rawImage.texture = rt;
         
-        RectTransform rect = imgObj.GetComponent<RectTransform>();
-        rect.anchorMin = new Vector2(1, 1);
-        rect.anchorMax = new Vector2(1, 1);
-        rect.pivot = new Vector2(1, 1);
-        rect.anchoredPosition = new Vector2(-20, -100 - (index * 180));
-        rect.sizeDelta = new Vector2(150, 150);
+        LayoutElement le = imgObj.AddComponent<LayoutElement>();
+        le.minWidth = 150;
+        le.minHeight = 150;
         
         miniScreens.Add(rawImage);
         miniTargets.Add(null);
@@ -136,22 +202,17 @@ public class GameManager : MonoBehaviour
 
     private void UpdateMiniCameraTargets()
     {
-        // '내 군대' (ownerId가 내 ID인 병사들)만 찾아 리스트업
         List<string> myArmy = new List<string>();
         foreach(var kvp in players) {
-            if(kvp.Key != myId && kvp.Value.isAlive && kvp.Value.ownerId == myId) {
+            if(kvp.Key != myId && kvp.Value.isAlive && kvp.Value.ownerId == myId && kvp.Value.className != "타워") {
                 myArmy.Add(kvp.Key);
             }
         }
 
-        for(int i = 0; i < miniTargets.Count; i++) {
-            if (myArmy.Count > 0) {
-                int rnd = UnityEngine.Random.Range(0, myArmy.Count);
-                miniTargets[i] = myArmy[rnd];
-            } else {
-                // 내 병사가 없으면 화면 비우기
-                miniTargets[i] = null;
-            }
+        AdjustMiniScreensToArmySize(myArmy.Count);
+
+        for(int i = 0; i < myArmy.Count; i++) {
+            miniTargets[i] = myArmy[i]; 
         }
     }
 
@@ -177,19 +238,20 @@ public class GameManager : MonoBehaviour
             }
             else
             {
-                if (GUI.Button(new Rect(Screen.width / 2 - 75, 20, 150, 40), "PvP 모드 끄기"))
+                if (GUI.Button(new Rect(Screen.width / 2 - 160, 20, 150, 40), "PvP 모드 끄기"))
                 {
                     TogglePvP();
                 }
+                
+                if (GUI.Button(new Rect(Screen.width / 2 + 10, 20, 150, 40), "타워 세우기 (-50점)"))
+                {
+                    BuildTower();
+                }
             }
 
-            if (GUI.Button(new Rect(Screen.width - 200, 20, 180, 40), "내 병사 추가 (+)"))
+            if (GUI.Button(new Rect(Screen.width - 200, 20, 180, 40), "내 병사 추가 (-100점)"))
             {
                 AddBot();
-                if (miniCameras.Count < 5)
-                {
-                    AddMiniScreen();
-                }
             }
         }
     }
@@ -238,7 +300,7 @@ public class GameManager : MonoBehaviour
     void LateUpdate()
     {
         for(int i = 0; i < miniCameras.Count; i++) {
-            if (miniTargets[i] != null && players.ContainsKey(miniTargets[i])) {
+            if (i < miniTargets.Count && miniTargets[i] != null && players.ContainsKey(miniTargets[i])) {
                 GameObject targetGo = players[miniTargets[i]].go;
                 if (targetGo != null && targetGo.activeSelf) {
                     Vector3 desiredPos = targetGo.transform.position + new Vector3(0, 0, -10f);
@@ -329,6 +391,10 @@ public class GameManager : MonoBehaviour
             Vector3 movement = new Vector3(h, v, 0).normalized * finalSpeed * Time.deltaTime;
             players[myId].go.transform.position += movement;
             
+            Vector3 correctedPos = players[myId].go.transform.position;
+            correctedPos.z = -1f;
+            players[myId].go.transform.position = correctedPos;
+
             float angle = Mathf.Atan2(currentDir.y, currentDir.x) * Mathf.Rad2Deg - 90f;
             players[myId].go.transform.rotation = Quaternion.Euler(0, 0, angle);
 
@@ -405,6 +471,13 @@ public class GameManager : MonoBehaviour
         #endif
     }
 
+    public void BuildTower()
+    {
+        #if UNITY_WEBGL && !UNITY_EDITOR
+        SocketEmit("build_tower", "{}");
+        #endif
+    }
+
     public void AddBot()
     {
         #if UNITY_WEBGL && !UNITY_EDITOR
@@ -453,7 +526,7 @@ public class GameManager : MonoBehaviour
             players[id].maxHp = (float)data["maxHp"];
             players[id].hp = (float)data["hp"];
             players[id].team = (string)data["team"];
-            players[id].ownerId = data["ownerId"]?.ToString(); // 소유권 동기화
+            players[id].ownerId = data["ownerId"]?.ToString(); 
 
             if(id == myId)
             {
@@ -475,7 +548,7 @@ public class GameManager : MonoBehaviour
             JObject pObj = (JObject)pProp.Value;
             if (players.ContainsKey(pId))
             {
-                players[pId].targetPos = new Vector3((float)pObj["x"], (float)pObj["y"], 0);
+                players[pId].targetPos = new Vector3((float)pObj["x"], (float)pObj["y"], -1f);
                 players[pId].score = (int)pObj["score"];
                 if (pId == myId && scoreText != null) scoreText.text = "점수: " + players[pId].score;
             }
@@ -487,7 +560,7 @@ public class GameManager : MonoBehaviour
             JObject mObj = (JObject)mProp.Value;
             if (monsters.ContainsKey(mId))
             {
-                monsters[mId].targetPos = new Vector3((float)mObj["x"], (float)mObj["y"], 0);
+                monsters[mId].targetPos = new Vector3((float)mObj["x"], (float)mObj["y"], 0f);
             }
         }
     }
@@ -496,7 +569,7 @@ public class GameManager : MonoBehaviour
     {
         JObject aData = JObject.Parse(jsonStr);
         int axeId = (int)aData["id"];
-        GameObject newAxe = Instantiate(axePrefab, new Vector3((float)aData["x"], (float)aData["y"], 0f), Quaternion.identity);
+        GameObject newAxe = Instantiate(axePrefab, new Vector3((float)aData["x"], (float)aData["y"], -1f), Quaternion.identity);
         
         NetworkAxe nAxe = new NetworkAxe();
         nAxe.go = newAxe;
@@ -521,7 +594,7 @@ public class GameManager : MonoBehaviour
         JObject data = JObject.Parse(jsonStr);
         int id = (int)data["id"];
         if(aoePrefab != null) {
-            GameObject aoe = Instantiate(aoePrefab, new Vector3((float)data["x"], (float)data["y"], 0), Quaternion.identity);
+            GameObject aoe = Instantiate(aoePrefab, new Vector3((float)data["x"], (float)data["y"], -1f), Quaternion.identity);
             aoe.transform.localScale = new Vector3((float)data["radius"] * 2, (float)data["radius"] * 2, 1);
             aoes[id] = aoe;
         }
@@ -580,7 +653,7 @@ public class GameManager : MonoBehaviour
         {
             players[pId].isAlive = true;
             players[pId].hp = (float)respawnData["hp"];
-            Vector3 pos = new Vector3((float)respawnData["x"], (float)respawnData["y"], 0);
+            Vector3 pos = new Vector3((float)respawnData["x"], (float)respawnData["y"], -1f);
             players[pId].go.transform.position = pos;
             players[pId].targetPos = pos;
             players[pId].go.SetActive(true);
@@ -621,7 +694,7 @@ public class GameManager : MonoBehaviour
         if (players.ContainsKey(id)) return;
 
         bool alive = (bool)data["isAlive"];
-        GameObject newPlayer = Instantiate(playerPrefab, new Vector3((float)data["x"], (float)data["y"], 0), Quaternion.identity);
+        GameObject newPlayer = Instantiate(playerPrefab, new Vector3((float)data["x"], (float)data["y"], -1f), Quaternion.identity);
         newPlayer.SetActive(alive);
 
         NetworkPlayer np = new NetworkPlayer();
@@ -633,8 +706,15 @@ public class GameManager : MonoBehaviour
         np.level = (int)data["level"];
         np.className = (string)data["className"];
         np.team = (string)data["team"];
-        np.ownerId = data["ownerId"]?.ToString(); // 소유권 정보 세팅
+        np.ownerId = data["ownerId"]?.ToString(); 
         np.isAlive = alive;
+
+        if (np.className == "타워")
+        {
+            newPlayer.transform.localScale = new Vector3(1.5f, 1.5f, 1f);
+            SpriteRenderer sr = newPlayer.GetComponentInChildren<SpriteRenderer>();
+            if(sr != null) sr.color = Color.yellow;
+        }
 
         players[id] = np;
 
@@ -654,12 +734,11 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    // [복구됨] 누락되었던 몬스터 생성 함수
     private void SpawnMonster(string id, JObject data)
     {
         if(monsters.ContainsKey(id) || monsterPrefab == null) return;
 
-        GameObject mGo = Instantiate(monsterPrefab, new Vector3((float)data["x"], (float)data["y"], 0), Quaternion.identity);
+        GameObject mGo = Instantiate(monsterPrefab, new Vector3((float)data["x"], (float)data["y"], 0f), Quaternion.identity);
         NetworkMonster nm = new NetworkMonster();
         nm.go = mGo;
         nm.targetPos = mGo.transform.position;

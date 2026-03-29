@@ -1,6 +1,6 @@
 // ==========================================
 // Node.js Multiplay Server with Socket.IO & MySQL
-// AutoBattle.io (Army System & King/Steal Mode)
+// AutoBattle.io (Army System, Tower & Auto-Spawn, DB Save)
 // ==========================================
 
 const express = require('express');
@@ -58,6 +58,12 @@ async function initDB() {
                 is_alive BOOLEAN
             )
         `);
+        // 군대 및 타워 데이터를 저장할 컬럼 추가 (이미 있다면 무시됨)
+        try {
+            await pool.query('ALTER TABLE players_save ADD COLUMN army_data JSON');
+        } catch (e) {
+            // 컬럼이 이미 존재할 때 발생하는 에러는 무시
+        }
         console.log("MySQL Database Initialized successfully.");
     } catch (error) {
         console.error("MySQL Initialization Error:", error);
@@ -67,13 +73,29 @@ initDB();
 
 async function savePlayer(player) {
     if (!player || !player.deviceId || player.isBot) return; 
+
+    // 내 소유의 군대(봇 + 타워)를 직렬화하여 저장 준비
+    let myArmy = [];
+    for (let bId in players) {
+        if (players[bId].isBot && players[bId].ownerId === player.id && players[bId].isAlive) {
+            myArmy.push({
+                className: players[bId].className,
+                x: players[bId].x,
+                y: players[bId].y,
+                hp: players[bId].hp,
+                maxHp: players[bId].maxHp,
+                level: players[bId].level
+            });
+        }
+    }
+
     try {
         await pool.query(`
-            INSERT INTO players_save (device_id, class_name, level, exp, score, kill_count, team, is_alive)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO players_save (device_id, class_name, level, exp, score, kill_count, team, is_alive, army_data)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
-            class_name = VALUES(class_name), level = VALUES(level), exp = VALUES(exp), score = VALUES(score), kill_count = VALUES(kill_count), team = VALUES(team), is_alive = VALUES(is_alive)
-        `, [player.deviceId, player.className, player.level, player.exp, player.score, player.killCount, player.team, player.isAlive]);
+            class_name = VALUES(class_name), level = VALUES(level), exp = VALUES(exp), score = VALUES(score), kill_count = VALUES(kill_count), team = VALUES(team), is_alive = VALUES(is_alive), army_data = VALUES(army_data)
+        `, [player.deviceId, player.className, player.level, player.exp, player.score, player.killCount, player.team, player.isAlive, JSON.stringify(myArmy)]);
     } catch (error) {
         console.error("DB Save Error:", error);
     }
@@ -93,12 +115,13 @@ const MAX_PLAYERS = 50;
 const MAX_MONSTERS = 25; 
 let hasKing = false; 
 
-// 직업 기본 스탯 정의
+// 직업 스탯 정의 ('타워' 추가: 이동속도 0, 체력 높음)
 const CLASSES = {
     '번개':   { maxHp: 100, dmg: 40, speed: 20, aoe: false, projSpeed: 40, projLife: 100 }, 
     '광전사': { maxHp: 120, dmg: 25, speed: 10, aoe: false, projSpeed: 15, projLife: 1500 }, 
     '스톤':   { maxHp: 250, dmg: 10, speed: 15, aoe: false, projSpeed: 12, projLife: 1000 }, 
-    '페인터': { maxHp: 80,  dmg: 0,  speed: 8,  aoe: true,  projSpeed: 0,  projLife: 3000 }  
+    '페인터': { maxHp: 80,  dmg: 0,  speed: 8,  aoe: true,  projSpeed: 0,  projLife: 3000 },
+    '타워':   { maxHp: 500, dmg: 30, speed: 0,  aoe: false, projSpeed: 20, projLife: 1000 }  
 };
 
 for(let i=0; i<MAX_MONSTERS; i++) {
@@ -165,7 +188,7 @@ io.on('connection', (socket) => {
             killCount: 0,
             team: 'peace',
             ownerId: null, 
-            targetId: null, // 어그로 대상을 저장할 속성
+            targetId: null, 
             isKing: false,
             isBot: false
         };
@@ -187,6 +210,39 @@ io.on('connection', (socket) => {
                 pInfo.maxHp *= 3;
                 pInfo.hp = pInfo.maxHp;
                 pInfo.dmgMulti *= 2.0;
+            }
+
+            // DB에 저장된 군대 및 타워 복구 로직
+            if (loadedData.army_data) {
+                let savedArmy = [];
+                try {
+                    savedArmy = typeof loadedData.army_data === 'string' ? JSON.parse(loadedData.army_data) : loadedData.army_data;
+                } catch(e) {}
+
+                savedArmy.forEach(bot => {
+                    entityIdCounter++;
+                    const botId = 'bot_restored_' + entityIdCounter;
+                    players[botId] = {
+                        id: botId,
+                        deviceId: 'bot',
+                        className: bot.className,
+                        x: bot.x,
+                        y: bot.y,
+                        hp: bot.hp,
+                        maxHp: bot.maxHp,
+                        dmgMulti: pInfo.dmgMulti, 
+                        dirX: 0, dirY: -1,
+                        score: 0, level: bot.level || 1, exp: 0,
+                        isAlive: true, killCount: 0,
+                        team: pInfo.team,
+                        ownerId: pInfo.id, 
+                        targetId: null,
+                        isKing: false,
+                        isBot: true
+                    };
+                    // 복구된 병사를 다른 사람들의 화면에도 뿌려줍니다.
+                    socket.broadcast.emit('player_join', players[botId]);
+                });
             }
         } else {
             savePlayer(pInfo);
@@ -249,7 +305,6 @@ io.on('connection', (socket) => {
             savePlayer(p);
             io.emit('player_update', p);
 
-            // 내 병사들도 나와 같은 팀으로 일제히 전환
             for(let bId in players) {
                 if(players[bId].isBot && players[bId].ownerId === playerId) {
                     players[bId].team = p.team;
@@ -259,35 +314,78 @@ io.on('connection', (socket) => {
         }
     });
 
+    // 수동 타워 세우기 (-50점)
+    socket.on('build_tower', () => {
+        const p = players[playerId];
+        if(p && p.isAlive && p.team !== 'peace' && p.score >= 50) {
+            p.score -= 50;
+            entityIdCounter++;
+            const towerId = 'tower_' + entityIdCounter;
+            
+            players[towerId] = {
+                id: towerId,
+                deviceId: 'tower',
+                className: '타워',
+                x: p.x, y: p.y,
+                hp: CLASSES['타워'].maxHp, maxHp: CLASSES['타워'].maxHp,
+                dmgMulti: p.dmgMulti,
+                dirX: 0, dirY: -1,
+                score: 0, level: p.level, exp: 0,
+                isAlive: true, killCount: 0,
+                team: p.team,
+                ownerId: playerId, 
+                targetId: null,
+                isKing: false,
+                isBot: true // 타워도 운명 공동체의 일환으로 귀속됨
+            };
+            io.emit('player_join', players[towerId]);
+            io.emit('player_update', p); 
+            savePlayer(p);
+        }
+    });
+
+    // 수동 병사 소환 버튼 (-100점, 최대 30명 제한)
     socket.on('add_bot', () => {
         const p = players[playerId];
         if(!p || !p.isAlive) return;
 
-        entityIdCounter++;
-        const botId = 'bot_manual_' + entityIdCounter;
-        
-        const classNames = Object.keys(CLASSES);
-        const randomClass = classNames[Math.floor(Math.random() * classNames.length)];
+        let myArmyCount = 0;
+        for (let bId in players) {
+            if (players[bId].isBot && players[bId].ownerId === playerId && players[bId].className !== '타워' && players[bId].isAlive) {
+                myArmyCount++;
+            }
+        }
 
-        players[botId] = {
-            id: botId,
-            deviceId: 'bot',
-            className: randomClass,
-            x: p.x + (Math.random() * 2 - 1), 
-            y: p.y + (Math.random() * 2 - 1),
-            hp: CLASSES[randomClass].maxHp,
-            maxHp: CLASSES[randomClass].maxHp,
-            dmgMulti: 1.0,
-            dirX: 0, dirY: -1,
-            score: 0, level: 1, exp: 0,
-            isAlive: true, killCount: 0,
-            team: p.team, 
-            ownerId: playerId, 
-            targetId: null, // 어그로 타겟 추가
-            isKing: false,
-            isBot: true
-        };
-        io.emit('player_join', players[botId]);
+        if (p.score >= 100 && myArmyCount < 30) {
+            p.score -= 100;
+            entityIdCounter++;
+            const botId = 'bot_manual_' + entityIdCounter;
+            
+            const classNames = ['번개', '광전사', '스톤', '페인터'];
+            const randomClass = classNames[Math.floor(Math.random() * classNames.length)];
+
+            players[botId] = {
+                id: botId,
+                deviceId: 'bot',
+                className: randomClass,
+                x: p.x + (Math.random() * 2 - 1), 
+                y: p.y + (Math.random() * 2 - 1),
+                hp: CLASSES[randomClass].maxHp,
+                maxHp: CLASSES[randomClass].maxHp,
+                dmgMulti: 1.0,
+                dirX: 0, dirY: -1,
+                score: 0, level: 1, exp: 0,
+                isAlive: true, killCount: 0,
+                team: p.team, 
+                ownerId: playerId, 
+                targetId: null, 
+                isKing: false,
+                isBot: true
+            };
+            io.emit('player_join', players[botId]);
+            io.emit('player_update', p);
+            savePlayer(p);
+        }
     });
 
     socket.on('throw', (data) => {
@@ -326,9 +424,11 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         if (players[playerId]) {
             if(players[playerId].isKing) hasKing = false; 
+            
+            // 로그아웃(접속 끊김)시 데이터베이스에 나와 내 군대를 저장합니다.
             savePlayer(players[playerId]);
             
-            // 본체가 나갔으므로 군대도 운명 공동체로 함께 증발
+            // 저장 후 맵에서 내 군대와 타워를 완전히 삭제합니다.
             for(let bId in players) {
                 if(players[bId].isBot && players[bId].ownerId === playerId) {
                     io.emit('player_leave', bId);
@@ -336,6 +436,7 @@ io.on('connection', (socket) => {
                 }
             }
 
+            // 본체 캐릭터도 삭제
             delete players[playerId];
             io.emit('player_leave', playerId);
         }
@@ -395,20 +496,50 @@ function createBot(victimPlayer, ownerTeam, ownerId) {
         isAlive: true, killCount: 0,
         team: ownerTeam,
         ownerId: ownerId, 
-        targetId: null, // 어그로 타겟
+        targetId: null, 
         isKing: false,
         isBot: true
     };
     io.emit('player_join', players[botId]);
 }
 
-// 군대 어그로 호출 함수: 주인이 맞으면 해당 주인의 병사들에게 공격자 타겟을 지정
+function createAutoArmy(ownerId) {
+    let p = players[ownerId];
+    if(!p || !p.isAlive) return;
+
+    entityIdCounter++;
+    const botId = 'bot_auto_' + entityIdCounter;
+    
+    const classNames = ['번개', '광전사', '스톤', '페인터'];
+    const randomClass = classNames[Math.floor(Math.random() * classNames.length)];
+
+    players[botId] = {
+        id: botId,
+        deviceId: 'bot',
+        className: randomClass,
+        x: Math.random() * 40 - 20, // 맵 전역 랜덤 생성
+        y: Math.random() * 40 - 20,
+        hp: CLASSES[randomClass].maxHp,
+        maxHp: CLASSES[randomClass].maxHp,
+        dmgMulti: 1.0,
+        dirX: 0, dirY: -1,
+        score: 0, level: 1, exp: 0,
+        isAlive: true, killCount: 0,
+        team: p.team, 
+        ownerId: ownerId, 
+        targetId: null,
+        isKing: false,
+        isBot: true
+    };
+    io.emit('player_join', players[botId]);
+}
+
 function alertArmy(ownerId, attackerId) {
-    if (ownerId === attackerId) return; // 자해나 오발탄은 무시
+    if (ownerId === attackerId) return; 
     for (let bId in players) {
         let p = players[bId];
         if (p.isBot && p.ownerId === ownerId && p.isAlive) {
-            p.targetId = attackerId; // 나를 때린 놈을 기억!
+            p.targetId = attackerId; 
         }
     }
 }
@@ -428,6 +559,31 @@ setInterval(() => {
         }
     }
 
+    // [자동 소환] 점수가 100점 오를 때마다 최대 30명까지 자동 소환
+    for (let pId in players) {
+        let p = players[pId];
+        if (!p.isBot && p.isAlive) {
+            let myArmyCount = 0;
+            for (let bId in players) {
+                if (players[bId].isBot && players[bId].ownerId === pId && players[bId].className !== '타워' && players[bId].isAlive) {
+                    myArmyCount++;
+                }
+            }
+            
+            let spawned = false;
+            while (p.score >= 100 && myArmyCount < 30) {
+                p.score -= 100;
+                createAutoArmy(pId);
+                myArmyCount++;
+                spawned = true;
+            }
+            if(spawned) {
+                io.emit('player_update', p);
+                savePlayer(p);
+            }
+        }
+    }
+
     updateBots();
 
     if(tickCounter % 15 === 0) handleAoeDamage();
@@ -442,40 +598,58 @@ function updateBots() {
             let target = null;
             let minDist = 9999;
 
-            // 1순위: 주인을 때린 적이 있고 살아있다면 그놈부터 최우선 공격
             if (p.targetId && players[p.targetId] && players[p.targetId].isAlive) {
                 target = players[p.targetId];
             } else {
-                p.targetId = null; // 복수 대상이 죽었거나 없으면 리셋
+                p.targetId = null;
                 
-                // 2순위: 주변의 가장 가까운 몬스터 사냥
-                for (let mId in monsters) {
-                    if (!monsters[mId].isAlive) continue;
-                    let dist = Math.hypot(p.x - monsters[mId].x, p.y - monsters[mId].y);
-                    if (dist < minDist) { minDist = dist; target = monsters[mId]; }
+                if (p.team !== 'peace') {
+                    for (let eId in players) {
+                        let enemy = players[eId];
+                        if (enemy.isAlive && enemy.team !== 'peace' && enemy.team !== p.team) {
+                            let dist = Math.hypot(p.x - enemy.x, p.y - enemy.y);
+                            let rangeLimit = (p.className === '타워') ? 15 : 9999;
+                            if (dist < minDist && dist <= rangeLimit) {
+                                minDist = dist;
+                                target = enemy;
+                            }
+                        }
+                    }
+                }
+
+                if (!target) {
+                    for (let mId in monsters) {
+                        if (!monsters[mId].isAlive) continue;
+                        let dist = Math.hypot(p.x - monsters[mId].x, p.y - monsters[mId].y);
+                        let rangeLimit = (p.className === '타워') ? 15 : 9999;
+                        if (dist < minDist && dist <= rangeLimit) { 
+                            minDist = dist; 
+                            target = monsters[mId]; 
+                        }
+                    }
                 }
             }
 
             if (target) {
-                // 타겟이 있으면 돌격 및 공격
                 let dx = target.x - p.x;
                 let dy = target.y - p.y;
                 let mag = Math.hypot(dx, dy);
                 if (mag > 0) {
                     p.dirX = dx / mag; p.dirY = dy / mag;
                 }
+                
                 p.x += p.dirX * (CLASSES[p.className].speed / 100);
                 p.y += p.dirY * (CLASSES[p.className].speed / 100);
 
-                if (Math.random() < 0.05) executeThrow(id);
-            } else {
-                // 3순위: 타겟도 없고 몬스터도 없으면 주인 곁으로 호위 복귀
+                let throwChance = (p.className === '타워') ? 0.1 : 0.05;
+                if (Math.random() < throwChance) executeThrow(id);
+                
+            } else if (p.className !== '타워') {
                 if (p.ownerId && players[p.ownerId] && players[p.ownerId].isAlive) {
                     let owner = players[p.ownerId];
                     let dx = owner.x - p.x;
                     let dy = owner.y - p.y;
                     let mag = Math.hypot(dx, dy);
-                    // 주인이 너무 멀어지면 따라감
                     if (mag > 2.0) { 
                         p.dirX = dx / mag; p.dirY = dy / mag;
                         p.x += p.dirX * (CLASSES[p.className].speed / 100);
@@ -522,7 +696,15 @@ function handleCollisions() {
                 mob.hp -= axe.dmg;
                 if(mob.hp <= 0) {
                     mob.isAlive = false; delete monsters[mId]; io.emit('monster_die', mId);
-                    giveExp(owner, 20); spawnMonster(); io.emit('monster_spawn', monsters['monster_' + entityIdCounter]);
+                    
+                    // 몬스터 사냥 시 본체에 10점 획득
+                    let realOwner = (owner.isBot && owner.ownerId && players[owner.ownerId]) ? players[owner.ownerId] : owner;
+                    realOwner.score += 10;
+                    io.emit('player_update', realOwner);
+
+                    giveExp(owner, 20); 
+                    spawnMonster(); 
+                    io.emit('monster_spawn', monsters['monster_' + entityIdCounter]);
                 } else {
                     io.emit('monster_hit', { id: mId, hp: mob.hp });
                 }
@@ -543,7 +725,6 @@ function handleCollisions() {
                 target.hp -= axe.dmg;
                 io.emit('player_hit', { id: targetId, hp: target.hp });
 
-                // [추가] 내가 맞으면 내 병사들에게 공격자를 타겟으로 지정하여 돕게 만듦
                 alertArmy(targetId, axe.ownerId);
 
                 destroyAxe(axeId);
@@ -571,6 +752,11 @@ function handleAoeDamage() {
                 mob.hp -= (mob.maxHp * 0.1); 
                 if(mob.hp <= 0) {
                     mob.isAlive = false; delete monsters[mId]; io.emit('monster_die', mId);
+                    
+                    let realOwner = (owner.isBot && owner.ownerId && players[owner.ownerId]) ? players[owner.ownerId] : owner;
+                    realOwner.score += 10;
+                    io.emit('player_update', realOwner);
+
                     giveExp(owner, 20); spawnMonster(); io.emit('monster_spawn', monsters['monster_' + entityIdCounter]);
                 } else { io.emit('monster_hit', { id: mId, hp: mob.hp }); }
             }
@@ -587,7 +773,6 @@ function handleAoeDamage() {
                 target.hp -= (target.maxHp * 0.05 * owner.dmgMulti); 
                 io.emit('player_hit', { id: targetId, hp: target.hp });
 
-                // [추가] 내가 맞으면 내 병사들에게 공격자를 타겟으로 지정하여 돕게 만듦
                 alertArmy(targetId, aoe.ownerId);
 
                 if(target.hp <= 0) {
@@ -616,13 +801,8 @@ function handlePlayerDeath(target, targetId, owner, attackerId) {
     }
 
     target.level = 1; target.exp = 0; target.score = 0; target.killCount = 0; target.team = 'peace'; target.isKing = false; target.targetId = null;
-    savePlayer(target);
-    savePlayer(realKiller);
-
-    io.emit('player_update', target);
-    io.emit('player_die', { victimId: targetId, attackerId: attackerId, stolen: stolen });
-
-    // [운명 공동체 로직] 죽은 타겟이 거느리던 군대(병사들)도 즉각 동반 폭사 처리
+    
+    // 타겟이 죽으면 병사들도 일제히 삭제하므로 DB에 빈 군대 목록을 저장하도록 순서를 조정합니다.
     for(let bId in players) {
         if(players[bId].isBot && players[bId].ownerId === targetId) {
             players[bId].isAlive = false;
@@ -630,6 +810,12 @@ function handlePlayerDeath(target, targetId, owner, attackerId) {
             delete players[bId];
         }
     }
+
+    savePlayer(target);
+    savePlayer(realKiller);
+
+    io.emit('player_update', target);
+    io.emit('player_die', { victimId: targetId, attackerId: attackerId, stolen: stolen });
 }
 
 function destroyAxe(axeId) {
