@@ -75,8 +75,28 @@ mergeInto(LibraryManager.library, {
                 SendMessage('GameManager', 'OnMonsterHit', JSON.stringify(data));
             });
 
-            window.socket.on("monster_die", function (mId) {
-                SendMessage('GameManager', 'OnMonsterDie', mId);
+            window.socket.on("monster_die", function (data) {
+                SendMessage('GameManager', 'OnMonsterDie', JSON.stringify(data));
+            });
+
+            window.socket.on("drop_spawn", function (data) {
+                SendMessage('GameManager', 'OnDropSpawn', JSON.stringify(data));
+            });
+
+            window.socket.on("drop_destroy", function (dropId) {
+                SendMessage('GameManager', 'OnDropDestroy', dropId);
+            });
+
+            window.socket.on("level_up", function (data) {
+                SendMessage('GameManager', 'OnLevelUp', JSON.stringify(data));
+            });
+
+            window.socket.on("pk_alert", function (data) {
+                SendMessage('GameManager', 'OnPkAlert', JSON.stringify(data));
+            });
+
+            window.socket.on("chaotic_death_penalty", function (data) {
+                SendMessage('GameManager', 'OnChaoticDeathPenalty', JSON.stringify(data));
             });
         }
     },
