@@ -41,6 +41,25 @@
     .diamond { color:#44aaff; }
     .gold { color:#ffd700; }
 
+    /* 전투 로그 */
+    #combat-log { position:absolute; bottom:52px; right:10px; width:300px; max-height:150px; overflow-y:auto; z-index:15; display:none; font-size:11px; color:#ccc; background:rgba(0,0,0,0.5); border-radius:6px; padding:6px; }
+    #combat-log.show { display:block; }
+    #combat-log div { padding:1px 0; border-bottom:1px solid rgba(255,255,255,0.05); }
+    .log-crit { color:#ff4444; font-weight:bold; }
+    .log-gold { color:#ffd700; }
+    .log-lvl { color:#44ff44; font-weight:bold; }
+    .log-morph { color:#aa44ff; font-weight:bold; }
+
+    /* 서버 공지 */
+    #server-msg { position:absolute; top:50px; left:50%; transform:translateX(-50%); z-index:30; display:none; padding:12px 30px; border-radius:8px; font-size:18px; font-weight:bold; text-shadow:2px 2px 4px #000; animation:msgPulse 0.5s ease; }
+    #server-msg.boss { background:rgba(180,0,0,0.9); color:#ffd700; border:2px solid #ffd700; }
+    #server-msg.morph { background:rgba(100,0,180,0.9); color:#fff; border:2px solid #aa44ff; }
+    #server-msg.rare { background:rgba(0,100,180,0.9); color:#fff; border:2px solid #44aaff; }
+    #server-msg.danger { background:rgba(180,0,0,0.9); color:#fff; border:2px solid #ff4444; }
+    #server-msg.normal { background:rgba(0,0,0,0.8); color:#ccc; border:1px solid #555; }
+    #server-msg.show { display:block; }
+    @keyframes msgPulse { 0%{transform:translateX(-50%) scale(0.8);opacity:0} 100%{transform:translateX(-50%) scale(1);opacity:1} }
+
     /* 사운드 컨트롤 */
     #sound-btn { position:absolute; top:10px; left:10px; z-index:16; background:rgba(0,0,0,0.6); border:1px solid #555; color:#fff; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:12px; }
     #sound-btn:hover { background:rgba(255,255,255,0.2); }
@@ -112,7 +131,8 @@
       <button class="tab" onclick="togglePanel('units')">유닛</button>
       <button class="tab" onclick="togglePanel('quests')">퀘스트</button>
       <button class="tab" onclick="togglePanel('ranking')">랭킹</button>
-      <button class="tab" onclick="claimDaily()">일일보상</button>
+      <button class="tab" onclick="togglePanel('morph')">변신</button>
+      <button class="tab" onclick="claimDaily()">보상</button>
     </div>
 
     <!-- 화폐 표시 -->
@@ -121,8 +141,15 @@
       <span class="gold">Gold: <b id="gold-val">0</b>G</span>
     </div>
 
-    <!-- 사운드 -->
+    <!-- 사운드 + 자동물약 -->
     <button id="sound-btn" onclick="toggleSound()">Sound: OFF</button>
+    <button id="sound-btn" style="top:40px" onclick="toggleAutoPotion()">AutoPotion: OFF</button>
+
+    <!-- 전투 로그 -->
+    <div id="combat-log"></div>
+
+    <!-- 서버 공지 -->
+    <div id="server-msg"></div>
 
     <!-- 미니맵 -->
     <div id="minimap-container">
@@ -161,6 +188,18 @@
     <div class="panel" id="panel-quests">
       <div class="panel-header"><h2>퀘스트</h2><button class="panel-close" onclick="closePanel('quests')">X</button></div>
       <div class="panel-body" id="quests-body"><p style="color:#888">로딩 중...</p></div>
+    </div>
+
+    <!-- 변신 패널 -->
+    <div class="panel" id="panel-morph">
+      <div class="panel-header"><h2>변신 (Morph)</h2><button class="panel-close" onclick="closePanel('morph')">X</button></div>
+      <div class="panel-body" id="morph-body">
+        <p style="color:#aaa;margin-bottom:10px">몬스터를 처치하여 변신 게이지를 채우세요!</p>
+        <div class="panel-item"><span class="name">슬라임 변신<br><small style="color:#88cc88">HP+50, SPD+3 (2분)</small></span><button onclick="doMorph('slime')">30킬 필요</button></div>
+        <div class="panel-item"><span class="name">오크 변신<br><small style="color:#ccaa44">ATK+15, DEF+10 (2분)</small></span><button onclick="doMorph('orc')">20킬 필요</button></div>
+        <div class="panel-item"><span class="name">다크나이트 변신<br><small style="color:#aa44cc">ATK+25, CRIT+10% (1.5분)</small></span><button onclick="doMorph('darkknight')">15킬 필요</button></div>
+        <div class="panel-item"><span class="name" style="color:#ff4444">드래곤 변신<br><small>ATK+40, HP+200, DEF+20 (1분)</small></span><button onclick="doMorph('dragon')">5킬 필요</button></div>
+      </div>
     </div>
 
     <!-- 랭킹 패널 -->
@@ -227,6 +266,8 @@
       bottomBar.classList.add("show");
       currencyBar.classList.add("show");
       minimapContainer.classList.add("show");
+      document.getElementById('combat-log').classList.add("show");
+      addCombatLog(className + ' 클래스로 게임 시작!', 'log-lvl');
       // Unity에 init_request 전송
       window.socket.emit('init_request', JSON.stringify({ className, deviceId }));
     }
@@ -257,6 +298,24 @@
       window.socket.on('level_up', (d) => { playSFX('levelup'); });
       window.socket.on('player_die', (d) => { if(d.victimId === myPlayerId) playSFX('die'); });
       window.socket.on('drop_spawn', () => { playSFX('gold'); });
+
+      // 전투 로그
+      window.socket.on('combat_log', (d) => { addCombatLog(d.msg, 'normal'); });
+      window.socket.on('monster_die', (d) => { if(typeof d === 'object') addCombatLog(d.tier+' 처치!', 'log-gold'); });
+
+      // 서버 공지
+      window.socket.on('server_msg', (d) => { showServerMsg(d.msg, d.type); });
+
+      // 변신 결과
+      window.socket.on('morph_result', (d) => { showToast(d.msg); if(d.success) playSFX('levelup'); });
+
+      // 강화 결과
+      window.socket.on('enchant_result', (d) => { showToast(d.msg); playSFX(d.success ? 'levelup' : 'die'); });
+
+      // 자동 물약 상태
+      window.socket.on('auto_potion_status', (d) => {
+        document.querySelectorAll('#sound-btn')[1].textContent = 'AutoPotion: ' + (d.enabled ? 'ON' : 'OFF');
+      });
 
       window.socket.on('inventory_data', renderInventory);
       window.socket.on('market_data', renderMarket);
@@ -567,6 +626,29 @@
           osc.start(); osc.stop(audioCtx.currentTime + 0.15);
           break;
       }
+    }
+
+    function doMorph(type) { window.socket.emit('morph', type); }
+    function toggleAutoPotion() { window.socket.emit('toggle_auto_potion','{}'); }
+
+    // 전투 로그
+    function addCombatLog(msg, cls) {
+      var log = document.getElementById('combat-log');
+      var div = document.createElement('div');
+      div.className = cls || '';
+      div.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+      log.appendChild(div);
+      if (log.children.length > 50) log.removeChild(log.firstChild);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    // 서버 공지
+    function showServerMsg(msg, type) {
+      var el = document.getElementById('server-msg');
+      el.textContent = msg;
+      el.className = (type || 'normal') + ' show';
+      addCombatLog('[공지] ' + msg, 'log-morph');
+      setTimeout(() => { el.classList.remove('show'); }, 5000);
     }
 
     function showToast(msg) {

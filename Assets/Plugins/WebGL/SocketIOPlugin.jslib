@@ -150,6 +150,22 @@ mergeInto(LibraryManager.library, {
             window.socket.on("ranking_data", function (data) {
                 SendMessage('GameManager', 'OnRankingData', JSON.stringify(data));
             });
+
+            window.socket.on("morph_result", function (data) {
+                // HTML에서 처리
+            });
+
+            window.socket.on("enchant_result", function (data) {
+                // HTML에서 처리
+            });
+
+            window.socket.on("server_msg", function (data) {
+                // HTML에서 처리
+            });
+
+            window.socket.on("combat_log", function (data) {
+                // HTML에서 처리
+            });
         }
     },
 

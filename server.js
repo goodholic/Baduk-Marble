@@ -1062,6 +1062,103 @@ io.on('connection', (socket) => {
         socket.emit('ranking_data', rankings);
     });
 
+    // ── 변신(Morph) 시스템 ──
+    socket.on('morph', (morphType) => {
+        const p = players[playerId];
+        if (!p || !p.isAlive) return;
+        if (!p.morphKills) p.morphKills = {};
+
+        const MORPHS = {
+            slime:    { need: 30,  bonus: { maxHp: 50, speed: 3 }, name: '슬라임 변신', duration: 120 },
+            orc:      { need: 20,  bonus: { atk: 15, def: 10 }, name: '오크 변신', duration: 120 },
+            darkknight:{ need: 15, bonus: { atk: 25, critRate: 0.1 }, name: '다크나이트 변신', duration: 90 },
+            dragon:   { need: 5,   bonus: { atk: 40, maxHp: 200, def: 20 }, name: '드래곤 변신', duration: 60 },
+        };
+
+        const morph = MORPHS[morphType];
+        if (!morph) return;
+        if ((p.morphKills[morphType] || 0) < morph.need) {
+            socket.emit('morph_result', { success: false, msg: `${morph.name} 필요 처치 수: ${p.morphKills[morphType]||0}/${morph.need}` });
+            return;
+        }
+
+        p.morphKills[morphType] -= morph.need;
+        p.activeMorph = morphType;
+        if (morph.bonus.atk) p.atk += morph.bonus.atk;
+        if (morph.bonus.def) p.def += morph.bonus.def;
+        if (morph.bonus.maxHp) { p.maxHp += morph.bonus.maxHp; p.hp = p.maxHp; }
+        if (morph.bonus.critRate) p.critRate += morph.bonus.critRate;
+        if (morph.bonus.speed) p.speed = (CLASSES[p.className]?.speed || 10) + morph.bonus.speed;
+
+        io.emit('server_msg', { msg: `${p.displayName}이(가) ${morph.name}!`, type: 'morph' });
+        socket.emit('morph_result', { success: true, msg: `${morph.name} 활성화! (${morph.duration}초)` });
+        io.emit('player_update', p);
+
+        // 변신 해제 타이머
+        setTimeout(() => {
+            if (!players[playerId]) return;
+            const pp = players[playerId];
+            pp.activeMorph = null;
+            recalcStats(pp);
+            pp.hp = Math.min(pp.hp, pp.maxHp);
+            io.emit('player_update', pp);
+            io.to(playerId).emit('morph_result', { success: true, msg: '변신 해제됨' });
+        }, morph.duration * 1000);
+    });
+
+    // ── 장비 강화 ──
+    socket.on('enchant_item', (itemId) => {
+        const p = players[playerId];
+        if (!p) return;
+        if (!p.equipped) p.equipped = {};
+
+        const eq = EQUIP_STATS[itemId];
+        if (!eq) { socket.emit('enchant_result', { success: false, msg: '강화 불가' }); return; }
+
+        if (!p.enchantLevels) p.enchantLevels = {};
+        const curLevel = p.enchantLevels[itemId] || 0;
+        if (curLevel >= 10) { socket.emit('enchant_result', { success: false, msg: '최대 강화(+10)' }); return; }
+
+        // 강화 비용
+        const cost = (curLevel + 1) * 200;
+        if (p.gold < cost) { socket.emit('enchant_result', { success: false, msg: `골드 부족 (${cost}G 필요)` }); return; }
+        p.gold -= cost;
+
+        // 성공 확률
+        const rates = [100,100,100,90,80,70,60,50,40,30]; // +1~+10
+        const rate = rates[curLevel] || 30;
+        const roll = Math.random() * 100;
+
+        if (roll < rate) {
+            p.enchantLevels[itemId] = curLevel + 1;
+            recalcStats(p);
+            io.emit('server_msg', { msg: `${p.displayName}: ${eq.name} +${curLevel+1} 강화 성공!`, type: curLevel >= 6 ? 'rare' : 'normal' });
+            socket.emit('enchant_result', { success: true, msg: `${eq.name} +${curLevel+1} 성공! (${rate}%)` });
+        } else if (curLevel >= 7) {
+            // +8 이상 실패 시 파괴
+            delete p.enchantLevels[itemId];
+            if (p.equipped) {
+                for (const slot of EQUIPMENT_SLOTS) { if (p.equipped[slot] === itemId) delete p.equipped[slot]; }
+            }
+            recalcStats(p);
+            io.emit('server_msg', { msg: `${p.displayName}: ${eq.name} 강화 실패! 장비 파괴!`, type: 'danger' });
+            socket.emit('enchant_result', { success: false, msg: `${eq.name} 파괴됨!!! (${rate}% 실패)` });
+        } else {
+            socket.emit('enchant_result', { success: false, msg: `강화 실패 (${rate}%) — 등급 유지` });
+        }
+
+        savePlayer(p);
+        io.emit('player_update', p);
+    });
+
+    // ── 자동 물약 토글 ──
+    socket.on('toggle_auto_potion', () => {
+        const p = players[playerId];
+        if (!p) return;
+        p.autoPotion = !p.autoPotion;
+        socket.emit('auto_potion_status', { enabled: p.autoPotion });
+    });
+
     socket.on('disconnect', () => {
         if (players[playerId]) {
             if (players[playerId].isKing) hasKing = false;
@@ -1230,7 +1327,21 @@ setInterval(() => {
             if (p.isAlive && p.hp < p.maxHp) {
                 p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.02);
             }
+            // 자동 물약 (HP 30% 이하 시)
+            if (p.isAlive && p.autoPotion && !p.isBot && p.hp < p.maxHp * 0.3) {
+                if (p.inventory && p.inventory['pot_hp_s'] > 0) {
+                    p.inventory['pot_hp_s']--;
+                    if (p.inventory['pot_hp_s'] <= 0) delete p.inventory['pot_hp_s'];
+                    p.hp = Math.min(p.maxHp, p.hp + 100);
+                    io.to(pId).emit('combat_log', { msg: '자동 물약 사용! HP +100' });
+                }
+            }
         }
+    }
+
+    // 월드 보스 알림 (5분마다)
+    if (tickCounter % (30 * 300) === 0 && tickCounter > 0) {
+        io.emit('server_msg', { msg: '강력한 보스가 드래곤 둥지에 출현했습니다!', type: 'boss' });
     }
 
     // 카르마 자연 감소 (매 분)
@@ -1444,6 +1555,13 @@ function handleCollisions() {
 
                     realOwner.gold += tier.goldReward;
                     giveExp(owner, tier.expReward);
+
+                    // 변신 처치 카운트
+                    if (!realOwner.morphKills) realOwner.morphKills = {};
+                    if (mob.tier === 'normal') realOwner.morphKills['slime'] = (realOwner.morphKills['slime']||0) + 1;
+                    if (mob.tier === 'elite') realOwner.morphKills['orc'] = (realOwner.morphKills['orc']||0) + 1;
+                    if (mob.tier === 'rare') realOwner.morphKills['darkknight'] = (realOwner.morphKills['darkknight']||0) + 1;
+                    if (mob.tier === 'boss') realOwner.morphKills['dragon'] = (realOwner.morphKills['dragon']||0) + 1;
 
                     // 퀘스트 추적
                     trackQuest(realOwner, 'kill_monster', 1);
