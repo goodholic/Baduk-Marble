@@ -124,6 +124,43 @@ function getZone(x, y) {
 }
 
 // ==========================================
+// BM 상점 시스템 (프리미엄 화폐: 다이아몬드)
+// ==========================================
+const SHOP_ITEMS = {
+    // 소모품
+    'exp_boost':     { name:'경험치 2배 부스터', price:50,  currency:'diamond', effect:'exp_boost', value:2, duration:300, desc:'5분간 EXP 2배' },
+    'gold_boost':    { name:'골드 2배 부스터',   price:50,  currency:'diamond', effect:'gold_boost', value:2, duration:300, desc:'5분간 골드 2배' },
+    'hp_potion_big': { name:'상급 HP 물약 x10',  price:30,  currency:'diamond', effect:'hp_potion', value:800, count:10, desc:'HP 800 즉시 회복' },
+    'revive_scroll': { name:'부활 주문서 x3',    price:80,  currency:'diamond', effect:'revive', count:3, desc:'현재 위치에서 즉시 부활' },
+    'protect_scroll':{ name:'강화 보호 주문서',  price:100, currency:'diamond', effect:'protect', count:1, desc:'강화 실패 시 파괴 방지' },
+    // 편의
+    'inventory_expand':{ name:'용병 슬롯 +5',   price:200, currency:'diamond', effect:'army_expand', value:5, desc:'최대 용병 수 +5 (영구)' },
+    'auto_loot_range': { name:'루팅 범위 확대',  price:150, currency:'diamond', effect:'loot_range', value:2, duration:3600, desc:'1시간 루팅 범위 2배' },
+    // 코스메틱
+    'skin_golden':   { name:'황금 오라 스킨',    price:300, currency:'diamond', effect:'skin', value:'golden', desc:'캐릭터 황금빛 이펙트 (영구)' },
+    'skin_shadow':   { name:'그림자 스킨',       price:300, currency:'diamond', effect:'skin', value:'shadow', desc:'캐릭터 어둠 이펙트 (영구)' },
+    'skin_flame':    { name:'화염 스킨',         price:500, currency:'diamond', effect:'skin', value:'flame', desc:'캐릭터 불꽃 이펙트 (영구)' },
+    // 골드로 구매
+    'hp_potion_s':   { name:'하급 HP 물약 x10',  price:100, currency:'gold', effect:'hp_potion', value:100, count:10, desc:'HP 100 즉시 회복' },
+    'hp_potion_m':   { name:'중급 HP 물약 x10',  price:300, currency:'gold', effect:'hp_potion', value:300, count:10, desc:'HP 300 즉시 회복' },
+    'atk_boost':     { name:'공격 부스터',       price:500, currency:'gold', effect:'atk_boost', value:1.3, duration:60, desc:'1분간 ATK 30% 증가' },
+    'def_boost':     { name:'방어 부스터',       price:500, currency:'gold', effect:'def_boost', value:1.3, duration:60, desc:'1분간 DEF 30% 증가' },
+    'town_scroll':   { name:'귀환 주문서',       price:200, currency:'gold', effect:'teleport', value:'village', desc:'마을로 즉시 귀환' },
+};
+
+// 다이아몬드 무료 획득 방법
+const FREE_DIAMOND_SOURCES = {
+    daily_login: 10,        // 매일 접속: 10 다이아
+    first_boss_kill: 50,    // 첫 보스 처치: 50 다이아
+    level_10: 30,           // Lv.10 달성: 30 다이아
+    level_20: 50,           // Lv.20 달성: 50 다이아
+    level_30: 100,          // Lv.30 달성: 100 다이아
+    pvp_10_wins: 30,        // PvP 10승: 30 다이아
+    pvp_100_wins: 100,      // PvP 100승: 100 다이아
+    weekly_quest: 50,       // 주간 퀘스트 완료: 50 다이아
+};
+
+// ==========================================
 // 게임 상수 & 클래스 정의 (리니지 라이크)
 // ==========================================
 
@@ -335,6 +372,7 @@ io.on('connection', (socket) => {
             dmgMulti: 1.0,
             dirX: 0, dirY: -1,
             gold: 0,
+            diamonds: 100, // 신규 유저 보너스
             level: 1,
             exp: 0,
             isAlive: true,
@@ -345,6 +383,9 @@ io.on('connection', (socket) => {
             targetId: null,
             isKing: false,
             isBot: false,
+            skins: [],
+            activeSkin: null,
+            maxArmy: 30,
             lastHpRegen: Date.now(),
             autoSkillCooldown: 0
         };
@@ -594,6 +635,106 @@ io.on('connection', (socket) => {
             savePlayer(p);
             io.emit('player_respawn', p);
         }
+    });
+
+    // ── 상점 구매 ──
+    socket.on('shop_buy', (itemId) => {
+        const p = players[playerId];
+        if (!p || !p.isAlive) return;
+
+        const item = SHOP_ITEMS[itemId];
+        if (!item) return;
+
+        // 화폐 확인 & 차감
+        if (item.currency === 'diamond') {
+            if ((p.diamonds || 0) < item.price) {
+                socket.emit('shop_result', { success: false, msg: '다이아몬드가 부족합니다' });
+                return;
+            }
+            p.diamonds -= item.price;
+        } else {
+            if (p.gold < item.price) {
+                socket.emit('shop_result', { success: false, msg: '골드가 부족합니다' });
+                return;
+            }
+            p.gold -= item.price;
+        }
+
+        // 효과 적용
+        let msg = `${item.name} 구매 완료!`;
+        switch (item.effect) {
+            case 'exp_boost':
+                p.expBoost = (p.expBoost || 1) * item.value;
+                p.expBoostEnd = Date.now() + (item.duration * 1000);
+                msg += ` (${item.duration}초간 EXP x${item.value})`;
+                break;
+            case 'gold_boost':
+                p.goldBoost = (p.goldBoost || 1) * item.value;
+                p.goldBoostEnd = Date.now() + (item.duration * 1000);
+                msg += ` (${item.duration}초간 골드 x${item.value})`;
+                break;
+            case 'hp_potion':
+                p.hp = Math.min(p.maxHp, p.hp + item.value * (item.count || 1));
+                break;
+            case 'army_expand':
+                p.maxArmy = (p.maxArmy || 30) + item.value;
+                msg += ` (최대 용병: ${p.maxArmy}명)`;
+                break;
+            case 'skin':
+                if (!p.skins) p.skins = [];
+                if (!p.skins.includes(item.value)) p.skins.push(item.value);
+                p.activeSkin = item.value;
+                msg += ` (${item.value} 스킨 적용)`;
+                break;
+            case 'teleport':
+                p.x = -20; p.y = -20; // 마을 좌표
+                break;
+            case 'atk_boost':
+                p.dmgMulti *= item.value;
+                setTimeout(() => { if (players[playerId]) players[playerId].dmgMulti /= item.value; }, item.duration * 1000);
+                break;
+            case 'def_boost':
+                p.def = Math.floor(p.def * item.value);
+                const origDef = p.def;
+                setTimeout(() => { if (players[playerId]) players[playerId].def = Math.floor(origDef / item.value); }, item.duration * 1000);
+                break;
+        }
+
+        savePlayer(p);
+        socket.emit('shop_result', { success: true, msg, diamonds: p.diamonds || 0, gold: p.gold });
+        io.emit('player_update', p);
+    });
+
+    // ── 상점 목록 요청 ──
+    socket.on('shop_list', () => {
+        const p = players[playerId];
+        socket.emit('shop_list_result', {
+            items: SHOP_ITEMS,
+            diamonds: p?.diamonds || 0,
+            gold: p?.gold || 0,
+            freeSources: FREE_DIAMOND_SOURCES
+        });
+    });
+
+    // ── 일일 보상 수령 ──
+    socket.on('daily_reward', () => {
+        const p = players[playerId];
+        if (!p) return;
+        const today = new Date().toDateString();
+        if (p.lastDailyReward === today) {
+            socket.emit('daily_result', { success: false, msg: '오늘 이미 수령했습니다' });
+            return;
+        }
+        p.lastDailyReward = today;
+        p.diamonds = (p.diamonds || 0) + FREE_DIAMOND_SOURCES.daily_login;
+        p.gold += 500;
+        savePlayer(p);
+        socket.emit('daily_result', {
+            success: true,
+            msg: `일일 보상: 💎${FREE_DIAMOND_SOURCES.daily_login} + 💰500G`,
+            diamonds: p.diamonds,
+            gold: p.gold
+        });
     });
 
     socket.on('disconnect', () => {
@@ -1204,7 +1345,9 @@ function syncGameState() {
                 gold: players[pId].gold,
                 hp: players[pId].hp,
                 karma: players[pId].karma,
-                zone: zone.id
+                zone: zone.id,
+                diamonds: players[pId].diamonds || 0,
+                skin: players[pId].activeSkin
             };
         }
     }

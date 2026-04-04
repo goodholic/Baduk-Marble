@@ -98,6 +98,18 @@ mergeInto(LibraryManager.library, {
             window.socket.on("chaotic_death_penalty", function (data) {
                 SendMessage('GameManager', 'OnChaoticDeathPenalty', JSON.stringify(data));
             });
+
+            window.socket.on("shop_result", function (data) {
+                SendMessage('GameManager', 'OnShopResult', JSON.stringify(data));
+            });
+
+            window.socket.on("shop_list_result", function (data) {
+                SendMessage('GameManager', 'OnShopListResult', JSON.stringify(data));
+            });
+
+            window.socket.on("daily_result", function (data) {
+                SendMessage('GameManager', 'OnDailyResult', JSON.stringify(data));
+            });
         }
     },
 

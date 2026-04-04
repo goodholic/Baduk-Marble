@@ -68,6 +68,11 @@ public class GameManager : MonoBehaviour
     private bool isMyPlayerAlive = false;
     private string currentZone = "";
     private SpriteRenderer bgRenderer;
+    private int myDiamonds = 100;
+    private bool showShop = false;
+    private string shopMsg = "";
+    private float shopMsgTimer = 0;
+    private Vector2 shopScroll = Vector2.zero;
 
     private Vector2 currentDir = new Vector2(0, 1);
 
@@ -356,11 +361,65 @@ public class GameManager : MonoBehaviour
             if (GUI.Button(new Rect(Screen.width - 210, topY, 190, btnH), "🗡 용병 고용 (-150G)"))
                 AddBot();
 
+            // 상점 & 일일보상 버튼
+            if (GUI.Button(new Rect(10, Screen.height - 100, 130, 35), "🏪 상점"))
+                showShop = !showShop;
+            if (GUI.Button(new Rect(10, Screen.height - 60, 130, 35), "🎁 일일 보상"))
+                ClaimDaily();
+
+            // 다이아몬드 표시
+            GUI.Label(new Rect(150, Screen.height - 100, 150, 25), "💎 " + myDiamonds);
+
             // 카르마 표시
             if (players[myId].karma > 0)
             {
                 string karmaStatus = players[myId].karma >= 200 ? "<color=red>⚠ 카오틱</color>" : "<color=yellow>카르마: " + players[myId].karma + "</color>";
                 GUI.Label(new Rect(Screen.width / 2 - 80, topY + btnH + 5, 160, 25), karmaStatus);
+            }
+
+            // 상점 메시지
+            if (shopMsgTimer > 0)
+            {
+                GUI.Box(new Rect(Screen.width / 2 - 150, Screen.height / 2 - 20, 300, 40), shopMsg);
+                shopMsgTimer -= Time.deltaTime;
+            }
+
+            // 상점 창
+            if (showShop) DrawShop();
+        }
+    }
+
+    private void DrawShop()
+    {
+        float w = 400, h = 500;
+        float x = Screen.width / 2 - w / 2, y = Screen.height / 2 - h / 2;
+        GUI.Box(new Rect(x, y, w, h), "🏪 상점 — 💎" + myDiamonds);
+
+        if (GUI.Button(new Rect(x + w - 30, y + 5, 25, 25), "X")) { showShop = false; return; }
+
+        float itemY = y + 35;
+        string[][] shopItems = new string[][] {
+            new string[]{"exp_boost", "EXP 2배 (5분)", "💎50"},
+            new string[]{"gold_boost", "골드 2배 (5분)", "💎50"},
+            new string[]{"hp_potion_big", "상급 HP물약 x10", "💎30"},
+            new string[]{"skin_golden", "황금 오라 스킨", "💎300"},
+            new string[]{"skin_shadow", "그림자 스킨", "💎300"},
+            new string[]{"skin_flame", "화염 스킨", "💎500"},
+            new string[]{"inventory_expand", "용병 슬롯 +5", "💎200"},
+            new string[]{"hp_potion_s", "하급 HP물약 x10", "💰100G"},
+            new string[]{"hp_potion_m", "중급 HP물약 x10", "💰300G"},
+            new string[]{"atk_boost", "공격 부스터 (1분)", "💰500G"},
+            new string[]{"town_scroll", "귀환 주문서", "💰200G"},
+        };
+
+        for (int i = 0; i < shopItems.Length; i++)
+        {
+            float iy = itemY + i * 38;
+            if (iy + 35 > y + h - 10) break;
+            GUI.Label(new Rect(x + 15, iy + 5, 200, 30), shopItems[i][1]);
+            if (GUI.Button(new Rect(x + w - 110, iy, 95, 32), shopItems[i][2]))
+            {
+                BuyItem(shopItems[i][0]);
             }
         }
     }
@@ -577,6 +636,20 @@ public class GameManager : MonoBehaviour
         #endif
     }
 
+    public void BuyItem(string itemId)
+    {
+        #if UNITY_WEBGL && !UNITY_EDITOR
+        SocketEmit("shop_buy", itemId);
+        #endif
+    }
+
+    public void ClaimDaily()
+    {
+        #if UNITY_WEBGL && !UNITY_EDITOR
+        SocketEmit("daily_reward", "{}");
+        #endif
+    }
+
     // ==========================================
     // 서버 이벤트 핸들러
     // ==========================================
@@ -648,6 +721,7 @@ public class GameManager : MonoBehaviour
                 if (pObj["gold"] != null) players[pId].gold = (int)pObj["gold"];
                 if (pObj["hp"] != null) players[pId].hp = (float)pObj["hp"];
                 if (pObj["karma"] != null) players[pId].karma = (int)pObj["karma"];
+                if (pObj["diamonds"] != null && pId == myId) myDiamonds = (int)pObj["diamonds"];
                 if (pId == myId) {
                     UpdateMyUI();
                     // 존 변경 시 배경 업데이트
@@ -846,6 +920,25 @@ public class GameManager : MonoBehaviour
     {
         JObject data = JObject.Parse(jsonStr);
         Debug.Log($"[PK] {data["killerName"]}이(가) PK를 저질렀습니다! 카르마: {data["karma"]}");
+    }
+
+    // ── 상점 결과 ──
+    public void OnShopResult(string jsonStr)
+    {
+        JObject data = JObject.Parse(jsonStr);
+        shopMsg = (string)data["msg"];
+        shopMsgTimer = 3f;
+        if (data["diamonds"] != null) myDiamonds = (int)data["diamonds"];
+    }
+
+    public void OnShopListResult(string jsonStr) { }
+
+    public void OnDailyResult(string jsonStr)
+    {
+        JObject data = JObject.Parse(jsonStr);
+        shopMsg = (string)data["msg"];
+        shopMsgTimer = 3f;
+        if (data["diamonds"] != null) myDiamonds = (int)data["diamonds"];
     }
 
     // ── 카오틱 사망 페널티 알림 ──
