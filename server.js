@@ -333,6 +333,40 @@ const EQUIP_STATS = {
     'equip_ring_1':   { slot:'ring',   name:'힘의 반지', atk:8, def:3, grade:'uncommon' },
 };
 
+// ==========================================
+// 낮/밤 순환 (10분 주기)
+// ==========================================
+const DAY_NIGHT_CYCLE = 600; // 10분 = 600초
+let worldTime = 0; // 0~599
+let isNight = false;
+
+// ==========================================
+// 전직 시스템 (Lv.20)
+// ==========================================
+const CLASS_ADVANCE = {
+    Assassin:  { name: 'ShadowLord',  displayName: '쉐도우로드', bonusAtk: 20, bonusCrit: 0.1, bonusSpeed: 5 },
+    Warrior:   { name: 'Warlord',     displayName: '워로드',     bonusAtk: 15, bonusDef: 15, bonusHp: 100 },
+    Knight:    { name: 'HolyKnight',  displayName: '홀리나이트', bonusDef: 25, bonusHp: 200, bonusDodge: 0.05 },
+    Mage:      { name: 'Archmage',    displayName: '아크메이지', bonusAtk: 30, bonusCrit: 0.15 },
+};
+
+// ==========================================
+// 속성 시스템
+// ==========================================
+const ELEMENTS = ['fire', 'water', 'wind', 'earth'];
+const ELEMENT_BONUS = { fire: 'water', water: 'wind', wind: 'earth', earth: 'fire' }; // 상성
+
+// ==========================================
+// 혈맹(클랜) 시스템
+// ==========================================
+let clans = {}; // { clanName: { leader, members:[], level, exp, emblem } }
+
+// ==========================================
+// 파티 시스템
+// ==========================================
+let parties = {}; // { partyId: { leader, members:[], name } }
+let partyIdCounter = 0;
+
 // 랭킹
 let rankings = { level:[], pvp:[], gold:[] };
 
@@ -605,7 +639,18 @@ io.on('connection', (socket) => {
             skins: [],
             activeSkin: null,
             maxArmy: 30,
-            inventory: { 'pot_hp_s': 5, 'scroll_return': 2 }, // 초보자 지급
+            inventory: { 'pot_hp_s': 5, 'scroll_return': 2 },
+            // 스탯 포인트
+            statPoints: 0,
+            bonusStr: 0, bonusDex: 0, bonusInt: 0, bonusCon: 0,
+            // 속성
+            element: ELEMENTS[Math.floor(Math.random() * 4)],
+            // 전직
+            isAdvanced: false, advancedClass: null,
+            // 혈맹
+            clanName: null,
+            // 파티
+            partyId: null,
             lastHpRegen: Date.now(),
             autoSkillCooldown: 0
         };
@@ -1244,6 +1289,147 @@ io.on('connection', (socket) => {
         socket.emit('auto_potion_status', { enabled: p.autoPotion });
     });
 
+    // ── 스탯 포인트 배분 ──
+    socket.on('add_stat', (stat) => {
+        const p = players[playerId];
+        if (!p || (p.statPoints || 0) <= 0) return;
+        if (!['str','dex','int','con'].includes(stat)) return;
+        p.statPoints--;
+        const key = 'bonus' + stat.charAt(0).toUpperCase() + stat.slice(1);
+        p[key] = (p[key] || 0) + 1;
+        // 스탯 적용
+        if (stat === 'str') p.atk += 2;
+        if (stat === 'dex') { p.critRate += 0.005; p.dodgeRate += 0.003; }
+        if (stat === 'int') p.dmgMulti += 0.02;
+        if (stat === 'con') { p.maxHp += 10; p.hp += 10; }
+        savePlayer(p);
+        socket.emit('stat_result', { success: true, statPoints: p.statPoints, str: p.bonusStr||0, dex: p.bonusDex||0, int: p.bonusInt||0, con: p.bonusCon||0 });
+        io.emit('player_update', p);
+    });
+
+    // ── 전직 (Lv.20) ──
+    socket.on('class_advance', () => {
+        const p = players[playerId];
+        if (!p || p.isAdvanced || p.level < 20) {
+            socket.emit('advance_result', { success: false, msg: p?.isAdvanced ? '이미 전직함' : 'Lv.20 필요' });
+            return;
+        }
+        const adv = CLASS_ADVANCE[p.className];
+        if (!adv) return;
+        p.isAdvanced = true;
+        p.advancedClass = adv.name;
+        p.displayName = adv.displayName;
+        if (adv.bonusAtk) p.atk += adv.bonusAtk;
+        if (adv.bonusDef) p.def += adv.bonusDef;
+        if (adv.bonusHp) { p.maxHp += adv.bonusHp; p.hp = p.maxHp; }
+        if (adv.bonusCrit) p.critRate += adv.bonusCrit;
+        if (adv.bonusSpeed) p.speed = (CLASSES[p.className]?.speed || 10) + adv.bonusSpeed;
+        if (adv.bonusDodge) p.dodgeRate += adv.bonusDodge;
+        savePlayer(p);
+        io.emit('server_msg', { msg: `${p.displayName} 전직! [${adv.displayName}]`, type: 'rare' });
+        socket.emit('advance_result', { success: true, msg: `${adv.displayName}(으)로 전직 완료!` });
+        io.emit('player_update', p);
+    });
+
+    // ── 혈맹(클랜) 생성 ──
+    socket.on('create_clan', (clanName) => {
+        const p = players[playerId];
+        if (!p || p.level < 10) { socket.emit('clan_result', { success: false, msg: 'Lv.10 이상 필요' }); return; }
+        if (p.clanName) { socket.emit('clan_result', { success: false, msg: '이미 혈맹 가입 중' }); return; }
+        if (typeof clanName !== 'string' || clanName.length < 2 || clanName.length > 12) { socket.emit('clan_result', { success: false, msg: '이름 2~12자' }); return; }
+        if (clans[clanName]) { socket.emit('clan_result', { success: false, msg: '이미 존재하는 혈맹' }); return; }
+        if (p.gold < 5000) { socket.emit('clan_result', { success: false, msg: '5000G 필요' }); return; }
+
+        p.gold -= 5000;
+        p.clanName = clanName;
+        clans[clanName] = { leader: playerId, members: [playerId], level: 1, exp: 0 };
+        savePlayer(p);
+        io.emit('server_msg', { msg: `혈맹 [${clanName}] 창설! 군주: ${p.displayName}`, type: 'rare' });
+        socket.emit('clan_result', { success: true, msg: `혈맹 [${clanName}] 창설 완료!` });
+    });
+
+    // ── 혈맹 가입 ──
+    socket.on('join_clan', (clanName) => {
+        const p = players[playerId];
+        if (!p || p.clanName) return;
+        if (!clans[clanName]) { socket.emit('clan_result', { success: false, msg: '존재하지 않는 혈맹' }); return; }
+        if (clans[clanName].members.length >= 20) { socket.emit('clan_result', { success: false, msg: '혈맹 정원 초과' }); return; }
+        p.clanName = clanName;
+        clans[clanName].members.push(playerId);
+        savePlayer(p);
+        socket.emit('clan_result', { success: true, msg: `혈맹 [${clanName}] 가입!` });
+    });
+
+    // ── 혈맹 목록 ──
+    socket.on('get_clans', () => {
+        const list = Object.entries(clans).map(([name, c]) => ({
+            name, memberCount: c.members.length, level: c.level,
+            leader: players[c.leader]?.displayName || '?'
+        }));
+        socket.emit('clan_list', list);
+    });
+
+    // ── 파티 생성 ──
+    socket.on('create_party', () => {
+        const p = players[playerId];
+        if (!p || p.partyId) { socket.emit('party_result', { success: false, msg: '이미 파티 중' }); return; }
+        partyIdCounter++;
+        const pid = 'party_' + partyIdCounter;
+        p.partyId = pid;
+        parties[pid] = { leader: playerId, members: [playerId], name: p.displayName + '의 파티' };
+        socket.emit('party_result', { success: true, msg: '파티 생성!' });
+    });
+
+    // ── 파티 초대 (근처 플레이어 자동) ──
+    socket.on('party_invite_nearby', () => {
+        const p = players[playerId];
+        if (!p || !p.partyId) return;
+        const party = parties[p.partyId];
+        if (!party || party.leader !== playerId) return;
+        if (party.members.length >= 5) { socket.emit('party_result', { success: false, msg: '파티 최대 5명' }); return; }
+
+        for (const pid in players) {
+            const target = players[pid];
+            if (pid === playerId || target.isBot || target.partyId) continue;
+            const dist = Math.hypot(p.x - target.x, p.y - target.y);
+            if (dist < 10) {
+                target.partyId = p.partyId;
+                party.members.push(pid);
+                io.to(pid).emit('party_result', { success: true, msg: `${p.displayName}의 파티에 합류!` });
+                socket.emit('party_result', { success: true, msg: `${target.displayName} 파티 합류!` });
+                break;
+            }
+        }
+    });
+
+    // ── 창고 ──
+    socket.on('warehouse_deposit', (itemId) => {
+        const p = players[playerId];
+        if (!p || !p.inventory || !p.inventory[itemId]) return;
+        if (!p.warehouse) p.warehouse = {};
+        p.inventory[itemId]--;
+        if (p.inventory[itemId] <= 0) delete p.inventory[itemId];
+        p.warehouse[itemId] = (p.warehouse[itemId] || 0) + 1;
+        savePlayer(p);
+        socket.emit('warehouse_data', { warehouse: p.warehouse, inventory: p.inventory });
+    });
+
+    socket.on('warehouse_withdraw', (itemId) => {
+        const p = players[playerId];
+        if (!p || !p.warehouse || !p.warehouse[itemId]) return;
+        if (!p.inventory) p.inventory = {};
+        p.warehouse[itemId]--;
+        if (p.warehouse[itemId] <= 0) delete p.warehouse[itemId];
+        p.inventory[itemId] = (p.inventory[itemId] || 0) + 1;
+        savePlayer(p);
+        socket.emit('warehouse_data', { warehouse: p.warehouse, inventory: p.inventory });
+    });
+
+    socket.on('get_warehouse', () => {
+        const p = players[playerId];
+        socket.emit('warehouse_data', { warehouse: p?.warehouse || {}, inventory: p?.inventory || {} });
+    });
+
     // ── 채팅 ──
     socket.on('chat', (msg) => {
         const p = players[playerId];
@@ -1443,6 +1629,20 @@ setInterval(() => {
         io.emit('server_msg', { msg: '강력한 보스가 드래곤 둥지에 출현했습니다!', type: 'boss' });
     }
 
+    // 낮/밤 순환 (1초마다 체크)
+    if (tickCounter % 30 === 0) {
+        worldTime = Math.floor((Date.now() / 1000) % DAY_NIGHT_CYCLE);
+        const wasNight = isNight;
+        isNight = worldTime > DAY_NIGHT_CYCLE / 2; // 후반 5분 = 밤
+        if (isNight && !wasNight) {
+            io.emit('server_msg', { msg: '밤이 찾아왔습니다... 언데드가 강해집니다!', type: 'danger' });
+            io.emit('day_night', { isNight: true });
+        } else if (!isNight && wasNight) {
+            io.emit('server_msg', { msg: '날이 밝았습니다. 안전한 사냥을!', type: 'normal' });
+            io.emit('day_night', { isNight: false });
+        }
+    }
+
     // 카르마 자연 감소 (매 분)
     if (tickCounter % (30 * 60) === 0) {
         for (let pId in players) {
@@ -1635,8 +1835,14 @@ function giveExp(playerObj, amount) {
         target.hp = target.maxHp;
         target.dmgMulti += 0.08;
 
-        io.emit('level_up', { id: target.id, level: target.level, className: target.displayName });
+        target.statPoints = (target.statPoints || 0) + 3; // 레벨업 시 스탯 3포인트
+        io.emit('level_up', { id: target.id, level: target.level, className: target.displayName, statPoints: target.statPoints });
         trackQuest(target, 'reach_level', 0);
+
+        // Lv.20 전직 알림
+        if (target.level === 20 && !target.isAdvanced) {
+            io.to(target.id).emit('server_msg', { msg: '전직이 가능합니다! 메뉴에서 전직하세요.', type: 'rare' });
+        }
         savePlayer(target);
     }
     io.emit('player_update', target);
@@ -1889,9 +2095,13 @@ function handlePlayerDeath(target, targetId, owner, attackerId) {
         });
     }
 
-    // 사망 리셋
-    target.level = Math.max(1, target.level - (target.karma >= KARMA.CHAOTIC_THRESHOLD ? 1 : 0));
-    target.exp = 0;
+    // 사망 패널티 (리니지 스타일)
+    const expLoss = Math.floor(getExpRequired(target.level) * 0.1); // EXP 10% 손실
+    target.exp = Math.max(0, (target.exp || 0) - expLoss);
+    if (target.karma >= KARMA.CHAOTIC_THRESHOLD) {
+        target.level = Math.max(1, target.level - 1); // 카오틱은 레벨 하락
+        target.exp = 0;
+    }
     target.killCount = 0;
     target.team = 'peace';
     target.isKing = false;
@@ -1950,5 +2160,7 @@ function syncGameState() {
         syncData.monsters[mId] = { x: monsters[mId].x, y: monsters[mId].y };
     }
 
+    syncData.isNight = isNight;
+    syncData.worldTime = worldTime;
     io.volatile.emit('sync', syncData);
 }

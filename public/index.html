@@ -144,6 +144,8 @@
       <button class="tab" onclick="togglePanel('quests')">퀘스트</button>
       <button class="tab" onclick="togglePanel('ranking')">랭킹</button>
       <button class="tab" onclick="togglePanel('morph')">변신</button>
+      <button class="tab" onclick="togglePanel('stats')">스탯</button>
+      <button class="tab" onclick="togglePanel('clan')">혈맹</button>
       <button class="tab" onclick="claimDaily()">보상</button>
     </div>
 
@@ -217,6 +219,38 @@
     <div class="panel" id="panel-quests">
       <div class="panel-header"><h2>퀘스트</h2><button class="panel-close" onclick="closePanel('quests')">X</button></div>
       <div class="panel-body" id="quests-body"><p style="color:#888">로딩 중...</p></div>
+    </div>
+
+    <!-- 스탯 패널 -->
+    <div class="panel" id="panel-stats">
+      <div class="panel-header"><h2>스탯 배분</h2><button class="panel-close" onclick="closePanel('stats')">X</button></div>
+      <div class="panel-body" id="stats-body">
+        <p style="color:#ffd700;margin-bottom:10px">남은 포인트: <b id="stat-points">0</b></p>
+        <div class="panel-item"><span class="name">STR (힘) — ATK +2<br><small style="color:#ff6b6b" id="stat-str">+0</small></span><button onclick="addStat('str')">+</button></div>
+        <div class="panel-item"><span class="name">DEX (민첩) — CRIT/회피<br><small style="color:#ffd700" id="stat-dex">+0</small></span><button onclick="addStat('dex')">+</button></div>
+        <div class="panel-item"><span class="name">INT (지능) — DMG +2%<br><small style="color:#44aaff" id="stat-int">+0</small></span><button onclick="addStat('int')">+</button></div>
+        <div class="panel-item"><span class="name">CON (체력) — HP +10<br><small style="color:#44ff44" id="stat-con">+0</small></span><button onclick="addStat('con')">+</button></div>
+        <div style="margin-top:15px;padding-top:10px;border-top:1px solid #444">
+          <button onclick="classAdvance()" style="width:100%;padding:10px;background:#6c5ce7;border:none;color:#fff;border-radius:6px;font-size:15px;cursor:pointer">전직 (Lv.20 필요)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 혈맹 패널 -->
+    <div class="panel" id="panel-clan">
+      <div class="panel-header"><h2>혈맹</h2><button class="panel-close" onclick="closePanel('clan')">X</button></div>
+      <div class="panel-body" id="clan-body">
+        <div style="margin-bottom:10px">
+          <input id="clan-name-input" type="text" placeholder="혈맹 이름 (2~12자)" maxlength="12" style="padding:8px;width:60%;background:#1a1a2e;border:1px solid #555;color:#fff;border-radius:4px">
+          <button onclick="createClan()" style="padding:8px 16px">창설 (5000G)</button>
+        </div>
+        <div style="margin-bottom:10px">
+          <button onclick="window.socket.emit('get_clans','{}');setTimeout(()=>togglePanel('clan'),100)" style="padding:6px 14px">혈맹 목록 새로고침</button>
+          <button onclick="createParty()" style="padding:6px 14px;margin-left:5px">파티 생성</button>
+          <button onclick="partyInvite()" style="padding:6px 14px;margin-left:5px">근처 초대</button>
+        </div>
+        <div id="clan-list" style="color:#aaa">혈맹 목록을 불러오세요</div>
+      </div>
     </div>
 
     <!-- 변신 패널 -->
@@ -317,6 +351,10 @@
         }
         // 미니맵 업데이트
         updateMinimapData(data);
+        // 낮/밤 적용
+        if (data.isNight !== undefined) {
+          document.getElementById('unity-container').style.filter = data.isNight ? 'brightness(0.6) saturate(0.7)' : 'none';
+        }
       });
 
       window.socket.on('shop_result', (d) => { showToast(d.msg); playSFX('buy'); });
@@ -354,6 +392,41 @@
       window.socket.on('auto_potion_status', (d) => {
         document.querySelectorAll('#sound-btn')[1].textContent = 'AutoPotion: ' + (d.enabled ? 'ON' : 'OFF');
       });
+
+      // 스탯 결과
+      window.socket.on('stat_result', (d) => {
+        document.getElementById('stat-points').textContent = d.statPoints;
+        document.getElementById('stat-str').textContent = '+' + d.str;
+        document.getElementById('stat-dex').textContent = '+' + d.dex;
+        document.getElementById('stat-int').textContent = '+' + d.int;
+        document.getElementById('stat-con').textContent = '+' + d.con;
+      });
+
+      // 전직 결과
+      window.socket.on('advance_result', (d) => { showToast(d.msg); if(d.success) playSFX('levelup'); });
+
+      // 혈맹
+      window.socket.on('clan_result', (d) => showToast(d.msg));
+      window.socket.on('clan_list', (list) => {
+        var el = document.getElementById('clan-list');
+        if (!list.length) { el.innerHTML = '<p style="color:#888">혈맹이 없습니다</p>'; return; }
+        var html = '';
+        list.forEach(c => {
+          html += '<div class="panel-item"><span class="name">['+c.name+'] Lv.'+c.level+'<br><small style="color:#888">군주:'+c.leader+' ('+c.memberCount+'명)</small></span><button onclick="window.socket.emit(\'join_clan\',\''+c.name+'\')">가입</button></div>';
+        });
+        el.innerHTML = html;
+      });
+
+      // 파티
+      window.socket.on('party_result', (d) => showToast(d.msg));
+
+      // 낮/밤
+      window.socket.on('day_night', (d) => {
+        document.getElementById('unity-container').style.filter = d.isNight ? 'brightness(0.6) saturate(0.7)' : 'none';
+      });
+
+      // 창고
+      window.socket.on('warehouse_data', (d) => { showToast('창고 업데이트'); });
 
       window.socket.on('inventory_data', renderInventory);
       window.socket.on('market_data', renderMarket);
@@ -678,6 +751,16 @@
           break;
       }
     }
+
+    // ── 스탯/전직/혈맹/파티 ──
+    function addStat(stat) { window.socket.emit('add_stat', stat); }
+    function classAdvance() { window.socket.emit('class_advance','{}'); }
+    function createClan() {
+      var name = document.getElementById('clan-name-input').value.trim();
+      if (name) window.socket.emit('create_clan', name);
+    }
+    function createParty() { window.socket.emit('create_party','{}'); }
+    function partyInvite() { window.socket.emit('party_invite_nearby','{}'); }
 
     // ── 채팅 ──
     function sendChat() {
