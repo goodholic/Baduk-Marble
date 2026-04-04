@@ -34,12 +34,14 @@
     #bottom-bar { display:none; /* 게임 시작 전 숨김 */ }
     #bottom-bar.show { display:flex; }
 
-    /* 화폐 표시 */
-    #currency-bar { position:absolute; bottom:52px; left:10px; color:#fff; font-size:14px; z-index:15; display:none; text-shadow:1px 1px 2px #000; }
-    #currency-bar.show { display:block; }
-    #currency-bar span { margin-right:15px; }
-    .diamond { color:#44aaff; }
-    .gold { color:#ffd700; }
+    /* 화폐 + 상태바 */
+    #status-bar { position:absolute; top:8px; left:50%; transform:translateX(-50%); z-index:15; display:none; background:rgba(0,0,0,0.7); border:1px solid #333; border-radius:8px; padding:6px 20px; }
+    #status-bar.show { display:flex; gap:20px; align-items:center; }
+    #status-bar .stat { font-size:13px; color:#ccc; }
+    #status-bar .stat b { color:#fff; }
+    .diamond-val { color:#44aaff !important; }
+    .gold-val { color:#ffd700 !important; }
+    .zone-val { color:#88ff88 !important; font-size:11px !important; }
 
     /* 채팅 */
     #chat-box { position:absolute; bottom:52px; left:10px; width:320px; z-index:16; display:none; }
@@ -72,29 +74,37 @@
     #server-msg.show { display:block; }
     @keyframes msgPulse { 0%{transform:translateX(-50%) scale(0.8);opacity:0} 100%{transform:translateX(-50%) scale(1);opacity:1} }
 
-    /* 사운드 컨트롤 */
-    #sound-btn { position:absolute; top:10px; left:10px; z-index:16; background:rgba(0,0,0,0.6); border:1px solid #555; color:#fff; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:12px; }
-    #sound-btn:hover { background:rgba(255,255,255,0.2); }
+    /* 사운드/옵션 버튼 */
+    .top-btn { position:absolute; left:10px; z-index:16; background:rgba(0,0,0,0.6); border:1px solid #555; color:#fff; padding:5px 10px; border-radius:5px; cursor:pointer; font-size:11px; }
+    .top-btn:hover { background:rgba(255,255,255,0.2); }
+
+    /* 서브메뉴 */
+    #sub-menu { position:absolute; bottom:48px; left:0; width:100%; display:none; z-index:16; background:rgba(0,0,0,0.9); border-top:1px solid #555; }
+    #sub-menu.show { display:flex; flex-wrap:wrap; }
+    #sub-menu button { flex:1; min-width:80px; padding:10px 5px; border:none; border-right:1px solid #333; background:transparent; color:#ccc; font-size:12px; cursor:pointer; }
+    #sub-menu button:hover { background:rgba(255,215,0,0.15); color:#fff; }
 
     /* 미니맵 */
     #minimap-container { position:absolute; top:10px; right:10px; z-index:15; display:none; }
     #minimap-container.show { display:block; }
-    #minimap { border:2px solid #555; border-radius:8px; background:rgba(0,0,0,0.7); }
-    #minimap-zone { color:#ffd700; font-size:12px; text-align:center; margin-top:4px; text-shadow:1px 1px 2px #000; }
+    #minimap { border:1px solid #3a3a5a; border-radius:6px; background:rgba(0,0,0,0.8); cursor:pointer; }
+    #minimap-zone { color:#ffd700; font-size:11px; text-align:center; margin-top:3px; text-shadow:1px 1px 2px #000; }
 
     /* 패널 */
-    .panel { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:450px; max-height:70vh; background:rgba(20,20,30,0.95); border:2px solid #555; border-radius:12px; color:#fff; z-index:25; display:none; overflow-y:auto; }
-    .panel.show { display:block; }
-    .panel-header { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid #444; background:rgba(255,215,0,0.1); border-radius:10px 10px 0 0; }
-    .panel-header h2 { font-size:18px; color:#ffd700; }
-    .panel-close { background:none; border:none; color:#aaa; font-size:20px; cursor:pointer; }
-    .panel-close:hover { color:#fff; }
-    .panel-body { padding:12px 16px; }
-    .panel-item { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #333; }
-    .panel-item:last-child { border-bottom:none; }
-    .panel-item .name { flex:1; }
-    .panel-item button { padding:6px 14px; border:1px solid #555; border-radius:6px; background:#2d3436; color:#fff; cursor:pointer; font-size:12px; }
-    .panel-item button:hover { background:#ffd700; color:#000; }
+    .panel { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:420px; max-height:65vh; background:linear-gradient(180deg,rgba(15,15,25,0.97),rgba(10,10,20,0.99)); border:1px solid #3a3a5a; border-radius:10px; color:#ddd; z-index:25; display:none; overflow-y:auto; box-shadow:0 8px 32px rgba(0,0,0,0.6); }
+    .panel.show { display:block; animation:panelIn 0.15s ease; }
+    @keyframes panelIn { from{opacity:0;transform:translate(-50%,-50%) scale(0.95)} to{opacity:1;transform:translate(-50%,-50%) scale(1)} }
+    .panel-header { display:flex; justify-content:space-between; align-items:center; padding:10px 16px; border-bottom:1px solid #2a2a4a; background:linear-gradient(90deg,rgba(255,215,0,0.08),transparent); }
+    .panel-header h2 { font-size:16px; color:#ffd700; }
+    .panel-close { background:none; border:1px solid #444; color:#888; font-size:16px; cursor:pointer; width:26px; height:26px; border-radius:50%; line-height:24px; text-align:center; }
+    .panel-close:hover { background:#ff4444; color:#fff; border-color:#ff4444; }
+    .panel-body { padding:10px 14px; }
+    .panel-item { display:flex; justify-content:space-between; align-items:center; padding:8px 6px; border-bottom:1px solid rgba(255,255,255,0.05); border-radius:4px; margin:2px 0; }
+    .panel-item:hover { background:rgba(255,255,255,0.03); }
+    .panel-item .name { flex:1; font-size:13px; line-height:1.4; }
+    .panel-item button { padding:5px 12px; border:1px solid #4a4a6a; border-radius:5px; background:linear-gradient(180deg,#2a2a4a,#1a1a3a); color:#ddd; cursor:pointer; font-size:11px; transition:all 0.1s; }
+    .panel-item button:hover { background:linear-gradient(180deg,#ffd700,#cc9900); color:#000; border-color:#ffd700; }
+    .panel-item small { color:#777; }
 
     /* 알림 메시지 */
     #toast { position:absolute; top:80px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.85); color:#ffd700; padding:10px 24px; border-radius:8px; z-index:30; display:none; font-size:15px; border:1px solid #ffd700; }
@@ -135,30 +145,28 @@
       </button>
     </div>
 
-    <!-- 하단 메뉴바 -->
+    <!-- 하단 메뉴바 (5탭) -->
     <div id="bottom-bar">
-      <button class="tab" onclick="togglePanel('shop')">상점</button>
-      <button class="tab" onclick="togglePanel('trade')">교역</button>
-      <button class="tab" onclick="togglePanel('inventory')">인벤토리</button>
-      <button class="tab" onclick="togglePanel('units')">유닛</button>
-      <button class="tab" onclick="togglePanel('quests')">퀘스트</button>
-      <button class="tab" onclick="togglePanel('ranking')">랭킹</button>
-      <button class="tab" onclick="togglePanel('morph')">변신</button>
-      <button class="tab" onclick="togglePanel('craft')">제작</button>
-      <button class="tab" onclick="togglePanel('petmount')">펫</button>
-      <button class="tab" onclick="togglePanel('stats')">스탯</button>
-      <button class="tab" onclick="togglePanel('clan')">혈맹</button>
+      <button class="tab" onclick="openSubMenu('combat')" style="color:#ff6b6b">전투</button>
+      <button class="tab" onclick="openSubMenu('items')">아이템</button>
+      <button class="tab" onclick="openSubMenu('trade')" style="color:#ffd700">교역</button>
+      <button class="tab" onclick="openSubMenu('social')" style="color:#44aaff">소셜</button>
+      <button class="tab" onclick="openSubMenu('etc')">기타</button>
     </div>
 
-    <!-- 화폐 표시 -->
-    <div id="currency-bar">
-      <span class="diamond">Diamond: <b id="diamond-val">100</b></span>
-      <span class="gold">Gold: <b id="gold-val">0</b>G</span>
+    <!-- 서브메뉴 -->
+    <div id="sub-menu"></div>
+
+    <!-- 상태바 (상단 중앙) -->
+    <div id="status-bar">
+      <span class="stat">Diamond: <b class="diamond-val" id="diamond-val">100</b></span>
+      <span class="stat">Gold: <b class="gold-val" id="gold-val">0</b>G</span>
+      <span class="stat zone-val" id="zone-display">-</span>
     </div>
 
-    <!-- 사운드 + 자동물약 -->
-    <button id="sound-btn" onclick="toggleSound()">Sound: OFF</button>
-    <button id="sound-btn" style="top:40px" onclick="toggleAutoPotion()">AutoPotion: OFF</button>
+    <!-- 옵션 버튼 -->
+    <button class="top-btn" style="top:10px" onclick="toggleSound()" id="btn-sound">Sound OFF</button>
+    <button class="top-btn" style="top:35px" onclick="toggleAutoPotion()" id="btn-potion">AutoPot OFF</button>
 
     <!-- 채팅 -->
     <div id="chat-box">
@@ -177,7 +185,7 @@
 
     <!-- 미니맵 -->
     <div id="minimap-container">
-      <canvas id="minimap" width="180" height="180"></canvas>
+      <canvas id="minimap" width="220" height="220"></canvas>
       <div id="minimap-zone">-</div>
     </div>
 
@@ -317,7 +325,7 @@
     var progressBarFill = document.querySelector("#progress-bar-fill");
     var classSelect = document.querySelector("#class-select");
     var bottomBar = document.querySelector("#bottom-bar");
-    var currencyBar = document.querySelector("#currency-bar");
+    // currency-bar → status-bar로 변경됨
     var gameStarted = false;
     var deviceId = localStorage.getItem('deviceId') || (()=>{ var id='dev_'+Math.random().toString(36).substr(2,9); localStorage.setItem('deviceId',id); return id; })();
 
@@ -365,7 +373,7 @@
       gameStarted = true;
       classSelect.style.display = "none";
       bottomBar.classList.add("show");
-      currencyBar.classList.add("show");
+      document.getElementById('status-bar').classList.add("show");
       minimapContainer.classList.add("show");
       document.getElementById('combat-log').classList.add("show");
       document.getElementById('chat-box').classList.add("show");
@@ -388,6 +396,12 @@
         }
         // 미니맵 업데이트
         updateMinimapData(data);
+        // 존 표시 업데이트
+        if (myPlayerId && data.players && data.players[myPlayerId] && data.players[myPlayerId].zone) {
+          var z = data.players[myPlayerId].zone;
+          var zName = zones[z] ? zones[z].name : z;
+          document.getElementById('zone-display').textContent = zName;
+        }
         // 낮/밤 적용
         if (data.isNight !== undefined) {
           document.getElementById('unity-container').style.filter = data.isNight ? 'brightness(0.6) saturate(0.7)' : 'none';
@@ -427,7 +441,7 @@
       });
 
       window.socket.on('auto_potion_status', (d) => {
-        document.querySelectorAll('#sound-btn')[1].textContent = 'AutoPotion: ' + (d.enabled ? 'ON' : 'OFF');
+        document.getElementById('btn-potion').textContent = 'AutoPot ' + (d.enabled ? 'ON' : 'OFF');
       });
 
       // 스탯 결과
@@ -628,7 +642,7 @@
     var minimapCtx = minimapCanvas.getContext('2d');
     var minimapContainer = document.getElementById('minimap-container');
     var minimapZoneLabel = document.getElementById('minimap-zone');
-    var MAP_MIN = -250, MAP_MAX = 250, MAP_SIZE = 180;
+    var MAP_MIN = -250, MAP_MAX = 250, MAP_SIZE = 220;
 
     var zones = {
       aden:{name:'아덴',x:-250,y:-250,w:50,h:50,color:'#2d5a1e'},
@@ -681,6 +695,10 @@
         ctx.strokeStyle = '#444';
         ctx.lineWidth = 0.5;
         ctx.strokeRect(tl.mx, tl.my, br.mx - tl.mx, br.my - tl.my);
+        // 존 이름 (작게)
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.font = '7px sans-serif';
+        ctx.fillText(z.name, tl.mx + 2, tl.my + 8);
       });
 
       // 몬스터 (작은 점)
@@ -738,7 +756,7 @@
 
     function toggleSound() {
       soundEnabled = !soundEnabled;
-      document.getElementById('sound-btn').textContent = 'Sound: ' + (soundEnabled ? 'ON' : 'OFF');
+      document.getElementById('btn-sound').textContent = 'Sound ' + (soundEnabled ? 'ON' : 'OFF');
       if (soundEnabled) {
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         if (!bgmPlaying) playBGM();
@@ -827,6 +845,54 @@
     }
 
     function doCraft(recipeId) { window.socket.emit('craft', recipeId); }
+
+    // ── 서브메뉴 시스템 ──
+    var currentSubMenu = '';
+    var subMenuDefs = {
+      combat: [
+        {label:'유닛 관리', action:()=>togglePanel('units'), sub:'get_units'},
+        {label:'변신', action:()=>togglePanel('morph')},
+        {label:'스탯 배분', action:()=>togglePanel('stats')},
+        {label:'펫 & 탈것', action:()=>togglePanel('petmount')},
+      ],
+      items: [
+        {label:'인벤토리', action:()=>{togglePanel('inventory');}, sub:'get_inventory'},
+        {label:'장비 제작', action:()=>togglePanel('craft')},
+        {label:'상점', action:()=>togglePanel('shop')},
+      ],
+      trade: [
+        {label:'마을 교역', action:()=>{togglePanel('trade');window.socket.emit('get_town_prices','{}');}},
+        {label:'일일 보상', action:()=>claimDaily()},
+      ],
+      social: [
+        {label:'혈맹', action:()=>togglePanel('clan')},
+        {label:'랭킹', action:()=>{togglePanel('ranking');window.socket.emit('get_ranking','{}');}},
+        {label:'퀘스트', action:()=>{togglePanel('quests');window.socket.emit('get_quests','{}');}},
+      ],
+      etc: [
+        {label:'일일 보상', action:()=>claimDaily()},
+      ],
+    };
+
+    function openSubMenu(cat) {
+      var el = document.getElementById('sub-menu');
+      if (currentSubMenu === cat && el.classList.contains('show')) {
+        el.classList.remove('show');
+        currentSubMenu = '';
+        return;
+      }
+      currentSubMenu = cat;
+      var items = subMenuDefs[cat] || [];
+      el.innerHTML = items.map(item =>
+        '<button onclick="closeSubMenu();(' + item.action.toString() + ')()">' + item.label + '</button>'
+      ).join('');
+      el.classList.add('show');
+    }
+
+    function closeSubMenu() {
+      document.getElementById('sub-menu').classList.remove('show');
+      currentSubMenu = '';
+    }
 
     // ── 교역 가격 렌더링 ──
     function renderTownPrices(data) {
