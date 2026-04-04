@@ -17,9 +17,94 @@ const io = socketIo(server, {
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.json());
 const PORT = process.env.PORT || 3000;
 
+// 토스페이먼츠 테스트 키
+const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY || 'test_sk_zXLkKEypNArWmo50nX3lmeaxYG5R';
+
+// 다이아몬드 상품
+const DIAMOND_PRODUCTS = {
+    'diamond_100':  { diamonds: 100,  price: 1000,  name: '다이아 100개' },
+    'diamond_500':  { diamonds: 500,  price: 4500,  name: '다이아 500개 (+10% 보너스)' },
+    'diamond_1000': { diamonds: 1100, price: 9000,  name: '다이아 1100개 (+20% 보너스)' },
+    'diamond_3000': { diamonds: 3500, price: 25000, name: '다이아 3500개 (+30% 보너스)' },
+};
+
 app.get('/health', (req, res) => res.send('AutoBattle.io Server Running'));
+
+// 결제 성공 페이지
+app.get('/payment/success', async (req, res) => {
+    const { paymentKey, orderId, amount } = req.query;
+
+    try {
+        // 토스페이먼츠 결제 승인 API 호출
+        const response = await fetch('https://api.tosspayments.com/v1/payments/confirm', {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Basic ' + Buffer.from(TOSS_SECRET_KEY + ':').toString('base64'),
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ paymentKey, orderId, amount: Number(amount) }),
+        });
+
+        const result = await response.json();
+
+        if (result.status === 'DONE') {
+            // 결제 성공 → 다이아몬드 지급
+            const parts = orderId.split('_');
+            const productId = parts[0] + '_' + parts[1];
+            const deviceId = parts.slice(2, -1).join('_');
+            const product = DIAMOND_PRODUCTS[productId];
+
+            if (product && Number(amount) === product.price) {
+                // 접속 중인 플레이어 찾기
+                for (const pId in players) {
+                    if (players[pId].deviceId === deviceId && !players[pId].isBot) {
+                        players[pId].diamonds = (players[pId].diamonds || 0) + product.diamonds;
+                        savePlayer(players[pId]);
+                        io.to(pId).emit('player_update', players[pId]);
+                        io.to(pId).emit('shop_result', {
+                            success: true,
+                            msg: `${product.name} 구매 완료! +${product.diamonds} 다이아`,
+                            diamonds: players[pId].diamonds
+                        });
+                        break;
+                    }
+                }
+            }
+
+            res.send(`<html><head><meta charset="utf-8"><script>
+                alert('결제 완료! ${product ? product.diamonds : 0} 다이아몬드가 지급되었습니다.');
+                window.close(); setTimeout(()=>location.href='/',1000);
+            </script></head></html>`);
+        } else {
+            res.send(`<html><head><meta charset="utf-8"><script>
+                alert('결제 확인 실패: ${result.message || "알 수 없는 오류"}');
+                window.close(); setTimeout(()=>location.href='/',1000);
+            </script></head></html>`);
+        }
+    } catch (err) {
+        console.error('[Payment] Error:', err.message);
+        res.send(`<html><head><meta charset="utf-8"><script>
+            alert('결제 처리 중 오류가 발생했습니다.');
+            window.close(); setTimeout(()=>location.href='/',1000);
+        </script></head></html>`);
+    }
+});
+
+// 결제 실패 페이지
+app.get('/payment/fail', (req, res) => {
+    res.send(`<html><head><meta charset="utf-8"><script>
+        alert('결제가 취소되었습니다.');
+        window.close(); setTimeout(()=>location.href='/',1000);
+    </script></head></html>`);
+});
+
+// 상품 목록 API
+app.get('/api/products', (req, res) => {
+    res.json(DIAMOND_PRODUCTS);
+});
 
 server.listen(PORT, () => {
     console.log(`[AutoBattle.io] Server running on port ${PORT}`);
