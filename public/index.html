@@ -168,6 +168,9 @@
     <button class="top-btn" style="top:10px" onclick="toggleSound()" id="btn-sound">Sound OFF</button>
     <button class="top-btn" style="top:35px" onclick="toggleAutoPotion()" id="btn-potion">AutoPot OFF</button>
 
+    <!-- 테이밍 버튼 (게임 화면 우측) -->
+    <button id="tame-btn" onclick="window.socket.emit('tame_nearest','{}')" style="display:none;position:absolute;right:15px;bottom:120px;z-index:16;padding:10px 18px;background:linear-gradient(180deg,#6c5ce7,#4a3ca7);border:2px solid #8b7dff;border-radius:10px;color:#fff;font-size:14px;cursor:pointer;font-weight:bold;text-shadow:1px 1px 2px #000">테이밍 (50G)</button>
+
     <!-- 채팅 -->
     <div id="chat-box">
       <div id="chat-log"></div>
@@ -376,6 +379,7 @@
       document.getElementById('status-bar').classList.add("show");
       minimapContainer.classList.add("show");
       document.getElementById('combat-log').classList.add("show");
+      document.getElementById('tame-btn').style.display = 'block';
       document.getElementById('chat-box').classList.add("show");
       addCombatLog(className + ' 클래스로 게임 시작!', 'log-lvl');
       // Unity에 init_request 전송

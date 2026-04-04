@@ -1431,14 +1431,33 @@ io.on('connection', (socket) => {
     });
 
     // ── 몬스터 테이밍 (포켓몬) ──
-    socket.on('tame_monster', (monsterId) => {
+    // 가장 가까운 몬스터 자동 테이밍
+    socket.on('tame_nearest', () => {
         const p = players[playerId];
+        if (!p || !p.isAlive) { socket.emit('tame_result', {success:false, msg:'캐릭터가 없습니다'}); return; }
+        let nearestId = null, nearestDist = 999;
+        for (const mId in monsters) {
+            if (!monsters[mId].isAlive) continue;
+            const d = Math.hypot(p.x - monsters[mId].x, p.y - monsters[mId].y);
+            if (d < nearestDist) { nearestDist = d; nearestId = mId; }
+        }
+        if (!nearestId || nearestDist > 8) {
+            socket.emit('tame_result', {success:false, msg:'근처 몬스터 없음 (8 이내)'});
+            return;
+        }
+        doTame(playerId, nearestId, socket);
+    });
+
+    socket.on('tame_monster', (monsterId) => { doTame(playerId, monsterId, socket); });
+
+    function doTame(ownerId, monsterId, sock) {
+        const p = players[ownerId];
         if (!p || !p.isAlive) return;
         const mob = monsters[monsterId];
-        if (!mob || !mob.isAlive) { socket.emit('tame_result', { success:false, msg:'대상 없음' }); return; }
+        if (!mob || !mob.isAlive) { sock.emit('tame_result', { success:false, msg:'대상 없음' }); return; }
         const dist = Math.hypot(p.x - mob.x, p.y - mob.y);
-        if (dist > 5) { socket.emit('tame_result', { success:false, msg:'너무 멀어요 (5 이내)' }); return; }
-        if (p.gold < TAME_COST) { socket.emit('tame_result', { success:false, msg:`${TAME_COST}G 필요` }); return; }
+        if (dist > 8) { sock.emit('tame_result', { success:false, msg:'너무 멀어요 (8 이내)' }); return; }
+        if (p.gold < TAME_COST) { sock.emit('tame_result', { success:false, msg:`${TAME_COST}G 필요` }); return; }
 
         p.gold -= TAME_COST;
         const rate = TAME_RATES[mob.tier] || 0.1;
@@ -1448,10 +1467,10 @@ io.on('connection', (socket) => {
             // 테이밍 성공 → 용병으로 추가
             let myArmyCount = 0;
             for (const bId in players) {
-                if (players[bId].isBot && players[bId].ownerId === playerId && players[bId].isAlive) myArmyCount++;
+                if (players[bId].isBot && players[bId].ownerId === ownerId && players[bId].isAlive) myArmyCount++;
             }
             if (myArmyCount >= (p.maxArmy || 30)) {
-                socket.emit('tame_result', { success:false, msg:'용병 슬롯 부족!' });
+                sock.emit('tame_result', { success:false, msg:'용병 슬롯 부족!' });
                 return;
             }
 
@@ -1471,7 +1490,7 @@ io.on('connection', (socket) => {
                 dirX: 0, dirY: -1,
                 gold: 0, level: Math.max(1, Math.floor(mob.maxHp / 50)), exp: 0,
                 isAlive: true, killCount: 0, karma: 0,
-                team: p.team, ownerId: playerId,
+                team: p.team, ownerId: ownerId,
                 targetId: null, isKing: false, isBot: true,
                 tamedTier: mob.tier, tamedName: mob.name,
                 // 등급별 공격 스타일
@@ -1486,18 +1505,19 @@ io.on('connection', (socket) => {
 
             // 몬스터 제거
             delete monsters[monsterId];
-            io.emit('monster_die', { id: monsterId, tier: mob.tier, killer: playerId });
+            io.emit('monster_die', { id: monsterId, tier: mob.tier, killer: ownerId });
             spawnMonster();
             io.emit('monster_spawn', monsters['monster_' + entityIdCounter]);
 
             io.emit('player_join', players[botId]);
             io.emit('server_msg', { msg: `${p.displayName}이(가) ${mob.name}을(를) 테이밍!`, type: 'morph' });
-            socket.emit('tame_result', { success:true, msg: `${mob.name} 테이밍 성공! (${Math.floor(rate*100)}%)` });
+            sock.emit('tame_result', { success:true, msg: `${mob.name} 테이밍 성공! (${Math.floor(rate*100)}%)` });
+            p.totalTamed = (p.totalTamed || 0) + 1;
         } else {
             // 테이밍 실패 → 몬스터 화남 (플레이어에게 데미지)
             p.hp -= mob.atk || 10;
-            socket.emit('tame_result', { success:false, msg: `테이밍 실패! (${Math.floor(rate*100)}%) 몬스터가 화났다!` });
-            io.emit('player_hit', { id: playerId, hp: p.hp, damage: mob.atk || 10, isCrit: false });
+            sock.emit('tame_result', { success:false, msg: `테이밍 실패! (${Math.floor(rate*100)}%) 몬스터가 화났다!` });
+            io.emit('player_hit', { id: ownerId, hp: p.hp, damage: mob.atk || 10, isCrit: false });
         }
         savePlayer(p);
         io.emit('player_update', p);
