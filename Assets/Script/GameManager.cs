@@ -145,6 +145,17 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    // 스프라이트별 게임 내 스케일
+    private Dictionary<string, float> spriteScales = new Dictionary<string, float>() {
+        {"char_assassin_sheet", 2.5f}, {"char_warrior_sheet", 2.5f},
+        {"char_knight_sheet", 2.5f}, {"char_mage_sheet", 2.5f},
+        {"char_tower", 3f},
+        {"mon_slime_sheet", 2.5f}, {"mon_orc_sheet", 2.8f},
+        {"mon_darkknight_sheet", 3f}, {"mon_dragon_sheet", 3.5f},
+        {"item_gold", 2f}, {"proj_axe", 1.5f}, {"proj_magic", 1.5f},
+        {"effect_aoe", 3f},
+    };
+
     private void ApplySprite(GameObject go, string spriteName)
     {
         Sprite[] frames = LoadSpriteSheet(spriteName);
@@ -154,7 +165,14 @@ public class GameManager : MonoBehaviour
         if (sr == null) return;
 
         sr.sprite = frames[0];
-        sr.color = Color.white; // 원본 색상 유지
+        sr.color = Color.white;
+
+        // 스케일 적용
+        if (spriteScales.ContainsKey(spriteName))
+        {
+            float s = spriteScales[spriteName];
+            go.transform.localScale = new Vector3(s, s, 1f);
+        }
 
         // 애니메이션 (2프레임 이상이면)
         if (frames.Length > 1)
