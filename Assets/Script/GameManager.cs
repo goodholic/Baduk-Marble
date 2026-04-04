@@ -70,9 +70,18 @@ public class GameManager : MonoBehaviour
     private SpriteRenderer bgRenderer;
     private int myDiamonds = 100;
     private bool showShop = false;
+    private bool showMarket = false;
+    private bool showInventory = false;
     private string shopMsg = "";
     private float shopMsgTimer = 0;
     private Vector2 shopScroll = Vector2.zero;
+    private Vector2 marketScroll = Vector2.zero;
+    private string sellPriceStr = "100";
+
+    // 거래소 & 인벤토리 데이터
+    private List<JObject> marketListings = new List<JObject>();
+    private Dictionary<string, int> myInventory = new Dictionary<string, int>();
+    private Dictionary<string, string> itemNames = new Dictionary<string, string>();
 
     private Vector2 currentDir = new Vector2(0, 1);
 
@@ -361,14 +370,19 @@ public class GameManager : MonoBehaviour
             if (GUI.Button(new Rect(Screen.width - 210, topY, 190, btnH), "🗡 용병 고용 (-150G)"))
                 AddBot();
 
-            // 상점 & 일일보상 버튼
-            if (GUI.Button(new Rect(10, Screen.height - 100, 130, 35), "🏪 상점"))
-                showShop = !showShop;
-            if (GUI.Button(new Rect(10, Screen.height - 60, 130, 35), "🎁 일일 보상"))
+            // 하단 메뉴 버튼
+            float menuY = Screen.height - 140;
+            if (GUI.Button(new Rect(10, menuY, 110, 30), "🏪 상점"))
+                { showShop = !showShop; showMarket = false; showInventory = false; }
+            if (GUI.Button(new Rect(10, menuY + 35, 110, 30), "💹 거래소"))
+                { showMarket = !showMarket; showShop = false; showInventory = false; OpenMarket(); }
+            if (GUI.Button(new Rect(10, menuY + 70, 110, 30), "🎒 인벤토리"))
+                { showInventory = !showInventory; showShop = false; showMarket = false; OpenInventory(); }
+            if (GUI.Button(new Rect(10, menuY + 105, 110, 30), "🎁 일일 보상"))
                 ClaimDaily();
 
-            // 다이아몬드 표시
-            GUI.Label(new Rect(150, Screen.height - 100, 150, 25), "💎 " + myDiamonds);
+            // 화폐 표시
+            GUI.Label(new Rect(130, menuY, 150, 25), "💎 " + myDiamonds);
 
             // 카르마 표시
             if (players[myId].karma > 0)
@@ -384,8 +398,84 @@ public class GameManager : MonoBehaviour
                 shopMsgTimer -= Time.deltaTime;
             }
 
-            // 상점 창
+            // 상점/거래소/인벤토리 창
             if (showShop) DrawShop();
+            if (showMarket) DrawMarket();
+            if (showInventory) DrawInventory();
+        }
+    }
+
+    private void DrawMarket()
+    {
+        float w = 500, h = 450;
+        float x = Screen.width / 2 - w / 2, y = Screen.height / 2 - h / 2;
+        GUI.Box(new Rect(x, y, w, h), "💹 거래소 (수수료 5%)");
+        if (GUI.Button(new Rect(x + w - 30, y + 5, 25, 25), "X")) { showMarket = false; return; }
+
+        float iy = y + 35;
+        GUI.Label(new Rect(x + 10, iy, w - 20, 20), "아이템 | 판매자 | 가격 | 구매");
+        iy += 25;
+
+        if (marketListings.Count == 0)
+        {
+            GUI.Label(new Rect(x + 10, iy, w - 20, 30), "등록된 물건이 없습니다");
+        }
+
+        for (int i = 0; i < marketListings.Count && i < 10; i++)
+        {
+            var item = marketListings[i];
+            string name = item["itemName"]?.ToString() ?? "???";
+            string seller = item["sellerName"]?.ToString() ?? "???";
+            int price = item["price"] != null ? (int)item["price"] : 0;
+            int id = item["id"] != null ? (int)item["id"] : 0;
+
+            GUI.Label(new Rect(x + 10, iy, 160, 28), name);
+            GUI.Label(new Rect(x + 175, iy, 100, 28), seller);
+            GUI.Label(new Rect(x + 280, iy, 80, 28), price + "G");
+            if (GUI.Button(new Rect(x + 370, iy, 70, 26), "구매"))
+            {
+                #if UNITY_WEBGL && !UNITY_EDITOR
+                SocketEmit("market_buy", id.ToString());
+                #endif
+            }
+            iy += 30;
+        }
+    }
+
+    private void DrawInventory()
+    {
+        float w = 400, h = 400;
+        float x = Screen.width / 2 - w / 2, y = Screen.height / 2 - h / 2;
+        GUI.Box(new Rect(x, y, w, h), "🎒 인벤토리");
+        if (GUI.Button(new Rect(x + w - 30, y + 5, 25, 25), "X")) { showInventory = false; return; }
+
+        float iy = y + 35;
+        if (myInventory.Count == 0)
+        {
+            GUI.Label(new Rect(x + 10, iy, w - 20, 30), "인벤토리가 비어있습니다");
+            return;
+        }
+
+        foreach (var kvp in myInventory)
+        {
+            if (iy + 30 > y + h - 50) break;
+            string displayName = itemNames.ContainsKey(kvp.Key) ? itemNames[kvp.Key] : kvp.Key;
+            GUI.Label(new Rect(x + 10, iy, 180, 28), displayName + " x" + kvp.Value);
+
+            // 판매 버튼
+            sellPriceStr = GUI.TextField(new Rect(x + 200, iy, 60, 26), sellPriceStr);
+            if (GUI.Button(new Rect(x + 270, iy, 80, 26), "판매 등록"))
+            {
+                int price = 100;
+                int.TryParse(sellPriceStr, out price);
+                #if UNITY_WEBGL && !UNITY_EDITOR
+                JObject sellData = new JObject();
+                sellData["itemId"] = kvp.Key;
+                sellData["price"] = price;
+                SocketEmit("market_sell", sellData.ToString(Newtonsoft.Json.Formatting.None));
+                #endif
+            }
+            iy += 32;
         }
     }
 
@@ -647,6 +737,20 @@ public class GameManager : MonoBehaviour
     {
         #if UNITY_WEBGL && !UNITY_EDITOR
         SocketEmit("daily_reward", "{}");
+        #endif
+    }
+
+    public void OpenMarket()
+    {
+        #if UNITY_WEBGL && !UNITY_EDITOR
+        SocketEmit("market_list", "{}");
+        #endif
+    }
+
+    public void OpenInventory()
+    {
+        #if UNITY_WEBGL && !UNITY_EDITOR
+        SocketEmit("get_inventory", "{}");
         #endif
     }
 
@@ -939,6 +1043,46 @@ public class GameManager : MonoBehaviour
         shopMsg = (string)data["msg"];
         shopMsgTimer = 3f;
         if (data["diamonds"] != null) myDiamonds = (int)data["diamonds"];
+    }
+
+    public void OnMarketData(string jsonStr)
+    {
+        JObject data = JObject.Parse(jsonStr);
+        marketListings.Clear();
+        if (data["listings"] != null)
+        {
+            foreach (var item in (JArray)data["listings"])
+                marketListings.Add((JObject)item);
+        }
+    }
+
+    public void OnMarketResult(string jsonStr)
+    {
+        JObject data = JObject.Parse(jsonStr);
+        shopMsg = data["msg"]?.ToString() ?? "";
+        shopMsgTimer = 3f;
+        // 거래 후 목록/인벤토리 갱신
+        OpenMarket();
+        OpenInventory();
+    }
+
+    public void OnInventoryData(string jsonStr)
+    {
+        JObject data = JObject.Parse(jsonStr);
+        myInventory.Clear();
+        if (data["inventory"] != null)
+        {
+            foreach (var prop in (JObject)data["inventory"])
+                myInventory[prop.Key] = (int)prop.Value;
+        }
+        if (data["items"] != null)
+        {
+            foreach (var prop in (JObject)data["items"])
+            {
+                var item = (JObject)prop.Value;
+                itemNames[prop.Key] = item["name"]?.ToString() ?? prop.Key;
+            }
+        }
     }
 
     // ── 카오틱 사망 페널티 알림 ──

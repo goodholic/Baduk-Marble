@@ -110,6 +110,22 @@ mergeInto(LibraryManager.library, {
             window.socket.on("daily_result", function (data) {
                 SendMessage('GameManager', 'OnDailyResult', JSON.stringify(data));
             });
+
+            window.socket.on("market_data", function (data) {
+                SendMessage('GameManager', 'OnMarketData', JSON.stringify(data));
+            });
+
+            window.socket.on("market_update", function (data) {
+                SendMessage('GameManager', 'OnMarketData', JSON.stringify(data));
+            });
+
+            window.socket.on("market_result", function (data) {
+                SendMessage('GameManager', 'OnMarketResult', JSON.stringify(data));
+            });
+
+            window.socket.on("inventory_data", function (data) {
+                SendMessage('GameManager', 'OnInventoryData', JSON.stringify(data));
+            });
         }
     },
 

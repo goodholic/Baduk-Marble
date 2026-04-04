@@ -161,6 +161,34 @@ const FREE_DIAMOND_SOURCES = {
 };
 
 // ==========================================
+// 거래소 시스템
+// ==========================================
+let marketListings = []; // { id, sellerId, sellerName, itemId, itemName, price, currency, listedAt }
+let marketIdCounter = 0;
+const MARKET_FEE = 0.05; // 5% 수수료
+
+// 거래 가능 아이템 정의
+const TRADEABLE_ITEMS = {
+    'mat_iron':       { name:'철광석',       category:'재료', basePrice: 5 },
+    'mat_magic':      { name:'마법 결정',    category:'재료', basePrice: 15 },
+    'mat_soul':       { name:'영혼석',       category:'재료', basePrice: 50 },
+    'mat_dragon':     { name:'드래곤 비늘',  category:'재료', basePrice: 500 },
+    'pot_hp_s':       { name:'하급 HP 물약', category:'물약', basePrice: 10 },
+    'pot_hp_m':       { name:'중급 HP 물약', category:'물약', basePrice: 30 },
+    'pot_hp_l':       { name:'상급 HP 물약', category:'물약', basePrice: 80 },
+    'pot_atk':        { name:'공격 부스터',  category:'물약', basePrice: 100 },
+    'pot_def':        { name:'방어 부스터',  category:'물약', basePrice: 100 },
+    'scroll_return':  { name:'귀환 주문서',  category:'주문서', basePrice: 50 },
+    'scroll_revive':  { name:'부활 주문서',  category:'주문서', basePrice: 300 },
+    'scroll_protect': { name:'강화 보호',    category:'주문서', basePrice: 500 },
+    'equip_sword_1':  { name:'철제 검',      category:'장비', basePrice: 200 },
+    'equip_sword_2':  { name:'강철 검',      category:'장비', basePrice: 800 },
+    'equip_armor_1':  { name:'가죽 갑옷',    category:'장비', basePrice: 150 },
+    'equip_armor_2':  { name:'철판 갑옷',    category:'장비', basePrice: 700 },
+    'equip_ring_1':   { name:'힘의 반지',    category:'장비', basePrice: 500 },
+};
+
+// ==========================================
 // 게임 상수 & 클래스 정의 (리니지 라이크)
 // ==========================================
 
@@ -386,6 +414,7 @@ io.on('connection', (socket) => {
             skins: [],
             activeSkin: null,
             maxArmy: 30,
+            inventory: { 'pot_hp_s': 5, 'scroll_return': 2 }, // 초보자 지급
             lastHpRegen: Date.now(),
             autoSkillCooldown: 0
         };
@@ -734,6 +763,107 @@ io.on('connection', (socket) => {
             msg: `일일 보상: 💎${FREE_DIAMOND_SOURCES.daily_login} + 💰500G`,
             diamonds: p.diamonds,
             gold: p.gold
+        });
+    });
+
+    // ── 거래소: 목록 조회 ──
+    socket.on('market_list', () => {
+        socket.emit('market_data', { listings: marketListings.slice(-50) });
+    });
+
+    // ── 거래소: 아이템 등록 ──
+    socket.on('market_sell', (dataStr) => {
+        const p = players[playerId];
+        if (!p) return;
+        try {
+            const data = JSON.parse(dataStr);
+            const { itemId, price } = data;
+            if (!TRADEABLE_ITEMS[itemId]) { socket.emit('market_result', { success:false, msg:'거래 불가 아이템' }); return; }
+            if (!p.inventory || !p.inventory[itemId] || p.inventory[itemId] < 1) { socket.emit('market_result', { success:false, msg:'아이템이 없습니다' }); return; }
+            if (price < 1) { socket.emit('market_result', { success:false, msg:'가격 오류' }); return; }
+
+            p.inventory[itemId]--;
+            if (p.inventory[itemId] <= 0) delete p.inventory[itemId];
+
+            marketIdCounter++;
+            marketListings.push({
+                id: marketIdCounter,
+                sellerId: playerId,
+                sellerName: p.displayName || p.className,
+                itemId,
+                itemName: TRADEABLE_ITEMS[itemId].name,
+                category: TRADEABLE_ITEMS[itemId].category,
+                price,
+                currency: 'gold',
+                listedAt: Date.now()
+            });
+
+            savePlayer(p);
+            socket.emit('market_result', { success:true, msg:`${TRADEABLE_ITEMS[itemId].name} 등록 완료 (${price}G)` });
+            io.emit('market_update', { listings: marketListings.slice(-50) });
+        } catch(e) { socket.emit('market_result', { success:false, msg:'오류' }); }
+    });
+
+    // ── 거래소: 아이템 구매 ──
+    socket.on('market_buy', (listingId) => {
+        const p = players[playerId];
+        if (!p) return;
+
+        const idx = marketListings.findIndex(l => l.id === listingId);
+        if (idx === -1) { socket.emit('market_result', { success:false, msg:'이미 판매됨' }); return; }
+
+        const listing = marketListings[idx];
+        if (listing.sellerId === playerId) { socket.emit('market_result', { success:false, msg:'자기 물건은 구매 불가' }); return; }
+        if (p.gold < listing.price) { socket.emit('market_result', { success:false, msg:'골드 부족' }); return; }
+
+        // 구매자: 골드 차감, 아이템 추가
+        p.gold -= listing.price;
+        if (!p.inventory) p.inventory = {};
+        p.inventory[listing.itemId] = (p.inventory[listing.itemId] || 0) + 1;
+
+        // 판매자: 골드 지급 (수수료 차감)
+        const seller = players[listing.sellerId];
+        const payout = Math.floor(listing.price * (1 - MARKET_FEE));
+        if (seller) {
+            seller.gold += payout;
+            io.to(listing.sellerId).emit('market_result', { success:true, msg:`${listing.itemName} 판매됨! +${payout}G (수수료 ${Math.floor(listing.price * MARKET_FEE)}G)` });
+        }
+
+        // 목록에서 제거
+        marketListings.splice(idx, 1);
+
+        savePlayer(p);
+        if (seller) savePlayer(seller);
+
+        socket.emit('market_result', { success:true, msg:`${listing.itemName} 구매 완료!` });
+        io.emit('market_update', { listings: marketListings.slice(-50) });
+    });
+
+    // ── 거래소: 등록 취소 ──
+    socket.on('market_cancel', (listingId) => {
+        const p = players[playerId];
+        if (!p) return;
+
+        const idx = marketListings.findIndex(l => l.id === listingId && l.sellerId === playerId);
+        if (idx === -1) { socket.emit('market_result', { success:false, msg:'해당 물건 없음' }); return; }
+
+        const listing = marketListings[idx];
+        if (!p.inventory) p.inventory = {};
+        p.inventory[listing.itemId] = (p.inventory[listing.itemId] || 0) + 1;
+        marketListings.splice(idx, 1);
+
+        savePlayer(p);
+        socket.emit('market_result', { success:true, msg:`${listing.itemName} 등록 취소` });
+        io.emit('market_update', { listings: marketListings.slice(-50) });
+    });
+
+    // ── 인벤토리 조회 ──
+    socket.on('get_inventory', () => {
+        const p = players[playerId];
+        if (!p) return;
+        socket.emit('inventory_data', {
+            inventory: p.inventory || {},
+            items: TRADEABLE_ITEMS
         });
     });
 
@@ -1118,6 +1248,14 @@ function handleCollisions() {
 
                     realOwner.gold += tier.goldReward;
                     giveExp(owner, tier.expReward);
+
+                    // 재료 드롭 (인벤토리에 직접 추가)
+                    if (!realOwner.inventory) realOwner.inventory = {};
+                    if (mob.tier === 'normal' && Math.random() < 0.3) realOwner.inventory['mat_iron'] = (realOwner.inventory['mat_iron']||0) + 1;
+                    if (mob.tier === 'elite' && Math.random() < 0.4) realOwner.inventory['mat_magic'] = (realOwner.inventory['mat_magic']||0) + 1;
+                    if (mob.tier === 'rare' && Math.random() < 0.3) realOwner.inventory['mat_soul'] = (realOwner.inventory['mat_soul']||0) + 1;
+                    if (mob.tier === 'boss' && Math.random() < 0.2) realOwner.inventory['mat_dragon'] = (realOwner.inventory['mat_dragon']||0) + 1;
+                    if (Math.random() < 0.15) realOwner.inventory['pot_hp_s'] = (realOwner.inventory['pot_hp_s']||0) + 1;
 
                     // 골드 드롭
                     spawnDrop(mob.x, mob.y, Math.floor(tier.goldReward * 0.5), mId);
