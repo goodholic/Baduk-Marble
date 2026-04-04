@@ -380,11 +380,9 @@ public class GameManager : MonoBehaviour
         GUI.skin.box.fontSize = 16;
         GUI.skin.label.fontSize = 13;
 
-        if (!hasSelectedClass)
-        {
-            DrawClassSelection("AutoBattle.io - 클래스 선택", false);
-        }
-        else if (myId != null && !isMyPlayerAlive)
+        // 클래스 선택은 HTML UI에서 처리 (OnGUI 제거)
+        // 사망 시 부활은 여전히 OnGUI로 표시
+        if (hasSelectedClass && myId != null && !isMyPlayerAlive)
         {
             DrawClassSelection("사망 - 새로운 클래스로 부활", true);
         }
@@ -411,40 +409,7 @@ public class GameManager : MonoBehaviour
             if (GUI.Button(new Rect(Screen.width - 210, topY, 190, btnH), "용병 고용 (-150G)"))
                 AddBot();
 
-            // ── 하단 상시 메뉴바 ──
-            float barH = 50;
-            float barY = Screen.height - barH;
-            float tabW = Screen.width / 7f;
-            int origBtnSize = GUI.skin.button.fontSize;
-            GUI.skin.button.fontSize = 12;
-
-            // 반투명 배경
-            GUI.color = new Color(0, 0, 0, 0.7f);
-            GUI.DrawTexture(new Rect(0, barY, Screen.width, barH), Texture2D.whiteTexture);
-            GUI.color = Color.white;
-
-            // 화폐 표시 (메뉴바 위)
-            GUI.skin.label.fontSize = 14;
-            int goldVal = players.ContainsKey(myId) ? players[myId].gold : 0;
-            GUI.Label(new Rect(10, barY - 25, 200, 22), "Diamond:" + myDiamonds + "  Gold:" + goldVal + "G");
-
-            // 7개 탭 버튼
-            if (GUI.Button(new Rect(tabW * 0, barY, tabW, barH), "상점"))
-                { CloseAllPanels(); showShop = !showShop; }
-            if (GUI.Button(new Rect(tabW * 1, barY, tabW, barH), "거래소"))
-                { CloseAllPanels(); showMarket = true; OpenMarket(); }
-            if (GUI.Button(new Rect(tabW * 2, barY, tabW, barH), "인벤토리"))
-                { CloseAllPanels(); showInventory = true; OpenInventory(); }
-            if (GUI.Button(new Rect(tabW * 3, barY, tabW, barH), "유닛"))
-                { CloseAllPanels(); showUnits = true; OpenUnits(); }
-            if (GUI.Button(new Rect(tabW * 4, barY, tabW, barH), "퀘스트"))
-                { CloseAllPanels(); showQuest = true; OpenQuests(); }
-            if (GUI.Button(new Rect(tabW * 5, barY, tabW, barH), "랭킹"))
-                { CloseAllPanels(); showRanking = true; OpenRanking(); }
-            if (GUI.Button(new Rect(tabW * 6, barY, tabW, barH), "보상"))
-                { ClaimDaily(); }
-
-            GUI.skin.button.fontSize = origBtnSize;
+            // 하단 메뉴바 → HTML로 이동됨
 
             // 카르마 표시
             if (players[myId].karma > 0)
