@@ -1521,7 +1521,7 @@ io.on('connection', (socket) => {
         }
         savePlayer(p);
         io.emit('player_update', p);
-    });
+    }
 
     // ── 거상 — 마을 상점 매매 ──
     socket.on('town_buy', (dataStr) => {
