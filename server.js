@@ -193,6 +193,112 @@ const TRADEABLE_ITEMS = {
 // ==========================================
 
 const players = {};
+
+// ==========================================
+// 퀘스트 시스템
+// ==========================================
+const QUESTS = {
+    daily_hunt:    { name:'일일 사냥', desc:'몬스터 30마리 처치', target:'kill_monster', goal:30, reward:{gold:300,exp:500,diamonds:5}, type:'daily' },
+    daily_elite:   { name:'엘리트 토벌', desc:'엘리트 이상 몬스터 5마리', target:'kill_elite', goal:5, reward:{gold:500,exp:800,diamonds:10}, type:'daily' },
+    daily_gold:    { name:'골드 수집', desc:'골드 500 획득', target:'earn_gold', goal:500, reward:{gold:200,exp:300,diamonds:5}, type:'daily' },
+    main_lv5:      { name:'성장의 시작', desc:'레벨 5 달성', target:'reach_level', goal:5, reward:{gold:500,diamonds:30}, type:'main' },
+    main_lv10:     { name:'전사의 길', desc:'레벨 10 달성', target:'reach_level', goal:10, reward:{gold:1000,diamonds:50}, type:'main' },
+    main_lv20:     { name:'영웅의 각성', desc:'레벨 20 달성', target:'reach_level', goal:20, reward:{gold:3000,diamonds:100}, type:'main' },
+    main_boss:     { name:'드래곤 슬레이어', desc:'보스 몬스터 처치', target:'kill_boss', goal:1, reward:{gold:5000,diamonds:80}, type:'main' },
+    main_pvp:      { name:'PvP 입문', desc:'PvP 모드로 전환', target:'toggle_pvp', goal:1, reward:{gold:1000,diamonds:30}, type:'main' },
+    main_army:     { name:'군단장', desc:'용병 10명 보유', target:'army_count', goal:10, reward:{gold:2000,diamonds:50}, type:'main' },
+};
+
+// ==========================================
+// 스킬 시스템
+// ==========================================
+const SKILLS = {
+    Assassin: [
+        { name:'그림자 일격', dmgMulti:3.0, cooldown:5, range:3, aoe:false, level:1 },
+        { name:'연속 베기', dmgMulti:1.5, hits:4, cooldown:8, range:2, aoe:false, level:5 },
+        { name:'암살', dmgMulti:8.0, cooldown:60, range:2, aoe:false, level:15, executeThreshold:0.3 },
+    ],
+    Warrior: [
+        { name:'파워 스트라이크', dmgMulti:2.5, cooldown:4, range:4, aoe:false, level:1 },
+        { name:'회전 베기', dmgMulti:2.0, cooldown:6, range:3, aoe:true, level:5 },
+        { name:'버서커', dmgMulti:2.0, spdMulti:1.5, cooldown:90, duration:15, level:15, buff:true },
+    ],
+    Knight: [
+        { name:'방패 강타', dmgMulti:2.0, cooldown:6, range:3, aoe:false, level:1, stun:1 },
+        { name:'도발', cooldown:10, range:8, aoe:true, level:5, taunt:true },
+        { name:'철벽 방어', cooldown:15, duration:5, level:15, buff:true, defMulti:0.3 },
+    ],
+    Mage: [
+        { name:'파이어볼', dmgMulti:3.0, cooldown:3, range:6, aoe:true, level:1 },
+        { name:'아이스 볼트', dmgMulti:2.0, cooldown:5, range:5, aoe:false, level:5, slow:0.5 },
+        { name:'메테오', dmgMulti:10.0, cooldown:90, range:8, aoe:true, level:15, aoeRadius:4 },
+    ],
+};
+
+// ==========================================
+// 장비 시스템
+// ==========================================
+const EQUIPMENT_SLOTS = ['weapon','armor','helmet','gloves','boots','ring','necklace'];
+
+const EQUIP_STATS = {
+    'equip_sword_1':  { slot:'weapon', name:'철제 검',   atk:10, def:0, grade:'normal' },
+    'equip_sword_2':  { slot:'weapon', name:'강철 검',   atk:25, def:0, grade:'uncommon' },
+    'equip_armor_1':  { slot:'armor',  name:'가죽 갑옷', atk:0, def:10, grade:'normal' },
+    'equip_armor_2':  { slot:'armor',  name:'철판 갑옷', atk:0, def:25, grade:'uncommon' },
+    'equip_ring_1':   { slot:'ring',   name:'힘의 반지', atk:8, def:3, grade:'uncommon' },
+};
+
+// 랭킹
+let rankings = { level:[], pvp:[], gold:[] };
+
+function recalcStats(p) {
+    if (!p || p.isBot) return;
+    const cls = CLASSES[p.className];
+    if (!cls) return;
+    let bonusAtk = 0, bonusDef = 0;
+    if (p.equipped) {
+        for (const slot of EQUIPMENT_SLOTS) {
+            const eqId = p.equipped[slot];
+            if (eqId && EQUIP_STATS[eqId]) {
+                bonusAtk += EQUIP_STATS[eqId].atk;
+                bonusDef += EQUIP_STATS[eqId].def;
+            }
+        }
+    }
+    p.atk = cls.atk + bonusAtk;
+    p.def = cls.def + bonusDef;
+}
+
+function trackQuest(p, target, amount) {
+    if (!p || p.isBot) return;
+    if (!p.questProgress) p.questProgress = {};
+    for (const [qId, q] of Object.entries(QUESTS)) {
+        if (q.target === target && !(p.questCompleted && p.questCompleted[qId])) {
+            if (target === 'reach_level') {
+                p.questProgress[qId] = p.level;
+            } else if (target === 'army_count') {
+                let count = 0;
+                for (const bId in players) { if (players[bId].isBot && players[bId].ownerId === p.id && players[bId].isAlive) count++; }
+                p.questProgress[qId] = count;
+            } else {
+                p.questProgress[qId] = (p.questProgress[qId] || 0) + (amount || 1);
+            }
+        }
+    }
+}
+
+function updateRankings() {
+    const realPlayers = Object.values(players).filter(p => !p.isBot && p.isAlive);
+    rankings.level = realPlayers.sort((a,b) => b.level - a.level).slice(0,10).map(p => ({
+        name: p.displayName, level: p.level, className: p.className
+    }));
+    rankings.pvp = realPlayers.sort((a,b) => b.killCount - a.killCount).slice(0,10).map(p => ({
+        name: p.displayName, kills: p.killCount, className: p.className
+    }));
+    rankings.gold = realPlayers.sort((a,b) => b.gold - a.gold).slice(0,10).map(p => ({
+        name: p.displayName, gold: p.gold, className: p.className
+    }));
+}
 let axes = {};
 let aoes = {};
 let monsters = {};
@@ -867,6 +973,95 @@ io.on('connection', (socket) => {
         });
     });
 
+    // ── 퀘스트 목록/진행도 ──
+    socket.on('get_quests', () => {
+        const p = players[playerId];
+        if (!p) return;
+        if (!p.questProgress) p.questProgress = {};
+        if (!p.questCompleted) p.questCompleted = {};
+        socket.emit('quest_data', {
+            quests: QUESTS,
+            progress: p.questProgress,
+            completed: p.questCompleted
+        });
+    });
+
+    // ── 퀘스트 보상 수령 ──
+    socket.on('quest_claim', (questId) => {
+        const p = players[playerId];
+        if (!p) return;
+        const q = QUESTS[questId];
+        if (!q) return;
+        if (p.questCompleted && p.questCompleted[questId]) { socket.emit('quest_result', {success:false, msg:'이미 수령'}); return; }
+        const progress = (p.questProgress && p.questProgress[questId]) || 0;
+        if (progress < q.goal) { socket.emit('quest_result', {success:false, msg:'미완료'}); return; }
+
+        if (!p.questCompleted) p.questCompleted = {};
+        p.questCompleted[questId] = true;
+        if (q.reward.gold) p.gold += q.reward.gold;
+        if (q.reward.diamonds) p.diamonds = (p.diamonds||0) + q.reward.diamonds;
+        if (q.reward.exp) { p.exp += q.reward.exp; }
+
+        savePlayer(p);
+        socket.emit('quest_result', {success:true, msg:`${q.name} 보상 수령!`});
+        io.emit('player_update', p);
+    });
+
+    // ── 유닛 관리 (용병 목록) ──
+    socket.on('get_units', () => {
+        const p = players[playerId];
+        if (!p) return;
+        const units = [];
+        for (const bId in players) {
+            const b = players[bId];
+            if (b.isBot && b.ownerId === playerId && b.isAlive) {
+                units.push({ id:bId, className:b.className, displayName:b.displayName, level:b.level, hp:b.hp, maxHp:b.maxHp });
+            }
+        }
+        socket.emit('unit_data', { units, maxArmy: p.maxArmy || 30 });
+    });
+
+    // ── 유닛 해고 ──
+    socket.on('dismiss_unit', (unitId) => {
+        const b = players[unitId];
+        if (!b || !b.isBot || b.ownerId !== playerId) return;
+        b.isAlive = false;
+        io.emit('player_die', { victimId: unitId, attackerId: playerId, stolen: false });
+        delete players[unitId];
+        socket.emit('unit_result', { success:true, msg:`${b.displayName} 해고됨` });
+    });
+
+    // ── 장비 착용 ──
+    socket.on('equip_item', (itemId) => {
+        const p = players[playerId];
+        if (!p || !p.inventory || !p.inventory[itemId]) return;
+        const eq = EQUIP_STATS[itemId];
+        if (!eq) return;
+
+        if (!p.equipped) p.equipped = {};
+        // 기존 장비 해제 → 인벤토리로
+        if (p.equipped[eq.slot]) {
+            const old = p.equipped[eq.slot];
+            p.inventory[old] = (p.inventory[old]||0) + 1;
+        }
+        // 새 장비 착용
+        p.equipped[eq.slot] = itemId;
+        p.inventory[itemId]--;
+        if (p.inventory[itemId] <= 0) delete p.inventory[itemId];
+
+        // 스탯 재계산
+        recalcStats(p);
+        savePlayer(p);
+        socket.emit('equip_result', { success:true, msg:`${eq.name} 착용!`, equipped: p.equipped });
+        io.emit('player_update', p);
+    });
+
+    // ── 랭킹 조회 ──
+    socket.on('get_ranking', () => {
+        updateRankings();
+        socket.emit('ranking_data', rankings);
+    });
+
     socket.on('disconnect', () => {
         if (players[playerId]) {
             if (players[playerId].isKing) hasKing = false;
@@ -1212,6 +1407,7 @@ function giveExp(playerObj, amount) {
         target.dmgMulti += 0.08;
 
         io.emit('level_up', { id: target.id, level: target.level, className: target.displayName });
+        trackQuest(target, 'reach_level', 0);
         savePlayer(target);
     }
     io.emit('player_update', target);
@@ -1248,6 +1444,12 @@ function handleCollisions() {
 
                     realOwner.gold += tier.goldReward;
                     giveExp(owner, tier.expReward);
+
+                    // 퀘스트 추적
+                    trackQuest(realOwner, 'kill_monster', 1);
+                    if (mob.tier === 'elite' || mob.tier === 'rare' || mob.tier === 'boss') trackQuest(realOwner, 'kill_elite', 1);
+                    if (mob.tier === 'boss') trackQuest(realOwner, 'kill_boss', 1);
+                    trackQuest(realOwner, 'earn_gold', tier.goldReward);
 
                     // 재료 드롭 (인벤토리에 직접 추가)
                     if (!realOwner.inventory) realOwner.inventory = {};

@@ -83,6 +83,17 @@ public class GameManager : MonoBehaviour
     private Dictionary<string, int> myInventory = new Dictionary<string, int>();
     private Dictionary<string, string> itemNames = new Dictionary<string, string>();
     private bool showMenu = false;
+    private bool showQuest = false;
+    private bool showUnits = false;
+    private bool showRanking = false;
+
+    // 퀘스트 데이터
+    private JObject questData;
+    // 유닛 데이터
+    private JArray unitList;
+    private int maxArmy = 30;
+    // 랭킹 데이터
+    private JObject rankingData;
 
     // UI 텍스처 캐시
     private Dictionary<string, Texture2D> uiTextures = new Dictionary<string, Texture2D>();
@@ -427,11 +438,15 @@ public class GameManager : MonoBehaviour
                 my += iconSize + iconGap;
 
                 if (DrawIconButton(mx, my, iconSize, "icon_unit", "유닛관리"))
-                    { showMenu = false; }
+                    { showUnits = !showUnits; showQuest = false; showRanking = false; showMenu = false; OpenUnits(); }
                 my += iconSize + iconGap;
 
                 if (DrawIconButton(mx, my, iconSize, "icon_quest", "퀘스트"))
-                    { showMenu = false; }
+                    { showQuest = !showQuest; showUnits = false; showRanking = false; showMenu = false; OpenQuests(); }
+                my += iconSize + iconGap;
+
+                if (DrawIconButton(mx, my, iconSize, "icon_pvp", "랭킹"))
+                    { showRanking = !showRanking; showQuest = false; showUnits = false; showMenu = false; OpenRanking(); }
                 my += iconSize + iconGap;
 
                 if (DrawIconButton(mx, my, iconSize, "icon_daily", "일일보상"))
@@ -452,10 +467,123 @@ public class GameManager : MonoBehaviour
                 shopMsgTimer -= Time.deltaTime;
             }
 
-            // 상점/거래소/인벤토리 창
+            // 각종 창
             if (showShop) DrawShop();
             if (showMarket) DrawMarket();
             if (showInventory) DrawInventory();
+            if (showQuest) DrawQuests();
+            if (showUnits) DrawUnits();
+            if (showRanking) DrawRanking();
+        }
+    }
+
+    private void DrawQuests()
+    {
+        float w = 450, h = 400;
+        float x = Screen.width / 2 - w / 2, y = Screen.height / 2 - h / 2;
+        GUI.Box(new Rect(x, y, w, h), "📜 퀘스트");
+        if (GUI.Button(new Rect(x + w - 30, y + 5, 25, 25), "X")) { showQuest = false; return; }
+
+        float iy = y + 35;
+        if (questData == null || questData["quests"] == null) {
+            GUI.Label(new Rect(x + 10, iy, w - 20, 30), "로딩 중...");
+            return;
+        }
+
+        foreach (var prop in (JObject)questData["quests"]) {
+            if (iy + 35 > y + h - 10) break;
+            var q = (JObject)prop.Value;
+            string qId = prop.Key;
+            string name = q["name"]?.ToString() ?? "";
+            string desc = q["desc"]?.ToString() ?? "";
+            int goal = q["goal"] != null ? (int)q["goal"] : 0;
+            int progress = 0;
+            if (questData["progress"] != null && questData["progress"][qId] != null)
+                progress = (int)questData["progress"][qId];
+            bool completed = questData["completed"] != null && questData["completed"][qId] != null;
+
+            string status = completed ? "[완료]" : $"({progress}/{goal})";
+            GUI.Label(new Rect(x + 10, iy, 250, 28), $"{name} - {desc}");
+            GUI.Label(new Rect(x + 270, iy, 80, 28), status);
+
+            if (!completed && progress >= goal) {
+                if (GUI.Button(new Rect(x + 360, iy, 70, 26), "수령")) {
+                    #if UNITY_WEBGL && !UNITY_EDITOR
+                    SocketEmit("quest_claim", qId);
+                    #endif
+                }
+            }
+            iy += 30;
+        }
+    }
+
+    private void DrawUnits()
+    {
+        float w = 400, h = 400;
+        float x = Screen.width / 2 - w / 2, y = Screen.height / 2 - h / 2;
+        GUI.Box(new Rect(x, y, w, h), $"⚔ 유닛 관리 (최대 {maxArmy})");
+        if (GUI.Button(new Rect(x + w - 30, y + 5, 25, 25), "X")) { showUnits = false; return; }
+
+        float iy = y + 35;
+        if (unitList == null || unitList.Count == 0) {
+            GUI.Label(new Rect(x + 10, iy, w - 20, 30), "보유 용병이 없습니다");
+            return;
+        }
+
+        for (int i = 0; i < unitList.Count; i++) {
+            if (iy + 32 > y + h - 10) break;
+            var u = (JObject)unitList[i];
+            string name = u["displayName"]?.ToString() ?? "???";
+            int lv = u["level"] != null ? (int)u["level"] : 1;
+            float hp = u["hp"] != null ? (float)u["hp"] : 0;
+            float maxHp = u["maxHp"] != null ? (float)u["maxHp"] : 1;
+
+            GUI.Label(new Rect(x + 10, iy, 180, 28), $"Lv.{lv} {name}");
+            GUI.Label(new Rect(x + 200, iy, 100, 28), $"HP: {Mathf.CeilToInt(hp)}/{Mathf.CeilToInt(maxHp)}");
+            if (GUI.Button(new Rect(x + 310, iy, 60, 26), "해고")) {
+                string unitId = u["id"]?.ToString();
+                #if UNITY_WEBGL && !UNITY_EDITOR
+                SocketEmit("dismiss_unit", unitId);
+                #endif
+            }
+            iy += 30;
+        }
+    }
+
+    private void DrawRanking()
+    {
+        float w = 400, h = 350;
+        float x = Screen.width / 2 - w / 2, y = Screen.height / 2 - h / 2;
+        GUI.Box(new Rect(x, y, w, h), "🏆 랭킹");
+        if (GUI.Button(new Rect(x + w - 30, y + 5, 25, 25), "X")) { showRanking = false; return; }
+
+        float iy = y + 35;
+        if (rankingData == null) {
+            GUI.Label(new Rect(x + 10, iy, w - 20, 30), "로딩 중...");
+            return;
+        }
+
+        GUI.Label(new Rect(x + 10, iy, 200, 20), "── 레벨 랭킹 ──");
+        iy += 22;
+        if (rankingData["level"] != null) {
+            int rank = 1;
+            foreach (var r in (JArray)rankingData["level"]) {
+                if (iy + 20 > y + h - 10) break;
+                GUI.Label(new Rect(x + 10, iy, w - 20, 20), $"{rank}. Lv.{r["level"]} {r["name"]} ({r["className"]})");
+                iy += 20; rank++;
+            }
+        }
+
+        iy += 10;
+        GUI.Label(new Rect(x + 10, iy, 200, 20), "── PvP 랭킹 ──");
+        iy += 22;
+        if (rankingData["pvp"] != null) {
+            int rank = 1;
+            foreach (var r in (JArray)rankingData["pvp"]) {
+                if (iy + 20 > y + h - 10) break;
+                GUI.Label(new Rect(x + 10, iy, w - 20, 20), $"{rank}. {r["kills"]}킬 {r["name"]}");
+                iy += 20; rank++;
+            }
         }
     }
 
@@ -808,6 +936,27 @@ public class GameManager : MonoBehaviour
         #endif
     }
 
+    public void OpenQuests()
+    {
+        #if UNITY_WEBGL && !UNITY_EDITOR
+        SocketEmit("get_quests", "{}");
+        #endif
+    }
+
+    public void OpenUnits()
+    {
+        #if UNITY_WEBGL && !UNITY_EDITOR
+        SocketEmit("get_units", "{}");
+        #endif
+    }
+
+    public void OpenRanking()
+    {
+        #if UNITY_WEBGL && !UNITY_EDITOR
+        SocketEmit("get_ranking", "{}");
+        #endif
+    }
+
     // ==========================================
     // 서버 이벤트 핸들러
     // ==========================================
@@ -1119,6 +1268,13 @@ public class GameManager : MonoBehaviour
         OpenMarket();
         OpenInventory();
     }
+
+    public void OnQuestData(string jsonStr) { questData = JObject.Parse(jsonStr); }
+    public void OnQuestResult(string jsonStr) { shopMsg = JObject.Parse(jsonStr)["msg"]?.ToString() ?? ""; shopMsgTimer = 3f; OpenQuests(); }
+    public void OnUnitData(string jsonStr) { var d = JObject.Parse(jsonStr); unitList = (JArray)d["units"]; maxArmy = d["maxArmy"] != null ? (int)d["maxArmy"] : 30; }
+    public void OnUnitResult(string jsonStr) { shopMsg = JObject.Parse(jsonStr)["msg"]?.ToString() ?? ""; shopMsgTimer = 3f; OpenUnits(); }
+    public void OnEquipResult(string jsonStr) { shopMsg = JObject.Parse(jsonStr)["msg"]?.ToString() ?? ""; shopMsgTimer = 3f; OpenInventory(); }
+    public void OnRankingData(string jsonStr) { rankingData = JObject.Parse(jsonStr); }
 
     public void OnInventoryData(string jsonStr)
     {

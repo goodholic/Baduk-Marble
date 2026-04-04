@@ -126,6 +126,30 @@ mergeInto(LibraryManager.library, {
             window.socket.on("inventory_data", function (data) {
                 SendMessage('GameManager', 'OnInventoryData', JSON.stringify(data));
             });
+
+            window.socket.on("quest_data", function (data) {
+                SendMessage('GameManager', 'OnQuestData', JSON.stringify(data));
+            });
+
+            window.socket.on("quest_result", function (data) {
+                SendMessage('GameManager', 'OnQuestResult', JSON.stringify(data));
+            });
+
+            window.socket.on("unit_data", function (data) {
+                SendMessage('GameManager', 'OnUnitData', JSON.stringify(data));
+            });
+
+            window.socket.on("unit_result", function (data) {
+                SendMessage('GameManager', 'OnUnitResult', JSON.stringify(data));
+            });
+
+            window.socket.on("equip_result", function (data) {
+                SendMessage('GameManager', 'OnEquipResult', JSON.stringify(data));
+            });
+
+            window.socket.on("ranking_data", function (data) {
+                SendMessage('GameManager', 'OnRankingData', JSON.stringify(data));
+            });
         }
     },
 
