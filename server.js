@@ -1136,6 +1136,25 @@ io.on('connection', (socket) => {
         socket.emit('unit_result', { success:true, msg:`${b.displayName} 해고됨` });
     });
 
+    // ── 용병 NPC 판매 ──
+    socket.on('sell_unit', (unitId) => {
+        const p = players[playerId];
+        const b = players[unitId];
+        if (!p || !b || !b.isBot || b.ownerId !== playerId) return;
+
+        // 등급별 판매 가격
+        const sellPrices = { normal: 30, elite: 100, rare: 300, boss: 1000 };
+        const price = sellPrices[b.tamedTier] || 50;
+
+        p.gold += price;
+        b.isAlive = false;
+        io.emit('player_die', { victimId: unitId, attackerId: playerId, stolen: false });
+        delete players[unitId];
+        savePlayer(p);
+        socket.emit('unit_result', { success:true, msg:`${b.displayName} NPC 판매 (+${price}G)` });
+        io.emit('player_update', p);
+    });
+
     // ── 장비 착용 ──
     socket.on('equip_item', (itemId) => {
         const p = players[playerId];
@@ -1437,7 +1456,7 @@ io.on('connection', (socket) => {
             const cls = CLASSES['Warrior']; // 기본 워리어 베이스
             players[botId] = {
                 id: botId, deviceId: 'tamed',
-                className: 'Warrior', displayName: mob.name + '(테이밍)',
+                className: 'Warrior', displayName: p.displayName + '의 ' + mob.name,
                 x: mob.x, y: mob.y,
                 hp: mob.maxHp, maxHp: mob.maxHp,
                 atk: mob.atk || 10, def: mob.def || 5,
@@ -1449,8 +1468,15 @@ io.on('connection', (socket) => {
                 team: p.team, ownerId: playerId,
                 targetId: null, isKing: false, isBot: true,
                 tamedTier: mob.tier, tamedName: mob.name,
+                // 등급별 공격 스타일
+                attackStyle: mob.tier === 'normal' ? 'melee' : mob.tier === 'elite' ? 'charge' : mob.tier === 'rare' ? 'aoe' : 'breath',
                 lastHpRegen: Date.now(), autoSkillCooldown: 0, skillCooldowns: {},
             };
+
+            // 등급별 스탯 보정
+            if (mob.tier === 'elite') { players[botId].atk *= 1.3; players[botId].def *= 1.2; }
+            if (mob.tier === 'rare')  { players[botId].atk *= 1.6; players[botId].critRate = 0.2; }
+            if (mob.tier === 'boss')  { players[botId].atk *= 2.0; players[botId].maxHp *= 1.5; players[botId].hp = players[botId].maxHp; }
 
             // 몬스터 제거
             delete monsters[monsterId];
@@ -1987,8 +2013,22 @@ function updateBots() {
                 }
             }
 
+            // 주인과 거리 체크 → 너무 멀면 강제 복귀
+            if (p.ownerId && players[p.ownerId] && cls.speed > 0) {
+                const ownerDist = Math.hypot(p.x - players[p.ownerId].x, p.y - players[p.ownerId].y);
+                if (ownerDist > 15) {
+                    // 주인에게 강제 복귀 (타겟 포기)
+                    target = null;
+                    const owner = players[p.ownerId];
+                    p.dirX = (owner.x - p.x) / ownerDist;
+                    p.dirY = (owner.y - p.y) / ownerDist;
+                    p.x += p.dirX * (cls.speed / 50); // 빠르게 복귀
+                    p.y += p.dirY * (cls.speed / 50);
+                }
+            }
+
         } else if (cls.speed > 0) {
-            // 주인 따라가기
+            // 주인 따라가기 (타겟 없을 때)
             if (p.ownerId && players[p.ownerId] && players[p.ownerId].isAlive) {
                 const owner = players[p.ownerId];
                 const dx = owner.x - p.x;

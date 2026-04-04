@@ -552,7 +552,7 @@
       if (units.length === 0) { body.innerHTML = '<p style="color:#888">용병이 없습니다</p>'; return; }
       var html = '<p style="color:#aaa;margin-bottom:8px">보유: '+units.length+'/'+data.maxArmy+'</p>';
       units.forEach(u => {
-        html += '<div class="panel-item"><span class="name">Lv.'+u.level+' '+u.displayName+' <small style="color:#888">HP:'+Math.ceil(u.hp)+'/'+Math.ceil(u.maxHp)+'</small></span><button onclick="window.socket.emit(\'dismiss_unit\',\''+u.id+'\')">해고</button></div>';
+        html += '<div class="panel-item"><span class="name">Lv.'+u.level+' '+u.displayName+'<br><small style="color:#888">HP:'+Math.ceil(u.hp)+'/'+Math.ceil(u.maxHp)+'</small></span><button onclick="window.socket.emit(\'sell_unit\',\''+u.id+'\')" style="background:#6a5a2a;margin-right:3px">판매</button><button onclick="window.socket.emit(\'dismiss_unit\',\''+u.id+'\')">해고</button></div>';
       });
       body.innerHTML = html;
     }
