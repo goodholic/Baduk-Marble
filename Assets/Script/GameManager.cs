@@ -97,6 +97,75 @@ public class GameManager : MonoBehaviour
         {"boss", new Color(1f, 0.27f, 0.27f)}
     };
 
+    // ── 스프라이트 매핑 ──
+    private Dictionary<string, string> classSpriteNames = new Dictionary<string, string>() {
+        {"Assassin", "char_assassin_sheet"}, {"Warrior", "char_warrior_sheet"},
+        {"Knight", "char_knight_sheet"}, {"Mage", "char_mage_sheet"},
+        {"GuardianTower", "char_tower"}
+    };
+
+    private Dictionary<string, string> monsterSpriteNames = new Dictionary<string, string>() {
+        {"normal", "mon_slime_sheet"}, {"elite", "mon_orc_sheet"},
+        {"rare", "mon_darkknight_sheet"}, {"boss", "mon_dragon_sheet"}
+    };
+
+    // 스프라이트 캐시
+    private Dictionary<string, Sprite[]> spriteCache = new Dictionary<string, Sprite[]>();
+
+    private Sprite[] LoadSpriteSheet(string name)
+    {
+        if (spriteCache.ContainsKey(name)) return spriteCache[name];
+
+        Texture2D tex = Resources.Load<Texture2D>("Sprites/" + name);
+        if (tex == null) return null;
+
+        // 스프라이트시트인지 단일인지 판단 (가로가 세로의 2배 이상이면 시트)
+        if (tex.width >= tex.height * 2)
+        {
+            int frameCount = Mathf.RoundToInt((float)tex.width / tex.height);
+            int frameW = tex.width / frameCount;
+            int frameH = tex.height;
+            Sprite[] frames = new Sprite[frameCount];
+            for (int i = 0; i < frameCount; i++)
+            {
+                frames[i] = Sprite.Create(tex,
+                    new Rect(i * frameW, 0, frameW, frameH),
+                    new Vector2(0.5f, 0.5f), 100f);
+            }
+            spriteCache[name] = frames;
+            return frames;
+        }
+        else
+        {
+            Sprite single = Sprite.Create(tex,
+                new Rect(0, 0, tex.width, tex.height),
+                new Vector2(0.5f, 0.5f), 100f);
+            spriteCache[name] = new Sprite[] { single };
+            return new Sprite[] { single };
+        }
+    }
+
+    private void ApplySprite(GameObject go, string spriteName)
+    {
+        Sprite[] frames = LoadSpriteSheet(spriteName);
+        if (frames == null || frames.Length == 0) return;
+
+        SpriteRenderer sr = go.GetComponentInChildren<SpriteRenderer>();
+        if (sr == null) return;
+
+        sr.sprite = frames[0];
+        sr.color = Color.white; // 원본 색상 유지
+
+        // 애니메이션 (2프레임 이상이면)
+        if (frames.Length > 1)
+        {
+            SpriteAnimator anim = go.GetComponent<SpriteAnimator>();
+            if (anim == null) anim = go.AddComponent<SpriteAnimator>();
+            anim.frames = frames;
+            anim.fps = 4f;
+        }
+    }
+
     void Start()
     {
         deviceId = PlayerPrefs.GetString("DeviceId", "");
@@ -782,17 +851,20 @@ public class GameManager : MonoBehaviour
         np.karma = data["karma"] != null ? (int)data["karma"] : 0;
         np.isAlive = alive;
 
-        // 가디언 타워 스타일링
-        if (np.className == "GuardianTower") {
-            newPlayer.transform.localScale = new Vector3(1.8f, 1.8f, 1f);
-            SpriteRenderer sr = newPlayer.GetComponentInChildren<SpriteRenderer>();
-            if (sr != null) sr.color = new Color(0.9f, 0.8f, 0.3f);
+        // 클래스별 스프라이트 적용
+        if (classSpriteNames.ContainsKey(np.className)) {
+            ApplySprite(newPlayer, classSpriteNames[np.className]);
         }
 
-        // 카오틱 표시 (빨간 테두리)
+        // 가디언 타워 크기 조정
+        if (np.className == "GuardianTower") {
+            newPlayer.transform.localScale = new Vector3(1.8f, 1.8f, 1f);
+        }
+
+        // 카오틱 표시 (빨간 틴트)
         if (np.karma >= 200) {
             SpriteRenderer sr = newPlayer.GetComponentInChildren<SpriteRenderer>();
-            if (sr != null) sr.color = new Color(0.8f, 0.2f, 0.2f);
+            if (sr != null) sr.color = new Color(1f, 0.5f, 0.5f);
         }
 
         players[id] = np;
@@ -824,10 +896,14 @@ public class GameManager : MonoBehaviour
         nm.tier = data["tier"]?.ToString() ?? "normal";
         nm.monsterName = data["name"]?.ToString() ?? "슬라임";
 
-        // 등급별 색상 & 크기
-        SpriteRenderer sr = mGo.GetComponentInChildren<SpriteRenderer>();
-        if (sr != null && tierColors.ContainsKey(nm.tier))
-            sr.color = tierColors[nm.tier];
+        // 등급별 스프라이트 적용
+        if (monsterSpriteNames.ContainsKey(nm.tier)) {
+            ApplySprite(mGo, monsterSpriteNames[nm.tier]);
+        } else {
+            SpriteRenderer sr = mGo.GetComponentInChildren<SpriteRenderer>();
+            if (sr != null && tierColors.ContainsKey(nm.tier))
+                sr.color = tierColors[nm.tier];
+        }
 
         if (nm.tier == "elite") mGo.transform.localScale *= 1.3f;
         else if (nm.tier == "rare") mGo.transform.localScale *= 1.6f;
@@ -846,12 +922,19 @@ public class GameManager : MonoBehaviour
         if (dropPrefab != null) {
             dropGo = Instantiate(dropPrefab, pos, Quaternion.identity);
         } else {
-            // 프리팹 없으면 간이 표시
-            dropGo = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            // 프리팹 없으면 골드 스프라이트로 표시
+            dropGo = new GameObject("Drop_" + id);
             dropGo.transform.position = pos;
-            dropGo.transform.localScale = Vector3.one * 0.3f;
-            Renderer r = dropGo.GetComponent<Renderer>();
-            if (r != null) r.material.color = Color.yellow;
+            SpriteRenderer dsr = dropGo.AddComponent<SpriteRenderer>();
+            dsr.sortingOrder = 5;
+            Sprite[] goldFrames = LoadSpriteSheet("item_gold");
+            if (goldFrames != null && goldFrames.Length > 0) {
+                dsr.sprite = goldFrames[0];
+                dropGo.transform.localScale = Vector3.one * 0.5f;
+            } else {
+                // 스프라이트 없으면 기본
+                dsr.color = Color.yellow;
+            }
         }
 
         drops[id] = dropGo;
