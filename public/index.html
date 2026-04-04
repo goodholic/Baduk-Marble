@@ -41,6 +41,10 @@
     .diamond { color:#44aaff; }
     .gold { color:#ffd700; }
 
+    /* 사운드 컨트롤 */
+    #sound-btn { position:absolute; top:10px; left:10px; z-index:16; background:rgba(0,0,0,0.6); border:1px solid #555; color:#fff; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:12px; }
+    #sound-btn:hover { background:rgba(255,255,255,0.2); }
+
     /* 미니맵 */
     #minimap-container { position:absolute; top:10px; right:10px; z-index:15; display:none; }
     #minimap-container.show { display:block; }
@@ -116,6 +120,9 @@
       <span class="diamond">Diamond: <b id="diamond-val">100</b></span>
       <span class="gold">Gold: <b id="gold-val">0</b>G</span>
     </div>
+
+    <!-- 사운드 -->
+    <button id="sound-btn" onclick="toggleSound()">Sound: OFF</button>
 
     <!-- 미니맵 -->
     <div id="minimap-container">
@@ -240,12 +247,16 @@
         updateMinimapData(data);
       });
 
-      window.socket.on('shop_result', (d) => showToast(d.msg));
-      window.socket.on('market_result', (d) => showToast(d.msg));
-      window.socket.on('daily_result', (d) => { showToast(d.msg); if(d.diamonds) document.getElementById('diamond-val').textContent=d.diamonds; });
-      window.socket.on('quest_result', (d) => showToast(d.msg));
+      window.socket.on('shop_result', (d) => { showToast(d.msg); playSFX('buy'); });
+      window.socket.on('market_result', (d) => { showToast(d.msg); playSFX('buy'); });
+      window.socket.on('daily_result', (d) => { showToast(d.msg); playSFX('gold'); if(d.diamonds) document.getElementById('diamond-val').textContent=d.diamonds; });
+      window.socket.on('quest_result', (d) => { showToast(d.msg); playSFX('levelup'); });
       window.socket.on('unit_result', (d) => showToast(d.msg));
-      window.socket.on('equip_result', (d) => showToast(d.msg));
+      window.socket.on('equip_result', (d) => { showToast(d.msg); playSFX('buy'); });
+      window.socket.on('player_hit', (d) => { playSFX(d.isCrit ? 'crit' : 'hit'); });
+      window.socket.on('level_up', (d) => { playSFX('levelup'); });
+      window.socket.on('player_die', (d) => { if(d.victimId === myPlayerId) playSFX('die'); });
+      window.socket.on('drop_spawn', () => { playSFX('gold'); });
 
       window.socket.on('inventory_data', renderInventory);
       window.socket.on('market_data', renderMarket);
@@ -461,6 +472,101 @@
       if (data.players) lastSyncPlayers = data.players;
       if (data.monsters) lastSyncMonsters = data.monsters;
       drawMinimap();
+    }
+
+    // ── 사운드 시스템 (Web Audio API) ──
+    var audioCtx = null;
+    var soundEnabled = false;
+    var bgmPlaying = false;
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      document.getElementById('sound-btn').textContent = 'Sound: ' + (soundEnabled ? 'ON' : 'OFF');
+      if (soundEnabled) {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (!bgmPlaying) playBGM();
+      } else {
+        bgmPlaying = false;
+      }
+    }
+
+    function playBGM() {
+      if (!soundEnabled || !audioCtx) return;
+      bgmPlaying = true;
+      // 간단한 앰비언트 BGM 생성
+      function playNote() {
+        if (!bgmPlaying || !soundEnabled) return;
+        var osc = audioCtx.createOscillator();
+        var gain = audioCtx.createGain();
+        var notes = [261, 329, 392, 523, 392, 329]; // C E G C5 G E
+        var note = notes[Math.floor(Math.random() * notes.length)];
+        osc.type = 'sine';
+        osc.frequency.value = note * (0.5 + Math.random() * 0.02);
+        gain.gain.setValueAtTime(0.03, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 2);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 2);
+        setTimeout(playNote, 800 + Math.random() * 1200);
+      }
+      playNote();
+    }
+
+    function playSFX(type) {
+      if (!soundEnabled || !audioCtx) return;
+      var osc = audioCtx.createOscillator();
+      var gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      switch(type) {
+        case 'hit':
+          osc.type = 'square';
+          osc.frequency.value = 200 + Math.random() * 100;
+          gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+          osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+          break;
+        case 'crit':
+          osc.type = 'sawtooth';
+          osc.frequency.value = 400;
+          gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+          osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+          break;
+        case 'levelup':
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+          osc.frequency.linearRampToValueAtTime(800, audioCtx.currentTime + 0.3);
+          gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+          osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+          break;
+        case 'buy':
+          osc.type = 'sine';
+          osc.frequency.value = 600;
+          gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+          osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+          break;
+        case 'die':
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+          osc.frequency.linearRampToValueAtTime(50, audioCtx.currentTime + 0.5);
+          gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+          osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+          break;
+        case 'gold':
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+          osc.frequency.linearRampToValueAtTime(1200, audioCtx.currentTime + 0.1);
+          gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+          osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+          break;
+      }
     }
 
     function showToast(msg) {
