@@ -99,14 +99,14 @@ public class GameManager : MonoBehaviour
 
     // ── 스프라이트 매핑 ──
     private Dictionary<string, string> classSpriteNames = new Dictionary<string, string>() {
-        {"Assassin", "char_assassin_sheet"}, {"Warrior", "char_warrior_sheet"},
-        {"Knight", "char_knight_sheet"}, {"Mage", "char_mage_sheet"},
+        {"Assassin", "char_assassin"}, {"Warrior", "char_warrior"},
+        {"Knight", "char_knight"}, {"Mage", "char_mage"},
         {"GuardianTower", "char_tower"}
     };
 
     private Dictionary<string, string> monsterSpriteNames = new Dictionary<string, string>() {
-        {"normal", "mon_slime_sheet"}, {"elite", "mon_orc_sheet"},
-        {"rare", "mon_darkknight_sheet"}, {"boss", "mon_dragon_sheet"}
+        {"normal", "mon_slime"}, {"elite", "mon_orc"},
+        {"rare", "mon_darkknight"}, {"boss", "mon_dragon"}
     };
 
     // 스프라이트 캐시
@@ -147,13 +147,13 @@ public class GameManager : MonoBehaviour
 
     // 스프라이트별 게임 내 스케일
     private Dictionary<string, float> spriteScales = new Dictionary<string, float>() {
-        {"char_assassin_sheet", 2.5f}, {"char_warrior_sheet", 2.5f},
-        {"char_knight_sheet", 2.5f}, {"char_mage_sheet", 2.5f},
-        {"char_tower", 3f},
-        {"mon_slime_sheet", 2.5f}, {"mon_orc_sheet", 2.8f},
-        {"mon_darkknight_sheet", 3f}, {"mon_dragon_sheet", 3.5f},
-        {"item_gold", 2f}, {"proj_axe", 1.5f}, {"proj_magic", 1.5f},
-        {"effect_aoe", 3f},
+        {"char_assassin", 2f}, {"char_warrior", 2f},
+        {"char_knight", 2f}, {"char_mage", 2f},
+        {"char_tower", 2.2f},
+        {"mon_slime", 1.8f}, {"mon_orc", 2f},
+        {"mon_darkknight", 2.2f}, {"mon_dragon", 2.8f},
+        {"item_gold", 1.5f}, {"proj_axe", 1.2f}, {"proj_magic", 1.2f},
+        {"effect_aoe", 2.5f},
     };
 
     private void ApplySprite(GameObject go, string spriteName)
