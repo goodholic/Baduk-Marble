@@ -211,11 +211,12 @@
 
     <!-- 교역 패널 (거상) -->
     <div class="panel" id="panel-trade">
-      <div class="panel-header"><h2>교역 (마을 상점)</h2><button class="panel-close" onclick="closePanel('trade')">X</button></div>
+      <div class="panel-header"><h2>교역 (거상)</h2><button class="panel-close" onclick="closePanel('trade')">X</button></div>
       <div class="panel-body">
-        <p style="color:#ffd700;margin-bottom:10px">마을마다 가격이 다릅니다! 싸게 사서 비싸게 파세요!</p>
-        <button onclick="window.socket.emit('get_town_prices','{}')" style="width:100%;padding:8px;margin-bottom:10px;background:#2d3436;border:1px solid #555;color:#fff;border-radius:6px;cursor:pointer">가격 새로고침</button>
-        <div id="trade-body"><p style="color:#888">마을에 가서 가격을 확인하세요</p></div>
+        <div id="trade-location" style="padding:8px;margin-bottom:10px;border-radius:6px;text-align:center;font-size:14px;background:rgba(255,0,0,0.15);color:#ff6b6b">현재 위치: 알 수 없음 (마을로 이동하세요)</div>
+        <p style="color:#888;font-size:11px;margin-bottom:8px">마을마다 가격이 다릅니다. 싸게 사서 비싸게 팔아 이윤을 얻으세요!</p>
+        <button onclick="window.socket.emit('get_town_prices','{}')" style="width:100%;padding:7px;margin-bottom:8px;background:#2a2a4a;border:1px solid #4a4a6a;color:#ddd;border-radius:5px;cursor:pointer;font-size:12px">가격 새로고침</button>
+        <div id="trade-body"><p style="color:#666">가격을 새로고침하세요</p></div>
       </div>
     </div>
 
@@ -403,6 +404,7 @@
         // 존 표시 업데이트
         if (myPlayerId && data.players && data.players[myPlayerId] && data.players[myPlayerId].zone) {
           var z = data.players[myPlayerId].zone;
+          myCurrentZone = z;
           var zName = zones[z] ? zones[z].name : z;
           document.getElementById('zone-display').textContent = zName;
         }
@@ -576,18 +578,36 @@
       var inv = data.inventory || {};
       var items = data.items || {};
       var keys = Object.keys(inv);
-      if (keys.length === 0) { body.innerHTML = '<p style="color:#888">비어있습니다</p>'; return; }
-      var html = '';
+      if (keys.length === 0) { body.innerHTML = '<p style="color:#666">인벤토리가 비어있습니다</p>'; return; }
+
+      // 카테고리 분류
+      var cats = {equip:[], pot:[], mat:[], goods:[], etc:[]};
       keys.forEach(k => {
-        var name = items[k] ? items[k].name : k;
-        var isEquip = k.startsWith('equip_');
-        html += '<div class="panel-item"><span class="name">'+name+' x'+inv[k]+'</span>';
-        if (isEquip) {
-          html += '<button onclick="equipItem(\''+k+'\')" style="background:#4a6a2a;margin-right:4px">착용</button>';
-          html += '<button onclick="enchantItem(\''+k+'\')" style="background:#6a4a2a">강화</button>';
-        }
-        html += '<button onclick="sellItem(\''+k+'\')" style="margin-left:4px">판매</button></div>';
+        if (k.startsWith('equip_')) cats.equip.push(k);
+        else if (k.startsWith('pot_') || k.startsWith('food_')) cats.pot.push(k);
+        else if (k.startsWith('mat_')) cats.mat.push(k);
+        else if (k.startsWith('goods_')) cats.goods.push(k);
+        else cats.etc.push(k);
       });
+
+      var html = '';
+      var catNames = {equip:'장비', pot:'물약/음식', mat:'재료', goods:'교역품', etc:'기타'};
+      var catColors = {equip:'#44aaff', pot:'#44ff44', mat:'#ffd700', goods:'#ff9944', etc:'#aaa'};
+
+      for (var cat in cats) {
+        if (cats[cat].length === 0) continue;
+        html += '<h4 style="color:'+catColors[cat]+';margin:8px 0 4px;font-size:12px">'+catNames[cat]+' ('+cats[cat].length+')</h4>';
+        cats[cat].forEach(k => {
+          var name = items[k] ? items[k].name : k.replace(/_/g,' ');
+          var isEquip = cat === 'equip';
+          html += '<div class="panel-item"><span class="name">'+name+' <b style="color:#888">x'+inv[k]+'</b></span>';
+          if (isEquip) {
+            html += '<button onclick="equipItem(\''+k+'\')" style="background:#2a4a2a">착용</button>';
+            html += '<button onclick="enchantItem(\''+k+'\')" style="background:#4a3a1a;margin-left:3px">강화</button>';
+          }
+          html += '<button onclick="sellItem(\''+k+'\')" style="margin-left:3px">판매</button></div>';
+        });
+      }
       body.innerHTML = html;
     }
 
@@ -625,8 +645,10 @@
         var done = !!completed[qId];
         var canClaim = prog >= q.goal && !done;
         var statusColor = done ? '#44ff44' : (canClaim ? '#ffd700' : '#aaa');
-        html += '<div class="panel-item"><span class="name">'+q.name+'<br><small style="color:#888">'+q.desc+'</small></span><span style="color:'+statusColor+';min-width:70px;text-align:right">'+(done?'완료':prog+'/'+q.goal)+'</span>';
-        if (canClaim) html += '<button onclick="window.socket.emit(\'quest_claim\',\''+qId+'\');" style="margin-left:8px">수령</button>';
+        var pct = Math.min(100, Math.floor(prog / q.goal * 100));
+        html += '<div class="panel-item" style="flex-wrap:wrap"><span class="name" style="width:100%">'+q.name+' <span style="color:'+statusColor+'">'+(done?'[완료]':prog+'/'+q.goal)+'</span><br><small style="color:#888">'+q.desc+'</small></span>';
+        if (!done) html += '<div style="width:100%;height:6px;background:#1a1a3a;border-radius:3px;margin-top:4px"><div style="width:'+pct+'%;height:100%;background:'+statusColor+';border-radius:3px;transition:width 0.3s"></div></div>';
+        if (canClaim) html += '<button onclick="window.socket.emit(\'quest_claim\',\''+qId+'\');" style="margin-top:6px;width:100%">보상 수령</button>';
         html += '</div>';
       });
       body.innerHTML = html;
@@ -899,17 +921,40 @@
     }
 
     // ── 교역 가격 렌더링 ──
+    var myCurrentZone = '';
     function renderTownPrices(data) {
       var body = document.getElementById('trade-body');
+      var locEl = document.getElementById('trade-location');
+
+      // 현재 위치 체크
+      var townNames = {aden:'아덴 마을', harbor:'항구 마을', oasis:'오아시스 마을'};
+      var inTown = townNames[myCurrentZone];
+      if (inTown) {
+        locEl.style.background = 'rgba(0,180,0,0.15)';
+        locEl.style.color = '#44ff44';
+        locEl.textContent = '현재 위치: ' + inTown + ' (거래 가능!)';
+      } else {
+        locEl.style.background = 'rgba(255,0,0,0.15)';
+        locEl.style.color = '#ff6b6b';
+        locEl.textContent = '현재 위치: ' + (zones[myCurrentZone]?.name || '야외') + ' — 마을로 이동하세요';
+      }
+
       var html = '';
       for (var town in data) {
-        var tName = town === 'village' ? '아덴 마을' : '항구 마을';
-        html += '<h3 style="color:#ffd700;margin:10px 0 5px">'+tName+'</h3>';
+        var tName = townNames[town] || town;
+        var isHere = (town === myCurrentZone);
+        html += '<h3 style="color:' + (isHere ? '#44ff44' : '#ffd700') + ';margin:10px 0 5px">' + tName + (isHere ? ' (현재 위치)' : '') + '</h3>';
         for (var gId in data[town]) {
           var g = data[town][gId];
-          html += '<div class="panel-item"><span class="name">'+g.name+'<br><small style="color:#88cc88">매수:'+g.buyPrice+'G / 매도:'+g.sellPrice+'G</small></span>';
-          html += '<button onclick="townBuy(\''+gId+'\',\''+town+'\')" style="margin-right:3px">구매</button>';
-          html += '<button onclick="townSell(\''+gId+'\',\''+town+'\')">판매</button></div>';
+          var canTrade = isHere;
+          html += '<div class="panel-item"><span class="name">'+g.name+'<br><small>매수:<b style="color:#ff6b6b">'+g.buyPrice+'G</b> / 매도:<b style="color:#44ff44">'+g.sellPrice+'G</b></small></span>';
+          if (canTrade) {
+            html += '<button onclick="townBuy(\''+gId+'\',\''+town+'\')" style="margin-right:3px">구매</button>';
+            html += '<button onclick="townSell(\''+gId+'\',\''+town+'\')">판매</button>';
+          } else {
+            html += '<span style="color:#555;font-size:11px">이동 필요</span>';
+          }
+          html += '</div>';
         }
       }
       body.innerHTML = html;
