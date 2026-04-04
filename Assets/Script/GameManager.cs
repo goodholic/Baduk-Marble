@@ -82,6 +82,11 @@ public class GameManager : MonoBehaviour
     private List<JObject> marketListings = new List<JObject>();
     private Dictionary<string, int> myInventory = new Dictionary<string, int>();
     private Dictionary<string, string> itemNames = new Dictionary<string, string>();
+    private bool showMenu = false;
+
+    // UI 텍스처 캐시
+    private Dictionary<string, Texture2D> uiTextures = new Dictionary<string, Texture2D>();
+    private bool uiLoaded = false;
 
     private Vector2 currentDir = new Vector2(0, 1);
 
@@ -210,6 +215,14 @@ public class GameManager : MonoBehaviour
         }
 
         if (respawnPanel != null) respawnPanel.SetActive(false);
+
+        // UI 텍스처 로드
+        string[] uiNames = {"icon_shop","icon_market","icon_inventory","icon_daily","icon_unit","icon_pvp","icon_quest","icon_settings","icon_gold","icon_diamond","panel_bg","btn_normal","btn_gold"};
+        foreach(var n in uiNames) {
+            Texture2D t = Resources.Load<Texture2D>("UI/" + n);
+            if (t != null) uiTextures[n] = t;
+        }
+        uiLoaded = uiTextures.Count > 0;
 
         // 배경 설정
         GameObject bgObj = GameObject.Find("background");
@@ -370,19 +383,60 @@ public class GameManager : MonoBehaviour
             if (GUI.Button(new Rect(Screen.width - 210, topY, 190, btnH), "🗡 용병 고용 (-150G)"))
                 AddBot();
 
-            // 하단 메뉴 버튼
-            float menuY = Screen.height - 140;
-            if (GUI.Button(new Rect(10, menuY, 110, 30), "🏪 상점"))
-                { showShop = !showShop; showMarket = false; showInventory = false; }
-            if (GUI.Button(new Rect(10, menuY + 35, 110, 30), "💹 거래소"))
-                { showMarket = !showMarket; showShop = false; showInventory = false; OpenMarket(); }
-            if (GUI.Button(new Rect(10, menuY + 70, 110, 30), "🎒 인벤토리"))
-                { showInventory = !showInventory; showShop = false; showMarket = false; OpenInventory(); }
-            if (GUI.Button(new Rect(10, menuY + 105, 110, 30), "🎁 일일 보상"))
-                ClaimDaily();
+            // ── 하단 아이콘 메뉴 바 ──
+            float barH = 55;
+            float barY = Screen.height - barH - 5;
+            float iconSize = 48;
+            float iconGap = 8;
+            float barX = 10;
+
+            // 메뉴 토글 버튼
+            if (DrawIconButton(barX, barY, iconSize, "icon_settings", "메뉴"))
+                showMenu = !showMenu;
 
             // 화폐 표시
-            GUI.Label(new Rect(130, menuY, 150, 25), "💎 " + myDiamonds);
+            float cX = barX + iconSize + 10;
+            if (uiTextures.ContainsKey("icon_diamond"))
+                GUI.DrawTexture(new Rect(cX, barY + 5, 20, 20), uiTextures["icon_diamond"]);
+            GUI.Label(new Rect(cX + 22, barY + 5, 80, 20), myDiamonds.ToString());
+            if (uiTextures.ContainsKey("icon_gold"))
+                GUI.DrawTexture(new Rect(cX, barY + 28, 20, 20), uiTextures["icon_gold"]);
+            if (players.ContainsKey(myId))
+                GUI.Label(new Rect(cX + 22, barY + 28, 80, 20), players[myId].gold.ToString() + "G");
+
+            // 드롭다운 메뉴
+            if (showMenu)
+            {
+                float mx = barX;
+                float my = barY - (iconSize + iconGap) * 6 - 10;
+
+                // 배경 패널
+                if (uiTextures.ContainsKey("panel_bg"))
+                    GUI.DrawTexture(new Rect(mx - 5, my - 5, iconSize + 80, (iconSize + iconGap) * 6 + 15), uiTextures["panel_bg"], ScaleMode.StretchToFill);
+
+                if (DrawIconButton(mx, my, iconSize, "icon_shop", "상점"))
+                    { showShop = !showShop; showMarket = false; showInventory = false; showMenu = false; }
+                my += iconSize + iconGap;
+
+                if (DrawIconButton(mx, my, iconSize, "icon_market", "거래소"))
+                    { showMarket = !showMarket; showShop = false; showInventory = false; showMenu = false; OpenMarket(); }
+                my += iconSize + iconGap;
+
+                if (DrawIconButton(mx, my, iconSize, "icon_inventory", "인벤토리"))
+                    { showInventory = !showInventory; showShop = false; showMarket = false; showMenu = false; OpenInventory(); }
+                my += iconSize + iconGap;
+
+                if (DrawIconButton(mx, my, iconSize, "icon_unit", "유닛관리"))
+                    { showMenu = false; }
+                my += iconSize + iconGap;
+
+                if (DrawIconButton(mx, my, iconSize, "icon_quest", "퀘스트"))
+                    { showMenu = false; }
+                my += iconSize + iconGap;
+
+                if (DrawIconButton(mx, my, iconSize, "icon_daily", "일일보상"))
+                    { ClaimDaily(); showMenu = false; }
+            }
 
             // 카르마 표시
             if (players[myId].karma > 0)
@@ -1244,6 +1298,22 @@ public class GameManager : MonoBehaviour
             yield return null;
         }
         Destroy(obj);
+    }
+
+    private bool DrawIconButton(float x, float y, float size, string texName, string label)
+    {
+        bool clicked = false;
+        Rect btnRect = new Rect(x, y, size + 60, size);
+
+        if (uiTextures.ContainsKey(texName))
+        {
+            GUI.DrawTexture(new Rect(x + 2, y + 2, size - 4, size - 4), uiTextures[texName], ScaleMode.ScaleToFit);
+        }
+        if (GUI.Button(new Rect(x, y, size, size), ""))
+            clicked = true;
+
+        GUI.Label(new Rect(x + size + 4, y + size / 2 - 10, 56, 20), label);
+        return clicked;
     }
 
     private void ChangeBackground(string mapName)
