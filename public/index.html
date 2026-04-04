@@ -27,32 +27,35 @@
     .class-btn .desc { font-size:14px; color:#ddd; margin-top:4px; }
 
     /* 하단 메뉴바 */
-    #bottom-bar { position:absolute; bottom:0; left:0; width:100%; height:48px; background:rgba(0,0,0,0.85); display:none; z-index:15; border-top:1px solid #444; }
-    #bottom-bar .tab { flex:1; height:100%; border:none; background:transparent; color:#ccc; font-size:13px; cursor:pointer; transition:all 0.15s; border-right:1px solid #333; }
-    #bottom-bar .tab:hover { background:rgba(255,255,255,0.1); color:#fff; }
+    #bottom-bar { position:absolute; bottom:0; left:0; width:100%; height:48px; background:linear-gradient(180deg,rgba(20,20,35,0.95),rgba(10,10,20,0.98)); display:none; z-index:15; border-top:1px solid #3a3a5a; }
+    #bottom-bar .tab { flex:1; height:100%; border:none; background:transparent; font-size:14px; font-weight:bold; cursor:pointer; transition:all 0.15s; border-right:1px solid #2a2a4a; letter-spacing:1px; }
+    #bottom-bar .tab:hover { background:rgba(255,255,255,0.08); }
     #bottom-bar .tab:active { background:rgba(255,215,0,0.2); }
-    #bottom-bar { display:none; /* 게임 시작 전 숨김 */ }
     #bottom-bar.show { display:flex; }
 
-    /* 화폐 + 상태바 */
-    #status-bar { position:absolute; top:8px; left:50%; transform:translateX(-50%); z-index:15; display:none; background:rgba(0,0,0,0.7); border:1px solid #333; border-radius:8px; padding:6px 20px; }
-    #status-bar.show { display:flex; gap:20px; align-items:center; }
-    #status-bar .stat { font-size:13px; color:#ccc; }
-    #status-bar .stat b { color:#fff; }
+    /* 상태바 (상단) */
+    #status-bar { position:absolute; top:0; left:0; width:100%; z-index:15; display:none; background:linear-gradient(180deg,rgba(0,0,0,0.85),rgba(0,0,0,0.5)); padding:6px 15px; border-bottom:1px solid #2a2a4a; }
+    #status-bar.show { display:flex; gap:15px; align-items:center; flex-wrap:wrap; }
+    #status-bar .stat { font-size:12px; color:#aaa; }
+    #status-bar .stat b { font-size:13px; }
     .diamond-val { color:#44aaff !important; }
     .gold-val { color:#ffd700 !important; }
-    .zone-val { color:#88ff88 !important; font-size:11px !important; }
+    .zone-val { color:#88ff88 !important; }
+    .level-val { color:#fff !important; font-size:14px !important; }
+    .hp-val { color:#44ff44 !important; }
+    .team-val { font-size:11px !important; }
 
     /* 채팅 */
-    #chat-box { position:absolute; bottom:52px; left:10px; width:320px; z-index:16; display:none; }
+    #chat-box { position:absolute; bottom:52px; left:10px; width:350px; z-index:16; display:none; }
     #chat-box.show { display:block; }
-    #chat-log { height:120px; overflow-y:auto; background:rgba(0,0,0,0.6); border-radius:6px 6px 0 0; padding:6px; font-size:12px; color:#ddd; }
-    #chat-log div { padding:2px 0; }
-    .chat-king { color:#ffd700; }
+    #chat-log { height:140px; overflow-y:auto; background:rgba(0,0,0,0.75); border:1px solid #2a2a4a; border-radius:6px 6px 0 0; padding:8px; font-size:13px; color:#ddd; }
+    #chat-log div { padding:3px 0; border-bottom:1px solid rgba(255,255,255,0.03); }
+    .chat-king { color:#ffd700; font-weight:bold; }
     .chat-chaotic { color:#ff4444; }
     #chat-input-wrap { display:flex; }
-    #chat-input { flex:1; padding:6px 10px; border:1px solid #555; border-radius:0 0 0 6px; background:rgba(0,0,0,0.8); color:#fff; font-size:13px; outline:none; }
-    #chat-send { padding:6px 14px; border:1px solid #555; border-radius:0 0 6px 0; background:#2d3436; color:#fff; cursor:pointer; font-size:12px; }
+    #chat-input { flex:1; padding:8px 12px; border:1px solid #3a3a5a; border-top:none; border-radius:0 0 0 6px; background:rgba(10,10,20,0.9); color:#fff; font-size:13px; outline:none; }
+    #chat-input::placeholder { color:#555; }
+    #chat-send { padding:8px 16px; border:1px solid #3a3a5a; border-top:none; border-radius:0 0 6px 0; background:linear-gradient(180deg,#2a2a4a,#1a1a3a); color:#ddd; cursor:pointer; font-size:13px; }
     #chat-send:hover { background:#ffd700; color:#000; }
 
     /* 전투 로그 */
@@ -79,10 +82,10 @@
     .top-btn:hover { background:rgba(255,255,255,0.2); }
 
     /* 서브메뉴 */
-    #sub-menu { position:absolute; bottom:48px; left:0; width:100%; display:none; z-index:16; background:rgba(0,0,0,0.9); border-top:1px solid #555; }
+    #sub-menu { position:absolute; bottom:48px; left:0; width:100%; display:none; z-index:16; background:linear-gradient(180deg,rgba(15,15,25,0.95),rgba(0,0,0,0.98)); border-top:1px solid #3a3a5a; }
     #sub-menu.show { display:flex; flex-wrap:wrap; }
-    #sub-menu button { flex:1; min-width:80px; padding:10px 5px; border:none; border-right:1px solid #333; background:transparent; color:#ccc; font-size:12px; cursor:pointer; }
-    #sub-menu button:hover { background:rgba(255,215,0,0.15); color:#fff; }
+    #sub-menu button { flex:1; min-width:90px; padding:12px 8px; border:none; border-right:1px solid #2a2a4a; background:transparent; color:#ccc; font-size:14px; cursor:pointer; transition:all 0.15s; }
+    #sub-menu button:hover { background:rgba(255,215,0,0.15); color:#ffd700; }
 
     /* 미니맵 */
     #minimap-container { position:absolute; top:10px; right:10px; z-index:15; display:none; }
@@ -157,10 +160,14 @@
     <!-- 서브메뉴 -->
     <div id="sub-menu"></div>
 
-    <!-- 상태바 (상단 중앙) -->
+    <!-- 상태바 (상단 전체) -->
     <div id="status-bar">
-      <span class="stat">Diamond: <b class="diamond-val" id="diamond-val">100</b></span>
-      <span class="stat">Gold: <b class="gold-val" id="gold-val">0</b>G</span>
+      <span class="stat"><b class="level-val" id="level-display">Lv.1</b></span>
+      <span class="stat">HP: <b class="hp-val" id="hp-display">-/-</b></span>
+      <span class="stat"><b class="team-val" id="team-display" style="color:#88ff88">자동 사냥</b></span>
+      <span style="flex:1"></span>
+      <span class="stat">💎<b class="diamond-val" id="diamond-val">100</b></span>
+      <span class="stat">💰<b class="gold-val" id="gold-val">0</b></span>
       <span class="stat zone-val" id="zone-display">-</span>
       <span class="stat" id="siege-display" style="display:none;color:#ff4444;font-weight:bold"></span>
     </div>
@@ -412,6 +419,7 @@
           var me = data.players[myPlayerId];
           if (me.diamonds !== undefined) document.getElementById('diamond-val').textContent = me.diamonds;
           if (me.gold !== undefined) document.getElementById('gold-val').textContent = me.gold;
+          if (me.hp !== undefined) document.getElementById('hp-display').textContent = Math.ceil(me.hp) + '/' + Math.ceil(me.hp); // maxHp는 별도
         }
         // 미니맵 업데이트
         updateMinimapData(data);
@@ -431,6 +439,20 @@
         }
       });
 
+      // 플레이어 업데이트 (레벨/팀/HP)
+      window.socket.on('player_update', (d) => {
+        if (d.id === myPlayerId || (!myPlayerId && d.level)) {
+          if (d.level) document.getElementById('level-display').textContent = 'Lv.' + d.level + ' ' + (d.displayName||d.className||'');
+          if (d.hp !== undefined && d.maxHp) document.getElementById('hp-display').textContent = Math.ceil(d.hp)+'/'+Math.ceil(d.maxHp);
+          if (d.team) {
+            var teamEl = document.getElementById('team-display');
+            if (d.team === 'peace') { teamEl.textContent = '자동 사냥'; teamEl.style.color = '#88ff88'; }
+            else if (d.team.startsWith('king_')) { teamEl.textContent = '👑 왕'; teamEl.style.color = '#ffd700'; }
+            else { teamEl.textContent = 'PvP'; teamEl.style.color = '#ff6b6b'; }
+          }
+          if (d.karma >= 200) document.getElementById('team-display').textContent += ' [카오틱]';
+        }
+      });
       window.socket.on('shop_result', (d) => { showToast(d.msg); playSFX('buy'); });
       window.socket.on('market_result', (d) => { showToast(d.msg); playSFX('buy'); });
       window.socket.on('daily_result', (d) => { showToast(d.msg); playSFX('gold'); if(d.diamonds) document.getElementById('diamond-val').textContent=d.diamonds; });
@@ -973,7 +995,7 @@
       var locEl = document.getElementById('trade-location');
 
       // 현재 위치 체크
-      var townNames = {aden:'아덴 마을', harbor:'항구 마을', oasis:'오아시스 마을'};
+      var townNames = {aden:'아덴 마을', harbor:'항구 마을', oasis:'오아시스 마을', village:'아덴 마을', port_town:'항구 마을'};
       var inTown = townNames[myCurrentZone];
       if (inTown) {
         locEl.style.background = 'rgba(0,180,0,0.15)';

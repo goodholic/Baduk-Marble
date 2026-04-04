@@ -1619,30 +1619,12 @@ public class GameManager : MonoBehaviour
     private void UpdateMyUI()
     {
         if (!players.ContainsKey(myId)) return;
-        var p = players[myId];
+        // 모든 UI → HTML로 이동됨. Unity TextMesh 비우기
+        if (goldText != null) goldText.text = "";
+        if (hpText != null) hpText.text = "";
+        if (levelText != null) levelText.text = "";
+        if (teamText != null) teamText.text = "";
 
-        string displayName = classDisplayNames.ContainsKey(p.className) ? classDisplayNames[p.className] : p.className;
-
-        if (goldText != null) goldText.text = $"💰 {p.gold} Gold";
-        if (hpText != null) hpText.text = $"HP: {Mathf.CeilToInt(p.hp)}/{Mathf.CeilToInt(p.maxHp)}";
-        if (levelText != null) levelText.text = $"Lv.{p.level} {displayName}";
-
-        if (teamText != null) {
-            if (p.team == "peace")
-                teamText.text = "<color=#88ff88>자동 사냥 중</color>";
-            else if (p.team.StartsWith("king_"))
-                teamText.text = "<color=#ff4444>👑 왕 — PvP 활성</color>";
-            else
-                teamText.text = "<color=#ffaa44>PvP 전투 중</color>";
-        }
-
-        if (karmaText != null) {
-            if (p.karma >= 200)
-                karmaText.text = $"<color=#ff2222>카오틱 (카르마: {p.karma})</color>";
-            else if (p.karma > 0)
-                karmaText.text = $"<color=#ffaa00>카르마: {p.karma}</color>";
-            else
-                karmaText.text = "<color=#88ff88>질서</color>";
-        }
+        if (karmaText != null) karmaText.text = "";
     }
 }
