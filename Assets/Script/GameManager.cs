@@ -791,8 +791,9 @@ public class GameManager : MonoBehaviour
             correctedPos.z = -1f;
             players[myId].go.transform.position = correctedPos;
 
-            float angle = Mathf.Atan2(currentDir.y, currentDir.x) * Mathf.Rad2Deg - 90f;
-            players[myId].go.transform.rotation = Quaternion.Euler(0, 0, angle);
+            // 이동 방향에 따라 좌우 반전 (회전 대신)
+            players[myId].go.transform.rotation = Quaternion.identity;
+            FlipByDirection(players[myId].go, currentDir.x);
 
             JObject moveData = new JObject();
             moveData["x"] = players[myId].go.transform.position.x;
@@ -825,13 +826,22 @@ public class GameManager : MonoBehaviour
     {
         foreach (var kvp in players) {
             if (kvp.Key == myId || !kvp.Value.isAlive) continue;
-            if (kvp.Value.go != null)
-                kvp.Value.go.transform.position = Vector3.Lerp(kvp.Value.go.transform.position, kvp.Value.targetPos, Time.deltaTime * 10f);
+            if (kvp.Value.go != null) {
+                Vector3 oldPos = kvp.Value.go.transform.position;
+                Vector3 newPos = Vector3.Lerp(oldPos, kvp.Value.targetPos, Time.deltaTime * 10f);
+                kvp.Value.go.transform.position = newPos;
+                // 이동 방향에 따라 좌우 반전
+                FlipByDirection(kvp.Value.go, newPos.x - oldPos.x);
+            }
         }
 
         foreach (var kvp in monsters) {
-            if (kvp.Value.go != null)
-                kvp.Value.go.transform.position = Vector3.Lerp(kvp.Value.go.transform.position, kvp.Value.targetPos, Time.deltaTime * 5f);
+            if (kvp.Value.go != null) {
+                Vector3 oldPos = kvp.Value.go.transform.position;
+                Vector3 newPos = Vector3.Lerp(oldPos, kvp.Value.targetPos, Time.deltaTime * 5f);
+                kvp.Value.go.transform.position = newPos;
+                FlipByDirection(kvp.Value.go, newPos.x - oldPos.x);
+            }
         }
 
         foreach (var kvp in axes) {
@@ -840,6 +850,13 @@ public class GameManager : MonoBehaviour
                 kvp.Value.go.transform.position += kvp.Value.dir * kvp.Value.speed * Time.deltaTime;
             }
         }
+    }
+
+    private void FlipByDirection(GameObject go, float deltaX)
+    {
+        if (Mathf.Abs(deltaX) < 0.001f) return;
+        SpriteRenderer sr = go.GetComponentInChildren<SpriteRenderer>();
+        if (sr != null) sr.flipX = (deltaX < 0);
     }
 
     public void ThrowAxe()
@@ -1526,35 +1543,34 @@ public class GameManager : MonoBehaviour
         foreach (var kvp in players)
         {
             if (!kvp.Value.isAlive || kvp.Value.go == null) continue;
-            Transform hpFg = kvp.Value.go.transform.Find("HPBarFG");
-            if (hpFg != null && kvp.Value.maxHp > 0)
-            {
-                float ratio = Mathf.Clamp01(kvp.Value.hp / kvp.Value.maxHp);
-                Vector3 s = hpFg.localScale;
-                s.x = 1.2f * ratio;
-                hpFg.localScale = s;
-                // 좌측 정렬
-                Vector3 p = hpFg.localPosition;
-                p.x = -0.6f * (1 - ratio);
-                hpFg.localPosition = new Vector3(p.x, p.y, p.z);
-            }
+            UpdateSingleHPBar(kvp.Value.go, kvp.Value.hp, kvp.Value.maxHp);
         }
 
         // 몬스터 HP바 업데이트
         foreach (var kvp in monsters)
         {
             if (kvp.Value.go == null) continue;
-            Transform hpFg = kvp.Value.go.transform.Find("HPBarFG");
-            if (hpFg != null && kvp.Value.maxHp > 0)
-            {
-                float ratio = Mathf.Clamp01(kvp.Value.hp / kvp.Value.maxHp);
-                Vector3 s = hpFg.localScale;
-                s.x = 1.2f * ratio;
-                hpFg.localScale = s;
-                Vector3 p = hpFg.localPosition;
-                p.x = -0.6f * (1 - ratio);
-                hpFg.localPosition = new Vector3(p.x, p.y, p.z);
-            }
+            UpdateSingleHPBar(kvp.Value.go, kvp.Value.hp, kvp.Value.maxHp);
+        }
+    }
+
+    private void UpdateSingleHPBar(GameObject go, float hp, float maxHp)
+    {
+        Transform hpFg = go.transform.Find("HPBarFG");
+        Transform hpBg = go.transform.Find("HPBarBG");
+        if (hpFg == null || maxHp <= 0) return;
+
+        float ratio = Mathf.Clamp01(hp / maxHp);
+
+        // 스케일로만 바 크기 조절 (위치 고정)
+        hpFg.localScale = new Vector3(1.2f * ratio, 0.12f, 1);
+
+        // 색상 변화 (HP에 따라 초록→노랑→빨강)
+        SpriteRenderer sr = hpFg.GetComponent<SpriteRenderer>();
+        if (sr != null)
+        {
+            if (ratio > 0.5f) sr.color = Color.Lerp(Color.yellow, Color.green, (ratio - 0.5f) * 2);
+            else sr.color = Color.Lerp(Color.red, Color.yellow, ratio * 2);
         }
     }
 
