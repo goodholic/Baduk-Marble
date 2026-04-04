@@ -138,7 +138,7 @@
     <!-- 하단 메뉴바 -->
     <div id="bottom-bar">
       <button class="tab" onclick="togglePanel('shop')">상점</button>
-      <button class="tab" onclick="togglePanel('market')">거래소</button>
+      <button class="tab" onclick="togglePanel('fishing')">낚시</button>
       <button class="tab" onclick="togglePanel('inventory')">인벤토리</button>
       <button class="tab" onclick="togglePanel('units')">유닛</button>
       <button class="tab" onclick="togglePanel('quests')">퀘스트</button>
@@ -197,10 +197,20 @@
       </div>
     </div>
 
-    <!-- 거래소 패널 -->
-    <div class="panel" id="panel-market">
-      <div class="panel-header"><h2>거래소 (수수료 5%)</h2><button class="panel-close" onclick="closePanel('market')">X</button></div>
-      <div class="panel-body" id="market-body"><p style="color:#888">등록된 물건이 없습니다</p></div>
+    <!-- 낚시/요리 패널 -->
+    <div class="panel" id="panel-fishing">
+      <div class="panel-header"><h2>낚시 & 요리</h2><button class="panel-close" onclick="closePanel('fishing')">X</button></div>
+      <div class="panel-body">
+        <h3 style="color:#44aaff;margin-bottom:8px">낚시 (은빛 호수에서)</h3>
+        <button onclick="window.socket.emit('start_fishing','{}')" style="width:100%;padding:10px;margin-bottom:5px;background:#2d5a1e;border:none;color:#fff;border-radius:6px;font-size:14px;cursor:pointer">낚시 시작</button>
+        <button onclick="window.socket.emit('stop_fishing','{}')" style="width:100%;padding:8px;margin-bottom:15px;background:#5a1e1e;border:none;color:#fff;border-radius:6px;cursor:pointer">낚시 중단</button>
+
+        <h3 style="color:#ffd700;margin-bottom:8px">요리</h3>
+        <div class="panel-item"><span class="name">생선 스튜<br><small style="color:#88cc88">붕어 x3 → HP+200, DEF+5</small></span><button onclick="window.socket.emit('cook','fish_stew')">요리</button></div>
+        <div class="panel-item"><span class="name">황금 수프<br><small style="color:#ffd700">금붕어 x2 + 붕어 x1 → ATK+15</small></span><button onclick="window.socket.emit('cook','golden_soup')">요리</button></div>
+        <div class="panel-item"><span class="name">용의 만찬<br><small style="color:#aa44ff">황금잉어 x1 + 마법결정 x2 → ALL+10</small></span><button onclick="window.socket.emit('cook','dragon_meal')">요리</button></div>
+        <div class="panel-item"><span class="name" style="color:#ff4444">전설의 향연<br><small>용왕물고기 x1 + 영혼석 x1 → ALL+20, 무적</small></span><button onclick="window.socket.emit('cook','legend_feast')">요리</button></div>
+      </div>
     </div>
 
     <!-- 인벤토리 패널 -->
@@ -248,6 +258,7 @@
           <button onclick="window.socket.emit('get_clans','{}');setTimeout(()=>togglePanel('clan'),100)" style="padding:6px 14px">혈맹 목록 새로고침</button>
           <button onclick="createParty()" style="padding:6px 14px;margin-left:5px">파티 생성</button>
           <button onclick="partyInvite()" style="padding:6px 14px;margin-left:5px">근처 초대</button>
+          <button onclick="window.socket.emit('start_siege','{}')" style="padding:6px 14px;margin-left:5px;background:#8b0000">공성전</button>
         </div>
         <div id="clan-list" style="color:#aaa">혈맹 목록을 불러오세요</div>
       </div>
@@ -428,6 +439,21 @@
       // 창고
       window.socket.on('warehouse_data', (d) => { showToast('창고 업데이트'); });
 
+      // 낚시
+      window.socket.on('fishing_result', (d) => { showToast(d.msg); if(d.success && d.item) playSFX('gold'); });
+      // 요리
+      window.socket.on('cook_result', (d) => { showToast(d.msg); if(d.success) playSFX('buy'); });
+      // 공성전
+      window.socket.on('siege_result', (d) => showToast(d.msg));
+      // 1:1 거래
+      window.socket.on('trade_result', (d) => showToast(d.msg));
+      window.socket.on('trade_incoming', (d) => {
+        if(confirm(d.fromName + '님이 거래를 요청합니다. 수락?')) {
+          var myItem = prompt('보낼 아이템 ID (없으면 빈칸):','');
+          window.socket.emit('trade_accept', JSON.stringify({fromId:d.fromId, myItem:myItem||'', theirItem:''}));
+        }
+      });
+
       window.socket.on('inventory_data', renderInventory);
       window.socket.on('market_data', renderMarket);
       window.socket.on('market_update', renderMarket);
@@ -568,15 +594,23 @@
     var minimapCtx = minimapCanvas.getContext('2d');
     var minimapContainer = document.getElementById('minimap-container');
     var minimapZoneLabel = document.getElementById('minimap-zone');
-    var MAP_MIN = -30, MAP_MAX = 30, MAP_SIZE = 180;
+    var MAP_MIN = -100, MAP_MAX = 100, MAP_SIZE = 180;
 
     var zones = {
-      village:{name:'초보자 마을',x:-25,y:-25,w:15,h:15,color:'#2d5a1e'},
-      forest:{name:'엘프숲',x:-10,y:-25,w:15,h:15,color:'#1a3a0a'},
-      plains:{name:'드래곤 평원',x:5,y:-25,w:20,h:20,color:'#4a6a2a'},
-      dungeon:{name:'어둠의 동굴',x:-25,y:-10,w:15,h:15,color:'#2a1a3a'},
-      dragon:{name:'드래곤 둥지',x:-10,y:-10,w:10,h:10,color:'#5a1a1a'},
-      chaos:{name:'죽음의 협곡',x:0,y:-10,w:15,h:15,color:'#3a1a4a'},
+      village:{name:'아덴 마을',x:-100,y:-100,w:30,h:30,color:'#2d5a1e'},
+      port_town:{name:'항구 마을',x:60,y:-100,w:25,h:25,color:'#1e5a2d'},
+      forest:{name:'엘프숲',x:-70,y:-60,w:40,h:30,color:'#1a3a0a'},
+      plains:{name:'말하는 섬',x:-30,y:-60,w:40,h:30,color:'#4a6a2a'},
+      swamp:{name:'독안개 늪',x:10,y:-60,w:30,h:30,color:'#2a4a1a'},
+      desert:{name:'사막',x:40,y:-60,w:40,h:25,color:'#6a5a2a'},
+      dungeon:{name:'어둠의 동굴',x:-70,y:-20,w:30,h:30,color:'#2a1a3a'},
+      graveyard:{name:'묘지',x:-40,y:-20,w:30,h:25,color:'#3a2a3a'},
+      volcano:{name:'화산',x:20,y:-20,w:35,h:30,color:'#5a2a1a'},
+      dragon:{name:'드래곤 둥지',x:55,y:-20,w:30,h:25,color:'#5a1a1a'},
+      chaos:{name:'죽음의 협곡',x:-50,y:20,w:40,h:30,color:'#3a1a4a'},
+      abyss:{name:'심연',x:10,y:20,w:35,h:30,color:'#1a1a3a'},
+      castle:{name:'왕의 성',x:-20,y:55,w:40,h:35,color:'#5a4a1a'},
+      fishing:{name:'은빛 호수',x:50,y:50,w:30,h:30,color:'#1a3a5a'},
     };
 
     var lastSyncPlayers = {};

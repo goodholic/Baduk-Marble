@@ -192,14 +192,42 @@ async function savePlayer(player) {
 // ==========================================
 // 맵 존 시스템
 // ==========================================
+// 맵 200x200 (-100 ~ 100)
 const ZONES = {
-    village: { name:'초보자 마을', x:-25, y:-25, w:15, h:15, lvl:[1,5], safe:true, bg:'map_village' },
-    forest:  { name:'엘프숲',     x:-10, y:-25, w:15, h:15, lvl:[5,15], safe:false, bg:'map_forest' },
-    plains:  { name:'드래곤 평원', x:5,   y:-25, w:20, h:20, lvl:[10,25], safe:false, bg:'map_plains' },
-    dungeon: { name:'어둠의 동굴', x:-25, y:-10, w:15, h:15, lvl:[15,30], safe:false, bg:'map_dungeon' },
-    dragon:  { name:'드래곤 둥지', x:-10, y:-10, w:10, h:10, lvl:[25,99], safe:false, bg:'map_dragon' },
-    chaos:   { name:'죽음의 협곡', x:0,   y:-10, w:15, h:15, lvl:[20,99], safe:false, bg:'map_chaos' },
+    // 마을 (안전지대, NPC 있음)
+    village:    { name:'아덴 마을',     x:-100, y:-100, w:30, h:30, lvl:[1,99],  safe:true,  bg:'map_village', npcs:['상점','대장장이','힐러','낚시꾼','요리사'] },
+    port_town:  { name:'항구 마을',     x:60,   y:-100, w:25, h:25, lvl:[1,99],  safe:true,  bg:'map_village', npcs:['상점','항해사','낚시꾼'] },
+    // 사냥터
+    forest:     { name:'엘프숲',       x:-70,  y:-60,  w:40, h:30, lvl:[1,10],  safe:false, bg:'map_forest' },
+    plains:     { name:'말하는 섬 평원', x:-30,  y:-60,  w:40, h:30, lvl:[5,15],  safe:false, bg:'map_plains' },
+    swamp:      { name:'독안개 늪지',   x:10,   y:-60,  w:30, h:30, lvl:[10,20], safe:false, bg:'map_forest' },
+    desert:     { name:'사막 황야',     x:40,   y:-60,  w:40, h:25, lvl:[15,25], safe:false, bg:'map_plains' },
+    dungeon:    { name:'어둠의 동굴',   x:-70,  y:-20,  w:30, h:30, lvl:[15,30], safe:false, bg:'map_dungeon' },
+    graveyard:  { name:'잊혀진 묘지',   x:-40,  y:-20,  w:30, h:25, lvl:[20,35], safe:false, bg:'map_dungeon' },
+    volcano:    { name:'화산 지대',     x:20,   y:-20,  w:35, h:30, lvl:[25,40], safe:false, bg:'map_dragon' },
+    dragon:     { name:'드래곤 둥지',   x:55,   y:-20,  w:30, h:25, lvl:[30,99], safe:false, bg:'map_dragon' },
+    chaos:      { name:'죽음의 협곡',   x:-50,  y:20,   w:40, h:30, lvl:[20,99], safe:false, bg:'map_chaos' },
+    abyss:      { name:'심연',         x:10,   y:20,   w:35, h:30, lvl:[35,99], safe:false, bg:'map_chaos' },
+    // 성 (공성전)
+    castle:     { name:'왕의 성',      x:-20,  y:55,   w:40, h:35, lvl:[20,99], safe:false, bg:'map_dungeon', isCastle:true },
+    // 낚시터
+    fishing:    { name:'은빛 호수',     x:50,   y:50,   w:30, h:30, lvl:[1,99],  safe:true,  bg:'map_village', isFishing:true },
 };
+
+// NPC 정의
+const NPCS = {
+    '상점':    { type:'shop',    msg:'어서오세요! 물건을 사고파세요.' },
+    '대장장이': { type:'smith',   msg:'장비를 강화해드리겠습니다.' },
+    '힐러':    { type:'healer',  msg:'치료해드릴까요? (무료)' },
+    '낚시꾼':  { type:'fisher',  msg:'낚시를 하려면 낚싯대가 필요합니다.' },
+    '요리사':  { type:'cook',    msg:'재료를 가져오시면 요리를 만들어드립니다.' },
+    '항해사':  { type:'travel',  msg:'다른 마을로 이동하시겠습니까?' },
+};
+
+// 성 소유
+let castleOwner = null; // clanName
+let siegeActive = false;
+let siegeTimer = null;
 
 function getZone(x, y) {
     for (const [id, z] of Object.entries(ZONES)) {
@@ -425,7 +453,7 @@ let drops = {}; // 드롭 아이템
 
 let entityIdCounter = 0;
 const MAX_PLAYERS = 50;
-const MAX_MONSTERS = 30;
+const MAX_MONSTERS = 80; // 넓은 맵에 몬스터 대량 배치
 let hasKing = false;
 
 // ── 클래스 정의 (판타지 RPG) ──
@@ -540,8 +568,8 @@ function spawnMonster() {
         id: mId,
         tier: tierKey,
         name: tier.name,
-        x: Math.random() * 50 - 25,
-        y: Math.random() * 50 - 25,
+        x: Math.random() * 180 - 90,
+        y: Math.random() * 180 - 90,
         hp: tier.hp,
         maxHp: tier.hp,
         atk: tier.atk,
@@ -614,8 +642,8 @@ io.on('connection', (socket) => {
             deviceId,
             className: selectedClass,
             displayName: cls.displayName,
-            x: Math.random() * 30 - 15,
-            y: Math.random() * 30 - 15,
+            x: Math.random() * 160 - 80,
+            y: Math.random() * 160 - 80,
             hp: cls.maxHp,
             maxHp: cls.maxHp,
             atk: cls.atk,
@@ -894,8 +922,8 @@ io.on('connection', (socket) => {
             p.hp = p.maxHp;
             p.dmgMulti = 1.0;
             p.isAlive = true;
-            p.x = Math.random() * 30 - 15;
-            p.y = Math.random() * 30 - 15;
+            p.x = Math.random() * 160 - 80;
+            p.y = Math.random() * 160 - 80;
 
             savePlayer(p);
             io.emit('player_respawn', p);
@@ -1430,6 +1458,151 @@ io.on('connection', (socket) => {
         socket.emit('warehouse_data', { warehouse: p?.warehouse || {}, inventory: p?.inventory || {} });
     });
 
+    // ── 낚시 ──
+    socket.on('start_fishing', () => {
+        const p = players[playerId];
+        if (!p || !p.isAlive) return;
+        const zone = getZone(p.x, p.y);
+        if (!zone.isFishing) { socket.emit('fishing_result', { success:false, msg:'낚시터에서만 가능합니다 (은빛 호수)' }); return; }
+        if (p.isFishing) { socket.emit('fishing_result', { success:false, msg:'이미 낚시 중' }); return; }
+        p.isFishing = true;
+        socket.emit('fishing_result', { success:true, msg:'낚시 시작! 기다려주세요...' });
+
+        // 3~8초 후 결과
+        const fishTime = 3000 + Math.random() * 5000;
+        setTimeout(() => {
+            if (!players[playerId] || !p.isFishing) return;
+            p.isFishing = false;
+            if (!p.inventory) p.inventory = {};
+
+            const roll = Math.random();
+            let catchItem, catchName;
+            if (roll < 0.4) { catchItem = 'fish_common'; catchName = '붕어'; }
+            else if (roll < 0.7) { catchItem = 'fish_rare'; catchName = '금붕어'; }
+            else if (roll < 0.85) { catchItem = 'fish_epic'; catchName = '황금잉어'; }
+            else if (roll < 0.95) { catchItem = 'mat_magic'; catchName = '마법 결정 (!)'; }
+            else { catchItem = 'fish_legendary'; catchName = '용왕의 물고기 (!!!)'; }
+
+            p.inventory[catchItem] = (p.inventory[catchItem] || 0) + 1;
+            savePlayer(p);
+            socket.emit('fishing_result', { success:true, msg:`${catchName} 낚았다!`, item: catchItem });
+            if (roll >= 0.95) io.emit('server_msg', { msg:`${p.displayName}이(가) ${catchName}를 낚았다!`, type:'rare' });
+        }, fishTime);
+    });
+
+    socket.on('stop_fishing', () => {
+        const p = players[playerId];
+        if (p) p.isFishing = false;
+    });
+
+    // ── 요리 ──
+    socket.on('cook', (recipe) => {
+        const p = players[playerId];
+        if (!p) return;
+        if (!p.inventory) p.inventory = {};
+
+        const RECIPES = {
+            fish_stew:   { need: { fish_common: 3 }, result: 'food_hp',     resultName: '생선 스튜',     effect: 'HP+200, DEF+5 (3분)' },
+            golden_soup: { need: { fish_rare: 2, fish_common: 1 }, result: 'food_atk', resultName: '황금 수프',    effect: 'ATK+15, CRIT+5% (3분)' },
+            dragon_meal: { need: { fish_epic: 1, mat_magic: 2 }, result: 'food_all',   resultName: '용의 만찬',    effect: 'ALL+10, EXP+50% (5분)' },
+            legend_feast:{ need: { fish_legendary: 1, mat_soul: 1 }, result: 'food_legend', resultName: '전설의 향연', effect: 'ALL+20, 무적 10초' },
+        };
+
+        const r = RECIPES[recipe];
+        if (!r) { socket.emit('cook_result', { success:false, msg:'알 수 없는 레시피' }); return; }
+
+        for (const [item, count] of Object.entries(r.need)) {
+            if ((p.inventory[item] || 0) < count) {
+                socket.emit('cook_result', { success:false, msg:`재료 부족: ${item} ${p.inventory[item]||0}/${count}` });
+                return;
+            }
+        }
+
+        // 재료 소모
+        for (const [item, count] of Object.entries(r.need)) {
+            p.inventory[item] -= count;
+            if (p.inventory[item] <= 0) delete p.inventory[item];
+        }
+        p.inventory[r.result] = (p.inventory[r.result] || 0) + 1;
+        savePlayer(p);
+        socket.emit('cook_result', { success:true, msg:`${r.resultName} 요리 완료! (${r.effect})` });
+    });
+
+    // ── 공성전 ──
+    socket.on('start_siege', () => {
+        const p = players[playerId];
+        if (!p || !p.clanName) { socket.emit('siege_result', { msg:'혈맹 필요' }); return; }
+        if (siegeActive) { socket.emit('siege_result', { msg:'이미 공성 중' }); return; }
+        if (castleOwner === p.clanName) { socket.emit('siege_result', { msg:'이미 성 소유 중' }); return; }
+
+        siegeActive = true;
+        io.emit('server_msg', { msg:`[공성전] ${p.clanName} 혈맹이 왕의 성에 공격을 선포했습니다! (5분)`, type:'boss' });
+
+        siegeTimer = setTimeout(() => {
+            siegeActive = false;
+            // 공성 성공 여부: 성 구역에 공격자 혈맹이 가장 많으면 성공
+            const clanCounts = {};
+            for (const pid in players) {
+                const pl = players[pid];
+                if (!pl.isAlive || !pl.clanName || pl.isBot) continue;
+                const z = getZone(pl.x, pl.y);
+                if (z.isCastle) {
+                    clanCounts[pl.clanName] = (clanCounts[pl.clanName] || 0) + 1;
+                }
+            }
+            let winner = null, maxCount = 0;
+            for (const [clan, count] of Object.entries(clanCounts)) {
+                if (count > maxCount) { maxCount = count; winner = clan; }
+            }
+            if (winner) {
+                castleOwner = winner;
+                io.emit('server_msg', { msg:`[공성전] ${winner} 혈맹이 왕의 성을 차지했습니다!`, type:'rare' });
+            } else {
+                io.emit('server_msg', { msg:`[공성전] 공성 실패 — 성을 지켜냈습니다!`, type:'normal' });
+            }
+        }, 300000); // 5분
+
+        socket.emit('siege_result', { msg:'공성전 시작! 5분 내에 성을 점령하세요!' });
+    });
+
+    // ── 1:1 거래 ──
+    socket.on('trade_request', (targetId) => {
+        const p = players[playerId];
+        const t = players[targetId];
+        if (!p || !t || t.isBot) return;
+        const dist = Math.hypot(p.x - t.x, p.y - t.y);
+        if (dist > 5) { socket.emit('trade_result', { success:false, msg:'대상이 너무 멉니다 (5 이내)' }); return; }
+        io.to(targetId).emit('trade_incoming', { fromId: playerId, fromName: p.displayName });
+        socket.emit('trade_result', { success:true, msg:'거래 요청을 보냈습니다' });
+    });
+
+    socket.on('trade_accept', (dataStr) => {
+        try {
+            const data = JSON.parse(dataStr);
+            const { fromId, myItem, theirItem } = data;
+            const p = players[playerId];
+            const t = players[fromId];
+            if (!p || !t) return;
+
+            // 아이템 교환
+            if (myItem && p.inventory && p.inventory[myItem]) {
+                p.inventory[myItem]--;
+                if (p.inventory[myItem] <= 0) delete p.inventory[myItem];
+                if (!t.inventory) t.inventory = {};
+                t.inventory[myItem] = (t.inventory[myItem] || 0) + 1;
+            }
+            if (theirItem && t.inventory && t.inventory[theirItem]) {
+                t.inventory[theirItem]--;
+                if (t.inventory[theirItem] <= 0) delete t.inventory[theirItem];
+                if (!p.inventory) p.inventory = {};
+                p.inventory[theirItem] = (p.inventory[theirItem] || 0) + 1;
+            }
+            savePlayer(p); savePlayer(t);
+            socket.emit('trade_result', { success:true, msg:'거래 완료!' });
+            io.to(fromId).emit('trade_result', { success:true, msg:'거래 완료!' });
+        } catch(e) {}
+    });
+
     // ── 채팅 ──
     socket.on('chat', (msg) => {
         const p = players[playerId];
@@ -1553,8 +1726,8 @@ function createAutoArmy(ownerId) {
         id: botId, deviceId: 'bot',
         className: randomClass,
         displayName: cls.displayName,
-        x: Math.random() * 50 - 25,
-        y: Math.random() * 50 - 25,
+        x: Math.random() * 180 - 90,
+        y: Math.random() * 180 - 90,
         hp: cls.maxHp, maxHp: cls.maxHp,
         atk: cls.atk, def: cls.def,
         critRate: cls.critRate, dodgeRate: cls.dodgeRate,
@@ -1600,8 +1773,8 @@ setInterval(() => {
             m.x += (Math.random() * 2 - 1) * 0.5;
             m.y += (Math.random() * 2 - 1) * 0.5;
             // 맵 경계
-            m.x = Math.max(-28, Math.min(28, m.x));
-            m.y = Math.max(-28, Math.min(28, m.y));
+            m.x = Math.max(-95, Math.min(95, m.x));
+            m.y = Math.max(-95, Math.min(95, m.y));
         }
     }
 
