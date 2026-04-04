@@ -411,64 +411,40 @@ public class GameManager : MonoBehaviour
             if (GUI.Button(new Rect(Screen.width - 210, topY, 190, btnH), "용병 고용 (-150G)"))
                 AddBot();
 
-            // ── 하단 아이콘 메뉴 바 ──
-            float barH = 55;
-            float barY = Screen.height - barH - 5;
-            float iconSize = 48;
-            float iconGap = 8;
-            float barX = 10;
+            // ── 하단 상시 메뉴바 ──
+            float barH = 50;
+            float barY = Screen.height - barH;
+            float tabW = Screen.width / 7f;
+            int origBtnSize = GUI.skin.button.fontSize;
+            GUI.skin.button.fontSize = 12;
 
-            // 메뉴 토글 버튼
-            if (DrawIconButton(barX, barY, iconSize, "icon_settings", "메뉴"))
-                showMenu = !showMenu;
+            // 반투명 배경
+            GUI.color = new Color(0, 0, 0, 0.7f);
+            GUI.DrawTexture(new Rect(0, barY, Screen.width, barH), Texture2D.whiteTexture);
+            GUI.color = Color.white;
 
-            // 화폐 표시
-            float cX = barX + iconSize + 10;
-            if (uiTextures.ContainsKey("icon_diamond"))
-                GUI.DrawTexture(new Rect(cX, barY + 5, 20, 20), uiTextures["icon_diamond"]);
-            GUI.Label(new Rect(cX + 22, barY + 5, 80, 20), myDiamonds.ToString());
-            if (uiTextures.ContainsKey("icon_gold"))
-                GUI.DrawTexture(new Rect(cX, barY + 28, 20, 20), uiTextures["icon_gold"]);
-            if (players.ContainsKey(myId))
-                GUI.Label(new Rect(cX + 22, barY + 28, 80, 20), players[myId].gold.ToString() + "G");
+            // 화폐 표시 (메뉴바 위)
+            GUI.skin.label.fontSize = 14;
+            int goldVal = players.ContainsKey(myId) ? players[myId].gold : 0;
+            GUI.Label(new Rect(10, barY - 25, 200, 22), "Diamond:" + myDiamonds + "  Gold:" + goldVal + "G");
 
-            // 드롭다운 메뉴
-            if (showMenu)
-            {
-                float mx = barX;
-                float my = barY - (iconSize + iconGap) * 6 - 10;
+            // 7개 탭 버튼
+            if (GUI.Button(new Rect(tabW * 0, barY, tabW, barH), "상점"))
+                { CloseAllPanels(); showShop = !showShop; }
+            if (GUI.Button(new Rect(tabW * 1, barY, tabW, barH), "거래소"))
+                { CloseAllPanels(); showMarket = true; OpenMarket(); }
+            if (GUI.Button(new Rect(tabW * 2, barY, tabW, barH), "인벤토리"))
+                { CloseAllPanels(); showInventory = true; OpenInventory(); }
+            if (GUI.Button(new Rect(tabW * 3, barY, tabW, barH), "유닛"))
+                { CloseAllPanels(); showUnits = true; OpenUnits(); }
+            if (GUI.Button(new Rect(tabW * 4, barY, tabW, barH), "퀘스트"))
+                { CloseAllPanels(); showQuest = true; OpenQuests(); }
+            if (GUI.Button(new Rect(tabW * 5, barY, tabW, barH), "랭킹"))
+                { CloseAllPanels(); showRanking = true; OpenRanking(); }
+            if (GUI.Button(new Rect(tabW * 6, barY, tabW, barH), "보상"))
+                { ClaimDaily(); }
 
-                // 배경 패널
-                if (uiTextures.ContainsKey("panel_bg"))
-                    GUI.DrawTexture(new Rect(mx - 5, my - 5, iconSize + 80, (iconSize + iconGap) * 6 + 15), uiTextures["panel_bg"], ScaleMode.StretchToFill);
-
-                if (DrawIconButton(mx, my, iconSize, "icon_shop", "상점"))
-                    { showShop = !showShop; showMarket = false; showInventory = false; showMenu = false; }
-                my += iconSize + iconGap;
-
-                if (DrawIconButton(mx, my, iconSize, "icon_market", "거래소"))
-                    { showMarket = !showMarket; showShop = false; showInventory = false; showMenu = false; OpenMarket(); }
-                my += iconSize + iconGap;
-
-                if (DrawIconButton(mx, my, iconSize, "icon_inventory", "인벤토리"))
-                    { showInventory = !showInventory; showShop = false; showMarket = false; showMenu = false; OpenInventory(); }
-                my += iconSize + iconGap;
-
-                if (DrawIconButton(mx, my, iconSize, "icon_unit", "유닛관리"))
-                    { showUnits = !showUnits; showQuest = false; showRanking = false; showMenu = false; OpenUnits(); }
-                my += iconSize + iconGap;
-
-                if (DrawIconButton(mx, my, iconSize, "icon_quest", "퀘스트"))
-                    { showQuest = !showQuest; showUnits = false; showRanking = false; showMenu = false; OpenQuests(); }
-                my += iconSize + iconGap;
-
-                if (DrawIconButton(mx, my, iconSize, "icon_pvp", "랭킹"))
-                    { showRanking = !showRanking; showQuest = false; showUnits = false; showMenu = false; OpenRanking(); }
-                my += iconSize + iconGap;
-
-                if (DrawIconButton(mx, my, iconSize, "icon_daily", "일일보상"))
-                    { ClaimDaily(); showMenu = false; }
-            }
+            GUI.skin.button.fontSize = origBtnSize;
 
             // 카르마 표시
             if (players[myId].karma > 0)
@@ -1475,6 +1451,12 @@ public class GameManager : MonoBehaviour
             yield return null;
         }
         Destroy(obj);
+    }
+
+    private void CloseAllPanels()
+    {
+        showShop = false; showMarket = false; showInventory = false;
+        showUnits = false; showQuest = false; showRanking = false;
     }
 
     private bool DrawIconButton(float x, float y, float size, string texName, string label)
