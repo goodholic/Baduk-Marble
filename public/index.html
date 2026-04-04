@@ -162,6 +162,7 @@
       <span class="stat">Diamond: <b class="diamond-val" id="diamond-val">100</b></span>
       <span class="stat">Gold: <b class="gold-val" id="gold-val">0</b>G</span>
       <span class="stat zone-val" id="zone-display">-</span>
+      <span class="stat" id="siege-display" style="display:none;color:#ff4444;font-weight:bold"></span>
     </div>
 
     <!-- 옵션 버튼 -->
@@ -296,6 +297,9 @@
           <button onclick="window.socket.emit('get_clans','{}');setTimeout(()=>togglePanel('clan'),100)" style="padding:6px 14px">혈맹 목록 새로고침</button>
           <button onclick="createParty()" style="padding:6px 14px;margin-left:5px">파티 생성</button>
           <button onclick="partyInvite()" style="padding:6px 14px;margin-left:5px">근처 초대</button>
+        </div>
+        <div id="party-status" style="padding:6px;margin:8px 0;background:rgba(0,100,255,0.1);border-radius:4px;font-size:12px;color:#44aaff;display:none">
+          파티 정보 없음
           <button onclick="window.socket.emit('start_siege','{}')" style="padding:6px 14px;margin-left:5px;background:#8b0000">공성전</button>
         </div>
         <div id="clan-list" style="color:#aaa">혈맹 목록을 불러오세요</div>
@@ -406,7 +410,10 @@
           var z = data.players[myPlayerId].zone;
           myCurrentZone = z;
           var zName = zones[z] ? zones[z].name : z;
-          document.getElementById('zone-display').textContent = zName;
+          var isSafe = ['aden','harbor','oasis'].includes(z);
+          var zLabel = zName + (isSafe ? ' [안전]' : '');
+          document.getElementById('zone-display').textContent = zLabel;
+          document.getElementById('zone-display').style.color = isSafe ? '#44ff44' : '#ff6b6b';
         }
         // 낮/밤 적용
         if (data.isNight !== undefined) {
@@ -420,7 +427,10 @@
       window.socket.on('quest_result', (d) => { showToast(d.msg); playSFX('levelup'); });
       window.socket.on('unit_result', (d) => showToast(d.msg));
       window.socket.on('equip_result', (d) => { showToast(d.msg); playSFX('buy'); });
-      window.socket.on('player_hit', (d) => { playSFX(d.isCrit ? 'crit' : 'hit'); });
+      window.socket.on('player_hit', (d) => {
+        playSFX(d.isCrit ? 'crit' : 'hit');
+        if (d.skillName) addCombatLog(d.skillName + '! ' + d.damage + ' 데미지', 'log-crit');
+      });
       window.socket.on('level_up', (d) => { playSFX('levelup'); });
       window.socket.on('player_die', (d) => { if(d.victimId === myPlayerId) playSFX('die'); });
       window.socket.on('drop_spawn', () => { playSFX('gold'); });
@@ -430,7 +440,16 @@
       window.socket.on('monster_die', (d) => { if(typeof d === 'object') addCombatLog(d.tier+' 처치!', 'log-gold'); });
 
       // 서버 공지
-      window.socket.on('server_msg', (d) => { showServerMsg(d.msg, d.type); });
+      window.socket.on('server_msg', (d) => {
+        showServerMsg(d.msg, d.type);
+        // 공성전 상태 표시
+        if (d.msg.includes('공성전') || d.msg.includes('공성')) {
+          var siegeEl = document.getElementById('siege-display');
+          siegeEl.textContent = '⚔ 공성전 진행 중';
+          siegeEl.style.display = 'inline';
+          setTimeout(() => { siegeEl.style.display = 'none'; }, 300000);
+        }
+      });
 
       // 변신 결과
       window.socket.on('morph_result', (d) => { showToast(d.msg); if(d.success) playSFX('levelup'); });
@@ -475,7 +494,14 @@
       });
 
       // 파티
-      window.socket.on('party_result', (d) => showToast(d.msg));
+      window.socket.on('party_result', (d) => {
+        showToast(d.msg);
+        if (d.success) {
+          var el = document.getElementById('party-status');
+          el.style.display = 'block';
+          el.textContent = '파티: ' + d.msg;
+        }
+      });
 
       // 낮/밤
       window.socket.on('day_night', (d) => {
