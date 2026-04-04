@@ -41,6 +41,12 @@
     .diamond { color:#44aaff; }
     .gold { color:#ffd700; }
 
+    /* 미니맵 */
+    #minimap-container { position:absolute; top:10px; right:10px; z-index:15; display:none; }
+    #minimap-container.show { display:block; }
+    #minimap { border:2px solid #555; border-radius:8px; background:rgba(0,0,0,0.7); }
+    #minimap-zone { color:#ffd700; font-size:12px; text-align:center; margin-top:4px; text-shadow:1px 1px 2px #000; }
+
     /* 패널 */
     .panel { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:450px; max-height:70vh; background:rgba(20,20,30,0.95); border:2px solid #555; border-radius:12px; color:#fff; z-index:25; display:none; overflow-y:auto; }
     .panel.show { display:block; }
@@ -109,6 +115,12 @@
     <div id="currency-bar">
       <span class="diamond">Diamond: <b id="diamond-val">100</b></span>
       <span class="gold">Gold: <b id="gold-val">0</b>G</span>
+    </div>
+
+    <!-- 미니맵 -->
+    <div id="minimap-container">
+      <canvas id="minimap" width="180" height="180"></canvas>
+      <div id="minimap-zone">-</div>
     </div>
 
     <!-- 알림 -->
@@ -207,18 +219,25 @@
       classSelect.style.display = "none";
       bottomBar.classList.add("show");
       currencyBar.classList.add("show");
+      minimapContainer.classList.add("show");
       // Unity에 init_request 전송
       window.socket.emit('init_request', JSON.stringify({ className, deviceId }));
     }
 
     function setupSocketListeners() {
+      window.socket.on('init', (data) => {
+        myPlayerId = data.id;
+      });
+
       window.socket.on('sync', (data) => {
         // 내 데이터에서 화폐 업데이트
-        for (var pid in data.players) {
-          var p = data.players[pid];
-          if (p.diamonds !== undefined) document.getElementById('diamond-val').textContent = p.diamonds;
-          if (p.gold !== undefined) document.getElementById('gold-val').textContent = p.gold;
+        if (myPlayerId && data.players && data.players[myPlayerId]) {
+          var me = data.players[myPlayerId];
+          if (me.diamonds !== undefined) document.getElementById('diamond-val').textContent = me.diamonds;
+          if (me.gold !== undefined) document.getElementById('gold-val').textContent = me.gold;
         }
+        // 미니맵 업데이트
+        updateMinimapData(data);
       });
 
       window.socket.on('shop_result', (d) => showToast(d.msg));
@@ -348,6 +367,100 @@
       html += '<h3 style="color:#ff6b6b;margin:12px 0 8px">PvP 랭킹</h3>';
       (data.pvp||[]).forEach((r,i) => { html += '<div style="padding:4px 0;color:#ddd">'+(i+1)+'. '+r.kills+'킬 '+r.name+'</div>'; });
       body.innerHTML = html;
+    }
+
+    // ── 미니맵 ──
+    var minimapCanvas = document.getElementById('minimap');
+    var minimapCtx = minimapCanvas.getContext('2d');
+    var minimapContainer = document.getElementById('minimap-container');
+    var minimapZoneLabel = document.getElementById('minimap-zone');
+    var MAP_MIN = -30, MAP_MAX = 30, MAP_SIZE = 180;
+
+    var zones = {
+      village:{name:'초보자 마을',x:-25,y:-25,w:15,h:15,color:'#2d5a1e'},
+      forest:{name:'엘프숲',x:-10,y:-25,w:15,h:15,color:'#1a3a0a'},
+      plains:{name:'드래곤 평원',x:5,y:-25,w:20,h:20,color:'#4a6a2a'},
+      dungeon:{name:'어둠의 동굴',x:-25,y:-10,w:15,h:15,color:'#2a1a3a'},
+      dragon:{name:'드래곤 둥지',x:-10,y:-10,w:10,h:10,color:'#5a1a1a'},
+      chaos:{name:'죽음의 협곡',x:0,y:-10,w:15,h:15,color:'#3a1a4a'},
+    };
+
+    var lastSyncPlayers = {};
+    var lastSyncMonsters = {};
+    var myPlayerId = null;
+
+    function mapToMinimap(x, y) {
+      return {
+        mx: ((x - MAP_MIN) / (MAP_MAX - MAP_MIN)) * MAP_SIZE,
+        my: ((y - MAP_MIN) / (MAP_MAX - MAP_MIN)) * MAP_SIZE
+      };
+    }
+
+    function drawMinimap() {
+      var ctx = minimapCtx;
+      ctx.clearRect(0, 0, MAP_SIZE, MAP_SIZE);
+
+      // 배경
+      ctx.fillStyle = '#1a1a2e';
+      ctx.fillRect(0, 0, MAP_SIZE, MAP_SIZE);
+
+      // 존 영역
+      Object.values(zones).forEach(z => {
+        var tl = mapToMinimap(z.x, z.y);
+        var br = mapToMinimap(z.x + z.w, z.y + z.h);
+        ctx.fillStyle = z.color;
+        ctx.fillRect(tl.mx, tl.my, br.mx - tl.mx, br.my - tl.my);
+        ctx.strokeStyle = '#444';
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(tl.mx, tl.my, br.mx - tl.mx, br.my - tl.my);
+      });
+
+      // 몬스터 (작은 점)
+      Object.values(lastSyncMonsters).forEach(m => {
+        var p = mapToMinimap(m.x, m.y);
+        ctx.fillStyle = '#ff4444';
+        ctx.fillRect(p.mx - 1, p.my - 1, 2, 2);
+      });
+
+      // 플레이어
+      var myZone = '';
+      Object.entries(lastSyncPlayers).forEach(([pid, pl]) => {
+        var p = mapToMinimap(pl.x, pl.y);
+        var isMe = (pid === myPlayerId);
+        if (isMe) {
+          // 내 캐릭터: 큰 초록 삼각형
+          ctx.fillStyle = '#00ff00';
+          ctx.beginPath();
+          ctx.moveTo(p.mx, p.my - 5);
+          ctx.lineTo(p.mx - 4, p.my + 3);
+          ctx.lineTo(p.mx + 4, p.my + 3);
+          ctx.closePath();
+          ctx.fill();
+          // 시야 원
+          ctx.strokeStyle = 'rgba(0,255,0,0.3)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(p.mx, p.my, 15, 0, Math.PI * 2);
+          ctx.stroke();
+          myZone = pl.zone || '';
+        } else {
+          // 다른 플레이어: 흰 점
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(p.mx - 2, p.my - 2, 4, 4);
+        }
+      });
+
+      // 존 이름 표시
+      if (myZone && zones[myZone]) {
+        minimapZoneLabel.textContent = zones[myZone].name;
+      }
+    }
+
+    // sync에서 미니맵 데이터 수집
+    function updateMinimapData(data) {
+      if (data.players) lastSyncPlayers = data.players;
+      if (data.monsters) lastSyncMonsters = data.monsters;
+      drawMinimap();
     }
 
     function showToast(msg) {
