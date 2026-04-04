@@ -138,7 +138,7 @@
     <!-- 하단 메뉴바 -->
     <div id="bottom-bar">
       <button class="tab" onclick="togglePanel('shop')">상점</button>
-      <button class="tab" onclick="togglePanel('fishing')">낚시</button>
+      <button class="tab" onclick="togglePanel('trade')">교역</button>
       <button class="tab" onclick="togglePanel('inventory')">인벤토리</button>
       <button class="tab" onclick="togglePanel('units')">유닛</button>
       <button class="tab" onclick="togglePanel('quests')">퀘스트</button>
@@ -197,19 +197,13 @@
       </div>
     </div>
 
-    <!-- 낚시/요리 패널 -->
-    <div class="panel" id="panel-fishing">
-      <div class="panel-header"><h2>낚시 & 요리</h2><button class="panel-close" onclick="closePanel('fishing')">X</button></div>
+    <!-- 교역 패널 (거상) -->
+    <div class="panel" id="panel-trade">
+      <div class="panel-header"><h2>교역 (마을 상점)</h2><button class="panel-close" onclick="closePanel('trade')">X</button></div>
       <div class="panel-body">
-        <h3 style="color:#44aaff;margin-bottom:8px">낚시 (은빛 호수에서)</h3>
-        <button onclick="window.socket.emit('start_fishing','{}')" style="width:100%;padding:10px;margin-bottom:5px;background:#2d5a1e;border:none;color:#fff;border-radius:6px;font-size:14px;cursor:pointer">낚시 시작</button>
-        <button onclick="window.socket.emit('stop_fishing','{}')" style="width:100%;padding:8px;margin-bottom:15px;background:#5a1e1e;border:none;color:#fff;border-radius:6px;cursor:pointer">낚시 중단</button>
-
-        <h3 style="color:#ffd700;margin-bottom:8px">요리</h3>
-        <div class="panel-item"><span class="name">생선 스튜<br><small style="color:#88cc88">붕어 x3 → HP+200, DEF+5</small></span><button onclick="window.socket.emit('cook','fish_stew')">요리</button></div>
-        <div class="panel-item"><span class="name">황금 수프<br><small style="color:#ffd700">금붕어 x2 + 붕어 x1 → ATK+15</small></span><button onclick="window.socket.emit('cook','golden_soup')">요리</button></div>
-        <div class="panel-item"><span class="name">용의 만찬<br><small style="color:#aa44ff">황금잉어 x1 + 마법결정 x2 → ALL+10</small></span><button onclick="window.socket.emit('cook','dragon_meal')">요리</button></div>
-        <div class="panel-item"><span class="name" style="color:#ff4444">전설의 향연<br><small>용왕물고기 x1 + 영혼석 x1 → ALL+20, 무적</small></span><button onclick="window.socket.emit('cook','legend_feast')">요리</button></div>
+        <p style="color:#ffd700;margin-bottom:10px">마을마다 가격이 다릅니다! 싸게 사서 비싸게 파세요!</p>
+        <button onclick="window.socket.emit('get_town_prices','{}')" style="width:100%;padding:8px;margin-bottom:10px;background:#2d3436;border:1px solid #555;color:#fff;border-radius:6px;cursor:pointer">가격 새로고침</button>
+        <div id="trade-body"><p style="color:#888">마을에 가서 가격을 확인하세요</p></div>
       </div>
     </div>
 
@@ -439,10 +433,11 @@
       // 창고
       window.socket.on('warehouse_data', (d) => { showToast('창고 업데이트'); });
 
-      // 낚시
-      window.socket.on('fishing_result', (d) => { showToast(d.msg); if(d.success && d.item) playSFX('gold'); });
-      // 요리
-      window.socket.on('cook_result', (d) => { showToast(d.msg); if(d.success) playSFX('buy'); });
+      // 교역 가격
+      window.socket.on('town_prices', renderTownPrices);
+      window.socket.on('trade_goods_result', (d) => { showToast(d.msg); if(d.success) playSFX('gold'); });
+      // 테이밍
+      window.socket.on('tame_result', (d) => { showToast(d.msg); if(d.success) playSFX('levelup'); else playSFX('hit'); });
       // 공성전
       window.socket.on('siege_result', (d) => showToast(d.msg));
       // 1:1 거래
@@ -784,6 +779,33 @@
           osc.start(); osc.stop(audioCtx.currentTime + 0.15);
           break;
       }
+    }
+
+    // ── 교역 가격 렌더링 ──
+    function renderTownPrices(data) {
+      var body = document.getElementById('trade-body');
+      var html = '';
+      for (var town in data) {
+        var tName = town === 'village' ? '아덴 마을' : '항구 마을';
+        html += '<h3 style="color:#ffd700;margin:10px 0 5px">'+tName+'</h3>';
+        for (var gId in data[town]) {
+          var g = data[town][gId];
+          html += '<div class="panel-item"><span class="name">'+g.name+'<br><small style="color:#88cc88">매수:'+g.buyPrice+'G / 매도:'+g.sellPrice+'G</small></span>';
+          html += '<button onclick="townBuy(\''+gId+'\',\''+town+'\')" style="margin-right:3px">구매</button>';
+          html += '<button onclick="townSell(\''+gId+'\',\''+town+'\')">판매</button></div>';
+        }
+      }
+      body.innerHTML = html;
+    }
+
+    function townBuy(goodsId, town) {
+      var qty = prompt('구매 수량:', '1');
+      if (qty) window.socket.emit('town_buy', JSON.stringify({goodsId, town, qty:parseInt(qty)}));
+    }
+
+    function townSell(goodsId, town) {
+      var qty = prompt('판매 수량:', '1');
+      if (qty) window.socket.emit('town_sell', JSON.stringify({goodsId, town, qty:parseInt(qty)}));
     }
 
     // ── 스탯/전직/혈맹/파티 ──

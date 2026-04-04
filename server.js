@@ -225,9 +225,47 @@ const NPCS = {
 };
 
 // 성 소유
-let castleOwner = null; // clanName
+let castleOwner = null;
 let siegeActive = false;
 let siegeTimer = null;
+
+// ==========================================
+// 거상 — 마을별 상점 가격 변동
+// ==========================================
+const TRADE_GOODS = {
+    'goods_silk':    { name:'비단',     basePrice: 100 },
+    'goods_iron':    { name:'철광석',    basePrice: 50 },
+    'goods_herb':    { name:'약초',     basePrice: 30 },
+    'goods_gem':     { name:'보석',     basePrice: 200 },
+    'goods_wood':    { name:'목재',     basePrice: 40 },
+    'goods_leather': { name:'가죽',     basePrice: 60 },
+    'goods_spice':   { name:'향신료',    basePrice: 150 },
+    'goods_potion':  { name:'물약 원료', basePrice: 80 },
+};
+
+let townPrices = {};
+function updateTownPrices() {
+    const towns = ['village', 'port_town'];
+    for (const town of towns) {
+        townPrices[town] = {};
+        for (const [id, good] of Object.entries(TRADE_GOODS)) {
+            const mult = 0.5 + Math.random() * 1.5;
+            townPrices[town][id] = {
+                buyPrice: Math.floor(good.basePrice * mult),
+                sellPrice: Math.floor(good.basePrice * mult * 0.9),
+                name: good.name,
+            };
+        }
+    }
+}
+updateTownPrices();
+setInterval(updateTownPrices, 600000); // 10분마다 변동
+
+// ==========================================
+// 포켓몬 — 몬스터 테이밍
+// ==========================================
+const TAME_RATES = { normal:0.30, elite:0.15, rare:0.08, boss:0.03 };
+const TAME_COST = 50;
 
 function getZone(x, y) {
     for (const [id, z] of Object.entries(ZONES)) {
@@ -1030,97 +1068,6 @@ io.on('connection', (socket) => {
         });
     });
 
-    // ── 거래소: 목록 조회 ──
-    socket.on('market_list', () => {
-        socket.emit('market_data', { listings: marketListings.slice(-50) });
-    });
-
-    // ── 거래소: 아이템 등록 ──
-    socket.on('market_sell', (dataStr) => {
-        const p = players[playerId];
-        if (!p) return;
-        try {
-            const data = JSON.parse(dataStr);
-            const { itemId, price } = data;
-            if (!TRADEABLE_ITEMS[itemId]) { socket.emit('market_result', { success:false, msg:'거래 불가 아이템' }); return; }
-            if (!p.inventory || !p.inventory[itemId] || p.inventory[itemId] < 1) { socket.emit('market_result', { success:false, msg:'아이템이 없습니다' }); return; }
-            if (price < 1) { socket.emit('market_result', { success:false, msg:'가격 오류' }); return; }
-
-            p.inventory[itemId]--;
-            if (p.inventory[itemId] <= 0) delete p.inventory[itemId];
-
-            marketIdCounter++;
-            marketListings.push({
-                id: marketIdCounter,
-                sellerId: playerId,
-                sellerName: p.displayName || p.className,
-                itemId,
-                itemName: TRADEABLE_ITEMS[itemId].name,
-                category: TRADEABLE_ITEMS[itemId].category,
-                price,
-                currency: 'gold',
-                listedAt: Date.now()
-            });
-
-            savePlayer(p);
-            socket.emit('market_result', { success:true, msg:`${TRADEABLE_ITEMS[itemId].name} 등록 완료 (${price}G)` });
-            io.emit('market_update', { listings: marketListings.slice(-50) });
-        } catch(e) { socket.emit('market_result', { success:false, msg:'오류' }); }
-    });
-
-    // ── 거래소: 아이템 구매 ──
-    socket.on('market_buy', (listingId) => {
-        const p = players[playerId];
-        if (!p) return;
-
-        const idx = marketListings.findIndex(l => l.id === listingId);
-        if (idx === -1) { socket.emit('market_result', { success:false, msg:'이미 판매됨' }); return; }
-
-        const listing = marketListings[idx];
-        if (listing.sellerId === playerId) { socket.emit('market_result', { success:false, msg:'자기 물건은 구매 불가' }); return; }
-        if (p.gold < listing.price) { socket.emit('market_result', { success:false, msg:'골드 부족' }); return; }
-
-        // 구매자: 골드 차감, 아이템 추가
-        p.gold -= listing.price;
-        if (!p.inventory) p.inventory = {};
-        p.inventory[listing.itemId] = (p.inventory[listing.itemId] || 0) + 1;
-
-        // 판매자: 골드 지급 (수수료 차감)
-        const seller = players[listing.sellerId];
-        const payout = Math.floor(listing.price * (1 - MARKET_FEE));
-        if (seller) {
-            seller.gold += payout;
-            io.to(listing.sellerId).emit('market_result', { success:true, msg:`${listing.itemName} 판매됨! +${payout}G (수수료 ${Math.floor(listing.price * MARKET_FEE)}G)` });
-        }
-
-        // 목록에서 제거
-        marketListings.splice(idx, 1);
-
-        savePlayer(p);
-        if (seller) savePlayer(seller);
-
-        socket.emit('market_result', { success:true, msg:`${listing.itemName} 구매 완료!` });
-        io.emit('market_update', { listings: marketListings.slice(-50) });
-    });
-
-    // ── 거래소: 등록 취소 ──
-    socket.on('market_cancel', (listingId) => {
-        const p = players[playerId];
-        if (!p) return;
-
-        const idx = marketListings.findIndex(l => l.id === listingId && l.sellerId === playerId);
-        if (idx === -1) { socket.emit('market_result', { success:false, msg:'해당 물건 없음' }); return; }
-
-        const listing = marketListings[idx];
-        if (!p.inventory) p.inventory = {};
-        p.inventory[listing.itemId] = (p.inventory[listing.itemId] || 0) + 1;
-        marketListings.splice(idx, 1);
-
-        savePlayer(p);
-        socket.emit('market_result', { success:true, msg:`${listing.itemName} 등록 취소` });
-        io.emit('market_update', { listings: marketListings.slice(-50) });
-    });
-
     // ── 인벤토리 조회 ──
     socket.on('get_inventory', () => {
         const p = players[playerId];
@@ -1458,74 +1405,144 @@ io.on('connection', (socket) => {
         socket.emit('warehouse_data', { warehouse: p?.warehouse || {}, inventory: p?.inventory || {} });
     });
 
-    // ── 낚시 ──
-    socket.on('start_fishing', () => {
+    // ── 몬스터 테이밍 (포켓몬) ──
+    socket.on('tame_monster', (monsterId) => {
         const p = players[playerId];
         if (!p || !p.isAlive) return;
-        const zone = getZone(p.x, p.y);
-        if (!zone.isFishing) { socket.emit('fishing_result', { success:false, msg:'낚시터에서만 가능합니다 (은빛 호수)' }); return; }
-        if (p.isFishing) { socket.emit('fishing_result', { success:false, msg:'이미 낚시 중' }); return; }
-        p.isFishing = true;
-        socket.emit('fishing_result', { success:true, msg:'낚시 시작! 기다려주세요...' });
+        const mob = monsters[monsterId];
+        if (!mob || !mob.isAlive) { socket.emit('tame_result', { success:false, msg:'대상 없음' }); return; }
+        const dist = Math.hypot(p.x - mob.x, p.y - mob.y);
+        if (dist > 5) { socket.emit('tame_result', { success:false, msg:'너무 멀어요 (5 이내)' }); return; }
+        if (p.gold < TAME_COST) { socket.emit('tame_result', { success:false, msg:`${TAME_COST}G 필요` }); return; }
 
-        // 3~8초 후 결과
-        const fishTime = 3000 + Math.random() * 5000;
-        setTimeout(() => {
-            if (!players[playerId] || !p.isFishing) return;
-            p.isFishing = false;
-            if (!p.inventory) p.inventory = {};
+        p.gold -= TAME_COST;
+        const rate = TAME_RATES[mob.tier] || 0.1;
+        const success = Math.random() < rate;
 
-            const roll = Math.random();
-            let catchItem, catchName;
-            if (roll < 0.4) { catchItem = 'fish_common'; catchName = '붕어'; }
-            else if (roll < 0.7) { catchItem = 'fish_rare'; catchName = '금붕어'; }
-            else if (roll < 0.85) { catchItem = 'fish_epic'; catchName = '황금잉어'; }
-            else if (roll < 0.95) { catchItem = 'mat_magic'; catchName = '마법 결정 (!)'; }
-            else { catchItem = 'fish_legendary'; catchName = '용왕의 물고기 (!!!)'; }
-
-            p.inventory[catchItem] = (p.inventory[catchItem] || 0) + 1;
-            savePlayer(p);
-            socket.emit('fishing_result', { success:true, msg:`${catchName} 낚았다!`, item: catchItem });
-            if (roll >= 0.95) io.emit('server_msg', { msg:`${p.displayName}이(가) ${catchName}를 낚았다!`, type:'rare' });
-        }, fishTime);
-    });
-
-    socket.on('stop_fishing', () => {
-        const p = players[playerId];
-        if (p) p.isFishing = false;
-    });
-
-    // ── 요리 ──
-    socket.on('cook', (recipe) => {
-        const p = players[playerId];
-        if (!p) return;
-        if (!p.inventory) p.inventory = {};
-
-        const RECIPES = {
-            fish_stew:   { need: { fish_common: 3 }, result: 'food_hp',     resultName: '생선 스튜',     effect: 'HP+200, DEF+5 (3분)' },
-            golden_soup: { need: { fish_rare: 2, fish_common: 1 }, result: 'food_atk', resultName: '황금 수프',    effect: 'ATK+15, CRIT+5% (3분)' },
-            dragon_meal: { need: { fish_epic: 1, mat_magic: 2 }, result: 'food_all',   resultName: '용의 만찬',    effect: 'ALL+10, EXP+50% (5분)' },
-            legend_feast:{ need: { fish_legendary: 1, mat_soul: 1 }, result: 'food_legend', resultName: '전설의 향연', effect: 'ALL+20, 무적 10초' },
-        };
-
-        const r = RECIPES[recipe];
-        if (!r) { socket.emit('cook_result', { success:false, msg:'알 수 없는 레시피' }); return; }
-
-        for (const [item, count] of Object.entries(r.need)) {
-            if ((p.inventory[item] || 0) < count) {
-                socket.emit('cook_result', { success:false, msg:`재료 부족: ${item} ${p.inventory[item]||0}/${count}` });
+        if (success) {
+            // 테이밍 성공 → 용병으로 추가
+            let myArmyCount = 0;
+            for (const bId in players) {
+                if (players[bId].isBot && players[bId].ownerId === playerId && players[bId].isAlive) myArmyCount++;
+            }
+            if (myArmyCount >= (p.maxArmy || 30)) {
+                socket.emit('tame_result', { success:false, msg:'용병 슬롯 부족!' });
                 return;
             }
-        }
 
-        // 재료 소모
-        for (const [item, count] of Object.entries(r.need)) {
-            p.inventory[item] -= count;
-            if (p.inventory[item] <= 0) delete p.inventory[item];
+            // 몬스터 → 용병 변환
+            const tier = MONSTER_TIERS[mob.tier];
+            entityIdCounter++;
+            const botId = 'tamed_' + entityIdCounter;
+            const cls = CLASSES['Warrior']; // 기본 워리어 베이스
+            players[botId] = {
+                id: botId, deviceId: 'tamed',
+                className: 'Warrior', displayName: mob.name + '(테이밍)',
+                x: mob.x, y: mob.y,
+                hp: mob.maxHp, maxHp: mob.maxHp,
+                atk: mob.atk || 10, def: mob.def || 5,
+                critRate: 0.1, dodgeRate: 0.05,
+                dmgMulti: 1.0,
+                dirX: 0, dirY: -1,
+                gold: 0, level: Math.max(1, Math.floor(mob.maxHp / 50)), exp: 0,
+                isAlive: true, killCount: 0, karma: 0,
+                team: p.team, ownerId: playerId,
+                targetId: null, isKing: false, isBot: true,
+                tamedTier: mob.tier, tamedName: mob.name,
+                lastHpRegen: Date.now(), autoSkillCooldown: 0, skillCooldowns: {},
+            };
+
+            // 몬스터 제거
+            delete monsters[monsterId];
+            io.emit('monster_die', { id: monsterId, tier: mob.tier, killer: playerId });
+            spawnMonster();
+            io.emit('monster_spawn', monsters['monster_' + entityIdCounter]);
+
+            io.emit('player_join', players[botId]);
+            io.emit('server_msg', { msg: `${p.displayName}이(가) ${mob.name}을(를) 테이밍!`, type: 'morph' });
+            socket.emit('tame_result', { success:true, msg: `${mob.name} 테이밍 성공! (${Math.floor(rate*100)}%)` });
+        } else {
+            // 테이밍 실패 → 몬스터 화남 (플레이어에게 데미지)
+            p.hp -= mob.atk || 10;
+            socket.emit('tame_result', { success:false, msg: `테이밍 실패! (${Math.floor(rate*100)}%) 몬스터가 화났다!` });
+            io.emit('player_hit', { id: playerId, hp: p.hp, damage: mob.atk || 10, isCrit: false });
         }
-        p.inventory[r.result] = (p.inventory[r.result] || 0) + 1;
         savePlayer(p);
-        socket.emit('cook_result', { success:true, msg:`${r.resultName} 요리 완료! (${r.effect})` });
+        io.emit('player_update', p);
+    });
+
+    // ── 거상 — 마을 상점 매매 ──
+    socket.on('town_buy', (dataStr) => {
+        const p = players[playerId];
+        if (!p) return;
+        try {
+            const { goodsId, town, qty } = JSON.parse(dataStr);
+            const zone = getZone(p.x, p.y);
+            if (zone.id !== town) { socket.emit('trade_goods_result', { success:false, msg:'해당 마을에 있어야 합니다' }); return; }
+            if (!townPrices[town] || !townPrices[town][goodsId]) return;
+
+            const price = townPrices[town][goodsId].buyPrice * (qty || 1);
+            if (p.gold < price) { socket.emit('trade_goods_result', { success:false, msg:'골드 부족' }); return; }
+
+            p.gold -= price;
+            if (!p.inventory) p.inventory = {};
+            p.inventory[goodsId] = (p.inventory[goodsId] || 0) + (qty || 1);
+            savePlayer(p);
+            socket.emit('trade_goods_result', { success:true, msg:`${townPrices[town][goodsId].name} x${qty||1} 구매 (${price}G)` });
+            io.emit('player_update', p);
+        } catch(e) {}
+    });
+
+    socket.on('town_sell', (dataStr) => {
+        const p = players[playerId];
+        if (!p) return;
+        try {
+            const { goodsId, town, qty } = JSON.parse(dataStr);
+            const zone = getZone(p.x, p.y);
+            if (zone.id !== town) { socket.emit('trade_goods_result', { success:false, msg:'해당 마을에 있어야 합니다' }); return; }
+            if (!p.inventory || !p.inventory[goodsId] || p.inventory[goodsId] < (qty||1)) {
+                socket.emit('trade_goods_result', { success:false, msg:'물건 부족' }); return;
+            }
+            if (!townPrices[town] || !townPrices[town][goodsId]) return;
+
+            const price = townPrices[town][goodsId].sellPrice * (qty || 1);
+            p.inventory[goodsId] -= (qty || 1);
+            if (p.inventory[goodsId] <= 0) delete p.inventory[goodsId];
+            p.gold += price;
+            savePlayer(p);
+            socket.emit('trade_goods_result', { success:true, msg:`${townPrices[town][goodsId].name} x${qty||1} 판매 (+${price}G)` });
+            io.emit('player_update', p);
+        } catch(e) {}
+    });
+
+    socket.on('get_town_prices', () => {
+        socket.emit('town_prices', townPrices);
+    });
+
+    // ── 용병 거래 ──
+    socket.on('trade_unit', (dataStr) => {
+        try {
+            const { unitId, targetPlayerId, price } = JSON.parse(dataStr);
+            const p = players[playerId];
+            const t = players[targetPlayerId];
+            const unit = players[unitId];
+            if (!p || !t || !unit || !unit.isBot || unit.ownerId !== playerId) return;
+            if (t.isBot) return;
+            const dist = Math.hypot(p.x - t.x, p.y - t.y);
+            if (dist > 10) { socket.emit('trade_result', { success:false, msg:'너무 멀어요' }); return; }
+            if (t.gold < (price || 0)) { socket.emit('trade_result', { success:false, msg:'상대 골드 부족' }); return; }
+
+            // 거래 실행
+            unit.ownerId = targetPlayerId;
+            unit.team = t.team;
+            if (price > 0) { t.gold -= price; p.gold += price; }
+            savePlayer(p); savePlayer(t);
+            socket.emit('trade_result', { success:true, msg:`용병 판매! +${price}G` });
+            io.to(targetPlayerId).emit('trade_result', { success:true, msg:`용병 구매! -${price}G` });
+            io.emit('player_update', p);
+            io.emit('player_update', t);
+            io.emit('player_update', unit);
+        } catch(e) {}
     });
 
     // ── 공성전 ──
@@ -2268,11 +2285,39 @@ function handlePlayerDeath(target, targetId, owner, attackerId) {
         });
     }
 
-    // 사망 패널티 (리니지 스타일)
-    const expLoss = Math.floor(getExpRequired(target.level) * 0.1); // EXP 10% 손실
+    // 사망 패널티 (알비온 스타일 — 약탈)
+    const expLoss = Math.floor(getExpRequired(target.level) * 0.1);
     target.exp = Math.max(0, (target.exp || 0) - expLoss);
+
+    // 인벤토리 아이템 30% 드롭 (약탈 가능)
+    if (target.inventory && !target.isBot) {
+        const droppedItems = [];
+        for (const [itemId, qty] of Object.entries(target.inventory)) {
+            const dropQty = Math.floor(qty * 0.3);
+            if (dropQty > 0) {
+                target.inventory[itemId] -= dropQty;
+                if (target.inventory[itemId] <= 0) delete target.inventory[itemId];
+                // 킬러에게 전달
+                if (!realKiller.inventory) realKiller.inventory = {};
+                realKiller.inventory[itemId] = (realKiller.inventory[itemId] || 0) + dropQty;
+                droppedItems.push(itemId + ' x' + dropQty);
+            }
+        }
+        if (droppedItems.length > 0) {
+            io.emit('server_msg', { msg: `${realKiller.displayName}이(가) ${target.displayName}에게서 아이템 약탈!`, type: 'danger' });
+        }
+    }
+
+    // 골드 50% 약탈
+    if (!target.isBot && target.gold > 0) {
+        const goldDrop = Math.floor(target.gold * 0.5);
+        target.gold -= goldDrop;
+        realKiller.gold += goldDrop;
+        io.to(realKiller.id).emit('combat_log', { msg: `${goldDrop}G 약탈!` });
+    }
+
     if (target.karma >= KARMA.CHAOTIC_THRESHOLD) {
-        target.level = Math.max(1, target.level - 1); // 카오틱은 레벨 하락
+        target.level = Math.max(1, target.level - 1);
         target.exp = 0;
     }
     target.killCount = 0;
