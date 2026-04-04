@@ -732,33 +732,20 @@ public class GameManager : MonoBehaviour
         if (string.IsNullOrEmpty(myId) || !players.ContainsKey(myId) || !isMyPlayerAlive)
             return;
 
-        bool isPvP = players[myId].team != "peace";
-
-        if (joystick != null) joystick.gameObject.SetActive(isPvP);
+        // ── 이동: 조이스틱 + WASD/방향키 (항상 수동) ──
+        if (joystick != null) joystick.gameObject.SetActive(true); // 항상 활성
 
         float h = 0f, v = 0f;
 
-        if (isPvP)
-        {
-            h = joystick != null ? joystick.InputVector.x : 0f;
-            v = joystick != null ? joystick.InputVector.y : 0f;
-            if (h == 0 && v == 0) { h = Input.GetAxisRaw("Horizontal"); v = Input.GetAxisRaw("Vertical"); }
+        // 조이스틱 입력
+        if (joystick != null) {
+            h = joystick.InputVector.x;
+            v = joystick.InputVector.y;
         }
-        else
-        {
-            // 자동 사냥: 가장 가까운 몬스터로 이동
-            Vector3 closestPos = Vector3.zero;
-            float closestDist = float.MaxValue;
-
-            foreach (var m in monsters.Values) {
-                float dist = Vector3.Distance(players[myId].go.transform.position, m.targetPos);
-                if (dist < closestDist) { closestDist = dist; closestPos = m.targetPos; }
-            }
-
-            if (closestDist != float.MaxValue && closestDist > 0.5f) {
-                Vector3 dir = (closestPos - players[myId].go.transform.position).normalized;
-                h = dir.x; v = dir.y;
-            }
+        // 키보드 입력 (WASD + 방향키)
+        if (h == 0 && v == 0) {
+            h = Input.GetAxisRaw("Horizontal");
+            v = Input.GetAxisRaw("Vertical");
         }
 
         bool isMoving = (h != 0 || v != 0);
@@ -773,7 +760,7 @@ public class GameManager : MonoBehaviour
             else if (myClassName == "Warrior") currentMoveSpeed = 8f;
             else if (myClassName == "Mage") currentMoveSpeed = 6.5f;
 
-            // 클래스별 이동 스킬
+            // 클래스별 이동 스킬 (대시)
             if (Time.time >= moveSkillCooldown)
             {
                 if (myClassName == "Assassin") {
@@ -793,7 +780,6 @@ public class GameManager : MonoBehaviour
             correctedPos.z = -1f;
             players[myId].go.transform.position = correctedPos;
 
-            // 이동 방향에 따라 좌우 반전 (회전 대신)
             players[myId].go.transform.rotation = Quaternion.identity;
             FlipByDirection(players[myId].go, currentDir.x);
 
@@ -807,21 +793,43 @@ public class GameManager : MonoBehaviour
             SocketEmit("move", moveData.ToString(Newtonsoft.Json.Formatting.None));
             #endif
         }
-    }
 
-    private void HandleAutoAttack()
-    {
-        if (!isMyPlayerAlive) return;
+        // ── 공격: Space 키 또는 마우스 클릭 ──
+        // 마우스 방향으로 공격 방향 설정
+        if (Camera.main != null)
+        {
+            Vector3 mouseWorld = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+            Vector3 myPos = players[myId].go.transform.position;
+            Vector2 aimDir = new Vector2(mouseWorld.x - myPos.x, mouseWorld.y - myPos.y).normalized;
+            if (aimDir.magnitude > 0.1f) currentDir = aimDir;
+        }
 
+        // Space 키 또는 마우스 좌클릭으로 수동 공격
+        bool attackPressed = Input.GetKeyDown(KeyCode.Space) || Input.GetMouseButtonDown(0);
+        if (attackPressed && Time.time - lastAttackTime >= attackCooldown)
+        {
+            // 마우스 방향으로 방향 업데이트 후 공격
+            JObject atkDir = new JObject();
+            atkDir["dirX"] = currentDir.x;
+            atkDir["dirY"] = currentDir.y;
+            #if UNITY_WEBGL && !UNITY_EDITOR
+            SocketEmit("move", atkDir.ToString(Newtonsoft.Json.Formatting.None)); // 방향 업데이트
+            #endif
+            ThrowAxe();
+            lastAttackTime = Time.time;
+        }
+
+        // 공격 쿨타임 설정
         if (myClassName == "Assassin") attackCooldown = 0.25f;
         else if (myClassName == "Warrior") attackCooldown = 0.35f;
         else if (myClassName == "Knight") attackCooldown = 0.7f;
         else if (myClassName == "Mage") attackCooldown = 1.2f;
+    }
 
-        if (Time.time - lastAttackTime >= attackCooldown) {
-            ThrowAxe();
-            lastAttackTime = Time.time;
-        }
+    // 본 캐릭터는 자동 공격 안 함 (용병만 자동)
+    private void HandleAutoAttack()
+    {
+        // 본 캐릭터 자동공격 제거 — 수동으로만 공격
     }
 
     private void InterpolateNetworkEntities()

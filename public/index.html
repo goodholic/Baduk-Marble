@@ -176,6 +176,9 @@
     <button class="top-btn" style="top:10px" onclick="toggleSound()" id="btn-sound">Sound OFF</button>
     <button class="top-btn" style="top:35px" onclick="toggleAutoPotion()" id="btn-potion">AutoPot OFF</button>
 
+    <!-- 공격 버튼 (브롤스타즈 스타일) -->
+    <button id="attack-btn" style="display:none;position:absolute;right:80px;bottom:100px;z-index:16;width:70px;height:70px;border-radius:50%;background:radial-gradient(circle,#ff4444,#aa0000);border:3px solid #ff6b6b;color:#fff;font-size:16px;font-weight:bold;cursor:pointer;box-shadow:0 4px 15px rgba(255,0,0,0.4);touch-action:none;user-select:none" ontouchstart="startAttack(event)" ontouchend="endAttack()" onmousedown="doAttack()">ATK</button>
+
     <!-- 부활 화면 -->
     <div id="respawn-screen" style="position:absolute;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:none;flex-direction:column;justify-content:center;align-items:center;z-index:22">
       <h2 style="color:#ff4444;font-size:28px;margin-bottom:10px">사망했습니다</h2>
@@ -402,6 +405,7 @@
       minimapContainer.classList.add("show");
       document.getElementById('combat-log').classList.add("show");
       document.getElementById('tame-btn').style.display = 'block';
+      document.getElementById('attack-btn').style.display = 'block';
       document.getElementById('chat-box').classList.add("show");
       addCombatLog(className + ' 클래스로 게임 시작!', 'log-lvl');
       // Unity에 init_request 전송
@@ -934,6 +938,29 @@
     }
 
     function doCraft(recipeId) { window.socket.emit('craft', recipeId); }
+
+    // ── 공격 버튼 (브롤스타즈 스타일) ──
+    function doAttack() {
+      if (window.socket) window.socket.emit('throw', '{}');
+      playSFX('hit');
+      // 버튼 시각 피드백
+      var btn = document.getElementById('attack-btn');
+      btn.style.transform = 'scale(0.9)';
+      setTimeout(() => btn.style.transform = 'scale(1)', 100);
+    }
+
+    // 모바일: 터치 드래그로 공격 방향
+    var attackTouchStart = null;
+    function startAttack(e) {
+      e.preventDefault();
+      var touch = e.touches[0];
+      attackTouchStart = { x: touch.clientX, y: touch.clientY };
+    }
+    function endAttack() {
+      // 터치 종료 시 공격 발사
+      doAttack();
+      attackTouchStart = null;
+    }
 
     function respawnAs(className) {
       window.socket.emit('respawn', JSON.stringify({className}));

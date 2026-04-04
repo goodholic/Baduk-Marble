@@ -248,19 +248,31 @@ let siegeTimer = null;
 // 거상 — 마을별 상점 가격 변동
 // ==========================================
 const TRADE_GOODS = {
-    'goods_silk':    { name:'비단',     basePrice: 100 },
-    'goods_iron':    { name:'철광석',    basePrice: 50 },
-    'goods_herb':    { name:'약초',     basePrice: 30 },
-    'goods_gem':     { name:'보석',     basePrice: 200 },
-    'goods_wood':    { name:'목재',     basePrice: 40 },
-    'goods_leather': { name:'가죽',     basePrice: 60 },
-    'goods_spice':   { name:'향신료',    basePrice: 150 },
-    'goods_potion':  { name:'물약 원료', basePrice: 80 },
+    'goods_silk':      { name:'비단',      basePrice: 100 },
+    'goods_iron':      { name:'철광석',     basePrice: 50 },
+    'goods_herb':      { name:'약초',      basePrice: 30 },
+    'goods_gem':       { name:'보석',      basePrice: 200 },
+    'goods_wood':      { name:'목재',      basePrice: 40 },
+    'goods_leather':   { name:'가죽',      basePrice: 60 },
+    'goods_spice':     { name:'향신료',     basePrice: 150 },
+    'goods_potion':    { name:'물약 원료',  basePrice: 80 },
+    'goods_pearl':     { name:'진주',      basePrice: 300 },
+    'goods_crystal':   { name:'마법 수정',  basePrice: 250 },
+    'goods_wine':      { name:'고급 와인',  basePrice: 180 },
+    'goods_fur':       { name:'고급 모피',  basePrice: 120 },
+    'goods_incense':   { name:'향',        basePrice: 90 },
+    'goods_dye':       { name:'염료',      basePrice: 70 },
+    'goods_salt':      { name:'소금',      basePrice: 35 },
+    'goods_fish':      { name:'건어물',     basePrice: 55 },
+    'goods_gold_bar':  { name:'금괴',      basePrice: 500 },
+    'goods_dragon_eye':{ name:'용의 눈',   basePrice: 800 },
+    'goods_star_dust': { name:'별의 가루',  basePrice: 400 },
+    'goods_moonstone': { name:'월석',      basePrice: 350 },
 };
 
 let townPrices = {};
 function updateTownPrices() {
-    const towns = ['village', 'port_town'];
+    const towns = ['aden', 'harbor', 'oasis'];
     for (const town of towns) {
         townPrices[town] = {};
         for (const [id, good] of Object.entries(TRADE_GOODS)) {
