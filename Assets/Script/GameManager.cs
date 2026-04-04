@@ -1101,11 +1101,11 @@ public class GameManager : MonoBehaviour
         if (players.ContainsKey(pId)) {
             players[pId].hp = (float)hitData["hp"];
 
-            // 데미지 텍스트 표시
+            // 타격 이펙트
             if (hitData["damage"] != null && players[pId].go != null) {
                 int dmg = (int)hitData["damage"];
                 bool isCrit = hitData["isCrit"] != null && (bool)hitData["isCrit"];
-                ShowDamageText(players[pId].go.transform.position, dmg, isCrit);
+                PlayHitEffect(players[pId].go, dmg, isCrit);
             }
 
             if (pId == myId) UpdateMyUI();
@@ -1168,9 +1168,9 @@ public class GameManager : MonoBehaviour
         if (monsters.ContainsKey(mId)) {
             monsters[mId].hp = (float)mData["hp"];
 
-            // 몬스터 데미지 텍스트
+            // 타격 이펙트
             if (mData["damage"] != null && monsters[mId].go != null) {
-                ShowDamageText(monsters[mId].go.transform.position, (int)mData["damage"], false);
+                PlayHitEffect(monsters[mId].go, (int)mData["damage"], false);
             }
         }
     }
@@ -1422,6 +1422,52 @@ public class GameManager : MonoBehaviour
         }
 
         drops[id] = dropGo;
+    }
+
+    // ── 타격 이펙트 ──
+    private void PlayHitEffect(GameObject target, int damage, bool isCrit)
+    {
+        if (target == null) return;
+
+        // 1. 스프라이트 번쩍임 (빨간색 → 원래색)
+        StartCoroutine(FlashSprite(target));
+
+        // 2. 흔들림 (넉백 느낌)
+        StartCoroutine(ShakeObject(target, isCrit ? 0.3f : 0.15f));
+
+        // 3. 데미지 숫자
+        ShowDamageText(target.transform.position, damage, isCrit);
+    }
+
+    private IEnumerator FlashSprite(GameObject obj)
+    {
+        SpriteRenderer sr = obj.GetComponentInChildren<SpriteRenderer>();
+        if (sr == null) yield break;
+
+        Color original = sr.color;
+        sr.color = Color.red;
+        yield return new WaitForSeconds(0.08f);
+        sr.color = Color.white;
+        yield return new WaitForSeconds(0.05f);
+        sr.color = original;
+    }
+
+    private IEnumerator ShakeObject(GameObject obj, float intensity)
+    {
+        if (obj == null) yield break;
+        Vector3 originalPos = obj.transform.position;
+        float elapsed = 0f;
+        float duration = 0.2f;
+
+        while (elapsed < duration)
+        {
+            float x = UnityEngine.Random.Range(-intensity, intensity);
+            float y = UnityEngine.Random.Range(-intensity, intensity);
+            obj.transform.position = originalPos + new Vector3(x, y, 0);
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+        obj.transform.position = originalPos;
     }
 
     private void ShowDamageText(Vector3 worldPos, int damage, bool isCrit)
