@@ -744,6 +744,7 @@ public class GameManager : MonoBehaviour
         HandleLocalInput();
         InterpolateNetworkEntities();
         HandleAutoAttack();
+        UpdateHPBars();
     }
 
     void LateUpdate()
@@ -1344,6 +1345,9 @@ public class GameManager : MonoBehaviour
             if (sr != null) sr.color = new Color(1f, 0.5f, 0.5f);
         }
 
+        // HP바 + 이름표 추가
+        CreateHPBar(newPlayer, np.displayName, id == myId, np.className == "GuardianTower");
+
         players[id] = np;
 
         if (id == myId) {
@@ -1385,6 +1389,9 @@ public class GameManager : MonoBehaviour
         if (nm.tier == "elite") mGo.transform.localScale *= 1.3f;
         else if (nm.tier == "rare") mGo.transform.localScale *= 1.6f;
         else if (nm.tier == "boss") mGo.transform.localScale *= 2.5f;
+
+        // 몬스터 HP바 + 이름
+        CreateHPBar(mGo, nm.monsterName, false, false);
 
         monsters[id] = nm;
     }
@@ -1451,6 +1458,93 @@ public class GameManager : MonoBehaviour
             yield return null;
         }
         Destroy(obj);
+    }
+
+    private void CreateHPBar(GameObject parent, string name, bool isMe, bool isTower)
+    {
+        float yOffset = isTower ? 1.5f : 1.0f;
+
+        // 이름표
+        GameObject nameObj = new GameObject("NameLabel");
+        nameObj.transform.SetParent(parent.transform, false);
+        nameObj.transform.localPosition = new Vector3(0, yOffset + 0.25f, -1);
+        TextMesh nameTM = nameObj.AddComponent<TextMesh>();
+        nameTM.text = name;
+        nameTM.fontSize = 28;
+        nameTM.characterSize = 0.06f;
+        nameTM.alignment = TextAlignment.Center;
+        nameTM.anchor = TextAnchor.MiddleCenter;
+        nameTM.color = isMe ? Color.green : Color.white;
+        if (koreanFont != null) nameTM.font = koreanFont;
+        // 폰트 머티리얼 설정
+        MeshRenderer nameRenderer = nameObj.GetComponent<MeshRenderer>();
+        if (koreanFont != null && koreanFont.material != null) nameRenderer.material = koreanFont.material;
+        nameRenderer.sortingOrder = 100;
+
+        // HP바 배경 (빨간)
+        GameObject hpBg = new GameObject("HPBarBG");
+        hpBg.transform.SetParent(parent.transform, false);
+        hpBg.transform.localPosition = new Vector3(0, yOffset, -1);
+        SpriteRenderer bgSR = hpBg.AddComponent<SpriteRenderer>();
+        bgSR.sprite = CreatePixelSprite(Color.red);
+        bgSR.sortingOrder = 98;
+        hpBg.transform.localScale = new Vector3(1.2f, 0.12f, 1);
+
+        // HP바 전경 (초록)
+        GameObject hpFg = new GameObject("HPBarFG");
+        hpFg.transform.SetParent(parent.transform, false);
+        hpFg.transform.localPosition = new Vector3(0, yOffset, -1);
+        SpriteRenderer fgSR = hpFg.AddComponent<SpriteRenderer>();
+        fgSR.sprite = CreatePixelSprite(isMe ? new Color(0.2f, 1f, 0.2f) : new Color(0.2f, 0.8f, 0.2f));
+        fgSR.sortingOrder = 99;
+        hpFg.transform.localScale = new Vector3(1.2f, 0.12f, 1);
+    }
+
+    private Sprite _pixelSpriteCache;
+    private Sprite CreatePixelSprite(Color color)
+    {
+        Texture2D tex = new Texture2D(1, 1);
+        tex.SetPixel(0, 0, Color.white);
+        tex.Apply();
+        return Sprite.Create(tex, new Rect(0, 0, 1, 1), new Vector2(0.5f, 0.5f), 1f);
+    }
+
+    private void UpdateHPBars()
+    {
+        // 플레이어 HP바 업데이트
+        foreach (var kvp in players)
+        {
+            if (!kvp.Value.isAlive || kvp.Value.go == null) continue;
+            Transform hpFg = kvp.Value.go.transform.Find("HPBarFG");
+            if (hpFg != null && kvp.Value.maxHp > 0)
+            {
+                float ratio = Mathf.Clamp01(kvp.Value.hp / kvp.Value.maxHp);
+                Vector3 s = hpFg.localScale;
+                s.x = 1.2f * ratio;
+                hpFg.localScale = s;
+                // 좌측 정렬
+                Vector3 p = hpFg.localPosition;
+                p.x = -0.6f * (1 - ratio);
+                hpFg.localPosition = new Vector3(p.x, p.y, p.z);
+            }
+        }
+
+        // 몬스터 HP바 업데이트
+        foreach (var kvp in monsters)
+        {
+            if (kvp.Value.go == null) continue;
+            Transform hpFg = kvp.Value.go.transform.Find("HPBarFG");
+            if (hpFg != null && kvp.Value.maxHp > 0)
+            {
+                float ratio = Mathf.Clamp01(kvp.Value.hp / kvp.Value.maxHp);
+                Vector3 s = hpFg.localScale;
+                s.x = 1.2f * ratio;
+                hpFg.localScale = s;
+                Vector3 p = hpFg.localPosition;
+                p.x = -0.6f * (1 - ratio);
+                hpFg.localPosition = new Vector3(p.x, p.y, p.z);
+            }
+        }
     }
 
     private void CloseAllPanels()
