@@ -232,12 +232,20 @@ public class GameManager : MonoBehaviour
 
         if (respawnPanel != null) respawnPanel.SetActive(false);
 
-        // Unity Canvas UI 숨기기 (HTML로 전부 이전됨)
+        // Unity Canvas UI 전부 숨기기 (HTML로 이전됨)
         if (goldText != null) goldText.gameObject.SetActive(false);
         if (hpText != null) hpText.gameObject.SetActive(false);
         if (levelText != null) levelText.gameObject.SetActive(false);
         if (teamText != null) teamText.gameObject.SetActive(false);
         if (karmaText != null) karmaText.gameObject.SetActive(false);
+        // Canvas 하위 모든 TextMeshPro 숨기기
+        GameObject canvasObj = GameObject.Find("Canvas");
+        if (canvasObj != null) {
+            var allTexts = canvasObj.GetComponentsInChildren<TextMeshProUGUI>(true);
+            foreach (var t in allTexts) t.gameObject.SetActive(false);
+        }
+        // 조이스틱은 유지
+        if (joystick != null) joystick.gameObject.SetActive(true);
 
         // 한글 폰트 로드
         koreanFont = Resources.Load<Font>("MapleFont");

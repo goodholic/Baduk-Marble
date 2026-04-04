@@ -198,35 +198,40 @@ async function savePlayer(player) {
 // ==========================================
 // 맵 존 시스템
 // ==========================================
-// 맵 500x500 (-250 ~ 250)
+// 맵 1000x1000 (-500 ~ 500)
 const ZONES = {
-    // ── 마을 (안전지대) ──
-    aden:       { name:'바람개비 마을',    x:-250, y:-250, w:50, h:50, lvl:[1,99],  safe:true,  bg:'map_village', npcs:['상점','대장장이','힐러','제작소'] },
-    harbor:     { name:'별빛 항구',       x:150,  y:-250, w:40, h:40, lvl:[1,99],  safe:true,  bg:'map_village', npcs:['상점','펫 상인'] },
-    oasis:      { name:'달빛 오아시스',    x:-50,  y:0,    w:35, h:35, lvl:[1,99],  safe:true,  bg:'map_village', npcs:['상점','제작소'] },
-    // ── 초보 사냥터 ──
-    forest:     { name:'이슬숲',          x:-200, y:-180, w:60, h:50, lvl:[1,10],  safe:false, bg:'map_forest' },
-    plains:     { name:'해바라기 들판',    x:-130, y:-200, w:60, h:50, lvl:[3,12],  safe:false, bg:'map_plains' },
-    meadow:     { name:'꽃잎 초원',       x:-60,  y:-200, w:50, h:40, lvl:[5,15],  safe:false, bg:'map_plains' },
-    // ── 중급 사냥터 ──
-    swamp:      { name:'안개골 늪지',     x:30,   y:-200, w:50, h:50, lvl:[10,20], safe:false, bg:'map_forest' },
-    desert:     { name:'붉은모래 사막',    x:100,  y:-180, w:60, h:50, lvl:[12,22], safe:false, bg:'map_plains' },
-    cave:       { name:'수정 동굴',       x:-200, y:-100, w:50, h:50, lvl:[15,25], safe:false, bg:'map_dungeon' },
-    ruins:      { name:'달그림자 유적',    x:-130, y:-100, w:50, h:40, lvl:[18,28], safe:false, bg:'map_dungeon' },
+    // ── 마을 5곳 (안전지대, 교역 거점) ──
+    aden:       { name:'바람개비 마을',    x:-500, y:-500, w:60, h:60, lvl:[1,99],  safe:true,  bg:'map_village', npcs:['상점','대장장이','힐러','제작소'] },
+    harbor:     { name:'별빛 항구',       x:350,  y:-450, w:50, h:50, lvl:[1,99],  safe:true,  bg:'map_village', npcs:['상점','펫 상인','항해사'] },
+    oasis:      { name:'달빛 오아시스',    x:-100, y:0,    w:50, h:50, lvl:[1,99],  safe:true,  bg:'map_village', npcs:['상점','제작소'] },
+    mountain:   { name:'구름마루 산장',    x:300,  y:100,  w:50, h:50, lvl:[1,99],  safe:true,  bg:'map_village', npcs:['상점','대장장이'] },
+    frontier:   { name:'끝자락 전초기지',  x:-300, y:350,  w:50, h:50, lvl:[1,99],  safe:true,  bg:'map_village', npcs:['상점','힐러'] },
+    // ── 초보 사냥터 (마을 주변) ──
+    forest:     { name:'이슬숲',          x:-420, y:-400, w:80, h:70, lvl:[1,10],  safe:false, bg:'map_forest' },
+    plains:     { name:'해바라기 들판',    x:-300, y:-450, w:80, h:60, lvl:[3,12],  safe:false, bg:'map_plains' },
+    meadow:     { name:'꽃잎 초원',       x:-150, y:-400, w:70, h:60, lvl:[5,15],  safe:false, bg:'map_plains' },
+    // ── 중급 사냥터 (교역로 중간) ──
+    swamp:      { name:'안개골 늪지',     x:50,   y:-350, w:70, h:70, lvl:[10,20], safe:false, bg:'map_forest' },
+    desert:     { name:'붉은모래 사막',    x:200,  y:-350, w:80, h:70, lvl:[12,22], safe:false, bg:'map_plains' },
+    cave:       { name:'수정 동굴',       x:-400, y:-200, w:70, h:70, lvl:[15,25], safe:false, bg:'map_dungeon' },
+    ruins:      { name:'달그림자 유적',    x:-250, y:-200, w:70, h:60, lvl:[18,28], safe:false, bg:'map_dungeon' },
+    coral:      { name:'산호초 해안',     x:400,  y:-250, w:60, h:60, lvl:[10,18], safe:false, bg:'map_plains' },
     // ── 고급 사냥터 ──
-    volcano:    { name:'불꽃산',          x:80,   y:-100, w:60, h:50, lvl:[25,40], safe:false, bg:'map_dragon' },
-    graveyard:  { name:'고요한 무덤',     x:-200, y:-30,  w:50, h:40, lvl:[28,38], safe:false, bg:'map_dungeon' },
-    darkforest: { name:'그림자숲',        x:100,  y:-30,  w:50, h:50, lvl:[30,45], safe:false, bg:'map_forest' },
+    volcano:    { name:'불꽃산',          x:150,  y:-150, w:80, h:70, lvl:[25,40], safe:false, bg:'map_dragon' },
+    graveyard:  { name:'고요한 무덤',     x:-400, y:-50,  w:70, h:60, lvl:[28,38], safe:false, bg:'map_dungeon' },
+    darkforest: { name:'그림자숲',        x:200,  y:-50,  w:70, h:70, lvl:[30,45], safe:false, bg:'map_forest' },
+    glacier:    { name:'얼음 협곡',       x:-350, y:100,  w:70, h:60, lvl:[25,35], safe:false, bg:'map_dungeon' },
     // ── 최상급/보스 ──
-    dragon:     { name:'용의 요람',       x:150,  y:50,   w:50, h:50, lvl:[35,99], safe:false, bg:'map_dragon' },
-    abyss:      { name:'어둠의 심연',     x:-200, y:50,   w:60, h:50, lvl:[40,99], safe:false, bg:'map_chaos' },
-    hell:       { name:'혼돈의 문',       x:-100, y:100,  w:50, h:50, lvl:[45,99], safe:false, bg:'map_chaos' },
+    dragon:     { name:'용의 요람',       x:350,  y:150,  w:70, h:70, lvl:[35,99], safe:false, bg:'map_dragon' },
+    abyss:      { name:'어둠의 심연',     x:-400, y:200,  w:80, h:70, lvl:[40,99], safe:false, bg:'map_chaos' },
+    hell:       { name:'혼돈의 문',       x:-200, y:250,  w:70, h:70, lvl:[45,99], safe:false, bg:'map_chaos' },
+    ancient:    { name:'태고의 숲',       x:100,  y:300,  w:80, h:70, lvl:[35,50], safe:false, bg:'map_forest' },
     // ── PK 존 ──
-    chaos:      { name:'피의 골짜기',     x:50,   y:100,  w:60, h:50, lvl:[20,99], safe:false, bg:'map_chaos', noPKpenalty:true },
-    warzone:    { name:'전쟁의 벌판',     x:-50,  y:150,  w:70, h:50, lvl:[15,99], safe:false, bg:'map_chaos', noPKpenalty:true },
+    chaos:      { name:'피의 골짜기',     x:100,  y:200,  w:80, h:70, lvl:[20,99], safe:false, bg:'map_chaos', noPKpenalty:true },
+    warzone:    { name:'전쟁의 벌판',     x:-100, y:350,  w:90, h:70, lvl:[15,99], safe:false, bg:'map_chaos', noPKpenalty:true },
     // ── 특수 ──
-    castle:     { name:'하늘의 성채',     x:0,    y:200,  w:60, h:50, lvl:[20,99], safe:false, bg:'map_dungeon', isCastle:true },
-    arena:      { name:'투기장',          x:150,  y:150,  w:40, h:40, lvl:[10,99], safe:true,  bg:'map_dungeon', isArena:true },
+    castle:     { name:'하늘의 성채',     x:0,    y:400,  w:80, h:70, lvl:[20,99], safe:false, bg:'map_dungeon', isCastle:true },
+    arena:      { name:'투기장',          x:350,  y:350,  w:50, h:50, lvl:[10,99], safe:true,  bg:'map_dungeon', isArena:true },
 };
 
 // NPC 정의
@@ -272,7 +277,7 @@ const TRADE_GOODS = {
 
 let townPrices = {};
 function updateTownPrices() {
-    const towns = ['aden', 'harbor', 'oasis'];
+    const towns = ['aden', 'harbor', 'oasis', 'mountain', 'frontier'];
     for (const town of towns) {
         townPrices[town] = {};
         for (const [id, good] of Object.entries(TRADE_GOODS)) {
@@ -518,7 +523,7 @@ let drops = {}; // 드롭 아이템
 
 let entityIdCounter = 0;
 const MAX_PLAYERS = 50;
-const MAX_MONSTERS = 80; // 넓은 맵에 몬스터 대량 배치
+const MAX_MONSTERS = 200; // 1000x1000 맵에 몬스터 대량 배치
 let hasKing = false;
 
 // ── 클래스 정의 (판타지 RPG) ──
@@ -633,8 +638,8 @@ function spawnMonster() {
         id: mId,
         tier: tierKey,
         name: tier.name,
-        x: Math.random() * 450 - 225,
-        y: Math.random() * 450 - 225,
+        x: Math.random() * 900 - 450,
+        y: Math.random() * 900 - 450,
         hp: tier.hp,
         maxHp: tier.hp,
         atk: tier.atk,
@@ -707,8 +712,8 @@ io.on('connection', (socket) => {
             deviceId,
             className: selectedClass,
             displayName: cls.displayName,
-            x: Math.random() * 400 - 200,
-            y: Math.random() * 400 - 200,
+            x: Math.random() * 800 - 400,
+            y: Math.random() * 800 - 400,
             hp: cls.maxHp,
             maxHp: cls.maxHp,
             atk: cls.atk,
@@ -987,8 +992,8 @@ io.on('connection', (socket) => {
             p.hp = p.maxHp;
             p.dmgMulti = 1.0;
             p.isAlive = true;
-            p.x = Math.random() * 400 - 200;
-            p.y = Math.random() * 400 - 200;
+            p.x = Math.random() * 800 - 400;
+            p.y = Math.random() * 800 - 400;
 
             savePlayer(p);
             io.emit('player_respawn', p);
@@ -1870,8 +1875,8 @@ function createAutoArmy(ownerId) {
         id: botId, deviceId: 'bot',
         className: randomClass,
         displayName: cls.displayName,
-        x: Math.random() * 450 - 225,
-        y: Math.random() * 450 - 225,
+        x: Math.random() * 900 - 450,
+        y: Math.random() * 900 - 450,
         hp: cls.maxHp, maxHp: cls.maxHp,
         atk: cls.atk, def: cls.def,
         critRate: cls.critRate, dodgeRate: cls.dodgeRate,
@@ -1917,8 +1922,8 @@ setInterval(() => {
             m.x += (Math.random() * 2 - 1) * 0.5;
             m.y += (Math.random() * 2 - 1) * 0.5;
             // 맵 경계
-            m.x = Math.max(-240, Math.min(240, m.x));
-            m.y = Math.max(-240, Math.min(240, m.y));
+            m.x = Math.max(-480, Math.min(480, m.x));
+            m.y = Math.max(-480, Math.min(480, m.y));
         }
     }
 
