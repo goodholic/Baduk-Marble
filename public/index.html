@@ -41,6 +41,18 @@
     .diamond { color:#44aaff; }
     .gold { color:#ffd700; }
 
+    /* 채팅 */
+    #chat-box { position:absolute; bottom:52px; left:10px; width:320px; z-index:16; display:none; }
+    #chat-box.show { display:block; }
+    #chat-log { height:120px; overflow-y:auto; background:rgba(0,0,0,0.6); border-radius:6px 6px 0 0; padding:6px; font-size:12px; color:#ddd; }
+    #chat-log div { padding:2px 0; }
+    .chat-king { color:#ffd700; }
+    .chat-chaotic { color:#ff4444; }
+    #chat-input-wrap { display:flex; }
+    #chat-input { flex:1; padding:6px 10px; border:1px solid #555; border-radius:0 0 0 6px; background:rgba(0,0,0,0.8); color:#fff; font-size:13px; outline:none; }
+    #chat-send { padding:6px 14px; border:1px solid #555; border-radius:0 0 6px 0; background:#2d3436; color:#fff; cursor:pointer; font-size:12px; }
+    #chat-send:hover { background:#ffd700; color:#000; }
+
     /* 전투 로그 */
     #combat-log { position:absolute; bottom:52px; right:10px; width:300px; max-height:150px; overflow-y:auto; z-index:15; display:none; font-size:11px; color:#ccc; background:rgba(0,0,0,0.5); border-radius:6px; padding:6px; }
     #combat-log.show { display:block; }
@@ -144,6 +156,15 @@
     <!-- 사운드 + 자동물약 -->
     <button id="sound-btn" onclick="toggleSound()">Sound: OFF</button>
     <button id="sound-btn" style="top:40px" onclick="toggleAutoPotion()">AutoPotion: OFF</button>
+
+    <!-- 채팅 -->
+    <div id="chat-box">
+      <div id="chat-log"></div>
+      <div id="chat-input-wrap">
+        <input id="chat-input" type="text" placeholder="채팅 입력... (Enter)" maxlength="100" onkeydown="if(event.key==='Enter')sendChat()">
+        <button id="chat-send" onclick="sendChat()">전송</button>
+      </div>
+    </div>
 
     <!-- 전투 로그 -->
     <div id="combat-log"></div>
@@ -276,6 +297,7 @@
       currencyBar.classList.add("show");
       minimapContainer.classList.add("show");
       document.getElementById('combat-log').classList.add("show");
+      document.getElementById('chat-box').classList.add("show");
       addCombatLog(className + ' 클래스로 게임 시작!', 'log-lvl');
       // Unity에 init_request 전송
       window.socket.emit('init_request', JSON.stringify({ className, deviceId }));
@@ -322,6 +344,13 @@
       window.socket.on('enchant_result', (d) => { showToast(d.msg); playSFX(d.success ? 'levelup' : 'die'); });
 
       // 자동 물약 상태
+      // 채팅
+      window.socket.on('chat_msg', (d) => {
+        var cls = d.isKing ? 'chat-king' : (d.karma >= 200 ? 'chat-chaotic' : '');
+        var prefix = d.isKing ? '[King] ' : (d.karma >= 200 ? '[PK] ' : '');
+        addChatMsg(prefix + d.sender + ': ' + d.msg, cls);
+      });
+
       window.socket.on('auto_potion_status', (d) => {
         document.querySelectorAll('#sound-btn')[1].textContent = 'AutoPotion: ' + (d.enabled ? 'ON' : 'OFF');
       });
@@ -400,9 +429,22 @@
       var html = '';
       keys.forEach(k => {
         var name = items[k] ? items[k].name : k;
-        html += '<div class="panel-item"><span class="name">'+name+' x'+inv[k]+'</span><button onclick="sellItem(\''+k+'\')">판매등록</button></div>';
+        var isEquip = k.startsWith('equip_');
+        html += '<div class="panel-item"><span class="name">'+name+' x'+inv[k]+'</span>';
+        if (isEquip) {
+          html += '<button onclick="equipItem(\''+k+'\')" style="background:#4a6a2a;margin-right:4px">착용</button>';
+          html += '<button onclick="enchantItem(\''+k+'\')" style="background:#6a4a2a">강화</button>';
+        }
+        html += '<button onclick="sellItem(\''+k+'\')" style="margin-left:4px">판매</button></div>';
       });
       body.innerHTML = html;
+    }
+
+    function equipItem(id) { window.socket.emit('equip_item', id); }
+    function enchantItem(id) {
+      if (confirm('강화하시겠습니까? (+8 이상 실패 시 파괴!)')) {
+        window.socket.emit('enchant_item', id);
+      }
     }
 
     function sellItem(itemId) {
@@ -635,6 +677,25 @@
           osc.start(); osc.stop(audioCtx.currentTime + 0.15);
           break;
       }
+    }
+
+    // ── 채팅 ──
+    function sendChat() {
+      var input = document.getElementById('chat-input');
+      var msg = input.value.trim();
+      if (!msg || !window.socket) return;
+      window.socket.emit('chat', msg);
+      input.value = '';
+    }
+
+    function addChatMsg(text, cls) {
+      var log = document.getElementById('chat-log');
+      var div = document.createElement('div');
+      div.className = cls || '';
+      div.textContent = text;
+      log.appendChild(div);
+      if (log.children.length > 100) log.removeChild(log.firstChild);
+      log.scrollTop = log.scrollHeight;
     }
 
     // ── 토스페이먼츠 결제 ──

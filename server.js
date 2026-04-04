@@ -1244,6 +1244,20 @@ io.on('connection', (socket) => {
         socket.emit('auto_potion_status', { enabled: p.autoPotion });
     });
 
+    // ── 채팅 ──
+    socket.on('chat', (msg) => {
+        const p = players[playerId];
+        if (!p || typeof msg !== 'string' || msg.length > 100) return;
+        const cleanMsg = msg.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        io.emit('chat_msg', {
+            sender: p.displayName || p.className,
+            msg: cleanMsg,
+            team: p.team,
+            isKing: p.isKing,
+            karma: p.karma
+        });
+    });
+
     socket.on('disconnect', () => {
         if (players[playerId]) {
             if (players[playerId].isKing) hasKing = false;
@@ -1564,6 +1578,25 @@ function updateBots() {
             const throwChance = (p.className === 'GuardianTower') ? 0.12 : 0.06;
             if (Math.random() < throwChance) executeThrow(id);
 
+            // 스킬 자동 시전 (클래스별)
+            if (!p.skillCooldowns) p.skillCooldowns = {};
+            const classSkills = SKILLS[p.className];
+            if (classSkills && target && minDist < 8) {
+                for (const skill of classSkills) {
+                    if (p.level < skill.level) continue;
+                    const lastUsed = p.skillCooldowns[skill.name] || 0;
+                    if (Date.now() - lastUsed > skill.cooldown * 1000) {
+                        p.skillCooldowns[skill.name] = Date.now();
+                        const skillDmg = Math.floor((p.atk || 10) * (skill.dmgMulti || 1) * (p.dmgMulti || 1));
+                        if (target.hp !== undefined) {
+                            target.hp -= skillDmg;
+                            if (target.id) io.emit('player_hit', { id: target.id, hp: target.hp, damage: skillDmg, isCrit: true, skillName: skill.name });
+                        }
+                        break; // 한 틱에 스킬 1개만
+                    }
+                }
+            }
+
         } else if (cls.speed > 0) {
             // 주인 따라가기
             if (p.ownerId && players[p.ownerId] && players[p.ownerId].isAlive) {
@@ -1661,6 +1694,24 @@ function handleCollisions() {
                     if (mob.tier === 'rare' && Math.random() < 0.3) realOwner.inventory['mat_soul'] = (realOwner.inventory['mat_soul']||0) + 1;
                     if (mob.tier === 'boss' && Math.random() < 0.2) realOwner.inventory['mat_dragon'] = (realOwner.inventory['mat_dragon']||0) + 1;
                     if (Math.random() < 0.15) realOwner.inventory['pot_hp_s'] = (realOwner.inventory['pot_hp_s']||0) + 1;
+
+                    // 장비 드롭
+                    const equipDrops = {
+                        normal: [{ id:'equip_sword_1', rate:0.05 }, { id:'equip_armor_1', rate:0.05 }],
+                        elite:  [{ id:'equip_sword_2', rate:0.08 }, { id:'equip_armor_2', rate:0.08 }, { id:'equip_ring_1', rate:0.05 }],
+                        rare:   [{ id:'equip_sword_2', rate:0.15 }, { id:'equip_armor_2', rate:0.15 }, { id:'equip_ring_1', rate:0.10 }],
+                        boss:   [{ id:'equip_sword_2', rate:0.30 }, { id:'equip_armor_2', rate:0.30 }, { id:'equip_ring_1', rate:0.20 }],
+                    };
+                    const drops = equipDrops[mob.tier] || [];
+                    for (const d of drops) {
+                        if (Math.random() < d.rate) {
+                            realOwner.inventory[d.id] = (realOwner.inventory[d.id]||0) + 1;
+                            const eName = EQUIP_STATS[d.id]?.name || d.id;
+                            io.to(realOwner.id).emit('combat_log', { msg: eName + ' 획득!' });
+                            if (mob.tier === 'boss') io.emit('server_msg', { msg: `${realOwner.displayName}이(가) ${eName}을(를) 획득!`, type: 'rare' });
+                            break;
+                        }
+                    }
 
                     // 골드 드롭
                     spawnDrop(mob.x, mob.y, Math.floor(tier.goldReward * 0.5), mId);
@@ -1802,6 +1853,7 @@ function handlePlayerDeath(target, targetId, owner, attackerId) {
             victimId: targetId,
             karma: realKiller.karma
         });
+        io.emit('server_msg', { msg: `${realKiller.displayName}이(가) PK! 카르마: ${realKiller.karma}`, type: 'danger' });
     }
 
     // 카오틱 처치 시 보너스 보상
