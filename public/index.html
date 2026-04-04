@@ -169,6 +169,16 @@
     <button class="top-btn" style="top:10px" onclick="toggleSound()" id="btn-sound">Sound OFF</button>
     <button class="top-btn" style="top:35px" onclick="toggleAutoPotion()" id="btn-potion">AutoPot OFF</button>
 
+    <!-- 부활 화면 -->
+    <div id="respawn-screen" style="position:absolute;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:none;flex-direction:column;justify-content:center;align-items:center;z-index:22">
+      <h2 style="color:#ff4444;font-size:28px;margin-bottom:10px">사망했습니다</h2>
+      <p style="color:#aaa;margin-bottom:20px">EXP -10% / 아이템 30% 약탈당함</p>
+      <button onclick="respawnAs('Assassin')" class="class-btn" style="width:300px;padding:12px"><div class="name">Assassin [어쌔신]</div></button>
+      <button onclick="respawnAs('Warrior')" class="class-btn" style="width:300px;padding:12px"><div class="name">Warrior [워리어]</div></button>
+      <button onclick="respawnAs('Knight')" class="class-btn" style="width:300px;padding:12px"><div class="name">Knight [나이트]</div></button>
+      <button onclick="respawnAs('Mage')" class="class-btn" style="width:300px;padding:12px"><div class="name">Mage [메이지]</div></button>
+    </div>
+
     <!-- 테이밍 버튼 (게임 화면 우측) -->
     <button id="tame-btn" onclick="window.socket.emit('tame_nearest','{}')" style="display:none;position:absolute;right:15px;bottom:120px;z-index:16;padding:10px 18px;background:linear-gradient(180deg,#6c5ce7,#4a3ca7);border:2px solid #8b7dff;border-radius:10px;color:#fff;font-size:14px;cursor:pointer;font-weight:bold;text-shadow:1px 1px 2px #000">테이밍 (50G)</button>
 
@@ -432,7 +442,12 @@
         if (d.skillName) addCombatLog(d.skillName + '! ' + d.damage + ' 데미지', 'log-crit');
       });
       window.socket.on('level_up', (d) => { playSFX('levelup'); });
-      window.socket.on('player_die', (d) => { if(d.victimId === myPlayerId) playSFX('die'); });
+      window.socket.on('player_die', (d) => {
+        if(d.victimId === myPlayerId) {
+          playSFX('die');
+          document.getElementById('respawn-screen').style.display = 'flex';
+        }
+      });
       window.socket.on('drop_spawn', () => { playSFX('gold'); });
 
       // 전투 로그
@@ -897,6 +912,11 @@
     }
 
     function doCraft(recipeId) { window.socket.emit('craft', recipeId); }
+
+    function respawnAs(className) {
+      window.socket.emit('respawn', JSON.stringify({className}));
+      document.getElementById('respawn-screen').style.display = 'none';
+    }
 
     // ── 서브메뉴 시스템 ──
     var currentSubMenu = '';

@@ -380,14 +380,9 @@ public class GameManager : MonoBehaviour
         GUI.skin.box.fontSize = 16;
         GUI.skin.label.fontSize = 13;
 
-        // 클래스 선택은 HTML UI에서 처리 (OnGUI 제거)
-        // 사망 시 부활은 여전히 OnGUI로 표시
-        if (hasSelectedClass && myId != null && !isMyPlayerAlive)
-        {
-            DrawClassSelection("사망 - 새로운 클래스로 부활", true);
-        }
+        // 클래스 선택 + 부활 → 전부 HTML에서 처리 (OnGUI 완전 제거)
 
-        if (hasSelectedClass && isMyPlayerAlive && players.ContainsKey(myId))
+        if (isMyPlayerAlive && players.ContainsKey(myId))
         {
             float btnW = 170, btnH = 42;
             float topY = 20;
@@ -945,6 +940,7 @@ public class GameManager : MonoBehaviour
     {
         JObject data = JObject.Parse(jsonStr);
         myId = (string)data["id"];
+        hasSelectedClass = true; // HTML에서 클래스 선택 완료
         JObject playersData = (JObject)data["players"];
         JObject monstersData = (JObject)data["monsters"];
 
