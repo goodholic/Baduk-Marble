@@ -98,6 +98,11 @@ public class GameManager : MonoBehaviour
     // UI 텍스처 캐시
     private Dictionary<string, Texture2D> uiTextures = new Dictionary<string, Texture2D>();
     private bool uiLoaded = false;
+    private Font koreanFont;
+    private GUIStyle btnStyle;
+    private GUIStyle labelStyle;
+    private GUIStyle boxStyle;
+    private bool stylesReady = false;
 
     private Vector2 currentDir = new Vector2(0, 1);
 
@@ -226,6 +231,9 @@ public class GameManager : MonoBehaviour
         }
 
         if (respawnPanel != null) respawnPanel.SetActive(false);
+
+        // 한글 폰트 로드
+        koreanFont = Resources.Load<Font>("MapleFont");
 
         // UI 텍스처 로드
         string[] uiNames = {"icon_shop","icon_market","icon_inventory","icon_daily","icon_unit","icon_pvp","icon_quest","icon_settings","icon_gold","icon_diamond","panel_bg","btn_normal","btn_gold"};
@@ -358,10 +366,19 @@ public class GameManager : MonoBehaviour
     // ── GUI: 클래스 선택 & 버튼 ──
     void OnGUI()
     {
-        // 기본 스타일 설정
-        GUI.skin.button.fontSize = 16;
-        GUI.skin.box.fontSize = 18;
-        GUI.skin.label.fontSize = 14;
+        // 한글 폰트 스타일 설정
+        if (!stylesReady && koreanFont != null)
+        {
+            GUI.skin.font = koreanFont;
+            GUI.skin.button.font = koreanFont;
+            GUI.skin.label.font = koreanFont;
+            GUI.skin.box.font = koreanFont;
+            GUI.skin.textField.font = koreanFont;
+            stylesReady = true;
+        }
+        GUI.skin.button.fontSize = 14;
+        GUI.skin.box.fontSize = 16;
+        GUI.skin.label.fontSize = 13;
 
         if (!hasSelectedClass)
         {
@@ -379,19 +396,19 @@ public class GameManager : MonoBehaviour
 
             if (players[myId].team == "peace")
             {
-                if (GUI.Button(new Rect(Screen.width / 2 - btnW / 2, topY, btnW, btnH), "⚔ PvP 선언"))
+                if (GUI.Button(new Rect(Screen.width / 2 - btnW / 2, topY, btnW, btnH), "[PvP 선언]"))
                     TogglePvP();
             }
             else
             {
-                if (GUI.Button(new Rect(Screen.width / 2 - btnW - 5, topY, btnW, btnH), "🕊 평화 복귀"))
+                if (GUI.Button(new Rect(Screen.width / 2 - btnW - 5, topY, btnW, btnH), "[평화 복귀]"))
                     TogglePvP();
 
-                if (GUI.Button(new Rect(Screen.width / 2 + 5, topY, btnW, btnH), "🏰 타워 건설 (-80G)"))
+                if (GUI.Button(new Rect(Screen.width / 2 + 5, topY, btnW, btnH), "타워 건설 (-80G)"))
                     BuildTower();
             }
 
-            if (GUI.Button(new Rect(Screen.width - 210, topY, 190, btnH), "🗡 용병 고용 (-150G)"))
+            if (GUI.Button(new Rect(Screen.width - 210, topY, 190, btnH), "용병 고용 (-150G)"))
                 AddBot();
 
             // ── 하단 아이콘 메뉴 바 ──
@@ -456,7 +473,7 @@ public class GameManager : MonoBehaviour
             // 카르마 표시
             if (players[myId].karma > 0)
             {
-                string karmaStatus = players[myId].karma >= 200 ? "<color=red>⚠ 카오틱</color>" : "<color=yellow>카르마: " + players[myId].karma + "</color>";
+                string karmaStatus = players[myId].karma >= 200 ? "<color=red>카오틱</color>" : "<color=yellow>카르마: " + players[myId].karma + "</color>";
                 GUI.Label(new Rect(Screen.width / 2 - 80, topY + btnH + 5, 160, 25), karmaStatus);
             }
 
@@ -521,7 +538,7 @@ public class GameManager : MonoBehaviour
     {
         float w = 400, h = 400;
         float x = Screen.width / 2 - w / 2, y = Screen.height / 2 - h / 2;
-        GUI.Box(new Rect(x, y, w, h), $"⚔ 유닛 관리 (최대 {maxArmy})");
+        GUI.Box(new Rect(x, y, w, h), $"유닛 관리 (최대 {maxArmy})");
         if (GUI.Button(new Rect(x + w - 30, y + 5, 25, 25), "X")) { showUnits = false; return; }
 
         float iy = y + 35;
@@ -698,24 +715,28 @@ public class GameManager : MonoBehaviour
 
     private void DrawClassSelection(string title, bool isRespawn)
     {
-        float boxW = 400, boxH = 380;
+        float boxW = 420, boxH = 450;
         float boxX = Screen.width / 2 - boxW / 2;
         float boxY = Screen.height / 2 - boxH / 2;
 
         GUI.Box(new Rect(boxX, boxY, boxW, boxH), title);
 
-        float btnX = boxX + 50;
-        float btnW = 300, btnH = 50;
+        float btnX = boxX + 30;
+        float btnW = 360, btnH = 70;
         float startY = boxY + 50;
+        int origSize = GUI.skin.button.fontSize;
+        GUI.skin.button.fontSize = 16;
 
-        if (GUI.Button(new Rect(btnX, startY, btnW, btnH), "⚡ 어쌔신 — 빠른 암살자"))
+        if (GUI.Button(new Rect(btnX, startY, btnW, btnH), "Assassin [어쌔신]\nHP:120 ATK:45 SPD:22 CRIT:25%"))
             SelectClass("Assassin", isRespawn);
-        if (GUI.Button(new Rect(btnX, startY + 60, btnW, btnH), "⚔ 워리어 — 균형 전사"))
+        if (GUI.Button(new Rect(btnX, startY + 80, btnW, btnH), "Warrior [워리어]\nHP:180 ATK:30 DEF:15 균형형"))
             SelectClass("Warrior", isRespawn);
-        if (GUI.Button(new Rect(btnX, startY + 120, btnW, btnH), "🛡 나이트 — 철벽 탱커"))
+        if (GUI.Button(new Rect(btnX, startY + 160, btnW, btnH), "Knight [나이트]\nHP:300 DEF:30 탱커 방어 특화"))
             SelectClass("Knight", isRespawn);
-        if (GUI.Button(new Rect(btnX, startY + 180, btnW, btnH), "🔥 메이지 — 광역 마법사"))
+        if (GUI.Button(new Rect(btnX, startY + 240, btnW, btnH), "Mage [메이지]\nHP:90 ATK:10 광역 마법 공격"))
             SelectClass("Mage", isRespawn);
+
+        GUI.skin.button.fontSize = origSize;
     }
 
     private void SelectClass(string className, bool isRespawn)
@@ -1459,16 +1480,22 @@ public class GameManager : MonoBehaviour
     private bool DrawIconButton(float x, float y, float size, string texName, string label)
     {
         bool clicked = false;
-        Rect btnRect = new Rect(x, y, size + 60, size);
+        float totalW = size + 70;
 
-        if (uiTextures.ContainsKey(texName))
-        {
-            GUI.DrawTexture(new Rect(x + 2, y + 2, size - 4, size - 4), uiTextures[texName], ScaleMode.ScaleToFit);
-        }
-        if (GUI.Button(new Rect(x, y, size, size), ""))
+        // 배경 버튼
+        if (GUI.Button(new Rect(x, y, totalW, size), ""))
             clicked = true;
 
-        GUI.Label(new Rect(x + size + 4, y + size / 2 - 10, 56, 20), label);
+        // 아이콘
+        if (uiTextures.ContainsKey(texName))
+            GUI.DrawTexture(new Rect(x + 4, y + 4, size - 8, size - 8), uiTextures[texName], ScaleMode.ScaleToFit);
+
+        // 라벨 (아이콘 우측)
+        int origSize = GUI.skin.label.fontSize;
+        GUI.skin.label.fontSize = 14;
+        GUI.Label(new Rect(x + size + 2, y + size / 2 - 10, 65, 22), label);
+        GUI.skin.label.fontSize = origSize;
+
         return clicked;
     }
 
@@ -1499,20 +1526,20 @@ public class GameManager : MonoBehaviour
 
         if (teamText != null) {
             if (p.team == "peace")
-                teamText.text = "<color=#88ff88>⚔ 자동 사냥 중</color>";
+                teamText.text = "<color=#88ff88>자동 사냥 중</color>";
             else if (p.team.StartsWith("king_"))
                 teamText.text = "<color=#ff4444>👑 왕 — PvP 활성</color>";
             else
-                teamText.text = "<color=#ffaa44>⚔ PvP 전투 중</color>";
+                teamText.text = "<color=#ffaa44>PvP 전투 중</color>";
         }
 
         if (karmaText != null) {
             if (p.karma >= 200)
-                karmaText.text = $"<color=#ff2222>☠ 카오틱 (카르마: {p.karma})</color>";
+                karmaText.text = $"<color=#ff2222>카오틱 (카르마: {p.karma})</color>";
             else if (p.karma > 0)
-                karmaText.text = $"<color=#ffaa00>⚠ 카르마: {p.karma}</color>";
+                karmaText.text = $"<color=#ffaa00>카르마: {p.karma}</color>";
             else
-                karmaText.text = "<color=#88ff88>✦ 질서</color>";
+                karmaText.text = "<color=#88ff88>질서</color>";
         }
     }
 }
