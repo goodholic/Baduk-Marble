@@ -9,6 +9,12 @@ const socketIo = require('socket.io');
 const path = require('path');
 const mysql = require('mysql2/promise');
 
+// 게임 모듈
+const { RECIPES, handleCraft } = require('./game/craft');
+const { PETS, MOUNTS, handleBuyPet, handleBuyMount, getPetEffect, getMountSpeed } = require('./game/pet');
+const { BUFF_TYPES, applyBuff, removeBuff, updateBuffs, getBuffedStat, isStunned, TITLES, checkTitles } = require('./game/buff');
+const GameConfig = require('./game/config');
+
 const app = express();
 const server = http.createServer(app);
 
@@ -606,8 +612,8 @@ function spawnMonster() {
         id: mId,
         tier: tierKey,
         name: tier.name,
-        x: Math.random() * 180 - 90,
-        y: Math.random() * 180 - 90,
+        x: Math.random() * 450 - 225,
+        y: Math.random() * 450 - 225,
         hp: tier.hp,
         maxHp: tier.hp,
         atk: tier.atk,
@@ -680,8 +686,8 @@ io.on('connection', (socket) => {
             deviceId,
             className: selectedClass,
             displayName: cls.displayName,
-            x: Math.random() * 160 - 80,
-            y: Math.random() * 160 - 80,
+            x: Math.random() * 400 - 200,
+            y: Math.random() * 400 - 200,
             hp: cls.maxHp,
             maxHp: cls.maxHp,
             atk: cls.atk,
@@ -960,8 +966,8 @@ io.on('connection', (socket) => {
             p.hp = p.maxHp;
             p.dmgMulti = 1.0;
             p.isAlive = true;
-            p.x = Math.random() * 160 - 80;
-            p.y = Math.random() * 160 - 80;
+            p.x = Math.random() * 400 - 200;
+            p.y = Math.random() * 400 - 200;
 
             savePlayer(p);
             io.emit('player_respawn', p);
@@ -1646,6 +1652,60 @@ io.on('connection', (socket) => {
         } catch(e) {}
     });
 
+    // ── 제작 ──
+    socket.on('craft', (recipeId) => {
+        const p = players[playerId];
+        if (!p) return;
+        const result = handleCraft(p, recipeId, io);
+        savePlayer(p);
+        socket.emit('craft_result', result);
+        if (result.success) io.emit('player_update', p);
+    });
+
+    socket.on('get_recipes', () => {
+        socket.emit('recipe_list', RECIPES);
+    });
+
+    // ── 펫 구매 ──
+    socket.on('buy_pet', (petId) => {
+        const p = players[playerId];
+        if (!p) return;
+        const result = handleBuyPet(p, petId);
+        if (result.success) savePlayer(p);
+        socket.emit('pet_result', result);
+    });
+
+    // ── 탈것 구매 ──
+    socket.on('buy_mount', (mountId) => {
+        const p = players[playerId];
+        if (!p) return;
+        const result = handleBuyMount(p, mountId);
+        if (result.success) savePlayer(p);
+        socket.emit('mount_result', result);
+    });
+
+    // ── 버프 사용 (인벤토리 아이템) ──
+    socket.on('use_buff_item', (itemId) => {
+        const p = players[playerId];
+        if (!p || !p.inventory || !p.inventory[itemId]) return;
+        if (BUFF_TYPES[itemId]) {
+            p.inventory[itemId]--;
+            if (p.inventory[itemId] <= 0) delete p.inventory[itemId];
+            applyBuff(p, itemId);
+            savePlayer(p);
+            socket.emit('buff_result', { success:true, msg:`${BUFF_TYPES[itemId].name} 사용!` });
+        }
+    });
+
+    // ── 칭호 변경 ──
+    socket.on('set_title', (titleId) => {
+        const p = players[playerId];
+        if (!p || !p.titles || !p.titles.includes(titleId)) return;
+        p.activeTitle = titleId;
+        savePlayer(p);
+        io.emit('player_update', p);
+    });
+
     // ── 채팅 ──
     socket.on('chat', (msg) => {
         const p = players[playerId];
@@ -1769,8 +1829,8 @@ function createAutoArmy(ownerId) {
         id: botId, deviceId: 'bot',
         className: randomClass,
         displayName: cls.displayName,
-        x: Math.random() * 180 - 90,
-        y: Math.random() * 180 - 90,
+        x: Math.random() * 450 - 225,
+        y: Math.random() * 450 - 225,
         hp: cls.maxHp, maxHp: cls.maxHp,
         atk: cls.atk, def: cls.def,
         critRate: cls.critRate, dodgeRate: cls.dodgeRate,
@@ -1816,8 +1876,8 @@ setInterval(() => {
             m.x += (Math.random() * 2 - 1) * 0.5;
             m.y += (Math.random() * 2 - 1) * 0.5;
             // 맵 경계
-            m.x = Math.max(-95, Math.min(95, m.x));
-            m.y = Math.max(-95, Math.min(95, m.y));
+            m.x = Math.max(-240, Math.min(240, m.x));
+            m.y = Math.max(-240, Math.min(240, m.y));
         }
     }
 

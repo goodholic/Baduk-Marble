@@ -144,9 +144,10 @@
       <button class="tab" onclick="togglePanel('quests')">퀘스트</button>
       <button class="tab" onclick="togglePanel('ranking')">랭킹</button>
       <button class="tab" onclick="togglePanel('morph')">변신</button>
+      <button class="tab" onclick="togglePanel('craft')">제작</button>
+      <button class="tab" onclick="togglePanel('petmount')">펫</button>
       <button class="tab" onclick="togglePanel('stats')">스탯</button>
       <button class="tab" onclick="togglePanel('clan')">혈맹</button>
-      <button class="tab" onclick="claimDaily()">보상</button>
     </div>
 
     <!-- 화폐 표시 -->
@@ -223,6 +224,37 @@
     <div class="panel" id="panel-quests">
       <div class="panel-header"><h2>퀘스트</h2><button class="panel-close" onclick="closePanel('quests')">X</button></div>
       <div class="panel-body" id="quests-body"><p style="color:#888">로딩 중...</p></div>
+    </div>
+
+    <!-- 제작 패널 -->
+    <div class="panel" id="panel-craft">
+      <div class="panel-header"><h2>제작소</h2><button class="panel-close" onclick="closePanel('craft')">X</button></div>
+      <div class="panel-body" id="craft-body">
+        <p style="color:#ffd700;margin-bottom:8px">재료를 모아 장비를 제작하세요!</p>
+        <div class="panel-item"><span class="name">철제 검<br><small style="color:#888">철광석x5 + 목재x3 (100G)</small></span><button onclick="doCraft('craft_sword_1')">제작</button></div>
+        <div class="panel-item"><span class="name">강철 검<br><small style="color:#4a8">철광석x15 + 마법결정x5 (500G, 80%)</small></span><button onclick="doCraft('craft_sword_2')">제작</button></div>
+        <div class="panel-item"><span class="name" style="color:#aa44ff">미스릴 검<br><small>철광석x30 + 영혼석x10 + 용비늘x3 (3000G, 50%)</small></span><button onclick="doCraft('craft_sword_3')">제작</button></div>
+        <div class="panel-item"><span class="name">가죽 갑옷<br><small style="color:#888">가죽x5 + 목재x2 (80G)</small></span><button onclick="doCraft('craft_armor_1')">제작</button></div>
+        <div class="panel-item"><span class="name">철판 갑옷<br><small style="color:#4a8">철광석x20 + 가죽x10 (500G, 80%)</small></span><button onclick="doCraft('craft_armor_2')">제작</button></div>
+        <div class="panel-item"><span class="name">힘의 반지<br><small style="color:#4a8">보석x5 + 마법결정x3 (800G, 70%)</small></span><button onclick="doCraft('craft_ring')">제작</button></div>
+        <div class="panel-item"><span class="name">HP 물약<br><small style="color:#888">약초x3 + 물약원료x1 (30G)</small></span><button onclick="doCraft('craft_hp_pot')">제작</button></div>
+      </div>
+    </div>
+
+    <!-- 펫 & 탈것 패널 -->
+    <div class="panel" id="panel-petmount">
+      <div class="panel-header"><h2>펫 & 탈것</h2><button class="panel-close" onclick="closePanel('petmount')">X</button></div>
+      <div class="panel-body">
+        <h3 style="color:#44aaff;margin-bottom:8px">펫 (전투 보조)</h3>
+        <div class="panel-item"><span class="name">미니 슬라임<br><small style="color:#888">HP회복+3% / 슬라임 100마리</small></span><button onclick="window.socket.emit('buy_pet','pet_slime')">획득</button></div>
+        <div class="panel-item"><span class="name">아기 늑대<br><small style="color:#4a8">ATK+8% / 오크 50마리</small></span><button onclick="window.socket.emit('buy_pet','pet_wolf')">획득</button></div>
+        <div class="panel-item"><span class="name">미니 드래곤<br><small style="color:#ffa500">ATK+15% / 드래곤 20마리</small></span><button onclick="window.socket.emit('buy_pet','pet_dragon')">획득</button></div>
+
+        <h3 style="color:#ffd700;margin:12px 0 8px">탈것 (이동속도)</h3>
+        <div class="panel-item"><span class="name">말<br><small style="color:#888">SPD+30% / 1000G</small></span><button onclick="window.socket.emit('buy_mount','mount_horse')">구매</button></div>
+        <div class="panel-item"><span class="name">전투마<br><small style="color:#4a8">SPD+50% / 5000G</small></span><button onclick="window.socket.emit('buy_mount','mount_warhorse')">구매</button></div>
+        <div class="panel-item"><span class="name">그리폰<br><small style="color:#aa44ff">SPD+70% / 다이아500</small></span><button onclick="window.socket.emit('buy_mount','mount_griffin')">구매</button></div>
+      </div>
     </div>
 
     <!-- 스탯 패널 -->
@@ -438,6 +470,13 @@
       window.socket.on('trade_goods_result', (d) => { showToast(d.msg); if(d.success) playSFX('gold'); });
       // 테이밍
       window.socket.on('tame_result', (d) => { showToast(d.msg); if(d.success) playSFX('levelup'); else playSFX('hit'); });
+      // 제작
+      window.socket.on('craft_result', (d) => { showToast(d.msg); playSFX(d.success ? 'levelup' : 'die'); });
+      // 펫/탈것
+      window.socket.on('pet_result', (d) => { showToast(d.msg); if(d.success) playSFX('levelup'); });
+      window.socket.on('mount_result', (d) => { showToast(d.msg); if(d.success) playSFX('gold'); });
+      // 버프
+      window.socket.on('buff_result', (d) => { showToast(d.msg); });
       // 공성전
       window.socket.on('siege_result', (d) => showToast(d.msg));
       // 1:1 거래
@@ -589,23 +628,29 @@
     var minimapCtx = minimapCanvas.getContext('2d');
     var minimapContainer = document.getElementById('minimap-container');
     var minimapZoneLabel = document.getElementById('minimap-zone');
-    var MAP_MIN = -100, MAP_MAX = 100, MAP_SIZE = 180;
+    var MAP_MIN = -250, MAP_MAX = 250, MAP_SIZE = 180;
 
     var zones = {
-      village:{name:'아덴 마을',x:-100,y:-100,w:30,h:30,color:'#2d5a1e'},
-      port_town:{name:'항구 마을',x:60,y:-100,w:25,h:25,color:'#1e5a2d'},
-      forest:{name:'엘프숲',x:-70,y:-60,w:40,h:30,color:'#1a3a0a'},
-      plains:{name:'말하는 섬',x:-30,y:-60,w:40,h:30,color:'#4a6a2a'},
-      swamp:{name:'독안개 늪',x:10,y:-60,w:30,h:30,color:'#2a4a1a'},
-      desert:{name:'사막',x:40,y:-60,w:40,h:25,color:'#6a5a2a'},
-      dungeon:{name:'어둠의 동굴',x:-70,y:-20,w:30,h:30,color:'#2a1a3a'},
-      graveyard:{name:'묘지',x:-40,y:-20,w:30,h:25,color:'#3a2a3a'},
-      volcano:{name:'화산',x:20,y:-20,w:35,h:30,color:'#5a2a1a'},
-      dragon:{name:'드래곤 둥지',x:55,y:-20,w:30,h:25,color:'#5a1a1a'},
-      chaos:{name:'죽음의 협곡',x:-50,y:20,w:40,h:30,color:'#3a1a4a'},
-      abyss:{name:'심연',x:10,y:20,w:35,h:30,color:'#1a1a3a'},
-      castle:{name:'왕의 성',x:-20,y:55,w:40,h:35,color:'#5a4a1a'},
-      fishing:{name:'은빛 호수',x:50,y:50,w:30,h:30,color:'#1a3a5a'},
+      aden:{name:'아덴',x:-250,y:-250,w:50,h:50,color:'#2d5a1e'},
+      harbor:{name:'항구',x:150,y:-250,w:40,h:40,color:'#1e5a2d'},
+      oasis:{name:'오아시스',x:-50,y:0,w:35,h:35,color:'#2d5a1e'},
+      forest:{name:'엘프숲',x:-200,y:-180,w:60,h:50,color:'#1a3a0a'},
+      plains:{name:'말하는섬',x:-130,y:-200,w:60,h:50,color:'#4a6a2a'},
+      meadow:{name:'초원',x:-60,y:-200,w:50,h:40,color:'#3a5a1a'},
+      swamp:{name:'늪',x:30,y:-200,w:50,h:50,color:'#2a4a1a'},
+      desert:{name:'사막',x:100,y:-180,w:60,h:50,color:'#6a5a2a'},
+      cave:{name:'수정동굴',x:-200,y:-100,w:50,h:50,color:'#2a1a3a'},
+      ruins:{name:'고대유적',x:-130,y:-100,w:50,h:40,color:'#3a2a1a'},
+      volcano:{name:'화산',x:80,y:-100,w:60,h:50,color:'#5a2a1a'},
+      graveyard:{name:'묘지',x:-200,y:-30,w:50,h:40,color:'#3a2a3a'},
+      darkforest:{name:'어둠숲',x:100,y:-30,w:50,h:50,color:'#0a2a0a'},
+      dragon:{name:'드래곤',x:150,y:50,w:50,h:50,color:'#5a1a1a'},
+      abyss:{name:'심연',x:-200,y:50,w:60,h:50,color:'#1a1a3a'},
+      hell:{name:'지옥문',x:-100,y:100,w:50,h:50,color:'#4a0a0a'},
+      chaos:{name:'죽음협곡',x:50,y:100,w:60,h:50,color:'#3a1a4a'},
+      warzone:{name:'전쟁터',x:-50,y:150,w:70,h:50,color:'#4a1a1a'},
+      castle:{name:'왕의 성',x:0,y:200,w:60,h:50,color:'#5a4a1a'},
+      arena:{name:'콜로세움',x:150,y:150,w:40,h:40,color:'#4a4a1a'},
     };
 
     var lastSyncPlayers = {};
@@ -780,6 +825,8 @@
           break;
       }
     }
+
+    function doCraft(recipeId) { window.socket.emit('craft', recipeId); }
 
     // ── 교역 가격 렌더링 ──
     function renderTownPrices(data) {
