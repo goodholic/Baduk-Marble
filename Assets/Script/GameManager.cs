@@ -232,6 +232,13 @@ public class GameManager : MonoBehaviour
 
         if (respawnPanel != null) respawnPanel.SetActive(false);
 
+        // Unity Canvas UI 숨기기 (HTML로 전부 이전됨)
+        if (goldText != null) goldText.gameObject.SetActive(false);
+        if (hpText != null) hpText.gameObject.SetActive(false);
+        if (levelText != null) levelText.gameObject.SetActive(false);
+        if (teamText != null) teamText.gameObject.SetActive(false);
+        if (karmaText != null) karmaText.gameObject.SetActive(false);
+
         // 한글 폰트 로드
         koreanFont = Resources.Load<Font>("MapleFont");
 

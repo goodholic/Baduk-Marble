@@ -734,26 +734,26 @@
     var MAP_MIN = -250, MAP_MAX = 250, MAP_SIZE = 220;
 
     var zones = {
-      aden:{name:'아덴',x:-250,y:-250,w:50,h:50,color:'#2d5a1e'},
-      harbor:{name:'항구',x:150,y:-250,w:40,h:40,color:'#1e5a2d'},
-      oasis:{name:'오아시스',x:-50,y:0,w:35,h:35,color:'#2d5a1e'},
-      forest:{name:'엘프숲',x:-200,y:-180,w:60,h:50,color:'#1a3a0a'},
-      plains:{name:'말하는섬',x:-130,y:-200,w:60,h:50,color:'#4a6a2a'},
-      meadow:{name:'초원',x:-60,y:-200,w:50,h:40,color:'#3a5a1a'},
-      swamp:{name:'늪',x:30,y:-200,w:50,h:50,color:'#2a4a1a'},
-      desert:{name:'사막',x:100,y:-180,w:60,h:50,color:'#6a5a2a'},
+      aden:{name:'바람개비',x:-250,y:-250,w:50,h:50,color:'#2d5a1e'},
+      harbor:{name:'별빛항구',x:150,y:-250,w:40,h:40,color:'#1e5a2d'},
+      oasis:{name:'달빛',x:-50,y:0,w:35,h:35,color:'#2d5a1e'},
+      forest:{name:'이슬숲',x:-200,y:-180,w:60,h:50,color:'#1a3a0a'},
+      plains:{name:'해바라기',x:-130,y:-200,w:60,h:50,color:'#4a6a2a'},
+      meadow:{name:'꽃잎초원',x:-60,y:-200,w:50,h:40,color:'#3a5a1a'},
+      swamp:{name:'안개골',x:30,y:-200,w:50,h:50,color:'#2a4a1a'},
+      desert:{name:'붉은모래',x:100,y:-180,w:60,h:50,color:'#6a5a2a'},
       cave:{name:'수정동굴',x:-200,y:-100,w:50,h:50,color:'#2a1a3a'},
-      ruins:{name:'고대유적',x:-130,y:-100,w:50,h:40,color:'#3a2a1a'},
-      volcano:{name:'화산',x:80,y:-100,w:60,h:50,color:'#5a2a1a'},
-      graveyard:{name:'묘지',x:-200,y:-30,w:50,h:40,color:'#3a2a3a'},
-      darkforest:{name:'어둠숲',x:100,y:-30,w:50,h:50,color:'#0a2a0a'},
-      dragon:{name:'드래곤',x:150,y:50,w:50,h:50,color:'#5a1a1a'},
-      abyss:{name:'심연',x:-200,y:50,w:60,h:50,color:'#1a1a3a'},
-      hell:{name:'지옥문',x:-100,y:100,w:50,h:50,color:'#4a0a0a'},
-      chaos:{name:'죽음협곡',x:50,y:100,w:60,h:50,color:'#3a1a4a'},
-      warzone:{name:'전쟁터',x:-50,y:150,w:70,h:50,color:'#4a1a1a'},
-      castle:{name:'왕의 성',x:0,y:200,w:60,h:50,color:'#5a4a1a'},
-      arena:{name:'콜로세움',x:150,y:150,w:40,h:40,color:'#4a4a1a'},
+      ruins:{name:'달그림자',x:-130,y:-100,w:50,h:40,color:'#3a2a1a'},
+      volcano:{name:'불꽃산',x:80,y:-100,w:60,h:50,color:'#5a2a1a'},
+      graveyard:{name:'고요한무덤',x:-200,y:-30,w:50,h:40,color:'#3a2a3a'},
+      darkforest:{name:'그림자숲',x:100,y:-30,w:50,h:50,color:'#0a2a0a'},
+      dragon:{name:'용의요람',x:150,y:50,w:50,h:50,color:'#5a1a1a'},
+      abyss:{name:'어둠심연',x:-200,y:50,w:60,h:50,color:'#1a1a3a'},
+      hell:{name:'혼돈의문',x:-100,y:100,w:50,h:50,color:'#4a0a0a'},
+      chaos:{name:'피의골짜기',x:50,y:100,w:60,h:50,color:'#3a1a4a'},
+      warzone:{name:'전쟁벌판',x:-50,y:150,w:70,h:50,color:'#4a1a1a'},
+      castle:{name:'하늘성채',x:0,y:200,w:60,h:50,color:'#5a4a1a'},
+      arena:{name:'투기장',x:150,y:150,w:40,h:40,color:'#4a4a1a'},
     };
 
     var lastSyncPlayers = {};
@@ -995,7 +995,7 @@
       var locEl = document.getElementById('trade-location');
 
       // 현재 위치 체크
-      var townNames = {aden:'아덴 마을', harbor:'항구 마을', oasis:'오아시스 마을', village:'아덴 마을', port_town:'항구 마을'};
+      var townNames = {aden:'바람개비 마을', harbor:'별빛 항구', oasis:'달빛 오아시스', village:'바람개비 마을', port_town:'별빛 항구'};
       var inTown = townNames[myCurrentZone];
       if (inTown) {
         locEl.style.background = 'rgba(0,180,0,0.15)';
