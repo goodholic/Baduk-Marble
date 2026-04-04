@@ -66,6 +66,8 @@ public class GameManager : MonoBehaviour
     public float baseMoveSpeed = 8f;
     private float currentMoveSpeed = 8f;
     private bool isMyPlayerAlive = false;
+    private string currentZone = "";
+    private SpriteRenderer bgRenderer;
 
     private Vector2 currentDir = new Vector2(0, 1);
 
@@ -194,6 +196,11 @@ public class GameManager : MonoBehaviour
         }
 
         if (respawnPanel != null) respawnPanel.SetActive(false);
+
+        // 배경 설정
+        GameObject bgObj = GameObject.Find("background");
+        if (bgObj != null) bgRenderer = bgObj.GetComponent<SpriteRenderer>();
+        ChangeBackground("map_village"); // 기본 배경
 
         SetupScrollableMiniScreens();
         InvokeRepeating("UpdateMiniCameraTargets", 2f, 5f);
@@ -641,7 +648,15 @@ public class GameManager : MonoBehaviour
                 if (pObj["gold"] != null) players[pId].gold = (int)pObj["gold"];
                 if (pObj["hp"] != null) players[pId].hp = (float)pObj["hp"];
                 if (pObj["karma"] != null) players[pId].karma = (int)pObj["karma"];
-                if (pId == myId) UpdateMyUI();
+                if (pId == myId) {
+                    UpdateMyUI();
+                    // 존 변경 시 배경 업데이트
+                    string zone = pObj["zone"]?.ToString();
+                    if (!string.IsNullOrEmpty(zone)) {
+                        string mapName = "map_" + zone;
+                        ChangeBackground(mapName);
+                    }
+                }
             }
         }
 
@@ -992,6 +1007,20 @@ public class GameManager : MonoBehaviour
             yield return null;
         }
         Destroy(obj);
+    }
+
+    private void ChangeBackground(string mapName)
+    {
+        if (bgRenderer == null || mapName == currentZone) return;
+        currentZone = mapName;
+
+        Texture2D tex = Resources.Load<Texture2D>("Sprites/" + mapName);
+        if (tex != null)
+        {
+            Sprite bgSprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), 32f);
+            bgRenderer.sprite = bgSprite;
+            bgRenderer.color = Color.white;
+        }
     }
 
     private void UpdateMyUI()

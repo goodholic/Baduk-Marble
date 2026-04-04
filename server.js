@@ -105,6 +105,25 @@ async function savePlayer(player) {
 }
 
 // ==========================================
+// 맵 존 시스템
+// ==========================================
+const ZONES = {
+    village: { name:'초보자 마을', x:-25, y:-25, w:15, h:15, lvl:[1,5], safe:true, bg:'map_village' },
+    forest:  { name:'엘프숲',     x:-10, y:-25, w:15, h:15, lvl:[5,15], safe:false, bg:'map_forest' },
+    plains:  { name:'드래곤 평원', x:5,   y:-25, w:20, h:20, lvl:[10,25], safe:false, bg:'map_plains' },
+    dungeon: { name:'어둠의 동굴', x:-25, y:-10, w:15, h:15, lvl:[15,30], safe:false, bg:'map_dungeon' },
+    dragon:  { name:'드래곤 둥지', x:-10, y:-10, w:10, h:10, lvl:[25,99], safe:false, bg:'map_dragon' },
+    chaos:   { name:'죽음의 협곡', x:0,   y:-10, w:15, h:15, lvl:[20,99], safe:false, bg:'map_chaos' },
+};
+
+function getZone(x, y) {
+    for (const [id, z] of Object.entries(ZONES)) {
+        if (x >= z.x && x < z.x + z.w && y >= z.y && y < z.y + z.h) return { id, ...z };
+    }
+    return { id:'plains', ...ZONES.plains }; // 기본값
+}
+
+// ==========================================
 // 게임 상수 & 클래스 정의 (리니지 라이크)
 // ==========================================
 
@@ -1178,12 +1197,14 @@ function syncGameState() {
 
     for (const pId in players) {
         if (players[pId].isAlive) {
+            const zone = getZone(players[pId].x, players[pId].y);
             syncData.players[pId] = {
                 x: players[pId].x,
                 y: players[pId].y,
                 gold: players[pId].gold,
                 hp: players[pId].hp,
-                karma: players[pId].karma
+                karma: players[pId].karma,
+                zone: zone.id
             };
         }
     }
