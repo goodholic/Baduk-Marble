@@ -1518,12 +1518,16 @@ public class GameManager : MonoBehaviour
         bgSR.sortingOrder = 98;
         hpBg.transform.localScale = new Vector3(1.2f, 0.12f, 1);
 
-        // HP바 전경 (초록)
+        // HP바 전경 (초록) — 좌측 피벗으로 우측에서 줄어듦
         GameObject hpFg = new GameObject("HPBarFG");
         hpFg.transform.SetParent(parent.transform, false);
-        hpFg.transform.localPosition = new Vector3(0, yOffset, -1);
+        hpFg.transform.localPosition = new Vector3(-0.6f, yOffset, -1);
         SpriteRenderer fgSR = hpFg.AddComponent<SpriteRenderer>();
-        fgSR.sprite = CreatePixelSprite(isMe ? new Color(0.2f, 1f, 0.2f) : new Color(0.2f, 0.8f, 0.2f));
+        Texture2D fgTex = new Texture2D(1, 1);
+        fgTex.SetPixel(0, 0, Color.white);
+        fgTex.Apply();
+        fgSR.sprite = Sprite.Create(fgTex, new Rect(0, 0, 1, 1), new Vector2(0f, 0.5f), 1f); // 좌측 피벗
+        fgSR.color = isMe ? new Color(0.2f, 1f, 0.2f) : new Color(0.2f, 0.8f, 0.2f);
         fgSR.sortingOrder = 99;
         hpFg.transform.localScale = new Vector3(1.2f, 0.12f, 1);
     }
