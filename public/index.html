@@ -105,8 +105,45 @@
     /* ═══ 미니맵 ═══ */
     #minimap-container { position:absolute; top:50px; left:8px; z-index:15; display:none; }
     #minimap-container.show { display:block; }
-    #minimap { border:2px solid rgba(255,215,0,0.15); border-radius:8px; background:rgba(8,8,18,0.85); cursor:pointer; box-shadow:0 4px 15px rgba(0,0,0,0.5); }
-    #minimap-zone { color:#ffd700; font-size:10px; text-align:center; margin-top:3px; text-shadow:0 1px 3px #000; font-weight:700; }
+    #minimap { border:2px solid rgba(255,215,0,0.2); border-radius:8px; background:rgba(8,8,18,0.9); cursor:pointer; box-shadow:0 4px 15px rgba(0,0,0,0.5); }
+    #minimap-zone { color:#ffd700; font-size:11px; text-align:center; margin-top:3px; text-shadow:0 1px 3px #000; font-weight:700; }
+
+    /* 레벨업 축하 */
+    #levelup-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:60; pointer-events:none; }
+    #levelup-overlay.show { display:flex; justify-content:center; align-items:center; flex-direction:column; }
+    #levelup-overlay .lvl-text { font-size:48px; font-weight:900; color:#ffd700; text-shadow:0 0 30px #ff8800,0 0 60px #ff4400; animation:lvlPop 0.6s ease-out; }
+    #levelup-overlay .lvl-sub { font-size:16px; color:#fff; margin-top:8px; animation:lvlFade 2s ease-out forwards; }
+    #levelup-overlay .lvl-flash { position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(255,215,0,0.3); animation:flashOut 0.5s ease-out forwards; }
+    @keyframes lvlPop { 0%{transform:scale(0.3);opacity:0} 50%{transform:scale(1.3)} 100%{transform:scale(1);opacity:1} }
+    @keyframes lvlFade { 0%{opacity:1} 100%{opacity:0} }
+    @keyframes flashOut { 0%{opacity:1} 100%{opacity:0} }
+
+    /* 존 진입 공지 */
+    #zone-announce { display:none; position:fixed; top:25%; left:50%; transform:translateX(-50%); z-index:55; text-align:center; pointer-events:none; }
+    #zone-announce.show { display:block; animation:zoneSlide 2.5s ease-out forwards; }
+    #zone-announce .zone-name { font-size:32px; font-weight:900; text-shadow:0 0 20px rgba(0,0,0,0.8); }
+    #zone-announce .zone-info { font-size:14px; color:#aaa; margin-top:4px; }
+    @keyframes zoneSlide { 0%{opacity:0;transform:translateX(-50%) translateY(20px)} 15%{opacity:1;transform:translateX(-50%) translateY(0)} 80%{opacity:1} 100%{opacity:0} }
+
+    /* 골드 변동 팝업 */
+    .currency-popup { position:absolute; font-size:14px; font-weight:bold; pointer-events:none; animation:currPop 1.5s ease-out forwards; z-index:20; }
+    @keyframes currPop { 0%{opacity:1;transform:translateY(0)} 100%{opacity:0;transform:translateY(-25px)} }
+
+    /* 킬 스트릭 */
+    #kill-streak { position:fixed; top:50%; right:15px; transform:translateY(-50%); z-index:18; text-align:right; pointer-events:none; }
+    .streak-text { font-weight:900; text-shadow:0 0 10px currentColor; animation:streakPop 0.4s ease-out; }
+    @keyframes streakPop { 0%{transform:scale(0.5);opacity:0} 100%{transform:scale(1);opacity:1} }
+
+    /* 버프 아이콘 개선 */
+    .buff-icon { display:inline-flex; align-items:center; gap:3px; padding:3px 8px; border-radius:6px; font-size:11px; color:#fff; animation:buffPop 0.3s ease-out; min-width:50px; }
+    .buff-icon.expire { animation:buffExpire 0.5s ease-out forwards; }
+    @keyframes buffPop { 0%{transform:scale(0);opacity:0} 100%{transform:scale(1);opacity:1} }
+    @keyframes buffExpire { 0%{opacity:1} 100%{opacity:0;transform:scale(0.5)} }
+
+    /* 화면 흔들림 */
+    @keyframes screenShake { 0%{transform:translate(0)} 25%{transform:translate(-3px,2px)} 50%{transform:translate(3px,-2px)} 75%{transform:translate(-2px,3px)} 100%{transform:translate(0)} }
+    .shake { animation:screenShake 0.3s ease-out; }
+    #minimap-coords { color:#888; font-size:9px; text-align:center; margin-top:1px; }
 
     /* ═══ 패널 ═══ */
     .panel { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:440px; max-height:65vh; background:linear-gradient(180deg,rgba(12,12,22,0.98),rgba(8,8,18,0.99)); border:1px solid rgba(255,215,0,0.12); border-radius:12px; color:#ccc; z-index:25; display:none; overflow-y:auto; box-shadow:0 12px 40px rgba(0,0,0,0.7),0 0 20px rgba(255,215,0,0.03); }
@@ -186,6 +223,19 @@
         </span>
         <b class="hp-val" id="hp-display" style="font-size:11px">-/-</b>
       </span>
+      <span class="stat" style="display:flex;align-items:center;gap:4px">
+        <span style="color:#4488ff;font-size:11px">MP</span>
+        <span style="width:60px;height:8px;background:#222;border-radius:4px;overflow:hidden;display:inline-block">
+          <span id="mp-bar-fill" style="display:block;width:100%;height:100%;background:linear-gradient(90deg,#2244aa,#4488ff);border-radius:4px;transition:width 0.3s"></span>
+        </span>
+      </span>
+      <span class="stat" style="display:flex;align-items:center;gap:4px">
+        <span style="color:#aa44ff;font-size:11px">EXP</span>
+        <span style="width:80px;height:8px;background:#222;border-radius:4px;overflow:hidden;display:inline-block">
+          <span id="exp-bar-fill" style="display:block;width:0%;height:100%;background:linear-gradient(90deg,#6622aa,#aa44ff);border-radius:4px;transition:width 0.5s"></span>
+        </span>
+        <b id="exp-display" style="font-size:10px;color:#aa44ff">0%</b>
+      </span>
       <span class="stat"><b class="team-val" id="team-display" style="color:#88ff88;font-size:12px">평화 모드</b></span>
       <span style="flex:1"></span>
       <span class="stat" style="font-size:13px">💎<b class="diamond-val" id="diamond-val">100</b></span>
@@ -194,15 +244,34 @@
       <span class="stat" id="siege-display" style="display:none;color:#ff4444;font-weight:bold"></span>
     </div>
 
+    <!-- 레벨업 축하 오버레이 -->
+    <div id="levelup-overlay"><div class="lvl-flash"></div><div class="lvl-text"></div><div class="lvl-sub"></div></div>
+    <!-- 존 진입 공지 -->
+    <div id="zone-announce"><div class="zone-name"></div><div class="zone-info"></div></div>
+    <!-- 킬 스트릭 -->
+    <div id="kill-streak"></div>
+
+    <!-- 버프/디버프 아이콘 바 -->
+    <div id="buff-bar" style="position:absolute;top:36px;left:15px;z-index:15;display:flex;gap:3px;flex-wrap:wrap;max-width:400px"></div>
+
     <!-- 옵션 버튼 -->
-    <button class="top-btn" style="top:32px" onclick="toggleSound()" id="btn-sound">Sound OFF</button>
+    <button class="top-btn" style="top:32px" onclick="toggleSound()" id="btn-sound">Sound ON</button>
     <button class="top-btn" style="top:52px" onclick="toggleAutoPotion()" id="btn-potion">AutoPot OFF</button>
+
+    <!-- 범용 게임 모달 -->
+    <div id="game-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:100;justify-content:center;align-items:center">
+      <div style="background:linear-gradient(180deg,#1a1a2e,#0d0d1a);border:1px solid rgba(255,215,0,0.2);border-radius:12px;padding:20px;max-width:360px;width:90%;max-height:70vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.8)">
+        <h3 id="modal-title" style="color:#ffd700;margin:0 0 12px;font-size:16px;text-align:center"></h3>
+        <div id="modal-body" style="color:#ddd;font-size:13px;margin-bottom:15px"></div>
+        <div id="modal-buttons" style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap"></div>
+      </div>
+    </div>
 
     <!-- 마을 NPC 안내 -->
     <div id="town-npc" style="display:none;position:absolute;top:60px;left:50%;transform:translateX(-50%);z-index:16;padding:8px 20px;background:url('ui/btn_green.png') center/100% 100% no-repeat;color:#fff;font-size:13px;font-weight:700;border-radius:10px;text-shadow:0 1px 3px #000"></div>
 
     <!-- 게임 액션 버튼 (상단) -->
-    <div id="action-buttons" style="display:none;position:absolute;top:32px;left:50%;transform:translateX(-50%);z-index:16;display:none;gap:8px">
+    <div id="action-buttons" style="display:none;position:absolute;top:32px;left:50%;transform:translateX(-50%);z-index:16;gap:8px">
       <button onclick="event.stopPropagation();window.socket.emit('toggle_pvp','{}')" style="padding:8px 18px;border:none;border-radius:10px;background:url('ui/btn_orange.png') center/100% 100% no-repeat;color:#fff;font-size:13px;font-weight:700;cursor:pointer;text-shadow:0 1px 3px #000" id="pvp-btn">PvP 선언</button>
       <button onclick="event.stopPropagation();window.socket.emit('build_tower','{}')" style="padding:8px 18px;border:none;border-radius:10px;background:url('ui/btn_blue.png') center/100% 100% no-repeat;color:#fff;font-size:12px;font-weight:700;cursor:pointer;text-shadow:0 1px 3px #000">타워 (-80G)</button>
       <button onclick="event.stopPropagation();window.socket.emit('add_bot','{}')" style="padding:8px 18px;border:none;border-radius:10px;background:url('ui/btn_green.png') center/100% 100% no-repeat;color:#fff;font-size:12px;font-weight:700;cursor:pointer;text-shadow:0 1px 3px #000">용병 (-150G)</button>
@@ -213,12 +282,25 @@
 
     <!-- 부활 화면 -->
     <div id="respawn-screen" style="position:absolute;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:none;flex-direction:column;justify-content:center;align-items:center;z-index:22">
-      <h2 style="color:#ff4444;font-size:28px;margin-bottom:10px">사망했습니다</h2>
-      <p style="color:#aaa;margin-bottom:20px">EXP -10% / 아이템 30% 약탈당함</p>
-      <button onclick="respawnAs('Assassin')" class="class-btn" style="width:300px;padding:12px"><div class="name">Assassin [어쌔신]</div></button>
-      <button onclick="respawnAs('Warrior')" class="class-btn" style="width:300px;padding:12px"><div class="name">Warrior [워리어]</div></button>
-      <button onclick="respawnAs('Knight')" class="class-btn" style="width:300px;padding:12px"><div class="name">Knight [나이트]</div></button>
-      <button onclick="respawnAs('Mage')" class="class-btn" style="width:300px;padding:12px"><div class="name">Mage [메이지]</div></button>
+      <h2 style="color:#ff4444;font-size:36px;margin-bottom:5px;text-shadow:0 0 30px #f00;animation:lvlPop 0.5s ease-out">SLAIN</h2>
+      <div id="death-info" style="color:#ccc;font-size:13px;margin-bottom:10px"></div>
+      <p style="color:#aaa;margin-bottom:15px;font-size:12px">EXP -10% / 인벤 30% + 골드 50% 약탈 | 마을에서 부활</p>
+      <button onclick="respawnAs('Assassin')" class="class-btn" style="width:320px;padding:12px">
+        <div class="name" style="color:#ff6b6b">Assassin [어쌔신]</div>
+        <small style="color:#888">HP:120 ATK:45 SPD:22 | 크리티컬 암살자</small>
+      </button>
+      <button onclick="respawnAs('Warrior')" class="class-btn" style="width:320px;padding:12px">
+        <div class="name" style="color:#ffa500">Warrior [워리어]</div>
+        <small style="color:#888">HP:180 ATK:30 DEF:15 | 균형 전사</small>
+      </button>
+      <button onclick="respawnAs('Knight')" class="class-btn" style="width:320px;padding:12px">
+        <div class="name" style="color:#44aaff">Knight [나이트]</div>
+        <small style="color:#888">HP:300 ATK:15 DEF:30 | 철벽 탱커</small>
+      </button>
+      <button onclick="respawnAs('Mage')" class="class-btn" style="width:320px;padding:12px">
+        <div class="name" style="color:#aa44ff">Mage [메이지]</div>
+        <small style="color:#888">HP:90 ATK:10 AoE | 광역 마법사</small>
+      </button>
     </div>
 
     <!-- 테이밍 버튼 (게임 화면 우측) -->
@@ -232,8 +314,9 @@
 
     <!-- 미니맵 -->
     <div id="minimap-container">
-      <canvas id="minimap" width="150" height="150"></canvas>
+      <canvas id="minimap" width="220" height="220"></canvas>
       <div id="minimap-zone">-</div>
+      <div id="minimap-coords">0, 0</div>
     </div>
 
     <!-- 알림 -->
@@ -366,6 +449,60 @@
       <div class="panel-header"><h2>랭킹</h2><button class="panel-close" onclick="closePanel('ranking')">X</button></div>
       <div class="panel-body" id="ranking-body"><p style="color:#888">로딩 중...</p></div>
     </div>
+
+    <!-- 경매장 패널 -->
+    <div class="panel" id="panel-market">
+      <div class="panel-header"><h2>경매장</h2><button class="panel-close" onclick="closePanel('market')">X</button></div>
+      <div class="panel-body" id="market-body">
+        <div style="display:flex;gap:4px;margin-bottom:8px">
+          <button onclick="window.socket.emit('market_browse',{})" style="flex:1;padding:6px;font-size:11px;background:#333;color:#eee;border:1px solid #555;border-radius:4px">전체</button>
+          <button onclick="window.socket.emit('market_browse',{category:'장비'})" style="flex:1;padding:6px;font-size:11px;background:#333;color:#48f;border:1px solid #555;border-radius:4px">장비</button>
+          <button onclick="window.socket.emit('market_browse',{category:'재료'})" style="flex:1;padding:6px;font-size:11px;background:#333;color:#4c4;border:1px solid #555;border-radius:4px">재료</button>
+          <button onclick="window.socket.emit('market_browse',{category:'물약'})" style="flex:1;padding:6px;font-size:11px;background:#333;color:#f88;border:1px solid #555;border-radius:4px">물약</button>
+        </div>
+        <div id="market-list"><p style="color:#888">검색 버튼을 눌러주세요</p></div>
+      </div>
+    </div>
+
+    <!-- 아레나 패널 -->
+    <div class="panel" id="panel-arena">
+      <div class="panel-header"><h2>투기장</h2><button class="panel-close" onclick="closePanel('arena')">X</button></div>
+      <div class="panel-body">
+        <div style="text-align:center;margin-bottom:10px">
+          <p style="color:#ffd700;font-size:12px">1:1 PvP 아레나 (Lv.10+, 일일 10회)</p>
+          <button onclick="window.socket.emit('arena_join')" style="padding:10px 20px;background:linear-gradient(135deg,#ff4444,#cc0000);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:bold;cursor:pointer">대전 참가</button>
+          <button onclick="window.socket.emit('arena_leave')" style="padding:10px 15px;background:#555;color:#eee;border:none;border-radius:8px;font-size:12px;cursor:pointer;margin-left:5px">취소</button>
+        </div>
+        <div style="border-top:1px solid #333;padding-top:8px">
+          <p style="color:#ffd700;font-size:11px;margin-bottom:5px">아레나 랭킹</p>
+          <button onclick="window.socket.emit('arena_rankings')" style="padding:4px 10px;background:#333;color:#eee;border:1px solid #555;border-radius:4px;font-size:11px;margin-bottom:5px">새로고침</button>
+          <div id="arena-ranking"><p style="color:#888;font-size:11px">랭킹 조회 버튼을 눌러주세요</p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 친구 목록 패널 -->
+    <div class="panel" id="panel-friends">
+      <div class="panel-header"><h2>친구</h2><button class="panel-close" onclick="closePanel('friends')">X</button></div>
+      <div class="panel-body">
+        <button onclick="window.socket.emit('get_friends')" style="width:100%;padding:6px;background:#333;color:#eee;border:1px solid #555;border-radius:4px;font-size:11px;margin-bottom:5px">새로고침</button>
+        <div id="friend-list"><p style="color:#888;font-size:11px">친구 목록을 불러오세요</p></div>
+      </div>
+    </div>
+
+    <!-- 무한의 탑 패널 -->
+    <div class="panel" id="panel-tower">
+      <div class="panel-header"><h2>무한의 탑</h2><button class="panel-close" onclick="closePanel('tower')">X</button></div>
+      <div class="panel-body" style="text-align:center">
+        <p style="color:#ffd700;font-size:12px">100층까지 도전! (Lv.10+)</p>
+        <p style="color:#888;font-size:11px">올라갈수록 몬스터가 강해집니다</p>
+        <p style="color:#888;font-size:11px">10층마다 특별 보상</p>
+        <div style="margin:10px 0">
+          <button onclick="window.socket.emit('tower_enter')" style="padding:10px 20px;background:linear-gradient(135deg,#ffd700,#ff8800);color:#000;border:none;border-radius:8px;font-size:14px;font-weight:bold;cursor:pointer">도전 시작</button>
+          <button onclick="window.socket.emit('tower_leave')" style="padding:10px 15px;background:#555;color:#eee;border:none;border-radius:8px;font-size:12px;cursor:pointer;margin-left:5px">포기</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- 채팅 (Unity 밖) -->
@@ -459,15 +596,55 @@
         myPlayerId = data.id;
       });
 
+      var lastGold = 0, lastDiamonds = 0, lastZone = '', lastKills = 0;
+      var gameStats = { kills:0, startTime:Date.now() };
+      var killStreak = 0, lastKillTime = 0;
+
       window.socket.on('sync', (data) => {
-        // 내 데이터에서 화폐 업데이트
         if (myPlayerId && data.players && data.players[myPlayerId]) {
           var me = data.players[myPlayerId];
-          if (me.diamonds !== undefined) document.getElementById('diamond-val').textContent = me.diamonds;
-          if (me.gold !== undefined) document.getElementById('gold-val').textContent = me.gold;
-          if (me.hp !== undefined) {
-            document.getElementById('hp-display').textContent = Math.ceil(me.hp);
-            // HP 바 업데이트는 player_update에서 처리
+
+          // 골드 변동 팝업
+          if (me.gold !== undefined) {
+            var goldDelta = me.gold - lastGold;
+            if (lastGold > 0 && goldDelta !== 0) showCurrencyPop('gold-val', goldDelta, goldDelta > 0 ? '#ffd700' : '#ff4444');
+            lastGold = me.gold;
+            document.getElementById('gold-val').textContent = me.gold;
+          }
+          if (me.diamonds !== undefined) {
+            var diaDelta = me.diamonds - lastDiamonds;
+            if (lastDiamonds > 0 && diaDelta > 0) showCurrencyPop('diamond-val', diaDelta, '#44aaff');
+            lastDiamonds = me.diamonds;
+            document.getElementById('diamond-val').textContent = me.diamonds;
+          }
+
+          // HP 바
+          if (me.hp !== undefined && me.maxHp) {
+            var hpPct = Math.max(0, Math.min(100, me.hp / me.maxHp * 100));
+            document.getElementById('hp-bar-fill').style.width = hpPct + '%';
+            document.getElementById('hp-display').textContent = Math.ceil(me.hp) + '/' + me.maxHp;
+          }
+
+          // MP 바
+          if (me.mp !== undefined && me.maxMp) {
+            var mpPct = Math.max(0, Math.min(100, me.mp / me.maxMp * 100));
+            document.getElementById('mp-bar-fill').style.width = mpPct + '%';
+          }
+
+          // EXP 바
+          if (me.exp !== undefined && me.maxExp) {
+            var expPct = Math.max(0, Math.min(100, me.exp / me.maxExp * 100));
+            document.getElementById('exp-bar-fill').style.width = expPct + '%';
+            document.getElementById('exp-display').textContent = Math.floor(expPct) + '%';
+          }
+
+          // 레벨 표시 업데이트
+          if (me.level) document.getElementById('level-display').textContent = 'Lv.' + me.level;
+
+          // 킬 카운터
+          if (me.killCount !== undefined && me.killCount > lastKills) {
+            gameStats.kills = me.killCount;
+            lastKills = me.killCount;
           }
         }
         // 미니맵 업데이트
@@ -478,9 +655,35 @@
           myCurrentZone = z;
           var zName = zones[z] ? zones[z].name : z;
           var isSafe = ['aden','harbor','oasis','mountain','frontier'].includes(z);
-          var zLabel = zName + (isSafe ? ' [마을]' : '');
+          // 존 보너스 표시
+          var zoneBonus = {
+            cave:'EXP+30%', ruins:'EXP+20% G+10%', volcano:'EXP+20% G+20%', graveyard:'EXP+15% G+15%',
+            darkforest:'EXP+25% G+20%', dragon:'EXP+30% G+50%', abyss:'EXP+40% G+30%', hell:'EXP+50% G+40%',
+            ancient:'EXP+35% G+30%', chaos:'EXP+40% G+40% [PK자유]', warzone:'EXP+30% G+30% [PK자유]',
+            crystal_mine:'EXP+25% G+20%', sunken:'EXP+25% G+20%', haunted:'EXP+20% G+20%',
+            magma_core:'EXP+30% G+25%', sky_ruins:'EXP+35% G+30%', shadow:'EXP+40% G+35%',
+            frozen_deep:'EXP+40% G+30%', celestial:'EXP+50% G+50%', demon:'EXP+60% G+50%',
+            world_tree:'EXP+70% G+60%', void_rift:'EXP+80% G+70%',
+            blood_arena:'EXP+50% G+50% [PK자유]', lawless:'EXP+40% G+40% [PK자유]',
+            training:'EXP+10% [안전 훈련]',
+          };
+          var bonus = zoneBonus[z] || '';
+          var zLabel = zName + (isSafe ? ' [안전]' : '') + (bonus ? ' ' + bonus : '');
           document.getElementById('zone-display').textContent = zLabel;
-          document.getElementById('zone-display').style.color = isSafe ? '#44ff44' : '#ff6b6b';
+          document.getElementById('zone-display').style.color = isSafe ? '#44ff44' : bonus ? '#ffd700' : '#ff6b6b';
+          // 존 변경 시 풀스크린 공지
+          if (z !== lastZone && lastZone !== '') {
+            var za = document.getElementById('zone-announce');
+            var nameColor = isSafe ? '#44ff44' : z.includes('chaos')||z.includes('warzone')||z.includes('blood')||z.includes('lawless') ? '#ff4444' : bonus ? '#ffd700' : '#ff6b6b';
+            za.querySelector('.zone-name').textContent = zName;
+            za.querySelector('.zone-name').style.color = nameColor;
+            za.querySelector('.zone-info').textContent = (bonus || (isSafe ? '안전 지대' : ''));
+            za.classList.remove('show');
+            void za.offsetWidth; // reflow
+            za.classList.add('show');
+            setTimeout(function(){ za.classList.remove('show'); }, 2500);
+          }
+          lastZone = z;
           // 마을 진입 시 NPC 안내
           var townNpc = document.getElementById('town-npc');
           if (isSafe && townNpc) {
@@ -523,19 +726,277 @@
       window.socket.on('player_hit', (d) => {
         playSFX(d.isCrit ? 'crit' : 'hit');
         if (d.skillName) addCombatLog(d.skillName + '! ' + d.damage + ' 데미지', 'log-crit');
+        // 데미지 숫자 플로팅
+        showFloatingDamage(d.damage, d.isCrit, d.skillName);
       });
-      window.socket.on('level_up', (d) => { playSFX('levelup'); });
+      window.socket.on('monster_hit', (d) => {
+        showFloatingDamage(d.damage, false, null);
+      });
+      window.socket.on('skill_effect', (d) => {
+        const skillMsgs = {
+          stealth: d.skillName + ' 발동! 은신 상태',
+          ally_buff: d.skillName + ' 발동! 아군 버프',
+          self_buff: d.skillName + ' 발동!',
+          ally_invincible: d.skillName + ' 발동! 아군 무적',
+          chain: d.skillName + ' 발동! 연쇄 타격',
+          aoe: d.skillName + ' 발동! 광역 공격',
+          single: d.skillName + ' 발동!',
+        };
+        addCombatLog(skillMsgs[d.type] || d.skillName + ' 발동!', 'log-crit');
+        playSFX('crit');
+      });
+      window.socket.on('level_up', (d) => {
+        if (d.id === myPlayerId) {
+          playSFX('levelup'); playSFX('buff');
+          var ol = document.getElementById('levelup-overlay');
+          ol.querySelector('.lvl-text').textContent = 'LEVEL UP!';
+          ol.querySelector('.lvl-sub').innerHTML = 'Lv.' + d.level + ' ' + d.className + '<br><small style="color:#ffd700">HP:' + d.maxHp + ' ATK:' + d.atk + ' DEF:' + d.def + ' 스탯포인트:+3</small>';
+          ol.classList.add('show');
+          setTimeout(function() { ol.classList.remove('show'); }, 2500);
+        }
+      });
       window.socket.on('player_die', (d) => {
         if(d.victimId === myPlayerId) {
           playSFX('die');
-          document.getElementById('respawn-screen').style.display = 'flex';
+          // 킬러 이름 표시
+          var deathInfo = document.getElementById('death-info');
+          if (deathInfo) {
+            deathInfo.innerHTML = (d.killerName ? '<span style="color:#ff4444">'+d.killerName+'</span>에게 처치당함' : '') +
+              '<br><small style="color:#888">킬 수: '+(gameStats.kills||0)+' | 생존: '+Math.floor((Date.now()-gameStats.startTime)/60000)+'분</small>';
+          }
+          // 3초 딜레이 후 리스폰 버튼 표시
+          var rs = document.getElementById('respawn-screen');
+          rs.style.display = 'flex';
+          var btns = rs.querySelectorAll('.class-btn');
+          btns.forEach(function(b){b.style.display='none';});
+          setTimeout(function(){ btns.forEach(function(b){b.style.display='';}) }, 2000);
+          // 화면 빨간색 플래시
+          document.getElementById('unity-container').style.filter = 'brightness(0.3) saturate(0) sepia(1) hue-rotate(-50deg)';
+          setTimeout(function(){ document.getElementById('unity-container').style.filter = ''; }, 3000);
         }
       });
       window.socket.on('drop_spawn', () => { playSFX('gold'); });
 
+      // 월드 보스 이벤트
+      window.socket.on('world_boss_spawn', (d) => {
+        showToast('[월드 보스] ' + d.name + ' 출현!');
+        playSFX('levelup');
+      });
+      window.socket.on('world_boss_update', (d) => {
+        const pct = Math.floor(d.hp / d.maxHp * 100);
+        document.title = 'AutoBattle.io - 보스 HP: ' + pct + '%';
+      });
+      window.socket.on('world_boss_dead', (d) => {
+        showToast('[월드 보스] ' + d.name + ' 처치 완료!');
+        document.title = 'AutoBattle.io';
+        playSFX('levelup');
+      });
+      // 던전 이벤트
+      window.socket.on('dungeon_enter', (d) => {
+        showToast(d.name + ' 입장! (' + d.stage + '/' + d.totalStages + ' 스테이지)');
+        addCombatLog(d.name + ' 던전 시작! 몬스터 ' + d.monstersLeft + '마리', 'log-crit');
+      });
+      window.socket.on('dungeon_stage', (d) => {
+        showToast('스테이지 ' + d.stage + '/' + d.totalStages + ' - 몬스터 ' + d.monstersLeft + '마리');
+        playSFX('levelup');
+      });
+      window.socket.on('dungeon_clear', (d) => {
+        showToast(d.name + ' 클리어! +' + d.gold + 'G, +' + d.exp + ' EXP');
+        playSFX('levelup');
+      });
+      window.socket.on('dungeon_result', (d) => showToast(d.msg));
+
+      // 경매장 이벤트
+      window.socket.on('market_result', (d) => showToast(d.msg));
+      window.socket.on('market_listings', (list) => {
+        var el = document.getElementById('market-list');
+        if (!el) return;
+        if (!list.length) { el.innerHTML = '<p style="color:#888">매물이 없습니다</p>'; return; }
+        var html = '';
+        list.forEach(l => {
+          var gradeColor = l.grade ? {'normal':'#ccc','uncommon':'#4c4','rare':'#48f','epic':'#a4f','legendary':'#f80'}[l.grade] || '#ccc' : '#ccc';
+          html += '<div class="panel-item" style="border-left:3px solid '+gradeColor+'">';
+          html += '<span class="name" style="color:'+gradeColor+'">'+l.itemName+'</span>';
+          html += '<small style="color:#888"> 판매: '+l.sellerName+' | '+l.timeLeft+'분 남음</small><br>';
+          html += '<small>즉구: '+l.price+'G | 최고입찰: '+l.highestBid+'G</small>';
+          html += '<button onclick="window.socket.emit(\'market_buy\','+l.id+')" style="margin-left:5px">구매</button>';
+          html += '</div>';
+        });
+        el.innerHTML = html;
+      });
+
+      // 아레나 이벤트
+      window.socket.on('arena_result', (d) => showToast(d.msg));
+      window.socket.on('arena_start', (d) => {
+        showToast('[아레나] VS ' + d.opponent + ' (' + d.opponentClass + ') 대결 시작!');
+        addCombatLog('아레나 대결 시작! VS ' + d.opponent, 'log-crit');
+        playSFX('levelup');
+      });
+      window.socket.on('arena_end', (d) => {
+        var msg = d.result === 'win' ? '승리! +200G (' + d.reason + ')' : '패배... (' + d.reason + ')';
+        showToast('[아레나] ' + msg + ' 포인트: ' + d.points);
+        addCombatLog('아레나 ' + msg, d.result === 'win' ? 'log-gold' : 'log-crit');
+        playSFX(d.result === 'win' ? 'levelup' : 'die');
+      });
+      window.socket.on('arena_ranking_list', (list) => {
+        var el = document.getElementById('arena-ranking');
+        if (!el) return;
+        var html = '<table style="width:100%;color:#eee;font-size:11px"><tr><th>#</th><th>이름</th><th>승</th><th>패</th><th>점수</th></tr>';
+        list.forEach(r => {
+          html += '<tr><td>'+r.rank+'</td><td>'+r.name+'</td><td style="color:#4f4">'+r.wins+'</td><td style="color:#f44">'+r.losses+'</td><td style="color:#ff0">'+r.points+'</td></tr>';
+        });
+        html += '</table>';
+        el.innerHTML = html;
+      });
+
+      // 출석 체크
+      window.socket.on('attendance_reward', (d) => {
+        showToast(d.msg);
+        playSFX('gold');
+      });
+
+      // 무한의 탑
+      window.socket.on('tower_enter', (d) => {
+        showToast('무한의 탑 ' + d.floor + '층 입장! 몬스터 ' + d.monstersLeft + '마리');
+        addCombatLog('탑 ' + d.floor + '층 - ' + d.tier + ' x' + d.monstersLeft, 'log-crit');
+      });
+      window.socket.on('tower_stage', (d) => {
+        showToast('탑 ' + d.floor + '층! 몬스터 ' + d.monstersLeft + '마리');
+        playSFX('levelup');
+      });
+      window.socket.on('tower_clear', (d) => {
+        showToast('탑 ' + d.floor + '층 클리어! +' + d.reward.gold + 'G, +' + d.reward.exp + 'EXP');
+        playSFX('levelup');
+      });
+      window.socket.on('tower_update', (d) => { addCombatLog('남은 몬스터: ' + d.monstersLeft, 'normal'); });
+      window.socket.on('tower_result', (d) => showToast(d.msg));
+
+      // 희귀 상자
+      window.socket.on('box_result', (d) => { showToast(d.msg); playSFX('levelup'); });
+
+      // 친구 시스템
+      window.socket.on('friend_result', (d) => showToast(d.msg));
+      window.socket.on('friend_request_received', (d) => {
+        showModal('친구 요청', '<p><b style="color:#44aaff">'+d.fromName+'</b>님이 친구 요청을 보냈습니다.</p>', [
+          {label:'수락', action:"window.socket.emit('friend_accept','"+d.fromId+"');closeModal();"},
+          {label:'거절', type:'cancel', action:'closeModal()'}
+        ]);
+        playSFX('buff');
+      });
+      window.socket.on('friend_list', (d) => {
+        var el = document.getElementById('friend-list');
+        if (!el) return;
+        var html = '';
+        if (d.requests && d.requests.length > 0) {
+          html += '<p style="color:#ffd700;font-size:11px">친구 요청:</p>';
+          d.requests.forEach(r => {
+            html += '<div class="panel-item"><span class="name">' + r.fromName + '</span><button onclick="window.socket.emit(\'friend_accept\',\'' + r.fromId + '\')">수락</button></div>';
+          });
+        }
+        if (d.friends.length === 0) { html += '<p style="color:#888">친구가 없습니다</p>'; }
+        else {
+          d.friends.forEach(f => {
+            var statusColor = f.online ? '#4f4' : '#888';
+            html += '<div class="panel-item"><span class="name" style="color:' + statusColor + '">' + f.name + ' Lv.' + f.level + ' (' + f.className + ')</span>';
+            html += '<button onclick="showModal(\'귓속말\',\'<p style=&quot;color:#888&quot;>'+f.name+'에게 보낼 메시지</p><input id=&quot;wh-msg&quot; maxlength=&quot;100&quot; style=&quot;width:100%;padding:8px;background:#222;color:#fff;border:1px solid #555;border-radius:4px;margin-top:8px&quot; autofocus>\',[{label:&quot;전송&quot;,action:&quot;var m=getModalInput(\\\'wh-msg\\\');if(m)window.socket.emit(\\\'whisper\\\',{targetId:\\\''+f.id+'\\\',msg:m});closeModal();&quot;},{label:&quot;취소&quot;,type:&quot;cancel&quot;,action:&quot;closeModal()&quot;}])" style="font-size:10px">귓말</button>';
+            html += '</div>';
+          });
+        }
+        el.innerHTML = html;
+      });
+
+      // 귓속말
+      window.socket.on('whisper_received', (d) => {
+        addCombatLog('[귓속말] ' + d.fromName + ': ' + d.msg, 'log-crit');
+        showToast('[귓] ' + d.fromName + ': ' + d.msg);
+      });
+      window.socket.on('whisper_sent', (d) => {
+        addCombatLog('[귓속말 → ' + d.toName + '] ' + d.msg, 'normal');
+      });
+
+      // 우편 거래
+      window.socket.on('mail_result', (d) => showToast(d.msg));
+      window.socket.on('mail_received', (d) => {
+        var msg = d.from + '님으로부터 우편: ';
+        if (d.item) msg += d.item + ' x' + d.count;
+        if (d.gold) msg += d.gold + 'G';
+        showToast(msg);
+        addCombatLog('[우편] ' + msg, 'log-gold');
+        playSFX('gold');
+      });
+
+      // NPC 상호작용
+      window.socket.on('npc_result', (d) => { showToast(d.msg); if(d.type==='healer')playSFX('heal'); });
+
+      // 버프/디버프 상태 표시
+      window.socket.on('buff_status', (buffs) => {
+        var bar = document.getElementById('buff-bar');
+        if (!bar) return;
+        var html = '';
+        var buffIcons = { 'buff':'🛡️', 'skill':'⚔️', 'food':'🍖', 'debuff':'💀' };
+        var buffColors = { 'buff':'rgba(0,100,200,0.4)', 'skill':'rgba(200,150,0,0.4)', 'food':'rgba(0,150,50,0.4)', 'debuff':'rgba(200,0,0,0.4)' };
+        buffs.forEach(function(b) {
+          var icon = buffIcons[b.icon] || '✨';
+          var bg = buffColors[b.icon] || 'rgba(100,100,100,0.4)';
+          var borderColor = b.icon === 'debuff' ? '#f44' : '#ffd700';
+          html += '<div class="buff-icon" style="background:'+bg+';border:1px solid '+borderColor+'">';
+          html += '<span style="font-size:14px">'+icon+'</span>';
+          html += '<span>'+b.name+'<br><b style="color:#ffd700;font-size:10px">'+b.remaining+'s</b></span></div>';
+        });
+        bar.innerHTML = html;
+      });
+      window.socket.on('npc_smith', (d) => {
+        if (!d.items || d.items.length === 0) { showToast('강화 가능한 장비가 없습니다'); return; }
+        var gradeColors = {normal:'#ccc',uncommon:'#4c4',rare:'#48f',epic:'#a4f',legendary:'#f80'};
+        var html = '';
+        d.items.forEach(function(it) {
+          var gc = gradeColors[it.grade] || '#ccc';
+          html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #333">';
+          html += '<span style="color:'+gc+'">'+it.name+' <b>+'+it.level+'</b>/'+it.maxEnchant+'</span>';
+          html += '<button style="padding:4px 10px;background:#4a3a1a;color:#ffd700;border:none;border-radius:4px;cursor:pointer" onclick="closeModal();enchantItem(\''+it.id+'\')">강화</button></div>';
+        });
+        showModal('대장장이 - 장비 강화', html, [{label:'닫기', type:'cancel', action:'closeModal()'}]);
+      });
+      window.socket.on('npc_travel', (d) => {
+        if (!d.towns || d.towns.length === 0) { showToast('이동 가능한 마을이 없습니다'); return; }
+        var html = '<p style="color:#888;font-size:12px;margin-bottom:8px">이동 비용: 100G</p>';
+        var btns = [];
+        d.towns.forEach(function(t) {
+          btns.push({label: t.name, action: "closeModal();window.socket.emit('npc_travel_to','"+t.id+"')"});
+        });
+        btns.push({label:'취소', type:'cancel', action:'closeModal()'});
+        showModal('항해사 - 마을 이동', html, btns);
+      });
+
       // 전투 로그
       window.socket.on('combat_log', (d) => { addCombatLog(d.msg, 'normal'); });
-      window.socket.on('monster_die', (d) => { if(typeof d === 'object') addCombatLog(d.tier+' 처치!', 'log-gold'); });
+      window.socket.on('monster_die', (d) => {
+        if (typeof d === 'object' && d.killer === myPlayerId) {
+          var tierNames = {normal:'슬라임',elite:'오크 전사',rare:'다크 나이트',boss:'드래곤',legendary:'고대 드래곤',mythic:'태초의 존재',worldboss:'월드 보스'};
+          var name = tierNames[d.tier] || d.tier;
+          gameStats.kills++;
+          // 킬 스트릭 (5초 이내 연속 킬)
+          var now = Date.now();
+          if (now - lastKillTime < 5000) { killStreak++; } else { killStreak = 1; }
+          lastKillTime = now;
+          showKillStreak(killStreak);
+          addCombatLog(name + ' 처치!' + (killStreak >= 3 ? ' ('+killStreak+'x)' : ''), 'log-gold');
+          // 보스급 처치 시 화면 효과
+          if (d.tier === 'boss' || d.tier === 'legendary' || d.tier === 'mythic') {
+            playSFX('boss');
+            document.getElementById('unity-container').classList.add('shake');
+            setTimeout(function(){ document.getElementById('unity-container').classList.remove('shake'); }, 500);
+          }
+          // 마일스톤
+          if (gameStats.kills % 100 === 0) {
+            showToast(gameStats.kills + '마리 처치 달성!');
+            playSFX('levelup');
+          }
+        } else if (typeof d === 'object') {
+          var name2 = {normal:'슬라임',elite:'오크',rare:'다크나이트',boss:'드래곤',legendary:'고대드래곤',mythic:'태초존재'}[d.tier] || d.tier;
+          addCombatLog(name2 + ' 처치됨', 'normal');
+        }
+      });
 
       // 서버 공지
       window.socket.on('server_msg', (d) => {
@@ -553,7 +1014,58 @@
       window.socket.on('morph_result', (d) => { showToast(d.msg); if(d.success) playSFX('levelup'); });
 
       // 강화 결과
-      window.socket.on('enchant_result', (d) => { showToast(d.msg); playSFX(d.success ? 'levelup' : 'die'); });
+      window.socket.on('enchant_result', (d) => {
+        showToast(d.msg);
+        if (d.jackpot) {
+          playSFX('boss'); playSFX('levelup');
+          document.getElementById('unity-container').classList.add('shake');
+          setTimeout(function(){ document.getElementById('unity-container').classList.remove('shake'); }, 500);
+          showFloatingDamage(d.jackpot, true, null);
+        } else {
+          playSFX(d.success ? 'levelup' : 'die');
+        }
+      });
+
+      // 보스 카운트다운
+      window.socket.on('boss_countdown', (d) => {
+        showToast('[월드 보스] ' + d.seconds + '초 후 출현!');
+        if (d.seconds <= 30) playSFX('boss');
+      });
+
+      // 골드 피버
+      window.socket.on('gold_fever', (d) => {
+        showToast('[골드 피버!] ' + d.zoneName + ' - ' + d.duration + '초간 x3 보상!');
+        playSFX('boss'); playSFX('gold');
+      });
+
+      // 레어 몬스터 출현
+      window.socket.on('rare_spawn', (d) => {
+        addCombatLog('[!] ' + d.name + ' 출현: ' + d.zoneName, 'log-crit');
+      });
+
+      // 킬 스트릭 보너스
+      window.socket.on('kill_streak_bonus', (d) => {
+        showToast(d.count + 'x 스트릭! 보상 x' + d.multi.toFixed(1) + '!');
+        playSFX('buff');
+      });
+
+      // 랭킹 추월
+      window.socket.on('rank_change', (d) => {
+        var msg = d.type + ' 랭킹 ' + (d.oldRank > 0 ? d.oldRank+'위→' : '') + d.newRank + '위!';
+        showToast(msg);
+        playSFX('levelup');
+        addCombatLog('[랭킹] ' + msg, 'log-crit');
+      });
+
+      // 업적 달성
+      window.socket.on('achievement_unlock', (d) => {
+        var ol = document.getElementById('levelup-overlay');
+        ol.querySelector('.lvl-text').innerHTML = '🏆 업적 달성!';
+        ol.querySelector('.lvl-sub').innerHTML = '<b style="color:#ffd700">"'+d.name+'"</b><br><small style="color:#aaa">'+d.desc+'</small>';
+        ol.classList.add('show');
+        playSFX('levelup'); playSFX('buff'); playSFX('gold');
+        setTimeout(function(){ ol.classList.remove('show'); }, 3000);
+      });
 
       // 자동 물약 상태
       // 채팅
@@ -586,7 +1098,8 @@
         if (!list.length) { el.innerHTML = '<p style="color:#888">혈맹이 없습니다</p>'; return; }
         var html = '';
         list.forEach(c => {
-          html += '<div class="panel-item"><span class="name">['+c.name+'] Lv.'+c.level+'<br><small style="color:#888">군주:'+c.leader+' ('+c.memberCount+'명)</small></span><button onclick="window.socket.emit(\'join_clan\',\''+c.name+'\')">가입</button></div>';
+          var skillsStr = c.skills && c.skills.length > 0 ? '<br><small style="color:#88f">스킬: '+c.skills.join(', ')+'</small>' : '';
+          html += '<div class="panel-item"><span class="name">['+c.name+'] Lv.'+c.level+' (EXP:'+c.exp+')<br><small style="color:#888">군주:'+c.leader+' ('+c.memberCount+'/'+c.maxMembers+'명)</small>'+skillsStr+'</span><button onclick="window.socket.emit(\'join_clan\',\''+c.name+'\')">가입</button></div>';
         });
         el.innerHTML = html;
       });
@@ -598,6 +1111,25 @@
           var el = document.getElementById('party-status');
           el.style.display = 'block';
           el.textContent = '파티: ' + d.msg;
+        }
+      });
+      window.socket.on('party_info', (d) => {
+        var el = document.getElementById('party-status');
+        if (!d) { el.style.display = 'none'; return; }
+        el.style.display = 'block';
+        if (d.memberNames && Array.isArray(d.memberNames)) {
+          var html = '<b style="color:#ffd700">' + (d.name||'파티') + '</b><br>';
+          d.memberNames.forEach(function(m) {
+            if (typeof m === 'object') {
+              var hpPct = Math.floor(m.hp/m.maxHp*100);
+              var hpColor = hpPct > 50 ? '#4f4' : hpPct > 20 ? '#ff0' : '#f44';
+              html += (m.isLeader ? '★ ' : '  ') + m.name + ' Lv.' + m.level + ' <span style="color:'+hpColor+'">HP:'+hpPct+'%</span><br>';
+            } else {
+              html += '  ' + m + '<br>';
+            }
+          });
+          html += '<button onclick="window.socket.emit(\'leave_party\')" style="margin-top:4px;padding:3px 8px;background:#a33;color:#fff;border:none;border-radius:3px;font-size:10px;cursor:pointer">탈퇴</button>';
+          el.innerHTML = html;
         }
       });
 
@@ -626,10 +1158,11 @@
       // 1:1 거래
       window.socket.on('trade_result', (d) => showToast(d.msg));
       window.socket.on('trade_incoming', (d) => {
-        if(confirm(d.fromName + '님이 거래를 요청합니다. 수락?')) {
-          var myItem = prompt('보낼 아이템 ID (없으면 빈칸):','');
-          window.socket.emit('trade_accept', JSON.stringify({fromId:d.fromId, myItem:myItem||'', theirItem:''}));
-        }
+        showModal('거래 요청', '<p><b style="color:#ffd700">'+d.fromName+'</b>님이 거래를 요청합니다.</p><input id="trade-my-item" placeholder="보낼 아이템 ID (선택)" style="width:100%;padding:8px;background:#222;color:#fff;border:1px solid #555;border-radius:4px;margin-top:8px">', [
+          {label:'수락', action:"var item=getModalInput('trade-my-item');window.socket.emit('trade_accept',JSON.stringify({fromId:'"+d.fromId+"',myItem:item||'',theirItem:''}));closeModal();"},
+          {label:'거절', type:'cancel', action:'closeModal()'}
+        ]);
+        playSFX('buff');
       });
 
       window.socket.on('inventory_data', renderInventory);
@@ -647,17 +1180,34 @@
 
     // 상점 아이템
     var shopItems = [
+      // 소모품
+      {id:'hp_potion_s', name:'하급 HP물약 x10', price:'100 Gold', cmd:'shop_buy'},
+      {id:'hp_potion_m', name:'중급 HP물약 x10', price:'300 Gold', cmd:'shop_buy'},
+      {id:'atk_boost', name:'공격 부스터 (1분)', price:'500 Gold', cmd:'shop_buy'},
+      {id:'def_boost', name:'방어 부스터 (1분)', price:'500 Gold', cmd:'shop_buy'},
+      {id:'town_scroll', name:'귀환 주문서', price:'200 Gold', cmd:'shop_buy'},
+      // NPC 장비 (골드)
+      {id:'shop_sword_1', name:'철제 검 (일반)', price:'200 Gold', cmd:'shop_buy', color:'#ccc'},
+      {id:'shop_sword_2', name:'강철 검 (고급)', price:'800 Gold', cmd:'shop_buy', color:'#4c4'},
+      {id:'shop_armor_1', name:'가죽 갑옷 (일반)', price:'150 Gold', cmd:'shop_buy', color:'#ccc'},
+      {id:'shop_armor_2', name:'철판 갑옷 (고급)', price:'700 Gold', cmd:'shop_buy', color:'#4c4'},
+      {id:'shop_helm_1', name:'가죽 투구', price:'100 Gold', cmd:'shop_buy', color:'#ccc'},
+      {id:'shop_glove_1', name:'가죽 장갑', price:'80 Gold', cmd:'shop_buy', color:'#ccc'},
+      {id:'shop_boots_1', name:'가죽 장화', price:'80 Gold', cmd:'shop_buy', color:'#ccc'},
+      {id:'shop_ring_1', name:'힘의 반지 (고급)', price:'500 Gold', cmd:'shop_buy', color:'#4c4'},
+      {id:'shop_neck_1', name:'지혜의 목걸이', price:'400 Gold', cmd:'shop_buy', color:'#4c4'},
+      // 다이아 아이템
       {id:'exp_boost', name:'EXP 2배 (5분)', price:'50 Diamond', cmd:'shop_buy'},
       {id:'gold_boost', name:'골드 2배 (5분)', price:'50 Diamond', cmd:'shop_buy'},
       {id:'hp_potion_big', name:'상급 HP물약 x10', price:'30 Diamond', cmd:'shop_buy'},
+      {id:'protect_scroll', name:'보호 주문서', price:'100 Diamond', cmd:'shop_buy'},
+      {id:'shop_sword_3', name:'미스릴 검 (희귀)', price:'300 Diamond', cmd:'shop_buy', color:'#48f'},
+      {id:'shop_armor_3', name:'미스릴 갑옷 (희귀)', price:'250 Diamond', cmd:'shop_buy', color:'#48f'},
+      // 코스메틱
       {id:'skin_golden', name:'황금 오라 스킨', price:'300 Diamond', cmd:'shop_buy'},
       {id:'skin_shadow', name:'그림자 스킨', price:'300 Diamond', cmd:'shop_buy'},
       {id:'skin_flame', name:'화염 스킨', price:'500 Diamond', cmd:'shop_buy'},
       {id:'inventory_expand', name:'용병 슬롯 +5', price:'200 Diamond', cmd:'shop_buy'},
-      {id:'hp_potion_s', name:'하급 HP물약 x10', price:'100 Gold', cmd:'shop_buy'},
-      {id:'hp_potion_m', name:'중급 HP물약 x10', price:'300 Gold', cmd:'shop_buy'},
-      {id:'atk_boost', name:'공격 부스터 (1분)', price:'500 Gold', cmd:'shop_buy'},
-      {id:'town_scroll', name:'귀환 주문서', price:'200 Gold', cmd:'shop_buy'},
     ];
 
     function togglePanel(name) {
@@ -667,7 +1217,7 @@
       if (!isVisible) {
         panel.classList.add('show');
         if (name === 'shop') renderShop();
-        else if (name === 'market') window.socket.emit('market_list','{}');
+        else if (name === 'market') window.socket.emit('market_browse',{});
         else if (name === 'inventory') window.socket.emit('get_inventory','{}');
         else if (name === 'units') window.socket.emit('get_units','{}');
         else if (name === 'quests') window.socket.emit('get_quests','{}');
@@ -682,7 +1232,8 @@
     function renderShop() {
       var html = '';
       shopItems.forEach(item => {
-        html += '<div class="panel-item"><span class="name">'+item.name+'</span><button onclick="window.socket.emit(\'shop_buy\',\''+item.id+'\')">'+item.price+'</button></div>';
+        var nameStyle = item.color ? 'color:'+item.color : '';
+        html += '<div class="panel-item"' + (item.color ? ' style="border-left:3px solid '+item.color+'"' : '') + '><span class="name" style="'+nameStyle+'">'+item.name+'</span><button onclick="window.socket.emit(\'shop_buy\',\''+item.id+'\')">'+item.price+'</button></div>';
       });
       document.getElementById('shop-body').innerHTML = html;
     }
@@ -718,17 +1269,46 @@
       var catNames = {equip:'장비', pot:'물약/음식', mat:'재료', goods:'교역품', etc:'기타'};
       var catColors = {equip:'#44aaff', pot:'#44ff44', mat:'#ffd700', goods:'#ff9944', etc:'#aaa'};
 
+      var equipped = data.equipped || {};
+      var gradeColors = {normal:'#ccc',uncommon:'#44cc44',rare:'#4488ff',epic:'#aa44ff',legendary:'#ff8800'};
+      var gradeNames = {normal:'일반',uncommon:'고급',rare:'희귀',epic:'영웅',legendary:'전설'};
+      var slotNames = {weapon:'무기',armor:'방어구',helmet:'투구',gloves:'장갑',boots:'신발',ring:'반지',necklace:'목걸이'};
+
+      // 장착 중인 장비 먼저 표시
+      var equippedKeys = Object.values(equipped).filter(Boolean);
+      if (equippedKeys.length > 0) {
+        html += '<h4 style="color:#ffd700;margin:8px 0 4px;font-size:12px">장착 중</h4>';
+        for (var slot in equipped) {
+          var eqId = equipped[slot];
+          if (!eqId) continue;
+          var eqInfo = items[eqId] || {};
+          var gc = gradeColors[eqInfo.grade] || '#ccc';
+          var enchLv = data.enchantLevels && data.enchantLevels[eqId] ? ' +'+data.enchantLevels[eqId] : '';
+          html += '<div class="panel-item" style="border-left:3px solid '+gc+';background:rgba(255,215,0,0.05)"><span class="name" style="color:'+gc+'">[' + (slotNames[slot]||slot) + '] '+(eqInfo.name||eqId)+enchLv+'</span>';
+          html += '<button onclick="window.socket.emit(\'unequip_item\',\''+slot+'\')" style="background:#4a2a2a">해제</button></div>';
+        }
+      }
+
       for (var cat in cats) {
         if (cats[cat].length === 0) continue;
         html += '<h4 style="color:'+catColors[cat]+';margin:8px 0 4px;font-size:12px">'+catNames[cat]+' ('+cats[cat].length+')</h4>';
         cats[cat].forEach(k => {
           var name = items[k] ? items[k].name : k.replace(/_/g,' ');
           var isEquip = cat === 'equip';
-          html += '<div class="panel-item"><span class="name">'+name+' <b style="color:#888">x'+inv[k]+'</b></span>';
-          if (isEquip) {
+          var grade = items[k]?.grade || '';
+          var gColor = gradeColors[grade] || '#ccc';
+          var gName = gradeNames[grade] || '';
+          var enchant = data.enchantLevels && data.enchantLevels[k] ? ' +'+data.enchantLevels[k] : '';
+          var boundTag = items[k]?.bound ? ' <span style="color:#f44;font-size:9px">[귀속]</span>' : '';
+          var isWorn = equippedKeys.includes(k);
+          html += '<div class="panel-item" style="border-left:3px solid '+gColor+(isWorn?';opacity:0.5':'')+'"><span class="name" style="color:'+gColor+'">'+name+enchant;
+          if (gName) html += ' <small style="color:'+gColor+';opacity:0.7">('+gName+')</small>';
+          if (isWorn) html += ' <span style="color:#ffd700;font-size:9px">[장착중]</span>';
+          html += boundTag+' <b style="color:#888">x'+inv[k]+'</b></span>';
+          if (isEquip && !isWorn) {
             html += '<button onclick="equipItem(\''+k+'\')" style="background:#2a4a2a">착용</button>';
-            html += '<button onclick="enchantItem(\''+k+'\')" style="background:#4a3a1a;margin-left:3px">강화</button>';
           }
+          if (isEquip) html += '<button onclick="enchantItem(\''+k+'\')" style="background:#4a3a1a;margin-left:3px">강화</button>';
           html += '<button onclick="sellItem(\''+k+'\')" style="margin-left:3px">판매</button></div>';
         });
       }
@@ -737,14 +1317,17 @@
 
     function equipItem(id) { window.socket.emit('equip_item', id); }
     function enchantItem(id) {
-      if (confirm('강화하시겠습니까? (+8 이상 실패 시 파괴!)')) {
-        window.socket.emit('enchant_item', id);
-      }
+      showModal('장비 강화', '<p style="color:#ffd700">이 장비를 강화하시겠습니까?</p><p style="color:#888;font-size:11px">+8 이상 실패 시 등급 하락, +11 이상 실패 시 파괴</p><label style="color:#aaa;font-size:12px;display:flex;align-items:center;gap:5px;margin-top:8px"><input type="checkbox" id="enchant-protect"> 보호 주문서 사용</label>', [
+        {label:'강화!', action:"closeModal();window.socket.emit('enchant_item',{itemId:'"+id+"',useProtect:document.getElementById('enchant-protect').checked})"},
+        {label:'취소', type:'cancel', action:'closeModal()'}
+      ]);
     }
 
     function sellItem(itemId) {
-      var price = prompt('판매 가격 (Gold):', '100');
-      if (price) window.socket.emit('market_sell', JSON.stringify({itemId, price: parseInt(price)}));
+      showModal('경매장 등록', '<p style="color:#aaa;font-size:12px">판매 가격을 입력하세요 (수수료 5%)</p><input id="sell-price" type="number" value="100" min="1" style="width:100%;padding:8px;background:#222;color:#ffd700;border:1px solid #555;border-radius:4px;font-size:14px;margin-top:8px">', [
+        {label:'등록', action:"var p=parseInt(getModalInput('sell-price'));if(p>0){window.socket.emit('market_list_item',{itemId:'"+itemId+"',price:p});}closeModal();"},
+        {label:'취소', type:'cancel', action:'closeModal()'}
+      ]);
     }
 
     function renderUnits(data) {
@@ -792,7 +1375,7 @@
     var minimapCtx = minimapCanvas.getContext('2d');
     var minimapContainer = document.getElementById('minimap-container');
     var minimapZoneLabel = document.getElementById('minimap-zone');
-    var MAP_MIN = -500, MAP_MAX = 500, MAP_SIZE = 150;
+    var MAP_MIN = -1000, MAP_MAX = 1000, MAP_SIZE = 220;
 
     var zones = {
       // 마을 (초록)
@@ -827,6 +1410,34 @@
       // 특수
       castle:{name:'하늘성채',x:0,y:400,w:80,h:70,color:'#5a4a1a'},
       arena:{name:'투기장',x:350,y:350,w:50,h:50,color:'#4a4a1a'},
+      // 확장 동부
+      port_east:{name:'동쪽항구',x:700,y:-700,w:50,h:50,color:'#1e5a2d'},
+      mushroom:{name:'버섯골짜기',x:600,y:-500,w:80,h:70,color:'#3a2a1a'},
+      riverbank:{name:'강변평야',x:800,y:-300,w:80,h:60,color:'#2a4a3a'},
+      sandstorm:{name:'모래폭풍',x:600,y:-100,w:80,h:70,color:'#5a4a1a'},
+      sunken:{name:'수몰신전',x:700,y:100,w:70,h:70,color:'#1a3a5a'},
+      shadow:{name:'그림자영역',x:800,y:400,w:70,h:70,color:'#2a1a3a'},
+      celestial:{name:'천공정상',x:700,y:700,w:80,h:80,color:'#5a5a1a'},
+      void_rift:{name:'공허균열',x:900,y:900,w:70,h:70,color:'#3a0a3a'},
+      fishing:{name:'낚시만',x:900,y:0,w:50,h:50,color:'#1a4a5a'},
+      blood_arena:{name:'피의투기장',x:500,y:-800,w:70,h:70,color:'#4a0a0a'},
+      colosseum:{name:'대투기장',x:900,y:-900,w:60,h:60,color:'#4a4a1a'},
+      // 확장 서부
+      shrine:{name:'신전마을',x:-800,y:200,w:50,h:50,color:'#2d5a1e'},
+      tundra:{name:'얼어붙은평원',x:-700,y:-700,w:80,h:70,color:'#5a5a6a'},
+      crystal_mine:{name:'수정광산',x:-800,y:-200,w:70,h:70,color:'#3a3a5a'},
+      toxic_marsh:{name:'독안개습지',x:-700,y:400,w:80,h:70,color:'#1a3a1a'},
+      haunted:{name:'유령저택',x:-600,y:600,w:70,h:70,color:'#3a1a3a'},
+      sky_ruins:{name:'하늘유적',x:-800,y:700,w:80,h:70,color:'#4a4a5a'},
+      frozen_deep:{name:'빙결심연',x:-600,y:-800,w:70,h:70,color:'#1a2a4a'},
+      demon:{name:'마왕성',x:-800,y:900,w:80,h:80,color:'#4a0a1a'},
+      lawless:{name:'무법황야',x:-500,y:800,w:80,h:70,color:'#4a2a0a'},
+      // 확장 중앙
+      bazaar:{name:'사막시장',x:500,y:500,w:50,h:50,color:'#5a4a1a'},
+      world_tree:{name:'세계수',x:0,y:800,w:80,h:80,color:'#0a4a0a'},
+      fortress:{name:'북부요새',x:0,y:-900,w:70,h:70,color:'#4a3a1a'},
+      training:{name:'훈련장',x:-900,y:0,w:60,h:60,color:'#3a3a2a'},
+      magma_core:{name:'용암핵심',x:500,y:300,w:70,h:70,color:'#5a1a0a'},
     };
 
     var lastSyncPlayers = {};
@@ -857,10 +1468,12 @@
         ctx.strokeStyle = '#444';
         ctx.lineWidth = 0.5;
         ctx.strokeRect(tl.mx, tl.my, br.mx - tl.mx, br.my - tl.my);
-        // 존 이름 (작게)
-        ctx.fillStyle = 'rgba(255,255,255,0.4)';
-        ctx.font = '7px sans-serif';
-        ctx.fillText(z.name, tl.mx + 2, br.my - 2);
+        // 존 이름
+        ctx.fillStyle = 'rgba(255,255,255,0.6)';
+        ctx.font = '8px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(z.name, (tl.mx + br.mx) / 2, (tl.my + br.my) / 2 + 3);
+        ctx.textAlign = 'left';
       });
 
       // 몬스터 (작은 점)
@@ -910,9 +1523,14 @@
       ctx.fillText('E', MAP_SIZE-3, MAP_SIZE/2+3);
       ctx.textAlign = 'left';
 
-      // 존 이름 표시
+      // 존 이름 + 좌표 표시
       if (myZone && zones[myZone]) {
         minimapZoneLabel.textContent = zones[myZone].name;
+      }
+      var me = lastSyncPlayers[myPlayerId];
+      if (me) {
+        var coordEl = document.getElementById('minimap-coords');
+        if (coordEl) coordEl.textContent = Math.floor(me.x) + ', ' + Math.floor(me.y);
       }
     }
 
@@ -925,7 +1543,7 @@
 
     // ── 사운드 시스템 (Web Audio API) ──
     var audioCtx = null;
-    var soundEnabled = false;
+    var soundEnabled = true;
     var bgmPlaying = false;
 
     function toggleSound() {
@@ -1015,6 +1633,54 @@
           gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
           osc.start(); osc.stop(audioCtx.currentTime + 0.15);
           break;
+        case 'skill': // 스킬 시전
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(500, audioCtx.currentTime);
+          osc.frequency.linearRampToValueAtTime(900, audioCtx.currentTime + 0.15);
+          gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
+          osc.start(); osc.stop(audioCtx.currentTime + 0.25);
+          break;
+        case 'buff': // 버프 획득
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+          osc.frequency.linearRampToValueAtTime(1000, audioCtx.currentTime + 0.1);
+          gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+          osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+          break;
+        case 'pvp': // PvP 전환
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+          osc.frequency.linearRampToValueAtTime(400, audioCtx.currentTime + 0.3);
+          gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+          osc.start(); osc.stop(audioCtx.currentTime + 0.4);
+          break;
+        case 'boss': // 보스 출현
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(80, audioCtx.currentTime);
+          osc.frequency.linearRampToValueAtTime(200, audioCtx.currentTime + 0.5);
+          gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.8);
+          osc.start(); osc.stop(audioCtx.currentTime + 0.8);
+          break;
+        case 'heal': // 힐 효과
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(700, audioCtx.currentTime);
+          osc.frequency.linearRampToValueAtTime(1100, audioCtx.currentTime + 0.2);
+          gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+          osc.start(); osc.stop(audioCtx.currentTime + 0.4);
+          break;
+        case 'tame': // 테이밍 성공
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+          osc.frequency.linearRampToValueAtTime(700, audioCtx.currentTime + 0.3);
+          gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+          osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+          break;
       }
     }
 
@@ -1049,6 +1715,76 @@
       document.getElementById('respawn-screen').style.display = 'none';
     }
 
+    // ── 데미지 숫자 플로팅 ──
+    var dmgContainer = document.createElement('div');
+    dmgContainer.id = 'dmg-container';
+    dmgContainer.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:30;overflow:hidden';
+    document.body.appendChild(dmgContainer);
+
+    // ── 골드 변동 팝업 ──
+    function showCurrencyPop(elementId, delta, color) {
+      var parent = document.getElementById(elementId);
+      if (!parent) return;
+      var el = document.createElement('span');
+      el.className = 'currency-popup';
+      el.textContent = (delta > 0 ? '+' : '') + delta + (elementId.includes('gold') ? 'G' : 'D');
+      el.style.color = color;
+      el.style.left = parent.offsetLeft + 'px';
+      el.style.top = (parent.offsetTop - 5) + 'px';
+      parent.parentElement.appendChild(el);
+      // 카운터 플래시
+      parent.style.transform = 'scale(1.2)';
+      parent.style.transition = 'transform 0.2s';
+      setTimeout(function(){ parent.style.transform = 'scale(1)'; }, 200);
+      setTimeout(function(){ el.remove(); }, 1500);
+    }
+
+    // ── 킬 스트릭 ──
+    function showKillStreak(count) {
+      var el = document.getElementById('kill-streak');
+      if (count < 3) { el.innerHTML = ''; return; }
+      var colors = ['#ffd700','#ff8800','#ff4444','#ff00ff','#00ffff'];
+      var ci = Math.min(colors.length-1, Math.floor((count-3)/2));
+      var size = Math.min(28, 16 + count);
+      el.innerHTML = '<div class="streak-text" style="font-size:'+size+'px;color:'+colors[ci]+'">'+count+'x STREAK!</div>';
+      if (count >= 10) { document.getElementById('unity-container').classList.add('shake'); setTimeout(function(){ document.getElementById('unity-container').classList.remove('shake'); },300); }
+    }
+
+    function showFloatingDamage(damage, isCrit, skillName) {
+      var el = document.createElement('div');
+      var x = 40 + Math.random() * 20; // 화면 중앙 부근
+      var y = 30 + Math.random() * 20;
+      var color = isCrit ? '#ff4444' : '#fff';
+      var size = isCrit ? '22px' : '16px';
+      if (skillName) color = '#ffd700';
+      el.textContent = (skillName ? skillName + ' ' : '') + '-' + damage;
+      el.style.cssText = 'position:absolute;left:'+x+'%;top:'+y+'%;color:'+color+';font-size:'+size+';font-weight:bold;text-shadow:0 0 4px rgba(0,0,0,0.8);transition:all 1s ease-out;opacity:1;pointer-events:none;font-family:sans-serif';
+      dmgContainer.appendChild(el);
+      requestAnimationFrame(function() {
+        el.style.top = (y - 10) + '%';
+        el.style.opacity = '0';
+      });
+      setTimeout(function() { el.remove(); }, 1200);
+    }
+
+    // ── 게임 모달 시스템 ──
+    function showModal(title, bodyHtml, buttons) {
+      var m = document.getElementById('game-modal');
+      document.getElementById('modal-title').textContent = title;
+      document.getElementById('modal-body').innerHTML = bodyHtml;
+      var btnHtml = '';
+      buttons.forEach(function(b) {
+        var style = b.style || 'background:linear-gradient(135deg,#ffd700,#ff8800);color:#000;border:none;border-radius:6px;padding:8px 16px;font-weight:bold;cursor:pointer;font-size:13px';
+        if (b.type === 'cancel') style = 'background:#444;color:#ccc;border:none;border-radius:6px;padding:8px 16px;cursor:pointer;font-size:13px';
+        btnHtml += '<button style="'+style+'" onclick="'+b.action+'">'+b.label+'</button>';
+      });
+      document.getElementById('modal-buttons').innerHTML = btnHtml;
+      m.style.display = 'flex';
+    }
+    function closeModal() { document.getElementById('game-modal').style.display = 'none'; }
+    document.getElementById('game-modal').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
+    function getModalInput(id) { var el = document.getElementById(id); return el ? el.value : ''; }
+
     // ── 서브메뉴 시스템 ──
     var currentSubMenu = '';
     var subMenuDefs = {
@@ -1057,6 +1793,9 @@
         {label:'변신', action:()=>togglePanel('morph')},
         {label:'스탯 배분', action:()=>togglePanel('stats')},
         {label:'펫 & 탈것', action:()=>togglePanel('petmount')},
+        {label:'NPC 힐러', action:()=>window.socket.emit('interact_npc','힐러')},
+        {label:'NPC 대장장이', action:()=>window.socket.emit('interact_npc','대장장이')},
+        {label:'NPC 항해사', action:()=>window.socket.emit('interact_npc','항해사')},
       ],
       items: [
         {label:'인벤토리', action:()=>{togglePanel('inventory');}, sub:'get_inventory'},
@@ -1065,14 +1804,22 @@
       ],
       trade: [
         {label:'마을 교역', action:()=>{togglePanel('trade');window.socket.emit('get_town_prices','{}');}},
+        {label:'경매장', action:()=>{togglePanel('market');window.socket.emit('market_browse',{});}},
+        {label:'우편', action:()=>{showModal('우편 보내기','<div style="display:flex;flex-direction:column;gap:8px"><input id="mail-to" placeholder="받는 사람 이름" style="padding:8px;background:#222;color:#fff;border:1px solid #555;border-radius:4px"><select id="mail-type" style="padding:8px;background:#222;color:#fff;border:1px solid #555;border-radius:4px" onchange="document.getElementById(\'mail-item-row\').style.display=this.value===\'item\'?\'flex\':\'none\';document.getElementById(\'mail-gold-row\').style.display=this.value===\'gold\'?\'flex\':\'none\'"><option value="item">아이템 전송</option><option value="gold">골드 전송</option></select><div id="mail-item-row" style="display:flex;gap:4px"><input id="mail-item" placeholder="아이템 ID" style="flex:1;padding:8px;background:#222;color:#fff;border:1px solid #555;border-radius:4px"><input id="mail-cnt" type="number" value="1" min="1" style="width:60px;padding:8px;background:#222;color:#fff;border:1px solid #555;border-radius:4px"></div><div id="mail-gold-row" style="display:none;gap:4px"><input id="mail-gold" type="number" placeholder="골드 금액" style="flex:1;padding:8px;background:#222;color:#fff;border:1px solid #555;border-radius:4px"></div></div>',[{label:'전송 (50G+)',action:"var t=getModalInput('mail-type')||'item';if(t==='gold'){var g=parseInt(getModalInput('mail-gold'));if(g>0)window.socket.emit('mail_send',{targetName:getModalInput('mail-to'),gold:g});}else{window.socket.emit('mail_send',{targetName:getModalInput('mail-to'),itemId:getModalInput('mail-item'),itemCount:parseInt(getModalInput('mail-cnt'))||1});}closeModal();"},{label:'취소',type:'cancel',action:'closeModal()'}]);}},
         {label:'일일 보상', action:()=>claimDaily()},
       ],
       social: [
         {label:'혈맹', action:()=>togglePanel('clan')},
         {label:'랭킹', action:()=>{togglePanel('ranking');window.socket.emit('get_ranking','{}');}},
         {label:'퀘스트', action:()=>{togglePanel('quests');window.socket.emit('get_quests','{}');}},
+        {label:'투기장', action:()=>{togglePanel('arena');window.socket.emit('arena_rankings');}},
+        {label:'친구', action:()=>{togglePanel('friends');window.socket.emit('get_friends');}},
       ],
       etc: [
+        {label:'던전', action:()=>{showModal('던전 입장','<p style="color:#888;font-size:12px;margin-bottom:10px">입장할 던전을 선택하세요</p>',[{label:'어둠의 동굴 (Lv.15)',action:"closeModal();window.socket.emit('enter_dungeon','cave_dungeon')"},{label:'지하 감옥 (Lv.20)',action:"closeModal();window.socket.emit('enter_dungeon','ruins_dungeon')"},{label:'드래곤 레이드 (Lv.25)',action:"closeModal();window.socket.emit('enter_dungeon','dragon_raid')"},{label:'취소',type:'cancel',action:'closeModal()'}]);}},
+        {label:'무한의 탑', action:()=>togglePanel('tower')},
+        {label:'상자 오픈', action:()=>window.socket.emit('open_rare_box')},
+        {label:'스탯 리셋', action:()=>{showModal('스탯 초기화','<p style="color:#ff8800">모든 스탯 포인트가 반환됩니다.</p><p style="color:#888;font-size:11px">비용: 500G + 레벨×100G</p>',[{label:'초기화',action:"closeModal();window.socket.emit('reset_stats')"},{label:'취소',type:'cancel',action:'closeModal()'}]);}},
         {label:'일일 보상', action:()=>claimDaily()},
       ],
     };
@@ -1138,13 +1885,17 @@
     }
 
     function townBuy(goodsId, town) {
-      var qty = prompt('구매 수량:', '1');
-      if (qty) window.socket.emit('town_buy', JSON.stringify({goodsId, town, qty:parseInt(qty)}));
+      showModal('교역품 구매', '<p style="color:#ffd700">수량을 입력하세요</p><input id="trade-qty" type="number" value="1" min="1" max="99" style="width:100%;padding:10px;background:#222;color:#ffd700;border:1px solid #555;border-radius:4px;font-size:16px;text-align:center;margin-top:8px">', [
+        {label:'구매', action:"var q=parseInt(getModalInput('trade-qty'));if(q>0)window.socket.emit('town_buy',JSON.stringify({goodsId:'"+goodsId+"',town:'"+town+"',qty:q}));closeModal();"},
+        {label:'취소', type:'cancel', action:'closeModal()'}
+      ]);
     }
 
     function townSell(goodsId, town) {
-      var qty = prompt('판매 수량:', '1');
-      if (qty) window.socket.emit('town_sell', JSON.stringify({goodsId, town, qty:parseInt(qty)}));
+      showModal('교역품 판매', '<p style="color:#44ff44">수량을 입력하세요</p><input id="trade-qty" type="number" value="1" min="1" max="99" style="width:100%;padding:10px;background:#222;color:#44ff44;border:1px solid #555;border-radius:4px;font-size:16px;text-align:center;margin-top:8px">', [
+        {label:'판매', action:"var q=parseInt(getModalInput('trade-qty'));if(q>0)window.socket.emit('town_sell',JSON.stringify({goodsId:'"+goodsId+"',town:'"+town+"',qty:q}));closeModal();"},
+        {label:'취소', type:'cancel', action:'closeModal()'}
+      ]);
     }
 
     // ── 스탯/전직/혈맹/파티 ──
@@ -1252,6 +2003,16 @@
       el.textContent = msg;
       el.className = (type || 'normal') + ' show';
       addCombatLog('[공지] ' + msg, 'log-morph');
+      // 이벤트 타입별 효과
+      if (type === 'boss') {
+        playSFX('boss');
+        document.getElementById('unity-container').classList.add('shake');
+        setTimeout(function(){ document.getElementById('unity-container').classList.remove('shake'); }, 500);
+      } else if (type === 'rare') {
+        playSFX('levelup');
+      } else if (type === 'danger') {
+        playSFX('pvp');
+      }
       setTimeout(() => { el.classList.remove('show'); }, 5000);
     }
 

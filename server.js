@@ -12,7 +12,7 @@ const mysql = require('mysql2/promise');
 // 게임 모듈
 const { RECIPES, handleCraft } = require('./game/craft');
 const { PETS, MOUNTS, handleBuyPet, handleBuyMount, getPetEffect, getMountSpeed } = require('./game/pet');
-const { BUFF_TYPES, applyBuff, removeBuff, updateBuffs, getBuffedStat, isStunned, TITLES, checkTitles } = require('./game/buff');
+const { BUFF_TYPES, applyBuff, removeBuff, updateBuffs, getBuffedStat, isStunned, TITLES, checkTitles, getTitleBonus } = require('./game/buff');
 const GameConfig = require('./game/config');
 
 const app = express();
@@ -153,7 +153,8 @@ async function initDB() {
             ['gold', 'INT DEFAULT 0'],
             ['karma', 'INT DEFAULT 0'],
             ['total_playtime', 'INT DEFAULT 0'],
-            ['created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP']
+            ['created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'],
+            ['ext_data', 'LONGTEXT']
         ];
         for (const [col, def] of newCols) {
             try { await pool.query(`ALTER TABLE players_save ADD COLUMN ${col} ${def}`); } catch(e) {}
@@ -179,17 +180,57 @@ async function savePlayer(player) {
         }
     }
 
+    // 확장 데이터 (JSON으로 직렬화)
+    const extData = JSON.stringify({
+        equipped: player.equipped || {},
+        enchantLevels: player.enchantLevels || {},
+        equipOptions: player.equipOptions || {},
+        inventory: player.inventory || {},
+        warehouse: player.warehouse || {},
+        diamonds: player.diamonds || 0,
+        statPoints: player.statPoints || 0,
+        bonusStr: player.bonusStr || 0, bonusDex: player.bonusDex || 0,
+        bonusInt: player.bonusInt || 0, bonusCon: player.bonusCon || 0,
+        isAdvanced: player.isAdvanced || false,
+        advancedClass: player.advancedClass || null,
+        baseClassName: player.baseClassName || null,
+        pvpWins: player.pvpWins || 0,
+        towerHighest: player.towerHighest || 0,
+        attendance: player.attendance || {},
+        lastLoginDate: player.lastLoginDate || null,
+        lastWeek: player.lastWeek || null,
+        clanName: player.clanName || null,
+        activePet: player.activePet || null,
+        pets: player.pets || [],
+        activeMount: player.activeMount || null,
+        mounts: player.mounts || [],
+        titles: player.titles || [],
+        activeTitle: player.activeTitle || null,
+        activeSkin: player.activeSkin || null,
+        skins: player.skins || [],
+        morphKills: player.morphKills || {},
+        totalTamed: player.totalTamed || 0,
+        totalTradeProfit: player.totalTradeProfit || 0,
+        totalCrafts: player.totalCrafts || 0,
+        dungeonClears: player.dungeonClears || 0,
+        maxArmy: player.maxArmy || 30,
+        autoPotion: player.autoPotion || false,
+        questProgress: player.questProgress || {},
+        questCompleted: player.questCompleted || {},
+    });
+
     try {
         await pool.query(`
-            INSERT INTO players_save (device_id, class_name, level, exp, gold, kill_count, karma, team, is_alive, army_data)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO players_save (device_id, class_name, level, exp, gold, kill_count, karma, team, is_alive, army_data, ext_data)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
             class_name=VALUES(class_name), level=VALUES(level), exp=VALUES(exp),
             gold=VALUES(gold), kill_count=VALUES(kill_count), karma=VALUES(karma),
-            team=VALUES(team), is_alive=VALUES(is_alive), army_data=VALUES(army_data)
+            team=VALUES(team), is_alive=VALUES(is_alive), army_data=VALUES(army_data),
+            ext_data=VALUES(ext_data)
         `, [player.deviceId, player.className, player.level, player.exp,
             player.gold, player.killCount, player.karma, player.team,
-            player.isAlive, JSON.stringify(myArmy)]);
+            player.isAlive, JSON.stringify(myArmy), extData]);
     } catch (error) {
         console.error("[DB] Save Error:", error);
     }
@@ -232,6 +273,81 @@ const ZONES = {
     // ── 특수 ──
     castle:     { name:'하늘의 성채',     x:0,    y:400,  w:80, h:70, lvl:[20,99], safe:false, bg:'map_dungeon', isCastle:true },
     arena:      { name:'투기장',          x:350,  y:350,  w:50, h:50, lvl:[10,99], safe:true,  bg:'map_dungeon', isArena:true },
+    // ── 확장 맵: 동부 (x:500~1000) ──
+    port_east:  { name:'동쪽 항구',       x:700,  y:-700, w:50, h:50, lvl:[1,99],  safe:true,  bg:'map_village', npcs:['상점','항해사','힐러'] },
+    mushroom:   { name:'버섯 골짜기',     x:600,  y:-500, w:80, h:70, lvl:[5,12],  safe:false, bg:'map_forest' },
+    riverbank:  { name:'강변 평야',       x:800,  y:-300, w:80, h:60, lvl:[8,18],  safe:false, bg:'map_plains' },
+    sandstorm:  { name:'모래폭풍 협곡',    x:600,  y:-100, w:80, h:70, lvl:[15,25], safe:false, bg:'map_plains' },
+    sunken:     { name:'수몰 신전',       x:700,  y:100,  w:70, h:70, lvl:[20,30], safe:false, bg:'map_dungeon' },
+    shadow:     { name:'그림자 영역',     x:800,  y:400,  w:70, h:70, lvl:[32,45], safe:false, bg:'map_chaos' },
+    celestial:  { name:'천공의 정상',     x:700,  y:700,  w:80, h:80, lvl:[40,60], safe:false, bg:'map_dragon' },
+    void_rift:  { name:'공허의 균열',     x:900,  y:900,  w:70, h:70, lvl:[50,99], safe:false, bg:'map_chaos' },
+    fishing:    { name:'낚시 만',         x:900,  y:0,    w:50, h:50, lvl:[1,99],  safe:true,  bg:'map_plains', npcs:['낚시꾼','상점'] },
+    blood_arena:{ name:'피의 투기장',     x:500,  y:-800, w:70, h:70, lvl:[20,99], safe:false, bg:'map_chaos', noPKpenalty:true },
+    colosseum:  { name:'대투기장',        x:900,  y:-900, w:60, h:60, lvl:[15,99], safe:true,  bg:'map_dungeon', isArena:true },
+    // ── 확장 맵: 서부 (x:-500~-1000) ──
+    shrine:     { name:'신전 마을',       x:-800, y:200,  w:50, h:50, lvl:[1,99],  safe:true,  bg:'map_village', npcs:['상점','대장장이','힐러','제작소'] },
+    tundra:     { name:'얼어붙은 평원',    x:-700, y:-700, w:80, h:70, lvl:[1,8],   safe:false, bg:'map_plains' },
+    crystal_mine:{ name:'수정 광산',      x:-800, y:-200, w:70, h:70, lvl:[18,28], safe:false, bg:'map_dungeon' },
+    toxic_marsh:{ name:'독안개 습지',     x:-700, y:400,  w:80, h:70, lvl:[12,22], safe:false, bg:'map_forest' },
+    haunted:    { name:'유령의 저택',     x:-600, y:600,  w:70, h:70, lvl:[22,35], safe:false, bg:'map_dungeon' },
+    sky_ruins:  { name:'하늘 유적',       x:-800, y:700,  w:80, h:70, lvl:[30,45], safe:false, bg:'map_dungeon' },
+    frozen_deep:{ name:'빙결 심연',       x:-600, y:-800, w:70, h:70, lvl:[35,50], safe:false, bg:'map_dungeon' },
+    demon:      { name:'마왕성',          x:-800, y:900,  w:80, h:80, lvl:[45,60], safe:false, bg:'map_chaos' },
+    lawless:    { name:'무법 황야',       x:-500, y:800,  w:80, h:70, lvl:[25,99], safe:false, bg:'map_chaos', noPKpenalty:true },
+    // ── 확장 맵: 중앙 확장 ──
+    bazaar:     { name:'사막 시장',       x:500,  y:500,  w:50, h:50, lvl:[1,99],  safe:true,  bg:'map_village', npcs:['상점','요리사','제작소'] },
+    world_tree: { name:'세계수',          x:0,    y:800,  w:80, h:80, lvl:[50,99], safe:false, bg:'map_forest' },
+    fortress:   { name:'북부 요새',       x:0,    y:-900, w:70, h:70, lvl:[25,99], safe:false, bg:'map_dungeon', isCastle:true },
+    training:   { name:'훈련장',          x:-900, y:0,    w:60, h:60, lvl:[1,15],  safe:false, bg:'map_plains' },
+    magma_core: { name:'용암 핵심부',     x:500,  y:300,  w:70, h:70, lvl:[28,42], safe:false, bg:'map_dragon' },
+};
+
+// 존별 몬스터 배합 + 보너스
+const ZONE_MONSTERS = {
+    // 초보: 노말 위주
+    forest:    { tiers:{ normal:80, elite:15, rare:5 },  expBonus:0, goldBonus:0 },
+    plains:    { tiers:{ normal:75, elite:20, rare:5 },  expBonus:0, goldBonus:0 },
+    meadow:    { tiers:{ normal:70, elite:25, rare:5 },  expBonus:0, goldBonus:0 },
+    // 중급: 엘리트 혼합
+    swamp:     { tiers:{ normal:40, elite:45, rare:15 }, expBonus:0.1, goldBonus:0 },
+    desert:    { tiers:{ normal:35, elite:45, rare:18, boss:2 }, expBonus:0.1, goldBonus:0.1 },
+    cave:      { tiers:{ normal:20, elite:40, rare:30, boss:10 }, expBonus:0.3, goldBonus:0 },
+    ruins:     { tiers:{ normal:20, elite:35, rare:35, boss:10 }, expBonus:0.2, goldBonus:0.1 },
+    coral:     { tiers:{ normal:50, elite:35, rare:15 }, expBonus:0, goldBonus:0.1 },
+    // 고급: 레어+보스
+    volcano:   { tiers:{ elite:30, rare:50, boss:20 }, expBonus:0.2, goldBonus:0.2 },
+    graveyard: { tiers:{ elite:25, rare:50, boss:25 }, expBonus:0.15, goldBonus:0.15 },
+    darkforest:{ tiers:{ elite:20, rare:45, boss:35 }, expBonus:0.25, goldBonus:0.2 },
+    glacier:   { tiers:{ elite:30, rare:45, boss:25 }, expBonus:0.2, goldBonus:0.15 },
+    // 최상급: 보스 다수
+    dragon:    { tiers:{ rare:25, boss:60, legendary:15 }, expBonus:0.3, goldBonus:0.5 },
+    abyss:     { tiers:{ rare:20, boss:60, legendary:20 }, expBonus:0.4, goldBonus:0.3 },
+    hell:      { tiers:{ rare:15, boss:60, legendary:25 }, expBonus:0.5, goldBonus:0.4 },
+    ancient:   { tiers:{ rare:30, boss:55, legendary:15 }, expBonus:0.35, goldBonus:0.3 },
+    // PK존: 모든 등급 강화
+    chaos:     { tiers:{ elite:20, rare:40, boss:40 }, expBonus:0.4, goldBonus:0.4 },
+    warzone:   { tiers:{ elite:30, rare:40, boss:30 }, expBonus:0.3, goldBonus:0.3 },
+    // 확장 존
+    mushroom:    { tiers:{ normal:70, elite:25, rare:5 },  expBonus:0, goldBonus:0 },
+    riverbank:   { tiers:{ normal:55, elite:35, rare:10 }, expBonus:0.05, goldBonus:0.05 },
+    tundra:      { tiers:{ normal:85, elite:15 },          expBonus:0, goldBonus:0 },
+    training:    { tiers:{ normal:90, elite:10 },          expBonus:0.1, goldBonus:0 },
+    toxic_marsh: { tiers:{ normal:35, elite:45, rare:20 }, expBonus:0.15, goldBonus:0.1 },
+    sandstorm:   { tiers:{ normal:25, elite:40, rare:30, boss:5 }, expBonus:0.2, goldBonus:0.15 },
+    crystal_mine:{ tiers:{ normal:20, elite:35, rare:35, boss:10 }, expBonus:0.25, goldBonus:0.2 },
+    sunken:      { tiers:{ elite:30, rare:45, boss:25 }, expBonus:0.25, goldBonus:0.2 },
+    haunted:     { tiers:{ elite:25, rare:45, boss:30 }, expBonus:0.2, goldBonus:0.2 },
+    magma_core:  { tiers:{ elite:15, rare:50, boss:35 }, expBonus:0.3, goldBonus:0.25 },
+    sky_ruins:   { tiers:{ elite:10, rare:45, boss:40, legendary:5 }, expBonus:0.35, goldBonus:0.3 },
+    shadow:      { tiers:{ rare:35, boss:50, legendary:15 }, expBonus:0.4, goldBonus:0.35 },
+    frozen_deep: { tiers:{ rare:30, boss:50, legendary:20 }, expBonus:0.4, goldBonus:0.3 },
+    celestial:   { tiers:{ rare:20, boss:45, legendary:30, mythic:5 }, expBonus:0.5, goldBonus:0.5 },
+    demon:       { tiers:{ rare:15, boss:40, legendary:35, mythic:10 }, expBonus:0.6, goldBonus:0.5 },
+    world_tree:  { tiers:{ boss:30, legendary:40, mythic:30 }, expBonus:0.7, goldBonus:0.6 },
+    void_rift:   { tiers:{ boss:25, legendary:35, mythic:40 }, expBonus:0.8, goldBonus:0.7 },
+    blood_arena: { tiers:{ elite:20, rare:35, boss:35, legendary:10 }, expBonus:0.5, goldBonus:0.5 },
+    lawless:     { tiers:{ elite:25, rare:40, boss:30, legendary:5 }, expBonus:0.4, goldBonus:0.4 },
 };
 
 // NPC 정의
@@ -277,7 +393,7 @@ const TRADE_GOODS = {
 
 let townPrices = {};
 function updateTownPrices() {
-    const towns = ['aden', 'harbor', 'oasis', 'mountain', 'frontier'];
+    const towns = ['aden', 'harbor', 'oasis', 'mountain', 'frontier', 'port_east', 'shrine', 'bazaar'];
     for (const town of towns) {
         townPrices[town] = {};
         for (const [id, good] of Object.entries(TRADE_GOODS)) {
@@ -297,7 +413,7 @@ setInterval(updateTownPrices, 600000); // 10분마다 변동
 // 포켓몬 — 몬스터 테이밍
 // ==========================================
 const TAME_RATES = { normal:0.30, elite:0.15, rare:0.08, boss:0.03 };
-const TAME_COST = 50;
+const TAME_COSTS = { normal: 50, elite: 150, rare: 300, boss: 500, legendary: 1000, mythic: 2000 };
 
 function getZone(x, y) {
     for (const [id, z] of Object.entries(ZONES)) {
@@ -329,6 +445,19 @@ const SHOP_ITEMS = {
     'atk_boost':     { name:'공격 부스터',       price:500, currency:'gold', effect:'atk_boost', value:1.3, duration:60, desc:'1분간 ATK 30% 증가' },
     'def_boost':     { name:'방어 부스터',       price:500, currency:'gold', effect:'def_boost', value:1.3, duration:60, desc:'1분간 DEF 30% 증가' },
     'town_scroll':   { name:'귀환 주문서',       price:200, currency:'gold', effect:'teleport', value:'village', desc:'마을로 즉시 귀환' },
+    // ── NPC 장비 상점 (골드) ──
+    'shop_sword_1':  { name:'철제 검',          price:200,  currency:'gold', effect:'equip_item', value:'equip_sword_1', desc:'ATK +10 (일반)' },
+    'shop_sword_2':  { name:'강철 검',          price:800,  currency:'gold', effect:'equip_item', value:'equip_sword_2', desc:'ATK +25 (고급)' },
+    'shop_armor_1':  { name:'가죽 갑옷',        price:150,  currency:'gold', effect:'equip_item', value:'equip_armor_1', desc:'DEF +10 (일반)' },
+    'shop_armor_2':  { name:'철판 갑옷',        price:700,  currency:'gold', effect:'equip_item', value:'equip_armor_2', desc:'DEF +25 (고급)' },
+    'shop_helm_1':   { name:'가죽 투구',        price:100,  currency:'gold', effect:'equip_item', value:'equip_helm_1', desc:'DEF +5 (일반)' },
+    'shop_glove_1':  { name:'가죽 장갑',        price:80,   currency:'gold', effect:'equip_item', value:'equip_glove_1', desc:'ATK+3 DEF+2 (일반)' },
+    'shop_boots_1':  { name:'가죽 장화',        price:80,   currency:'gold', effect:'equip_item', value:'equip_boots_1', desc:'DEF+3 SPD+2 (일반)' },
+    'shop_ring_1':   { name:'힘의 반지',        price:500,  currency:'gold', effect:'equip_item', value:'equip_ring_1', desc:'ATK+8 DEF+3 (고급)' },
+    'shop_neck_1':   { name:'지혜의 목걸이',     price:400,  currency:'gold', effect:'equip_item', value:'equip_neck_1', desc:'ATK+5 DEF+5 EXP+5%' },
+    // ── 희귀 장비 (다이아) ──
+    'shop_sword_3':  { name:'미스릴 검',        price:300,  currency:'diamond', effect:'equip_item', value:'equip_sword_3', desc:'ATK +45 (희귀)' },
+    'shop_armor_3':  { name:'미스릴 갑옷',      price:250,  currency:'diamond', effect:'equip_item', value:'equip_armor_3', desc:'DEF +45 (희귀)' },
 };
 
 // 다이아몬드 무료 획득 방법
@@ -364,11 +493,37 @@ const TRADEABLE_ITEMS = {
     'scroll_return':  { name:'귀환 주문서',  category:'주문서', basePrice: 50 },
     'scroll_revive':  { name:'부활 주문서',  category:'주문서', basePrice: 300 },
     'scroll_protect': { name:'강화 보호',    category:'주문서', basePrice: 500 },
+    'protect_scroll': { name:'보호 주문서',    category:'주문서', basePrice: 500 },
+    'bless_scroll':   { name:'축복 주문서',   category:'주문서', basePrice: 200 },
+    // 장비 - 무기
     'equip_sword_1':  { name:'철제 검',      category:'장비', basePrice: 200 },
     'equip_sword_2':  { name:'강철 검',      category:'장비', basePrice: 800 },
+    'equip_sword_3':  { name:'미스릴 검',    category:'장비', basePrice: 3000 },
+    'equip_sword_4':  { name:'영웅의 검',    category:'장비', basePrice: 10000 },
+    'equip_sword_5':  { name:'드래곤 소드',  category:'장비', basePrice: 50000 },
+    // 장비 - 방어구
     'equip_armor_1':  { name:'가죽 갑옷',    category:'장비', basePrice: 150 },
     'equip_armor_2':  { name:'철판 갑옷',    category:'장비', basePrice: 700 },
+    'equip_armor_3':  { name:'미스릴 갑옷',  category:'장비', basePrice: 2500 },
+    'equip_armor_4':  { name:'영웅의 갑옷',  category:'장비', basePrice: 9000 },
+    'equip_armor_5':  { name:'드래곤 아머',  category:'장비', basePrice: 45000 },
+    // 장비 - 투구/장갑/신발
+    'equip_helm_1':   { name:'가죽 투구',    category:'장비', basePrice: 100 },
+    'equip_helm_2':   { name:'철제 투구',    category:'장비', basePrice: 400 },
+    'equip_helm_3':   { name:'미스릴 투구',  category:'장비', basePrice: 2000 },
+    'equip_glove_1':  { name:'가죽 장갑',    category:'장비', basePrice: 80 },
+    'equip_glove_2':  { name:'철제 장갑',    category:'장비', basePrice: 350 },
+    'equip_glove_3':  { name:'미스릴 장갑',  category:'장비', basePrice: 1500 },
+    'equip_boots_1':  { name:'가죽 장화',    category:'장비', basePrice: 80 },
+    'equip_boots_2':  { name:'철제 장화',    category:'장비', basePrice: 350 },
+    'equip_boots_3':  { name:'민첩의 장화',  category:'장비', basePrice: 1800 },
+    // 장비 - 장신구
     'equip_ring_1':   { name:'힘의 반지',    category:'장비', basePrice: 500 },
+    'equip_ring_2':   { name:'용사의 반지',  category:'장비', basePrice: 2000 },
+    'equip_ring_3':   { name:'드래곤 반지',  category:'장비', basePrice: 8000 },
+    'equip_neck_1':   { name:'지혜의 목걸이', category:'장비', basePrice: 400 },
+    'equip_neck_2':   { name:'행운의 목걸이', category:'장비', basePrice: 1500 },
+    'equip_neck_3':   { name:'드래곤 목걸이', category:'장비', basePrice: 6000 },
 };
 
 // ==========================================
@@ -381,15 +536,31 @@ const players = {};
 // 퀘스트 시스템
 // ==========================================
 const QUESTS = {
-    daily_hunt:    { name:'일일 사냥', desc:'몬스터 30마리 처치', target:'kill_monster', goal:30, reward:{gold:300,exp:500,diamonds:5}, type:'daily' },
-    daily_elite:   { name:'엘리트 토벌', desc:'엘리트 이상 몬스터 5마리', target:'kill_elite', goal:5, reward:{gold:500,exp:800,diamonds:10}, type:'daily' },
-    daily_gold:    { name:'골드 수집', desc:'골드 500 획득', target:'earn_gold', goal:500, reward:{gold:200,exp:300,diamonds:5}, type:'daily' },
+    // ── 일일 퀘스트 (매일 초기화) ──
+    daily_hunt:    { name:'일일 사냥', desc:'몬스터 50마리 처치', target:'kill_monster', goal:50, reward:{gold:200,exp:500}, type:'daily', minLevel:5 },
+    daily_elite:   { name:'필드 보스', desc:'엘리트 이상 몬스터 3마리', target:'kill_elite', goal:3, reward:{gold:500,exp:800}, type:'daily', minLevel:15 },
+    daily_gold:    { name:'골드 수집', desc:'골드 500 획득', target:'earn_gold', goal:500, reward:{gold:200,exp:300}, type:'daily', minLevel:5 },
+    daily_pvp:     { name:'PvP 도전', desc:'PvP 3회 참여', target:'pvp_fight', goal:3, reward:{gold:300,exp:400}, type:'daily', minLevel:10 },
+    // ── 주간 퀘스트 (매주 초기화) ──
+    weekly_boss:   { name:'보스 레이드', desc:'보스 5회 처치', target:'kill_boss', goal:5, reward:{gold:5000,exp:8000,diamonds:30}, type:'weekly', minLevel:20 },
+    weekly_guild:  { name:'길드 미션', desc:'길드 던전 2회 클리어', target:'dungeon_clear', goal:2, reward:{gold:3000,exp:5000}, type:'weekly', minLevel:15 },
+    weekly_pvp:    { name:'PvP 전적', desc:'PvP 20승', target:'pvp_win', goal:20, reward:{gold:2000,exp:3000,diamonds:20}, type:'weekly', minLevel:15 },
+    weekly_trade:  { name:'교역 달인', desc:'교역 10회', target:'trade_count', goal:10, reward:{gold:3000,exp:2000}, type:'weekly', minLevel:10 },
+    // ── 메인 퀘스트 (1회) ──
+    main_hunt1:    { name:'첫 번째 사냥', desc:'슬라임 5마리 처치', target:'kill_monster', goal:5, reward:{gold:100,exp:200}, type:'main', minLevel:1 },
     main_lv5:      { name:'성장의 시작', desc:'레벨 5 달성', target:'reach_level', goal:5, reward:{gold:500,diamonds:30}, type:'main' },
     main_lv10:     { name:'전사의 길', desc:'레벨 10 달성', target:'reach_level', goal:10, reward:{gold:1000,diamonds:50}, type:'main' },
+    main_orc:      { name:'오크의 위협', desc:'오크전사(엘리트) 10마리 처치', target:'kill_elite', goal:10, reward:{gold:500,diamonds:20}, type:'main', minLevel:10 },
     main_lv20:     { name:'영웅의 각성', desc:'레벨 20 달성', target:'reach_level', goal:20, reward:{gold:3000,diamonds:100}, type:'main' },
-    main_boss:     { name:'드래곤 슬레이어', desc:'보스 몬스터 처치', target:'kill_boss', goal:1, reward:{gold:5000,diamonds:80}, type:'main' },
+    main_dungeon:  { name:'어둠의 동굴', desc:'던전 클리어', target:'dungeon_clear', goal:1, reward:{gold:2000,diamonds:50}, type:'main', minLevel:15 },
+    main_lv30:     { name:'전설의 시작', desc:'레벨 30 달성', target:'reach_level', goal:30, reward:{gold:5000,diamonds:150}, type:'main' },
+    main_boss:     { name:'드래곤 토벌', desc:'보스 몬스터 처치', target:'kill_boss', goal:1, reward:{gold:5000,diamonds:80}, type:'main' },
     main_pvp:      { name:'PvP 입문', desc:'PvP 모드로 전환', target:'toggle_pvp', goal:1, reward:{gold:1000,diamonds:30}, type:'main' },
     main_army:     { name:'군단장', desc:'용병 10명 보유', target:'army_count', goal:10, reward:{gold:2000,diamonds:50}, type:'main' },
+    // ── 업적 (1회, 특별 보상) ──
+    ach_first_pk:    { name:'피의 세례', desc:'다른 유저 첫 처치', target:'pvp_win', goal:1, reward:{gold:500}, type:'achievement' },
+    ach_dragon100:   { name:'드래곤 슬레이어', desc:'드래곤 100회 처치', target:'kill_boss', goal:100, reward:{gold:10000,diamonds:200}, type:'achievement' },
+    ach_millionaire: { name:'백만장자', desc:'골드 1,000,000 보유', target:'total_gold', goal:1000000, reward:{diamonds:500}, type:'achievement' },
 };
 
 // ==========================================
@@ -397,38 +568,141 @@ const QUESTS = {
 // ==========================================
 const SKILLS = {
     Assassin: [
-        { name:'그림자 일격', dmgMulti:3.0, cooldown:5, range:3, aoe:false, level:1 },
-        { name:'연속 베기', dmgMulti:1.5, hits:4, cooldown:8, range:2, aoe:false, level:5 },
-        { name:'암살', dmgMulti:8.0, cooldown:60, range:2, aoe:false, level:15, executeThreshold:0.3 },
+        { name:'그림자 일격', type:'active', dmgMulti:3.0, cooldown:5, range:3, aoe:false, level:1, mpCost:20, critBonus:true },
+        { name:'독 바르기', type:'passive', level:5, poisonDot:15, poisonDuration:3 },
+        { name:'은신', type:'active', cooldown:15, duration:5, level:10, mpCost:30, buff:true, stealth:true, nextAtkMulti:2.0 },
+        { name:'연속 베기', type:'active', dmgMulti:1.5, hits:4, cooldown:8, range:2, aoe:false, level:15, mpCost:25 },
+        { name:'암살', type:'ultimate', dmgMulti:8.0, cooldown:60, range:2, aoe:false, level:25, mpCost:80, executeThreshold:0.3 },
     ],
     Warrior: [
-        { name:'파워 스트라이크', dmgMulti:2.5, cooldown:4, range:4, aoe:false, level:1 },
-        { name:'회전 베기', dmgMulti:2.0, cooldown:6, range:3, aoe:true, level:5 },
-        { name:'버서커', dmgMulti:2.0, spdMulti:1.5, cooldown:90, duration:15, level:15, buff:true },
+        { name:'파워 스트라이크', type:'active', dmgMulti:2.5, cooldown:4, range:4, aoe:false, level:1, mpCost:15, knockback:true },
+        { name:'전투 함성', type:'active', cooldown:20, duration:10, range:6, level:5, mpCost:25, buff:true, allyAtkMulti:1.2 },
+        { name:'분노', type:'passive', level:10, hpThreshold:0.5, atkBonus:0.3 },
+        { name:'회전 베기', type:'active', dmgMulti:2.0, cooldown:6, range:3, aoe:true, level:15, mpCost:20 },
+        { name:'버서커', type:'ultimate', dmgMulti:2.0, spdMulti:1.5, cooldown:90, duration:15, level:25, mpCost:100, buff:true, defPenalty:0.5 },
     ],
     Knight: [
-        { name:'방패 강타', dmgMulti:2.0, cooldown:6, range:3, aoe:false, level:1, stun:1 },
-        { name:'도발', cooldown:10, range:8, aoe:true, level:5, taunt:true },
-        { name:'철벽 방어', cooldown:15, duration:5, level:15, buff:true, defMulti:0.3 },
+        { name:'방패 강타', type:'active', dmgMulti:2.0, cooldown:6, range:3, aoe:false, level:1, mpCost:15, stun:1 },
+        { name:'수호 오라', type:'passive', level:5, allyDefMulti:1.15, auraRange:5 },
+        { name:'도발', type:'active', cooldown:10, range:8, aoe:true, level:10, mpCost:20, taunt:true },
+        { name:'철벽 방어', type:'active', cooldown:15, duration:5, level:15, mpCost:30, buff:true, dmgReduce:0.7 },
+        { name:'신성한 방벽', type:'ultimate', cooldown:120, duration:3, range:6, level:25, mpCost:120, buff:true, allyInvincible:true },
     ],
     Mage: [
-        { name:'파이어볼', dmgMulti:3.0, cooldown:3, range:6, aoe:true, level:1 },
-        { name:'아이스 볼트', dmgMulti:2.0, cooldown:5, range:5, aoe:false, level:5, slow:0.5 },
-        { name:'메테오', dmgMulti:10.0, cooldown:90, range:8, aoe:true, level:15, aoeRadius:4 },
+        { name:'파이어볼', type:'active', dmgMulti:3.0, cooldown:3, range:6, aoe:true, level:1, mpCost:15 },
+        { name:'아이스 볼트', type:'active', dmgMulti:2.0, cooldown:5, range:5, aoe:false, level:5, mpCost:20, slow:0.5, slowDuration:3 },
+        { name:'마나 재생', type:'passive', level:10, mpRegenMulti:1.5 },
+        { name:'체인 라이트닝', type:'active', dmgMulti:2.5, cooldown:8, range:6, level:15, mpCost:35, chainCount:3, chainRange:4 },
+        { name:'메테오', type:'ultimate', dmgMulti:10.0, cooldown:90, range:8, aoe:true, level:25, mpCost:150, aoeRadius:4 },
     ],
 };
 
 // ==========================================
-// 장비 시스템
+// 장비 시스템 (5등급: normal/uncommon/rare/epic/legendary)
 // ==========================================
-const EQUIPMENT_SLOTS = ['weapon','armor','helmet','gloves','boots','ring','necklace'];
+const EQUIPMENT_SLOTS = ['weapon','armor','helmet','gloves','boots','ring','necklace','cape','belt'];
+
+// 장비 세트 보너스
+const EQUIPMENT_SETS = {
+    dragon: {
+        name: '드래곤 세트', pieces: ['equip_sword_5','equip_armor_5','equip_helm_5','equip_glove_5','equip_boots_5','equip_belt_5','equip_cape_5'],
+        bonuses: { 2: {atk:20,def:20}, 3: {atk:40,def:40,hp:200}, 5: {atkMulti:1.2,defMulti:1.2,hp:500}, 7: {atkMulti:1.5,defMulti:1.5,hp:1000} }
+    },
+    hero: {
+        name: '영웅 세트', pieces: ['equip_sword_4','equip_armor_4','equip_helm_4','equip_glove_4','equip_boots_4','equip_belt_4','equip_cape_4'],
+        bonuses: { 2: {atk:10,def:10}, 3: {atk:25,def:25,hp:100}, 5: {atkMulti:1.15,defMulti:1.15,hp:300} }
+    },
+    mythic: {
+        name: '태초 세트', pieces: ['equip_mythic_sword','equip_mythic_armor','equip_mythic_ring'],
+        bonuses: { 2: {atk:50,def:50,hp:500}, 3: {atkMulti:1.5,defMulti:1.5,hp:2000,expBonus:0.3} }
+    },
+};
+
+const GRADE_INFO = {
+    normal:    { name:'일반', color:'#cccccc', atkMulti:1.0, defMulti:1.0, maxEnchant:5,  randomOpts:0, levelReq:1 },
+    uncommon:  { name:'고급', color:'#44cc44', atkMulti:1.2, defMulti:1.2, maxEnchant:8,  randomOpts:1, levelReq:5 },
+    rare:      { name:'희귀', color:'#4488ff', atkMulti:1.4, defMulti:1.4, maxEnchant:10, randomOpts:2, levelReq:15 },
+    epic:      { name:'영웅', color:'#aa44ff', atkMulti:1.7, defMulti:1.7, maxEnchant:12, randomOpts:3, levelReq:25 },
+    legendary: { name:'전설', color:'#ff8800', atkMulti:2.2, defMulti:2.2, maxEnchant:15, randomOpts:4, levelReq:35 },
+};
+
+const RANDOM_OPTIONS = [
+    { name:'크리티컬 +', stat:'critRate', min:0.02, max:0.08 },
+    { name:'회피 +',     stat:'dodgeRate', min:0.01, max:0.05 },
+    { name:'HP +',       stat:'bonusHp', min:20, max:100 },
+    { name:'공격속도 +', stat:'atkSpeed', min:0.05, max:0.15 },
+    { name:'이동속도 +', stat:'bonusSpd', min:1, max:5 },
+    { name:'경험치 +',   stat:'expBonus', min:0.05, max:0.15 },
+    { name:'골드 +',     stat:'goldBonus', min:0.05, max:0.10 },
+];
+
+function generateRandomOptions(count) {
+    const opts = [];
+    const shuffled = [...RANDOM_OPTIONS].sort(() => Math.random() - 0.5);
+    for (let i = 0; i < Math.min(count, shuffled.length); i++) {
+        const opt = shuffled[i];
+        const val = +(opt.min + Math.random() * (opt.max - opt.min)).toFixed(3);
+        opts.push({ name: opt.name, stat: opt.stat, value: val });
+    }
+    return opts;
+}
 
 const EQUIP_STATS = {
-    'equip_sword_1':  { slot:'weapon', name:'철제 검',   atk:10, def:0, grade:'normal' },
-    'equip_sword_2':  { slot:'weapon', name:'강철 검',   atk:25, def:0, grade:'uncommon' },
-    'equip_armor_1':  { slot:'armor',  name:'가죽 갑옷', atk:0, def:10, grade:'normal' },
-    'equip_armor_2':  { slot:'armor',  name:'철판 갑옷', atk:0, def:25, grade:'uncommon' },
-    'equip_ring_1':   { slot:'ring',   name:'힘의 반지', atk:8, def:3, grade:'uncommon' },
+    // 무기 (weapon)
+    'equip_sword_1':  { slot:'weapon', name:'철제 검',     atk:10, def:0, grade:'normal' },
+    'equip_sword_2':  { slot:'weapon', name:'강철 검',     atk:25, def:0, grade:'uncommon' },
+    'equip_sword_3':  { slot:'weapon', name:'미스릴 검',   atk:45, def:0, grade:'rare' },
+    'equip_sword_4':  { slot:'weapon', name:'영웅의 검',   atk:70, def:0, grade:'epic' },
+    'equip_sword_5':  { slot:'weapon', name:'드래곤 소드', atk:120, def:0, grade:'legendary', bound:true },
+    // 방어구 (armor)
+    'equip_armor_1':  { slot:'armor', name:'가죽 갑옷',   atk:0, def:10, grade:'normal' },
+    'equip_armor_2':  { slot:'armor', name:'철판 갑옷',   atk:0, def:25, grade:'uncommon' },
+    'equip_armor_3':  { slot:'armor', name:'미스릴 갑옷', atk:0, def:45, grade:'rare' },
+    'equip_armor_4':  { slot:'armor', name:'영웅의 갑옷', atk:0, def:70, grade:'epic' },
+    'equip_armor_5':  { slot:'armor', name:'드래곤 아머', atk:0, def:120, grade:'legendary', bound:true },
+    // 투구 (helmet)
+    'equip_helm_1':   { slot:'helmet', name:'가죽 투구',   atk:0, def:5,  grade:'normal' },
+    'equip_helm_2':   { slot:'helmet', name:'철제 투구',   atk:0, def:12, grade:'uncommon' },
+    'equip_helm_3':   { slot:'helmet', name:'미스릴 투구', atk:0, def:20, grade:'rare' },
+    // 장갑 (gloves)
+    'equip_glove_1':  { slot:'gloves', name:'가죽 장갑',   atk:3,  def:2,  grade:'normal' },
+    'equip_glove_2':  { slot:'gloves', name:'철제 장갑',   atk:8,  def:5,  grade:'uncommon' },
+    'equip_glove_3':  { slot:'gloves', name:'미스릴 장갑', atk:15, def:10, grade:'rare' },
+    // 신발 (boots)
+    'equip_boots_1':  { slot:'boots', name:'가죽 장화',   atk:0, def:3,  grade:'normal',   bonusSpd:2 },
+    'equip_boots_2':  { slot:'boots', name:'철제 장화',   atk:0, def:7,  grade:'uncommon', bonusSpd:3 },
+    'equip_boots_3':  { slot:'boots', name:'민첩의 장화', atk:0, def:12, grade:'rare',     bonusSpd:5 },
+    // 반지 (ring)
+    'equip_ring_1':   { slot:'ring', name:'힘의 반지',     atk:8,  def:3,  grade:'uncommon' },
+    'equip_ring_2':   { slot:'ring', name:'용사의 반지',   atk:15, def:5,  grade:'rare' },
+    'equip_ring_3':   { slot:'ring', name:'드래곤 반지',   atk:20, def:10, grade:'epic' },
+    // 목걸이 (necklace)
+    'equip_neck_1':   { slot:'necklace', name:'지혜의 목걸이',  atk:5,  def:5,  grade:'uncommon', expBonus:0.05 },
+    'equip_neck_2':   { slot:'necklace', name:'행운의 목걸이',  atk:8,  def:8,  grade:'rare',     goldBonus:0.10 },
+    'equip_neck_3':   { slot:'necklace', name:'드래곤의 목걸이', atk:15, def:15, grade:'epic',     expBonus:0.10 },
+    // 망토 (cape)
+    'equip_cape_1':   { slot:'cape', name:'여행자의 망토',   atk:3,  def:5,  grade:'normal' },
+    'equip_cape_2':   { slot:'cape', name:'기사의 망토',     atk:5,  def:10, grade:'uncommon' },
+    'equip_cape_3':   { slot:'cape', name:'마법사의 로브',   atk:10, def:15, grade:'rare',     expBonus:0.05 },
+    'equip_cape_4':   { slot:'cape', name:'영웅의 망토',     atk:18, def:25, grade:'epic',     bonusSpd:3 },
+    'equip_cape_5':   { slot:'cape', name:'천공의 날개',     atk:30, def:40, grade:'legendary', bonusSpd:5, bound:true },
+    // 벨트 (belt)
+    'equip_belt_1':   { slot:'belt', name:'가죽 벨트',       atk:2,  def:3,  grade:'normal' },
+    'equip_belt_2':   { slot:'belt', name:'철제 벨트',       atk:5,  def:8,  grade:'uncommon' },
+    'equip_belt_3':   { slot:'belt', name:'미스릴 벨트',     atk:10, def:12, grade:'rare' },
+    'equip_belt_4':   { slot:'belt', name:'영웅의 벨트',     atk:15, def:20, grade:'epic' },
+    'equip_belt_5':   { slot:'belt', name:'드래곤 벨트',     atk:25, def:30, grade:'legendary', bound:true },
+    // 영웅/전설급 투구/장갑/신발 추가
+    'equip_helm_4':   { slot:'helmet', name:'영웅의 투구',   atk:5,  def:35, grade:'epic' },
+    'equip_helm_5':   { slot:'helmet', name:'드래곤 투구',   atk:10, def:50, grade:'legendary', bound:true },
+    'equip_glove_4':  { slot:'gloves', name:'영웅의 장갑',   atk:20, def:15, grade:'epic' },
+    'equip_glove_5':  { slot:'gloves', name:'드래곤 장갑',   atk:30, def:25, grade:'legendary', bound:true },
+    'equip_boots_4':  { slot:'boots', name:'영웅의 장화',    atk:5,  def:18, grade:'epic',      bonusSpd:4 },
+    'equip_boots_5':  { slot:'boots', name:'드래곤 장화',    atk:8,  def:28, grade:'legendary', bonusSpd:6, bound:true },
+    // 신화급 세트 장비 (mythic)
+    'equip_mythic_sword': { slot:'weapon', name:'태초의 검', atk:200, def:0,  grade:'legendary', bound:true },
+    'equip_mythic_armor': { slot:'armor',  name:'태초의 갑옷', atk:0, def:200, grade:'legendary', bound:true },
+    'equip_mythic_ring':  { slot:'ring',   name:'태초의 반지', atk:30, def:30, grade:'legendary', bound:true, expBonus:0.15, goldBonus:0.15 },
 };
 
 // ==========================================
@@ -455,9 +729,18 @@ const ELEMENTS = ['fire', 'water', 'wind', 'earth'];
 const ELEMENT_BONUS = { fire: 'water', water: 'wind', wind: 'earth', earth: 'fire' }; // 상성
 
 // ==========================================
-// 혈맹(클랜) 시스템
+// 혈맹(클랜) 시스템 (기획서 확장)
 // ==========================================
-let clans = {}; // { clanName: { leader, members:[], level, exp, emblem } }
+const CLAN_LEVEL_EXP = [0, 1000, 3000, 7000, 15000, 30000]; // 레벨업 필요 경험치
+const CLAN_MAX_MEMBERS = { 1:10, 2:20, 3:30, 4:40, 5:50 };
+const CLAN_SKILLS = {
+    1: { name:'혈맹의 힘', effect:'ATK +5%', stat:'atk', multi:0.05 },
+    2: { name:'혈맹의 방패', effect:'DEF +5%', stat:'def', multi:0.05 },
+    3: { name:'혈맹의 지혜', effect:'EXP +10%', stat:'exp', multi:0.10 },
+    4: { name:'혈맹의 축복', effect:'HP +10%', stat:'hp', multi:0.10 },
+    5: { name:'혈맹의 영광', effect:'골드 +10%', stat:'gold', multi:0.10 },
+};
+let clans = {}; // { clanName: { leader, officers:[], members:[], level, exp, storage:{}, war:null } }
 
 // ==========================================
 // 파티 시스템
@@ -465,25 +748,101 @@ let clans = {}; // { clanName: { leader, members:[], level, exp, emblem } }
 let parties = {}; // { partyId: { leader, members:[], name } }
 let partyIdCounter = 0;
 
+// 아레나 시스템
+let arenaQueue = []; // 대기 중인 플레이어 ID 목록
+let arenaMatches = {}; // { matchId: { player1, player2, startTime, zone } }
+let arenaRankings = {}; // { playerId: { wins, losses, points, rank } }
+let arenaMatchIdCounter = 0;
+
 // 랭킹
 let rankings = { level:[], pvp:[], gold:[] };
+
+function getEnchantBonus(enchantLevel) {
+    // 밸런스 조정: +1~3: +3%, +4~7: +5%, +8~10: +7%, +11~15: +10%
+    let bonus = 0;
+    for (let i = 1; i <= enchantLevel; i++) {
+        if (i <= 3)       bonus += 0.03;
+        else if (i <= 7)  bonus += 0.05;
+        else if (i <= 10) bonus += 0.07;
+        else              bonus += 0.10;
+    }
+    return bonus;
+}
 
 function recalcStats(p) {
     if (!p || p.isBot) return;
     const cls = CLASSES[p.className];
     if (!cls) return;
-    let bonusAtk = 0, bonusDef = 0;
+    let bonusAtk = 0, bonusDef = 0, bonusHp = 0, bonusSpd = 0;
+    let bonusCrit = 0, bonusDodge = 0, bonusExp = 0, bonusGold = 0;
+
     if (p.equipped) {
         for (const slot of EQUIPMENT_SLOTS) {
             const eqId = p.equipped[slot];
-            if (eqId && EQUIP_STATS[eqId]) {
-                bonusAtk += EQUIP_STATS[eqId].atk;
-                bonusDef += EQUIP_STATS[eqId].def;
+            if (!eqId || !EQUIP_STATS[eqId]) continue;
+            const eq = EQUIP_STATS[eqId];
+            const grade = GRADE_INFO[eq.grade] || GRADE_INFO.normal;
+            const enchant = (p.enchantLevels && p.enchantLevels[eqId]) || 0;
+            const enchantMult = 1 + getEnchantBonus(enchant);
+
+            bonusAtk += Math.floor(eq.atk * grade.atkMulti * enchantMult);
+            bonusDef += Math.floor(eq.def * grade.defMulti * enchantMult);
+            if (eq.bonusSpd) bonusSpd += eq.bonusSpd;
+            if (eq.expBonus) bonusExp += eq.expBonus;
+            if (eq.goldBonus) bonusGold += eq.goldBonus;
+
+            // 랜덤 옵션 적용
+            const opts = p.equipOptions && p.equipOptions[eqId];
+            if (opts) {
+                for (const opt of opts) {
+                    if (opt.stat === 'bonusHp') bonusHp += opt.value;
+                    if (opt.stat === 'critRate') bonusCrit += opt.value;
+                    if (opt.stat === 'dodgeRate') bonusDodge += opt.value;
+                    if (opt.stat === 'bonusSpd') bonusSpd += opt.value;
+                    if (opt.stat === 'expBonus') bonusExp += opt.value;
+                    if (opt.stat === 'goldBonus') bonusGold += opt.value;
+                }
             }
         }
     }
-    p.atk = cls.atk + bonusAtk;
-    p.def = cls.def + bonusDef;
+
+    // 스탯 포인트 보너스 (bonusStr/Dex/Int/Con 사용)
+    const str = p.bonusStr || 0, dex = p.bonusDex || 0, int_ = p.bonusInt || 0, con = p.bonusCon || 0;
+
+    // 세트 보너스 계산
+    let setAtkBonus = 0, setDefBonus = 0, setHpBonus = 0, setAtkMulti = 1, setDefMulti = 1, setExpBonus = 0;
+    if (p.equipped) {
+        const equippedIds = Object.values(p.equipped).filter(Boolean);
+        for (const [setId, setInfo] of Object.entries(EQUIPMENT_SETS)) {
+            const count = setInfo.pieces.filter(pid => equippedIds.includes(pid)).length;
+            for (const [req, bonus] of Object.entries(setInfo.bonuses)) {
+                if (count >= parseInt(req)) {
+                    if (bonus.atk) setAtkBonus += bonus.atk;
+                    if (bonus.def) setDefBonus += bonus.def;
+                    if (bonus.hp) setHpBonus += bonus.hp;
+                    if (bonus.atkMulti) setAtkMulti = Math.max(setAtkMulti, bonus.atkMulti);
+                    if (bonus.defMulti) setDefMulti = Math.max(setDefMulti, bonus.defMulti);
+                    if (bonus.expBonus) setExpBonus += bonus.expBonus;
+                }
+            }
+        }
+    }
+
+    // 펫 ATK 보너스
+    let petAtkMulti = 1.0;
+    const pet = getPetEffect(p);
+    if (pet && pet.effect === 'atkBonus') petAtkMulti += pet.value;
+
+    p.atk = Math.floor((cls.atk + bonusAtk + setAtkBonus + str * 2) * petAtkMulti * setAtkMulti);
+    p.def = Math.floor((cls.def + bonusDef + setDefBonus) * setDefMulti);
+    p.equipBonusHp = bonusHp + con * 10 + setHpBonus;
+    p.maxHp = cls.hp + (p.level - 1) * 20 + p.equipBonusHp;
+    p.dmgMulti = 1.0 + (p.level - 1) * 0.08 + int_ * 0.02;
+    p.critRate = (cls.critRate || 0.1) + bonusCrit + dex * 0.005;
+    p.dodgeRate = (cls.dodgeRate || 0) + bonusDodge + dex * 0.003;
+    p.equipBonusSpd = bonusSpd;
+    p.equipExpBonus = bonusExp;
+    p.equipGoldBonus = bonusGold;
 }
 
 function trackQuest(p, target, amount) {
@@ -505,16 +864,89 @@ function trackQuest(p, target, amount) {
 }
 
 function updateRankings() {
+    const oldLevelTop = rankings.level ? rankings.level.map(r => r.id) : [];
     const realPlayers = Object.values(players).filter(p => !p.isBot && p.isAlive);
     rankings.level = realPlayers.sort((a,b) => b.level - a.level).slice(0,10).map(p => ({
-        name: p.displayName, level: p.level, className: p.className
+        name: p.displayName, level: p.level, className: p.className, id: p.id
     }));
-    rankings.pvp = realPlayers.sort((a,b) => b.killCount - a.killCount).slice(0,10).map(p => ({
-        name: p.displayName, kills: p.killCount, className: p.className
+    // 랭킹 추월 알림
+    for (let i = 0; i < rankings.level.length; i++) {
+        const pid = rankings.level[i].id;
+        const oldIdx = oldLevelTop.indexOf(pid);
+        if (oldIdx > i && i < 5) {
+            io.to(pid).emit('rank_change', { type: 'level', newRank: i+1, oldRank: oldIdx+1 });
+            if (i === 0) io.emit('server_msg', { msg: `${rankings.level[i].name}이(가) 레벨 랭킹 1위 달성!`, type: 'rare' });
+        } else if (oldIdx === -1 && i < 10) {
+            io.to(pid).emit('rank_change', { type: 'level', newRank: i+1, oldRank: 0 });
+        }
+    }
+    rankings.pvp = realPlayers.sort((a,b) => (b.pvpWins||0) - (a.pvpWins||0)).slice(0,10).map(p => ({
+        name: p.displayName, kills: p.pvpWins||0, className: p.className, id: p.id
     }));
     rankings.gold = realPlayers.sort((a,b) => b.gold - a.gold).slice(0,10).map(p => ({
-        name: p.displayName, gold: p.gold, className: p.className
+        name: p.displayName, gold: p.gold, className: p.className, id: p.id
     }));
+    // 아레나 랭킹
+    rankings.arena = Object.entries(arenaRankings)
+        .sort((a,b) => b[1].points - a[1].points)
+        .slice(0, 10)
+        .map(([pid, r], idx) => ({
+            rank: idx + 1, name: players[pid]?.displayName || '?',
+            className: players[pid]?.className || '?',
+            wins: r.wins, losses: r.losses, points: r.points, id: pid
+        }));
+}
+
+// 주간 랭킹 보상 지급 (월요일 06:00 기준)
+let lastWeeklyRewardWeek = '';
+function checkWeeklyRankingRewards() {
+    const now = new Date();
+    const week = getWeekNumber();
+    if (now.getDay() === 1 && now.getHours() === 6 && lastWeeklyRewardWeek !== week) {
+        lastWeeklyRewardWeek = week;
+        updateRankings();
+
+        // 레벨 1위
+        if (rankings.level.length > 0) {
+            const topId = rankings.level[0].id;
+            const top = players[topId];
+            if (top) {
+                top.gold += 10000;
+                top.diamonds = (top.diamonds || 0) + 100;
+                // 주간 칭호 부여 (기존 주간 칭호 제거)
+                if (top.titles) top.titles = top.titles.filter(t => !TITLES[t]?.weekly);
+                if (!top.titles) top.titles = [];
+                top.titles.push('title_rank_level');
+                io.to(topId).emit('server_msg', { msg: '주간 레벨 1위 보상! +10000G, +100D, 칭호: 서버 최강자', type: 'rare' });
+            }
+        }
+
+        // PvP 1위
+        if (rankings.pvp.length > 0) {
+            const topId = rankings.pvp[0].id;
+            const top = players[topId];
+            if (top) {
+                top.gold += 5000;
+                top.diamonds = (top.diamonds || 0) + 80;
+                if (top.titles) top.titles = top.titles.filter(t => !TITLES[t]?.weekly);
+                if (!top.titles) top.titles = [];
+                top.titles.push('title_rank_pvp');
+                io.to(topId).emit('server_msg', { msg: '주간 PvP 1위 보상! +5000G, +80D, 칭호: 최강 전사', type: 'rare' });
+            }
+        }
+
+        // 상위 10위까지 보상
+        for (let i = 1; i < Math.min(10, rankings.level.length); i++) {
+            const p = players[rankings.level[i]?.id];
+            if (p) {
+                const reward = Math.floor(10000 / (i + 1));
+                p.gold += reward;
+                io.to(p.id).emit('server_msg', { msg: `주간 레벨 ${i+1}위 보상! +${reward}G`, type: 'normal' });
+            }
+        }
+
+        io.emit('server_msg', { msg: '주간 랭킹 보상이 지급되었습니다!', type: 'boss' });
+    }
 }
 let axes = {};
 let aoes = {};
@@ -523,39 +955,39 @@ let drops = {}; // 드롭 아이템
 
 let entityIdCounter = 0;
 const MAX_PLAYERS = 50;
-const MAX_MONSTERS = 200; // 1000x1000 맵에 몬스터 대량 배치
+const MAX_MONSTERS = 600; // 2000x2000 맵에 몬스터 대량 배치
 let hasKing = false;
 
 // ── 클래스 정의 (판타지 RPG) ──
 const CLASSES = {
     'Assassin': {
         displayName: '어쌔신',
-        maxHp: 120, atk: 45, def: 8,  speed: 22,
-        critRate: 0.25, dodgeRate: 0.15,
-        aoe: false, projSpeed: 45, projLife: 80,
+        maxHp: 130, atk: 35, def: 8,  speed: 20,
+        critRate: 0.20, dodgeRate: 0.15,
+        aoe: false, projSpeed: 40, projLife: 80,
         desc: '빠른 속도와 높은 크리티컬로 적을 암살',
-        autoSkill: 'shadowStrike' // 그림자 일격: 일정 확률로 2배 데미지
+        autoSkill: 'shadowStrike'
     },
     'Warrior': {
         displayName: '워리어',
-        maxHp: 180, atk: 30, def: 15, speed: 12,
+        maxHp: 200, atk: 28, def: 16, speed: 12,
         critRate: 0.10, dodgeRate: 0.05,
         aoe: false, projSpeed: 18, projLife: 1200,
         desc: '균형 잡힌 공방, 안정적인 전투력',
-        autoSkill: 'powerStrike' // 파워 스트라이크: 공격력 1.5배 일격
+        autoSkill: 'powerStrike'
     },
     'Knight': {
         displayName: '나이트',
-        maxHp: 300, atk: 15, def: 30, speed: 10,
+        maxHp: 350, atk: 18, def: 28, speed: 10,
         critRate: 0.05, dodgeRate: 0.02,
         aoe: false, projSpeed: 14, projLife: 800,
         desc: '철벽 방어, 아군을 지키는 탱커',
-        autoSkill: 'shieldBash' // 방패 강타: 적 스턴 + 데미지
+        autoSkill: 'shieldBash'
     },
     'Mage': {
         displayName: '메이지',
-        maxHp: 90, atk: 10, def: 5,  speed: 9,
-        critRate: 0.15, dodgeRate: 0.10,
+        maxHp: 110, atk: 18, def: 6,  speed: 9,
+        critRate: 0.15, dodgeRate: 0.08,
         aoe: true, projSpeed: 0, projLife: 2500,
         desc: '강력한 광역 마법으로 전장을 지배',
         autoSkill: 'meteor' // 메테오: 넓은 범위 폭발
@@ -573,25 +1005,76 @@ const CLASSES = {
 // ── 몬스터 등급 ──
 const MONSTER_TIERS = {
     normal: {
-        name: '슬라임', hp: 60, atk: 5, def: 2,
-        expReward: 15, goldReward: 8, color: '#88cc88',
-        spawnWeight: 60
+        name: '슬라임', hp: 80, atk: 12, def: 3,
+        expReward: 18, goldReward: 10, color: '#88cc88',
+        spawnWeight: 50
     },
     elite: {
-        name: '오크 전사', hp: 200, atk: 15, def: 8,
-        expReward: 50, goldReward: 30, color: '#ccaa44',
+        name: '오크 전사', hp: 300, atk: 28, def: 12,
+        expReward: 65, goldReward: 40, color: '#ccaa44',
         spawnWeight: 25
     },
     rare: {
-        name: '다크 나이트', hp: 500, atk: 30, def: 15,
-        expReward: 120, goldReward: 80, color: '#aa44cc',
-        spawnWeight: 10
+        name: '다크 나이트', hp: 800, atk: 50, def: 22,
+        expReward: 160, goldReward: 100, color: '#aa44cc',
+        spawnWeight: 12
     },
     boss: {
-        name: '드래곤', hp: 2000, atk: 60, def: 30,
-        expReward: 500, goldReward: 300, color: '#ff4444',
+        name: '드래���', hp: 2000, atk: 60, def: 30,
+        expReward: 600, goldReward: 350, color: '#ff4444',
         spawnWeight: 5
+    },
+    legendary: {
+        name: '고대 드��곤', hp: 8000, atk: 100, def: 50,
+        expReward: 2000, goldReward: 1000, color: '#ff8800',
+        spawnWeight: 1
+    },
+    mythic: {
+        name: '태초의 존재', hp: 30000, atk: 200, def: 100,
+        expReward: 8000, goldReward: 5000, color: '#ff00ff',
+        spawnWeight: 0
     }
+};
+
+// 존별 몬스터 이름 변형
+const ZONE_MONSTER_NAMES = {
+    forest:     { normal:'숲 슬라임', elite:'독거미' },
+    plains:     { normal:'야생토끼', elite:'늑대' },
+    meadow:     { normal:'꽃 요정', elite:'꿀벌 여왕' },
+    swamp:      { normal:'독 두꺼비', elite:'늪지 골렘', rare:'해골 기사' },
+    desert:     { normal:'전갈', elite:'모래 웜', rare:'사막 미라' },
+    cave:       { normal:'박쥐', elite:'동굴 트롤', rare:'수정 골렘', boss:'동굴 보스' },
+    ruins:      { normal:'유령', elite:'가고일', rare:'리치', boss:'고대 수호자' },
+    volcano:    { elite:'화염 정령', rare:'용암 골렘', boss:'불의 드래곤' },
+    graveyard:  { elite:'좀비', rare:'뱀파이어', boss:'데스나이트' },
+    darkforest: { elite:'그림자 늑대', rare:'다크 엘프', boss:'숲의 군주' },
+    glacier:    { elite:'얼음 골렘', rare:'프로스트 위치', boss:'빙룡' },
+    dragon:     { rare:'와이번', boss:'레드 드래곤', legendary:'고대 드래곤' },
+    abyss:      { rare:'심연의 그림자', boss:'암흑 군주', legendary:'심연의 왕' },
+    hell:       { rare:'악마', boss:'지옥의 문지기', legendary:'대마왕' },
+    ancient:    { rare:'트렌트', boss:'고대 엔트', legendary:'세계수 수호자' },
+    chaos:      { elite:'광전사', rare:'카오스 나이트', boss:'혼돈의 용' },
+    warzone:    { elite:'용병 대장', rare:'전쟁 기계', boss:'전장의 왕' },
+    // 확장 존
+    mushroom:    { normal:'독버섯', elite:'버섯 골렘' },
+    riverbank:   { normal:'물고기 요정', elite:'강 트롤', rare:'수룡' },
+    tundra:      { normal:'눈토끼', elite:'설인' },
+    training:    { normal:'허수아비', elite:'훈련용 골렘' },
+    toxic_marsh: { normal:'독두꺼비', elite:'독안개 정령', rare:'늪지 히드라' },
+    sandstorm:   { normal:'먼지 요정', elite:'사막 전갈', rare:'사막 거인', boss:'모래폭풍 워름' },
+    crystal_mine:{ normal:'광석 박쥐', elite:'수정 골렘', rare:'보석 수호자', boss:'미스릴 드래곤' },
+    sunken:      { elite:'물의 정령', rare:'해저 기사', boss:'크라켄' },
+    haunted:     { elite:'폴터가이스트', rare:'밤의 백작', boss:'유령왕' },
+    magma_core:  { elite:'마그마 슬라임', rare:'화염 원소', boss:'화산 거인' },
+    sky_ruins:   { elite:'하피', rare:'천공 기사', boss:'천둥 드래곤', legendary:'폭풍의 왕' },
+    shadow:      { rare:'그림자 암살자', boss:'허무의 기사', legendary:'그림자 군주' },
+    frozen_deep: { rare:'빙결 골렘', boss:'프로스트 리치', legendary:'빙하의 여왕' },
+    celestial:   { rare:'천사', boss:'세라핌', legendary:'대천사장', mythic:'하늘의 심판자' },
+    demon:       { rare:'하급 악마', boss:'악마 장군', legendary:'마왕', mythic:'혼돈의 지배자' },
+    world_tree:  { boss:'엔트 수호자', legendary:'세계수 정령', mythic:'생명의 어머니' },
+    void_rift:   { boss:'공허의 감시자', legendary:'차원 포식자', mythic:'태초의 존재' },
+    blood_arena: { elite:'광전사', rare:'피의 기사', boss:'투기장 챔피언', legendary:'피의 군주' },
+    lawless:     { elite:'도적 대장', rare:'현상금 사냥꾼', boss:'무법자 왕' },
 };
 
 // ── 카르마 시스템 (PK 페널티) ──
@@ -606,14 +1089,41 @@ const KARMA = {
 
 // ── 레벨업 테이블 ──
 function getExpRequired(level) {
-    return Math.floor(100 * Math.pow(1.15, level - 1));
+    return Math.floor(100 * Math.pow(1.10, level - 1));
 }
 
 // ── 방어력 기반 데미지 계산 ──
-function calcDamage(atk, def, dmgMulti, critRate) {
+const MAX_STACK = 999; // 아이템 최대 스택
+const MAX_GOLD = 999999999;
+const MAX_DIAMONDS = 9999999;
+const MAX_LEVEL = 99;
+
+function capResources(p) {
+    if (p.gold > MAX_GOLD) p.gold = MAX_GOLD;
+    if (p.diamonds > MAX_DIAMONDS) p.diamonds = MAX_DIAMONDS;
+    if (p.level > MAX_LEVEL) p.level = MAX_LEVEL;
+}
+
+function getYesterday() {
+    const d = new Date(); d.setDate(d.getDate() - 1);
+    return d.toISOString().slice(0, 10);
+}
+function getWeekNumber() {
+    const d = new Date();
+    const start = new Date(d.getFullYear(), 0, 1);
+    return d.getFullYear() + '-W' + Math.ceil(((d - start) / 86400000 + start.getDay() + 1) / 7);
+}
+
+function calcDamage(atk, def, dmgMulti, critRate, attackerElement, defenderElement) {
     let isCrit = Math.random() < critRate;
-    let baseDmg = Math.max(1, atk * dmgMulti - def * 0.5);
+    let baseDmg = Math.max(1, atk * dmgMulti - def * 0.3);
     if (isCrit) baseDmg *= 2.0;
+    // 속성 상성 보너스 (fire>wind>earth>water>fire)
+    if (attackerElement && defenderElement && ELEMENT_BONUS[attackerElement] === defenderElement) {
+        baseDmg *= 1.25; // 유리 속성 25% 추가 데미지
+    } else if (defenderElement && attackerElement && ELEMENT_BONUS[defenderElement] === attackerElement) {
+        baseDmg *= 0.8; // 불리 속성 20% 감소
+    }
     return { damage: Math.floor(baseDmg), isCrit };
 }
 
@@ -628,35 +1138,227 @@ function pickMonsterTier() {
     return 'normal';
 }
 
+function pickZoneTier(zoneId) {
+    const zm = ZONE_MONSTERS[zoneId];
+    if (!zm) return pickMonsterTier();
+    const total = Object.values(zm.tiers).reduce((s, w) => s + w, 0);
+    let roll = Math.random() * total;
+    for (const [tier, weight] of Object.entries(zm.tiers)) {
+        roll -= weight;
+        if (roll <= 0) return tier;
+    }
+    return 'normal';
+}
+
+// 존 레벨에 따라 몬스터 스탯 스케일링
+function scaleMonster(tier, zoneLvl) {
+    const base = MONSTER_TIERS[tier];
+    if (!base) return MONSTER_TIERS.normal;
+    const scale = 1 + Math.max(0, zoneLvl - 5) * 0.06; // 존 레벨 5 이상부터 6%씩 강화
+    return {
+        ...base,
+        hp: Math.floor(base.hp * scale),
+        atk: Math.floor(base.atk * scale),
+        def: Math.floor(base.def * scale),
+        expReward: Math.floor(base.expReward * scale),
+        goldReward: Math.floor(base.goldReward * scale),
+    };
+}
+
 function spawnMonster() {
     entityIdCounter++;
     const mId = 'monster_' + entityIdCounter;
-    const tierKey = pickMonsterTier();
-    const tier = MONSTER_TIERS[tierKey];
 
-    // 사냥터 존에 몬스터 스폰 (마을/특수 존 제외)
-    const huntZones = Object.values(ZONES).filter(z => !z.safe && !z.isCastle && !z.isArena);
-    const zone = huntZones[Math.floor(Math.random() * huntZones.length)];
+    // 존 기반 스폰 (존별 몬스터 등급 배합)
+    const huntZoneEntries = Object.entries(ZONES).filter(([id, z]) => !z.safe && !z.isCastle && !z.isArena && ZONE_MONSTERS[id]);
+    const [zoneId, zone] = huntZoneEntries[Math.floor(Math.random() * huntZoneEntries.length)];
+    const tierKey = pickZoneTier(zoneId);
+    const zoneMidLvl = Math.floor((zone.lvl[0] + zone.lvl[1]) / 2);
+    const tier = scaleMonster(tierKey, zoneMidLvl);
+
     const mx = zone.x + Math.random() * zone.w;
     const my = zone.y + Math.random() * zone.h;
+
+    // 몬스터 고유 AI 타입
+    const AI_TYPES = { normal:'wander', elite:'charge', rare:'aoe', boss:'breath', legendary:'breath', mythic:'breath' };
+    // 존별 이름 적용
+    const zoneNames = ZONE_MONSTER_NAMES[zoneId];
+    const monsterName = (zoneNames && zoneNames[tierKey]) ? zoneNames[tierKey] : tier.name;
 
     monsters[mId] = {
         id: mId,
         tier: tierKey,
-        name: tier.name,
-        x: mx,
-        y: my,
-        hp: tier.hp,
-        maxHp: tier.hp,
-        atk: tier.atk,
-        def: tier.def,
+        name: monsterName,
+        x: mx, y: my,
+        hp: tier.hp, maxHp: tier.hp,
+        atk: tier.atk, def: tier.def,
         color: tier.color,
-        isAlive: true
+        isAlive: true,
+        element: ELEMENTS[Math.floor(Math.random() * ELEMENTS.length)],
+        zoneId,
+        aiType: AI_TYPES[tierKey] || 'wander',
+        expReward: tier.expReward,
+        goldReward: tier.goldReward,
+        lastSpecialAttack: 0,
     };
+
+    // 밤 시간 강화 적용
+    if (isNight) {
+        monsters[mId].atk = Math.floor(monsters[mId].atk * 1.2);
+        monsters[mId].hp = Math.floor(monsters[mId].hp * 1.2);
+        monsters[mId].maxHp = Math.floor(monsters[mId].maxHp * 1.2);
+        monsters[mId].nightBuffed = true;
+    }
+
+    // 레어 몬스터 스폰 공지
+    if (tierKey === 'legendary' || tierKey === 'mythic') {
+        const spawnZoneName = ZONES[zoneId]?.name || zoneId;
+        io.emit('rare_spawn', { id: mId, name: monsterName, tier: tierKey, zoneId, zoneName: spawnZoneName });
+        io.emit('server_msg', { msg: `[희귀 출현] ${monsterName}이(가) ${spawnZoneName}에 나타났습니다!`, type: 'boss' });
+    }
 }
 
 // 초기 몬스터 배치
 for (let i = 0; i < MAX_MONSTERS; i++) spawnMonster();
+
+// ── 월드 보스 시스템 ──
+let worldBoss = null;
+const WORLD_BOSS_TYPES = [
+    { name:'태고의 드래곤', hp:50000, atk:120, def:50, expReward:5000, goldReward:3000, tier:'worldboss', color:'#FF0000' },
+    { name:'심연의 군주',   hp:80000, atk:150, def:70, expReward:8000, goldReward:5000, tier:'worldboss', color:'#8800FF' },
+    { name:'불멸의 피닉스', hp:60000, atk:130, def:40, expReward:6000, goldReward:4000, tier:'worldboss', color:'#FF8800' },
+];
+
+function endArenaMatch(matchId, winnerId, loserId, reason) {
+    const match = arenaMatches[matchId];
+    if (!match) return;
+    const winner = players[winnerId], loser = players[loserId];
+
+    // 포인트 계산
+    if (!arenaRankings[winnerId]) arenaRankings[winnerId] = { wins:0, losses:0, points:1000 };
+    if (!arenaRankings[loserId]) arenaRankings[loserId] = { wins:0, losses:0, points:1000 };
+    arenaRankings[winnerId].wins++;
+    arenaRankings[loserId].losses++;
+    arenaRankings[winnerId].points += 25;
+    arenaRankings[loserId].points = Math.max(0, arenaRankings[loserId].points - 15);
+
+    // 보상
+    if (winner) {
+        winner.gold += 200;
+        winner.arenaCountToday = (winner.arenaCountToday || 0) + 1;
+        winner.hp = winner.maxHp; // HP 회복
+        delete winner.arenaMatchId;
+        // 마을로 귀환
+        winner.x = -480 + Math.random() * 40; winner.y = -480 + Math.random() * 40;
+        io.to(winnerId).emit('arena_end', { result: 'win', points: arenaRankings[winnerId].points, reward: 200, reason });
+        trackQuest(winner, 'pvp_win', 1);
+        trackQuest(winner, 'pvp_fight', 1);
+    }
+    if (loser) {
+        loser.arenaCountToday = (loser.arenaCountToday || 0) + 1;
+        loser.hp = loser.maxHp; // HP 회복
+        delete loser.arenaMatchId;
+        loser.x = -480 + Math.random() * 40; loser.y = -480 + Math.random() * 40;
+        io.to(loserId).emit('arena_end', { result: 'lose', points: arenaRankings[loserId].points, reason });
+        trackQuest(loser, 'pvp_fight', 1);
+    }
+
+    io.emit('server_msg', { msg: `[아레나] ${winner?.displayName || '?'} 승리! (${reason})`, type: 'normal' });
+    delete arenaMatches[matchId];
+}
+
+function spawnWorldBoss() {
+    if (worldBoss && worldBoss.isAlive) return; // 이미 보스 존재
+    const bossType = WORLD_BOSS_TYPES[Math.floor(Math.random() * WORLD_BOSS_TYPES.length)];
+    const zone = ZONES.dragon; // 용의 요람에 스폰
+    entityIdCounter++;
+    const bossId = 'worldboss_' + entityIdCounter;
+
+    monsters[bossId] = {
+        id: bossId,
+        tier: 'worldboss',
+        name: bossType.name,
+        x: zone.x + zone.w / 2,
+        y: zone.y + zone.h / 2,
+        hp: bossType.hp,
+        maxHp: bossType.hp,
+        atk: bossType.atk,
+        def: bossType.def,
+        color: bossType.color,
+        isAlive: true,
+        isWorldBoss: true,
+        expReward: bossType.expReward,
+        goldReward: bossType.goldReward,
+        damageContrib: {}, // 기여도 추적 {playerId: totalDamage}
+    };
+
+    worldBoss = { id: bossId, name: bossType.name, isAlive: true, spawnTime: Date.now() };
+    io.emit('server_msg', { msg: `[월드 보스] ${bossType.name}이(가) 용의 요람에 출현했습니다! 모든 전사여 모여라!`, type: 'boss' });
+    io.emit('world_boss_spawn', { id: bossId, name: bossType.name, hp: bossType.hp, maxHp: bossType.hp, x: monsters[bossId].x, y: monsters[bossId].y });
+}
+
+// ── 던전 시스템 ──
+const DUNGEONS = {
+    cave_dungeon: {
+        name: '어둠의 동굴', zoneId: 'cave', minLevel: 15, maxParty: 5, stages: 3,
+        monsters: [
+            { tier:'elite', count:5 }, { tier:'elite', count:8 }, { tier:'boss', count:1 }
+        ],
+        rewards: { gold: 2000, exp: 3000, drops: ['equip_sword_3','equip_armor_3'] }
+    },
+    ruins_dungeon: {
+        name: '지하 감옥', zoneId: 'ruins', minLevel: 20, maxParty: 5, stages: 5,
+        monsters: [
+            { tier:'elite', count:5 }, { tier:'rare', count:3 }, { tier:'elite', count:8 },
+            { tier:'rare', count:5 }, { tier:'boss', count:2 }
+        ],
+        rewards: { gold: 5000, exp: 8000, drops: ['equip_sword_4','equip_armor_4','equip_ring_3'] }
+    },
+    dragon_raid: {
+        name: '드래곤 둥지 레이드', zoneId: 'dragon', minLevel: 25, maxParty: 25, stages: 3,
+        monsters: [
+            { tier:'rare', count:10 }, { tier:'boss', count:3 }, { tier:'boss', count:1 }
+        ],
+        rewards: { gold: 15000, exp: 20000, drops: ['equip_sword_5','equip_armor_5'] }
+    },
+};
+let activeDungeons = {}; // {instanceId: {dungeonId, players:[], currentStage, monstersLeft}}
+
+// ── 무한의 탑 시스템 ──
+const INFINITE_TOWER = {
+    maxFloor: 100,
+    getMonsters(floor) {
+        const count = 3 + Math.floor(floor / 5);
+        const hp = 80 + floor * 40;
+        const atk = 8 + floor * 3;
+        const def = 3 + floor * 1.5;
+        let tier = 'normal';
+        if (floor >= 10) tier = 'elite';
+        if (floor >= 30) tier = 'rare';
+        if (floor >= 50) tier = 'boss';
+        return { count, hp, atk, def, tier };
+    },
+    getReward(floor) {
+        const gold = 100 + floor * 50;
+        const exp = 200 + floor * 80;
+        const diamonds = floor % 10 === 0 ? Math.floor(floor / 2) : 0;
+        const drops = [];
+        if (floor % 10 === 0) drops.push(floor >= 50 ? 'equip_sword_4' : floor >= 20 ? 'equip_sword_3' : 'equip_sword_2');
+        if (floor % 25 === 0) drops.push('mat_dragon');
+        return { gold, exp, diamonds, drops };
+    }
+};
+let towerProgress = {}; // {playerId: {currentFloor, monstersLeft, startTime}}
+
+// ── 친구 시스템 ──
+let friendLists = {}; // {playerId: [friendId, ...]}
+let friendRequests = {}; // {targetId: [{fromId, fromName, time}]}
+
+// ── 시간대별 필드보스 ──
+let fieldBossActive = false;
+let lastFieldBossHour = -1;
+let goldFeverZone = null;
+let goldFeverEnd = 0;
 
 // ── 드롭 아이템 생성 ──
 function spawnDrop(x, y, gold, monsterId) {
@@ -747,6 +1449,8 @@ io.on('connection', (socket) => {
             // 스탯 포인트
             statPoints: 0,
             bonusStr: 0, bonusDex: 0, bonusInt: 0, bonusCon: 0,
+            // MP 시스템
+            mp: 100, maxMp: 100,
             // 속성
             element: ELEMENTS[Math.floor(Math.random() * 4)],
             // 전직
@@ -769,18 +1473,66 @@ io.on('connection', (socket) => {
             pInfo.karma = loadedData.karma || 0;
             pInfo.team = loadedData.team;
 
-            const baseCls = CLASSES[pInfo.className];
+            // 확장 데이터 복원
+            if (loadedData.ext_data) {
+                try {
+                    const ext = JSON.parse(loadedData.ext_data);
+                    Object.assign(pInfo, {
+                        equipped: ext.equipped || {},
+                        enchantLevels: ext.enchantLevels || {},
+                        equipOptions: ext.equipOptions || {},
+                        inventory: ext.inventory || pInfo.inventory,
+                        warehouse: ext.warehouse || {},
+                        diamonds: ext.diamonds || pInfo.diamonds,
+                        statPoints: ext.statPoints || 0,
+                        bonusStr: ext.bonusStr || 0, bonusDex: ext.bonusDex || 0,
+                        bonusInt: ext.bonusInt || 0, bonusCon: ext.bonusCon || 0,
+                        isAdvanced: ext.isAdvanced || false,
+                        advancedClass: ext.advancedClass || null,
+                        baseClassName: ext.baseClassName || null,
+                        pvpWins: ext.pvpWins || 0,
+                        towerHighest: ext.towerHighest || 0,
+                        attendance: ext.attendance || {},
+                        lastLoginDate: ext.lastLoginDate || null,
+                        lastWeek: ext.lastWeek || null,
+                        clanName: ext.clanName || null,
+                        activePet: ext.activePet || null,
+                        pets: ext.pets || [],
+                        activeMount: ext.activeMount || null,
+                        mounts: ext.mounts || [],
+                        titles: ext.titles || [],
+                        activeTitle: ext.activeTitle || null,
+                        activeSkin: ext.activeSkin || null,
+                        skins: ext.skins || [],
+                        morphKills: ext.morphKills || {},
+                        totalTamed: ext.totalTamed || 0,
+                        totalTradeProfit: ext.totalTradeProfit || 0,
+                        totalCrafts: ext.totalCrafts || 0,
+                        dungeonClears: ext.dungeonClears || 0,
+                        maxArmy: ext.maxArmy || 30,
+                        autoPotion: ext.autoPotion || false,
+                        questProgress: ext.questProgress || {},
+                        questCompleted: ext.questCompleted || {},
+                    });
+                    if (pInfo.isAdvanced && pInfo.advancedClass) {
+                        const adv = CLASS_ADVANCE[pInfo.baseClassName || pInfo.className];
+                        if (adv) pInfo.displayName = adv.displayName;
+                    }
+                } catch(e) {}
+            }
+
+            const baseCls = CLASSES[pInfo.baseClassName || pInfo.className] || CLASSES[pInfo.className];
+            // recalcStats로 장비/스탯 포인트 포함 전체 재계산
             pInfo.atk = baseCls.atk;
             pInfo.def = baseCls.def;
             pInfo.critRate = baseCls.critRate;
             pInfo.dodgeRate = baseCls.dodgeRate;
             pInfo.maxHp = baseCls.maxHp + (pInfo.level - 1) * 25;
-            pInfo.hp = pInfo.maxHp;
             pInfo.dmgMulti = 1.0 + (pInfo.level - 1) * 0.08;
 
             if (pInfo.team.startsWith('king_')) {
                 pInfo.isKing = true;
-                pInfo.maxHp *= 3;
+                pInfo.maxHp = Math.floor(pInfo.maxHp * 1.8);
                 pInfo.hp = pInfo.maxHp;
                 pInfo.dmgMulti *= 2.0;
             }
@@ -822,7 +1574,54 @@ io.on('connection', (socket) => {
             savePlayer(pInfo);
         }
 
+        // 장비/스탯 포인트 포함 전체 스탯 재계산
+        recalcStats(pInfo);
+        pInfo.hp = pInfo.maxHp;
+
         players[playerId] = pInfo;
+
+        // ── 출석 체크 & 일일/주간 퀘스트 초기화 ──
+        const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+        const thisWeek = getWeekNumber();
+        if (!pInfo.lastLoginDate || pInfo.lastLoginDate !== today) {
+            // 일일 퀘스트 진행도 초기화
+            if (pInfo.questProgress) {
+                for (const [qId, q] of Object.entries(QUESTS)) {
+                    if (q.type === 'daily') { pInfo.questProgress[qId] = 0; if (pInfo.questCompleted) delete pInfo.questCompleted[qId]; }
+                }
+            }
+            // 출석 체크 보상
+            if (!pInfo.attendance) pInfo.attendance = { streak: 0, lastDate: null };
+            if (pInfo.attendance.lastDate === getYesterday()) {
+                pInfo.attendance.streak++;
+            } else if (pInfo.attendance.lastDate !== today) {
+                pInfo.attendance.streak = 1;
+            }
+            pInfo.attendance.lastDate = today;
+            const streak = pInfo.attendance.streak;
+            const attendReward = { gold: 50 * streak, diamonds: streak >= 7 ? 30 : 10, exp: 100 * streak };
+            pInfo.gold += attendReward.gold;
+            pInfo.diamonds = (pInfo.diamonds || 0) + attendReward.diamonds;
+            giveExp(pInfo, attendReward.exp);
+            socket.emit('attendance_reward', { streak, reward: attendReward, msg: `출석 ${streak}일차! +${attendReward.gold}G, +${attendReward.diamonds}D` });
+            if (streak === 7) {
+                socket.emit('attendance_reward', { streak: 7, msg: '7일 연속 출석! 희귀 상자 지급!' });
+                if (!pInfo.inventory) pInfo.inventory = {};
+                pInfo.inventory['rare_box'] = (pInfo.inventory['rare_box'] || 0) + 1;
+            }
+            pInfo.lastLoginDate = today;
+            // 아레나 일일 횟수 초기화
+            pInfo.arenaCountToday = 0;
+        }
+        // 주간 퀘스트 초기화
+        if (!pInfo.lastWeek || pInfo.lastWeek !== thisWeek) {
+            if (pInfo.questProgress) {
+                for (const [qId, q] of Object.entries(QUESTS)) {
+                    if (q.type === 'weekly') { pInfo.questProgress[qId] = 0; if (pInfo.questCompleted) delete pInfo.questCompleted[qId]; }
+                }
+            }
+            pInfo.lastWeek = thisWeek;
+        }
 
         socket.emit('init', {
             id: playerId,
@@ -833,7 +1632,9 @@ io.on('connection', (socket) => {
             drops,
             classInfo: CLASSES,
             karmaInfo: KARMA,
-            monsterTiers: MONSTER_TIERS
+            monsterTiers: MONSTER_TIERS,
+            mountSpeed: getMountSpeed(pInfo),
+            gradeInfo: GRADE_INFO,
         });
 
         socket.broadcast.emit('player_join', players[playerId]);
@@ -842,41 +1643,145 @@ io.on('connection', (socket) => {
     socket.on('move', (data) => {
         try {
             const moveData = JSON.parse(data);
-            if (players[playerId] && players[playerId].isAlive && !players[playerId].isBot) {
-                players[playerId].x = moveData.x;
-                players[playerId].y = moveData.y;
-                if (moveData.dirX !== undefined) players[playerId].dirX = moveData.dirX;
-                if (moveData.dirY !== undefined) players[playerId].dirY = moveData.dirY;
+            const p = players[playerId];
+            if (!p || !p.isAlive || p.isBot) return;
+            const nx = parseFloat(moveData.x), ny = parseFloat(moveData.y);
+            if (!isFinite(nx) || !isFinite(ny)) return;
+            // 이동 거리 검증 (텔레포트 핵 방지)
+            const dist = Math.hypot(nx - p.x, ny - p.y);
+            if (dist > 3) return; // 틱당 최대 이동 거리 제한
+            // 맵 범위 제한
+            p.x = Math.max(-1020, Math.min(1020, nx));
+            p.y = Math.max(-1020, Math.min(1020, ny));
+            if (moveData.dirX !== undefined) p.dirX = moveData.dirX;
+            if (moveData.dirY !== undefined) p.dirY = moveData.dirY;
+            // 존 레벨 경고
+            const curZone = getZone(p.x, p.y);
+            if (curZone && ZONES[curZone.id]) {
+                const zLvl = ZONES[curZone.id].lvl;
+                const prevZoneId = p._lastZoneId;
+                if (prevZoneId !== curZone.id) {
+                    p._lastZoneId = curZone.id;
+                    if (p.level < zLvl[0]) {
+                        socket.emit('server_msg', { msg: `경고: ${ZONES[curZone.id].name}은(는) Lv.${zLvl[0]}+ 추천 구역입니다! (현재 Lv.${p.level})`, type: 'danger' });
+                    }
+                }
             }
         } catch(e) {}
     });
 
     // PvP 토글 (카오틱/킹 시스템)
+    // ── NPC 상호작용 ──
+    socket.on('interact_npc', (npcType) => {
+        const p = players[playerId];
+        if (!p || !p.isAlive) return;
+
+        // 마을 안에 있는지 체크
+        const zone = getZone(p.x, p.y);
+        if (!zone || !ZONES[zone.id]?.safe) {
+            socket.emit('npc_result', { msg: '마을에서만 NPC 이용 가능' }); return;
+        }
+        const zoneNpcs = ZONES[zone.id]?.npcs || [];
+        const npcInfo = NPCS[npcType];
+        if (!npcInfo || !zoneNpcs.includes(npcType)) {
+            socket.emit('npc_result', { msg: '이 마을에 해당 NPC가 없습니다' }); return;
+        }
+
+        switch (npcInfo.type) {
+            case 'healer':
+                p.hp = p.maxHp;
+                socket.emit('npc_result', { msg: '치료 완료! HP가 가득 찼습니다.', type: 'healer' });
+                io.emit('player_update', p);
+                break;
+            case 'smith':
+                // 강화 가능한 장비 목록 전송
+                const enchantable = [];
+                if (p.equipped) {
+                    for (const slot of EQUIPMENT_SLOTS) {
+                        const eqId = p.equipped[slot];
+                        if (eqId && EQUIP_STATS[eqId]) {
+                            const eq = EQUIP_STATS[eqId];
+                            const level = (p.enchantLevels && p.enchantLevels[eqId]) || 0;
+                            const maxEnchant = (GRADE_INFO[eq.grade] || GRADE_INFO.normal).maxEnchant;
+                            enchantable.push({ id: eqId, name: eq.name, slot, level, maxEnchant, grade: eq.grade });
+                        }
+                    }
+                }
+                socket.emit('npc_smith', { msg: npcInfo.msg, items: enchantable });
+                break;
+            case 'shop':
+                socket.emit('npc_result', { msg: npcInfo.msg, type: 'shop' });
+                break;
+            case 'cook':
+                socket.emit('npc_result', { msg: npcInfo.msg, type: 'cook' });
+                break;
+            case 'travel': {
+                // 다른 마을 목록
+                const towns = Object.entries(ZONES)
+                    .filter(([id, z]) => z.safe && z.npcs && id !== zone.id)
+                    .map(([id, z]) => ({ id, name: z.name, x: z.x + z.w/2, y: z.y + z.h/2 }));
+                socket.emit('npc_travel', { msg: npcInfo.msg, towns });
+                break;
+            }
+            case 'fisher':
+                socket.emit('npc_result', { msg: npcInfo.msg, type: 'fisher' });
+                break;
+            default:
+                socket.emit('npc_result', { msg: npcInfo.msg });
+        }
+    });
+
+    // ── NPC 항해사 이동 ──
+    socket.on('npc_travel_to', (townId) => {
+        const p = players[playerId];
+        if (!p || !p.isAlive) return;
+        const targetZone = ZONES[townId];
+        if (!targetZone || !targetZone.safe) return;
+        const cost = 100;
+        if (p.gold < cost) { socket.emit('npc_result', { msg: `이동 비용 ${cost}G 부족` }); return; }
+        p.gold -= cost;
+        p.x = targetZone.x + targetZone.w / 2;
+        p.y = targetZone.y + targetZone.h / 2;
+        savePlayer(p);
+        io.emit('player_update', p);
+        socket.emit('npc_result', { msg: `${targetZone.name}(으)로 이동 완료! (-${cost}G)` });
+    });
+
     socket.on('toggle_pvp', () => {
         const p = players[playerId];
         if (!p || !p.isAlive) return;
+        // PvP 토글 쿨타임 (10초)
+        const now = Date.now();
+        if (p._lastPvpToggle && now - p._lastPvpToggle < 10000) {
+            socket.emit('server_msg', { msg: 'PvP 전환 쿨타임 (10초)', type: 'normal' }); return;
+        }
+        p._lastPvpToggle = now;
+        // 안전지대에서만 PvP 전환 가능
+        const pZone = getZone(p.x, p.y);
+        if (!pZone || !ZONES[pZone.id]?.safe) {
+            socket.emit('server_msg', { msg: '마을에서만 PvP 전환 가능', type: 'danger' }); return;
+        }
 
         if (p.team === 'peace') {
             if (!hasKing) {
                 p.team = 'king_' + playerId;
                 p.isKing = true;
-                p.maxHp *= 3;
+                p.maxHp = Math.floor(p.maxHp * 1.8); // 3→1.8배
                 p.hp = p.maxHp;
-                p.dmgMulti *= 2.0;
+                p.dmgMulti *= 1.4; // 2→1.4배
                 hasKing = true;
             } else {
                 p.team = 'pvp_' + playerId;
-                p.maxHp = Math.floor(p.maxHp * 1.5);
+                p.maxHp = Math.floor(p.maxHp * 1.3); // 1.5→1.3배
                 p.hp = p.maxHp;
-                p.dmgMulti *= 1.2;
+                p.dmgMulti *= 1.3; // 1.2→1.3배
             }
         } else {
             if (p.isKing) { hasKing = false; p.isKing = false; }
             p.team = 'peace';
-            const baseCls = CLASSES[p.className];
-            p.maxHp = baseCls.maxHp + (p.level - 1) * 25;
-            if (p.hp > p.maxHp) p.hp = p.maxHp;
+            recalcStats(p); // 장비 보너스 포함 재계산
             p.dmgMulti = 1.0 + (p.level - 1) * 0.08;
+            if (p.hp > p.maxHp) p.hp = p.maxHp;
         }
 
         savePlayer(p);
@@ -983,6 +1888,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('throw', () => {
+        if (!players[playerId] || !players[playerId].isAlive) return;
         executeThrow(playerId);
     });
 
@@ -997,19 +1903,20 @@ io.on('connection', (socket) => {
 
         if (players[playerId] && !players[playerId].isAlive) {
             const p = players[playerId];
-            const cls = CLASSES[newClass];
-            p.className = newClass;
-            p.displayName = cls.displayName;
-            p.level = 1; p.exp = 0; p.gold = 0; p.killCount = 0;
-            p.karma = 0; p.team = 'peace';
+            // 클래스 변경 (레벨/골드/장비는 유지 — 사망 시 이미 약탈됨)
+            if (newClass !== p.className && !p.isAdvanced) {
+                p.className = newClass;
+                p.baseClassName = newClass;
+                p.displayName = CLASSES[newClass]?.displayName || newClass;
+            }
+            p.team = 'peace';
             p.isKing = false; p.targetId = null;
-            p.atk = cls.atk; p.def = cls.def;
-            p.critRate = cls.critRate; p.dodgeRate = cls.dodgeRate;
-            p.maxHp = cls.maxHp;
-            p.hp = p.maxHp;
-            p.dmgMulti = 1.0;
             p.isAlive = true;
-            p.x = -480 + Math.random() * 40; // 바람개비 마을에서 부활
+            // 장비/스탯 포함 전체 재계산
+            recalcStats(p);
+            p.hp = p.maxHp;
+            // 마을에서 부활
+            p.x = -480 + Math.random() * 40;
             p.y = -480 + Math.random() * 40;
 
             savePlayer(p);
@@ -1078,6 +1985,20 @@ io.on('connection', (socket) => {
                 const origDef = p.def;
                 setTimeout(() => { if (players[playerId]) players[playerId].def = Math.floor(origDef / item.value); }, item.duration * 1000);
                 break;
+            case 'equip_item':
+                if (!p.inventory) p.inventory = {};
+                p.inventory[item.value] = (p.inventory[item.value] || 0) + 1;
+                const eName = EQUIP_STATS[item.value]?.name || item.value;
+                msg = `${eName} 구매 완료! (인벤토리에 추가)`;
+                break;
+            case 'protect':
+                if (!p.inventory) p.inventory = {};
+                p.inventory['protect_scroll'] = (p.inventory['protect_scroll'] || 0) + (item.count || 1);
+                break;
+            case 'revive':
+                if (!p.inventory) p.inventory = {};
+                p.inventory['scroll_revive'] = (p.inventory['scroll_revive'] || 0) + (item.count || 1);
+                break;
         }
 
         savePlayer(p);
@@ -1088,6 +2009,7 @@ io.on('connection', (socket) => {
     // ── 상점 목록 요청 ──
     socket.on('shop_list', () => {
         const p = players[playerId];
+        if (!p) return;
         socket.emit('shop_list_result', {
             items: SHOP_ITEMS,
             diamonds: p?.diamonds || 0,
@@ -1121,9 +2043,19 @@ io.on('connection', (socket) => {
     socket.on('get_inventory', () => {
         const p = players[playerId];
         if (!p) return;
+        // 장비 정보 병합 (등급, 귀속 포함)
+        const mergedItems = { ...TRADEABLE_ITEMS };
+        for (const [eqId, eq] of Object.entries(EQUIP_STATS)) {
+            if (!mergedItems[eqId]) mergedItems[eqId] = {};
+            mergedItems[eqId].name = eq.name;
+            mergedItems[eqId].grade = eq.grade;
+            mergedItems[eqId].bound = eq.bound || false;
+        }
         socket.emit('inventory_data', {
             inventory: p.inventory || {},
-            items: TRADEABLE_ITEMS
+            items: mergedItems,
+            enchantLevels: p.enchantLevels || {},
+            equipped: p.equipped || {},
         });
     });
 
@@ -1154,7 +2086,14 @@ io.on('connection', (socket) => {
         p.questCompleted[questId] = true;
         if (q.reward.gold) p.gold += q.reward.gold;
         if (q.reward.diamonds) p.diamonds = (p.diamonds||0) + q.reward.diamonds;
-        if (q.reward.exp) { p.exp += q.reward.exp; }
+        if (q.reward.exp) giveExp(p, q.reward.exp);
+        capResources(p);
+
+        // 업적이면 전체 공지 + 팬파레
+        if (q.type === 'achievement') {
+            io.emit('server_msg', { msg: `[업적] ${p.displayName}: "${q.name}" 달성!`, type: 'rare' });
+            socket.emit('achievement_unlock', { name: q.name, desc: q.desc, reward: q.reward });
+        }
 
         savePlayer(p);
         socket.emit('quest_result', {success:true, msg:`${q.name} 보상 수령!`});
@@ -1209,7 +2148,13 @@ io.on('connection', (socket) => {
         const p = players[playerId];
         if (!p || !p.inventory || !p.inventory[itemId]) return;
         const eq = EQUIP_STATS[itemId];
-        if (!eq) return;
+        if (!eq || !eq.slot) return;
+        // 등급별 레벨 요구
+        const gradeReq = GRADE_INFO[eq.grade]?.levelReq || 1;
+        if (p.level < gradeReq) {
+            socket.emit('equip_result', { success: false, msg: `Lv.${gradeReq} 이상 필요 (현재 Lv.${p.level})` });
+            return;
+        }
 
         if (!p.equipped) p.equipped = {};
         // 기존 장비 해제 → 인벤토리로
@@ -1226,6 +2171,21 @@ io.on('connection', (socket) => {
         recalcStats(p);
         savePlayer(p);
         socket.emit('equip_result', { success:true, msg:`${eq.name} 착용!`, equipped: p.equipped });
+        io.emit('player_update', p);
+    });
+
+    // ── 장비 해제 ──
+    socket.on('unequip_item', (slot) => {
+        const p = players[playerId];
+        if (!p || !p.equipped || !p.equipped[slot]) return;
+        if (!EQUIPMENT_SLOTS.includes(slot)) return;
+        const itemId = p.equipped[slot];
+        delete p.equipped[slot];
+        if (!p.inventory) p.inventory = {};
+        p.inventory[itemId] = (p.inventory[itemId] || 0) + 1;
+        recalcStats(p);
+        savePlayer(p);
+        socket.emit('equip_result', { success: true, msg: `장비 해제!`, equipped: p.equipped });
         io.emit('player_update', p);
     });
 
@@ -1279,44 +2239,93 @@ io.on('connection', (socket) => {
         }, morph.duration * 1000);
     });
 
-    // ── 장비 강화 ──
-    socket.on('enchant_item', (itemId) => {
+    // ── 장비 강화 (+15까지, 기획서 기준) ──
+    socket.on('enchant_item', (data) => {
         const p = players[playerId];
         if (!p) return;
         if (!p.equipped) p.equipped = {};
 
+        const itemId = typeof data === 'string' ? data : data.itemId;
+        const useProtect = typeof data === 'object' ? data.useProtect : false;
+
         const eq = EQUIP_STATS[itemId];
         if (!eq) { socket.emit('enchant_result', { success: false, msg: '강화 불가' }); return; }
+        // 장착 중인 장비만 강화 가능
+        const isEquipped = p.equipped && Object.values(p.equipped).includes(itemId);
+        if (!isEquipped) { socket.emit('enchant_result', { success: false, msg: '장비를 먼저 착용하세요' }); return; }
 
+        const gradeInfo = GRADE_INFO[eq.grade] || GRADE_INFO.normal;
         if (!p.enchantLevels) p.enchantLevels = {};
         const curLevel = p.enchantLevels[itemId] || 0;
-        if (curLevel >= 10) { socket.emit('enchant_result', { success: false, msg: '최대 강화(+10)' }); return; }
+        if (curLevel >= gradeInfo.maxEnchant) {
+            socket.emit('enchant_result', { success: false, msg: `최대 강화(+${gradeInfo.maxEnchant})` });
+            return;
+        }
 
-        // 강화 비용
-        const cost = (curLevel + 1) * 200;
+        // 강화 비용 (단계별 증가)
+        const cost = curLevel < 3 ? (curLevel+1)*200 : curLevel < 7 ? (curLevel+1)*350 : curLevel < 10 ? (curLevel+1)*500 : (curLevel+1)*800;
         if (p.gold < cost) { socket.emit('enchant_result', { success: false, msg: `골드 부족 (${cost}G 필요)` }); return; }
         p.gold -= cost;
 
-        // 성공 확률
-        const rates = [100,100,100,90,80,70,60,50,40,30]; // +1~+10
-        const rate = rates[curLevel] || 30;
+        // 보호 주문서 사용 체크
+        let hasProtect = false;
+        if (useProtect && p.inventory && p.inventory['protect_scroll'] > 0) {
+            hasProtect = true;
+            p.inventory['protect_scroll']--;
+        }
+
+        // 축복 주문서 보너스 체크
+        let blessBonus = 0;
+        if (p.inventory && p.inventory['bless_scroll'] > 0) {
+            blessBonus = 10;
+            p.inventory['bless_scroll']--;
+        }
+
+        // 성공 확률 (기획서 기준: +1~3: 100%, +4~7: 80%, +8~10: 50%, +11~15: 30%)
+        const rates = [100,100,100,80,80,80,80,50,50,50,30,30,30,30,30]; // +1~+15
+        const rate = Math.min(100, (rates[curLevel] || 30) + blessBonus);
         const roll = Math.random() * 100;
 
         if (roll < rate) {
-            p.enchantLevels[itemId] = curLevel + 1;
-            recalcStats(p);
-            io.emit('server_msg', { msg: `${p.displayName}: ${eq.name} +${curLevel+1} 강화 성공!`, type: curLevel >= 6 ? 'rare' : 'normal' });
-            socket.emit('enchant_result', { success: true, msg: `${eq.name} +${curLevel+1} 성공! (${rate}%)` });
-        } else if (curLevel >= 7) {
-            // +8 이상 실패 시 파괴
-            delete p.enchantLevels[itemId];
-            if (p.equipped) {
-                for (const slot of EQUIPMENT_SLOTS) { if (p.equipped[slot] === itemId) delete p.equipped[slot]; }
+            // 잭팟 판정: 1% 기적 (MAX) / 5% 대성공 (+2)
+            const jackpotRoll = Math.random();
+            let enchantGain = 1;
+            let jackpotMsg = '';
+            if (jackpotRoll < 0.01 && curLevel < gradeInfo.maxEnchant - 1) {
+                enchantGain = gradeInfo.maxEnchant - curLevel; // MAX까지
+                jackpotMsg = '기적!';
+                io.emit('server_msg', { msg: `[기적!] ${p.displayName}: ${eq.name} +${gradeInfo.maxEnchant} 달성!!! 🌟`, type: 'boss' });
+            } else if (jackpotRoll < 0.06 && curLevel + 2 <= gradeInfo.maxEnchant) {
+                enchantGain = 2;
+                jackpotMsg = '대성공!';
             }
+            p.enchantLevels[itemId] = Math.min(gradeInfo.maxEnchant, curLevel + enchantGain);
             recalcStats(p);
-            io.emit('server_msg', { msg: `${p.displayName}: ${eq.name} 강화 실패! 장비 파괴!`, type: 'danger' });
-            socket.emit('enchant_result', { success: false, msg: `${eq.name} 파괴됨!!! (${rate}% 실패)` });
+            const newLevel = p.enchantLevels[itemId];
+            const announce = newLevel >= 10 ? 'rare' : newLevel >= 7 ? 'normal' : null;
+            if (announce && !jackpotMsg) io.emit('server_msg', { msg: `${p.displayName}: ${eq.name} +${newLevel} 강화 성공!`, type: announce });
+            socket.emit('enchant_result', { success: true, msg: `${jackpotMsg || ''} ${eq.name} +${newLevel} 성공!${enchantGain > 1 ? ' (+' + enchantGain + '!)' : ''} (${rate}%)`, jackpot: jackpotMsg || null });
+        } else if (curLevel >= 10) {
+            // +11 이상 실패 시 파괴 (보호 주문서로 방지 가능)
+            if (hasProtect) {
+                socket.emit('enchant_result', { success: false, msg: `강화 실패! 보호 주문서로 파괴 방지 (+${curLevel} 유지)` });
+            } else {
+                delete p.enchantLevels[itemId];
+                if (p.equipped) {
+                    for (const slot of EQUIPMENT_SLOTS) { if (p.equipped[slot] === itemId) delete p.equipped[slot]; }
+                }
+                if (p.inventory) delete p.inventory[itemId];
+                recalcStats(p);
+                io.emit('server_msg', { msg: `${p.displayName}: ${eq.name} +${curLevel+1} 강화 실패! 장비 파괴!`, type: 'danger' });
+                socket.emit('enchant_result', { success: false, msg: `${eq.name} 파괴됨!!! (${rate}% 실패)` });
+            }
+        } else if (curLevel >= 7) {
+            // +8~10 실패 시 -1 단계
+            p.enchantLevels[itemId] = Math.max(0, curLevel - 1);
+            recalcStats(p);
+            socket.emit('enchant_result', { success: false, msg: `강화 실패 (${rate}%) — +${curLevel-1}로 하락` });
         } else {
+            // +4~7 실패 시 등급 유지
             socket.emit('enchant_result', { success: false, msg: `강화 실패 (${rate}%) — 등급 유지` });
         }
 
@@ -1332,6 +2341,78 @@ io.on('connection', (socket) => {
         socket.emit('auto_potion_status', { enabled: p.autoPotion });
     });
 
+    // ── 던전 입장 ──
+    socket.on('enter_dungeon', (dungeonId) => {
+        const p = players[playerId];
+        if (!p || !p.isAlive) return;
+        const dungeon = DUNGEONS[dungeonId];
+        if (!dungeon) { socket.emit('dungeon_result', { msg: '존재하지 않는 던전' }); return; }
+        if (p.level < dungeon.minLevel) { socket.emit('dungeon_result', { msg: `레벨 ${dungeon.minLevel} 이상 필요` }); return; }
+        if (p.inDungeon) { socket.emit('dungeon_result', { msg: '이미 던전에 참가 중' }); return; }
+
+        // 던전 인스턴스 생성
+        entityIdCounter++;
+        const instanceId = 'dungeon_' + entityIdCounter;
+        activeDungeons[instanceId] = {
+            dungeonId, players: [playerId], currentStage: 0,
+            monstersLeft: dungeon.monsters[0].count,
+            startTime: Date.now(), totalStages: dungeon.stages,
+        };
+        p.inDungeon = instanceId;
+        socket.emit('dungeon_enter', {
+            instanceId, name: dungeon.name, stage: 1, totalStages: dungeon.stages,
+            monstersLeft: dungeon.monsters[0].count, tier: dungeon.monsters[0].tier
+        });
+        io.emit('server_msg', { msg: `${p.displayName}이(가) ${dungeon.name}에 입장!`, type: 'normal' });
+    });
+
+    // ── 던전 몬스터 처치 보고 ──
+    socket.on('dungeon_kill', () => {
+        const p = players[playerId];
+        if (!p || !p.inDungeon) return;
+        const inst = activeDungeons[p.inDungeon];
+        if (!inst) return;
+        inst.monstersLeft--;
+        if (inst.monstersLeft <= 0) {
+            inst.currentStage++;
+            const dungeon = DUNGEONS[inst.dungeonId];
+            if (inst.currentStage >= dungeon.stages) {
+                // 던전 클리어
+                const rewards = dungeon.rewards;
+                for (const pid of inst.players) {
+                    const pp = players[pid];
+                    if (!pp) continue;
+                    pp.gold += rewards.gold;
+                    giveExp(pp, rewards.exp);
+                    if (!pp.inventory) pp.inventory = {};
+                    const dropItem = rewards.drops[Math.floor(Math.random() * rewards.drops.length)];
+                    if (Math.random() < 0.3) {
+                        pp.inventory[dropItem] = (pp.inventory[dropItem]||0) + 1;
+                        const eName = EQUIP_STATS[dropItem]?.name || dropItem;
+                        io.to(pid).emit('combat_log', { msg: `던전 보상: ${eName} 획득!` });
+                    }
+                    pp.inDungeon = null;
+                    io.to(pid).emit('dungeon_clear', { name: dungeon.name, gold: rewards.gold, exp: rewards.exp });
+                    io.emit('player_update', pp);
+                }
+                io.emit('server_msg', { msg: `${dungeon.name} 클리어!`, type: 'rare' });
+                delete activeDungeons[p.inDungeon];
+            } else {
+                // 다음 스테이지
+                const nextMonsters = dungeon.monsters[inst.currentStage];
+                inst.monstersLeft = nextMonsters.count;
+                for (const pid of inst.players) {
+                    io.to(pid).emit('dungeon_stage', {
+                        stage: inst.currentStage + 1, totalStages: dungeon.stages,
+                        monstersLeft: nextMonsters.count, tier: nextMonsters.tier
+                    });
+                }
+            }
+        } else {
+            socket.emit('dungeon_update', { monstersLeft: inst.monstersLeft });
+        }
+    });
+
     // ── 스탯 포인트 배분 ──
     socket.on('add_stat', (stat) => {
         const p = players[playerId];
@@ -1340,14 +2421,256 @@ io.on('connection', (socket) => {
         p.statPoints--;
         const key = 'bonus' + stat.charAt(0).toUpperCase() + stat.slice(1);
         p[key] = (p[key] || 0) + 1;
-        // 스탯 적용
-        if (stat === 'str') p.atk += 2;
-        if (stat === 'dex') { p.critRate += 0.005; p.dodgeRate += 0.003; }
-        if (stat === 'int') p.dmgMulti += 0.02;
-        if (stat === 'con') { p.maxHp += 10; p.hp += 10; }
+        recalcStats(p);
+        if (p.hp > p.maxHp) p.hp = p.maxHp;
         savePlayer(p);
         socket.emit('stat_result', { success: true, statPoints: p.statPoints, str: p.bonusStr||0, dex: p.bonusDex||0, int: p.bonusInt||0, con: p.bonusCon||0 });
         io.emit('player_update', p);
+    });
+
+    // ── 스탯 리셋 ──
+    socket.on('reset_stats', () => {
+        const p = players[playerId];
+        if (!p) return;
+        const cost = 500 + p.level * 100;
+        if (p.gold < cost) { socket.emit('stat_result', { success: false, msg: `골드 부족 (${cost}G 필요)` }); return; }
+        p.gold -= cost;
+        // 스탯 포인트 반환
+        const totalUsed = (p.bonusStr||0) + (p.bonusDex||0) + (p.bonusInt||0) + (p.bonusCon||0);
+        p.statPoints = (p.statPoints || 0) + totalUsed;
+        p.bonusStr = 0; p.bonusDex = 0; p.bonusInt = 0; p.bonusCon = 0;
+        recalcStats(p);
+        savePlayer(p);
+        socket.emit('stat_result', { success: true, msg: `스탯 초기화! (${totalUsed}포인트 반환, -${cost}G)`, statPoints: p.statPoints, str:0, dex:0, int:0, con:0 });
+        io.emit('player_update', p);
+    });
+
+    // ── 무한의 탑: 입장 ──
+    socket.on('tower_enter', () => {
+        const p = players[playerId];
+        if (!p || !p.isAlive) return;
+        if (p.level < 10) { socket.emit('tower_result', { msg: 'Lv.10 이상 필요' }); return; }
+        if (towerProgress[playerId]) { socket.emit('tower_result', { msg: '이미 탑 도전 중' }); return; }
+        const startFloor = (p.towerHighest || 0) + 1;
+        if (startFloor > INFINITE_TOWER.maxFloor) { socket.emit('tower_result', { msg: '100층 완전 클리어!' }); return; }
+        const monsters = INFINITE_TOWER.getMonsters(startFloor);
+        towerProgress[playerId] = { currentFloor: startFloor, monstersLeft: monsters.count, startTime: Date.now() };
+        socket.emit('tower_enter', { floor: startFloor, maxFloor: INFINITE_TOWER.maxFloor, monstersLeft: monsters.count, tier: monsters.tier, monsterHp: monsters.hp });
+    });
+
+    // ── 무한의 탑: 몬스터 처치 ──
+    socket.on('tower_kill', () => {
+        const p = players[playerId];
+        if (!p || !towerProgress[playerId]) return;
+        const tp = towerProgress[playerId];
+        tp.monstersLeft--;
+
+        if (tp.monstersLeft <= 0) {
+            // 층 클리어
+            const reward = INFINITE_TOWER.getReward(tp.currentFloor);
+            p.gold += reward.gold;
+            giveExp(p, reward.exp);
+            if (reward.diamonds > 0) p.diamonds = (p.diamonds||0) + reward.diamonds;
+            if (!p.inventory) p.inventory = {};
+            for (const d of reward.drops) {
+                p.inventory[d] = (p.inventory[d]||0) + 1;
+                const eName = EQUIP_STATS[d]?.name || d;
+                socket.emit('combat_log', { msg: `탑 ${tp.currentFloor}층 보상: ${eName}` });
+            }
+            p.towerHighest = Math.max(p.towerHighest || 0, tp.currentFloor);
+            socket.emit('tower_clear', { floor: tp.currentFloor, reward });
+
+            // 다음 층
+            const nextFloor = tp.currentFloor + 1;
+            if (nextFloor > INFINITE_TOWER.maxFloor) {
+                socket.emit('tower_result', { msg: `무한의 탑 완전 클리어! (${tp.currentFloor}층)` });
+                io.emit('server_msg', { msg: `${p.displayName}이(가) 무한의 탑 ${tp.currentFloor}층 클리어!`, type: 'rare' });
+                delete towerProgress[playerId];
+            } else {
+                const nextMonsters = INFINITE_TOWER.getMonsters(nextFloor);
+                tp.currentFloor = nextFloor;
+                tp.monstersLeft = nextMonsters.count;
+                socket.emit('tower_stage', { floor: nextFloor, monstersLeft: nextMonsters.count, tier: nextMonsters.tier, monsterHp: nextMonsters.hp });
+            }
+            if (tp.currentFloor % 10 === 0) {
+                io.emit('server_msg', { msg: `${p.displayName}이(가) 무한의 탑 ${tp.currentFloor}층 돌파!`, type: 'normal' });
+            }
+            savePlayer(p);
+            io.emit('player_update', p);
+        } else {
+            socket.emit('tower_update', { monstersLeft: tp.monstersLeft });
+        }
+    });
+
+    // ── 무한의 탑: 포기 ──
+    socket.on('tower_leave', () => {
+        if (towerProgress[playerId]) {
+            socket.emit('tower_result', { msg: `${towerProgress[playerId].currentFloor}층에서 포기` });
+            delete towerProgress[playerId];
+        }
+    });
+
+    // ── 희귀 상자 오픈 ──
+    socket.on('open_rare_box', () => {
+        const p = players[playerId];
+        if (!p || !p.inventory || !p.inventory['rare_box']) { socket.emit('box_result', { msg: '상자 없음' }); return; }
+        p.inventory['rare_box']--;
+        if (p.inventory['rare_box'] <= 0) delete p.inventory['rare_box'];
+
+        // 랜덤 보상
+        const roll = Math.random();
+        let rewardMsg = '';
+        if (roll < 0.02) {
+            // 전설 장비 2%
+            const items = ['equip_sword_5','equip_armor_5'];
+            const item = items[Math.floor(Math.random() * items.length)];
+            p.inventory[item] = (p.inventory[item]||0) + 1;
+            rewardMsg = (EQUIP_STATS[item]?.name || item) + ' (전설!)';
+            io.emit('server_msg', { msg: `${p.displayName}이(가) 희귀 상자에서 ${rewardMsg} 획득!`, type: 'rare' });
+        } else if (roll < 0.10) {
+            // 영웅 장비 8%
+            const items = ['equip_sword_4','equip_armor_4','equip_ring_3','equip_neck_3'];
+            const item = items[Math.floor(Math.random() * items.length)];
+            p.inventory[item] = (p.inventory[item]||0) + 1;
+            rewardMsg = (EQUIP_STATS[item]?.name || item) + ' (영웅)';
+        } else if (roll < 0.35) {
+            // 희귀 장비 25%
+            const items = ['equip_sword_3','equip_armor_3','equip_helm_3','equip_glove_3','equip_boots_3','equip_ring_2','equip_neck_2'];
+            const item = items[Math.floor(Math.random() * items.length)];
+            p.inventory[item] = (p.inventory[item]||0) + 1;
+            rewardMsg = (EQUIP_STATS[item]?.name || item) + ' (희귀)';
+        } else if (roll < 0.60) {
+            // 재료 25%
+            p.inventory['mat_dragon'] = (p.inventory['mat_dragon']||0) + 2;
+            p.inventory['mat_soul'] = (p.inventory['mat_soul']||0) + 5;
+            rewardMsg = '드래곤 비늘 x2, 영혼석 x5';
+        } else {
+            // 골드/다이아 40%
+            const gold = 1000 + Math.floor(Math.random() * 4000);
+            const dia = 20 + Math.floor(Math.random() * 30);
+            p.gold += gold;
+            p.diamonds = (p.diamonds||0) + dia;
+            rewardMsg = `${gold}G + ${dia}D`;
+        }
+        socket.emit('box_result', { msg: `희귀 상자 오픈! ${rewardMsg}` });
+        savePlayer(p);
+        io.emit('player_update', p);
+    });
+
+    // ── 친구 추가 요청 ──
+    socket.on('friend_request', (targetId) => {
+        const p = players[playerId];
+        if (!p || !players[targetId] || players[targetId].isBot) return;
+        if (targetId === playerId) return;
+        if (!friendLists[playerId]) friendLists[playerId] = [];
+        if (friendLists[playerId].includes(targetId)) { socket.emit('friend_result', { msg: '이미 친구입니다' }); return; }
+        if (friendLists[playerId].length >= 50) { socket.emit('friend_result', { msg: '친구 최대 50명' }); return; }
+
+        if (!friendRequests[targetId]) friendRequests[targetId] = [];
+        friendRequests[targetId].push({ fromId: playerId, fromName: p.displayName, time: Date.now() });
+        io.to(targetId).emit('friend_request_received', { fromId: playerId, fromName: p.displayName });
+        socket.emit('friend_result', { msg: `${players[targetId].displayName}에게 친구 요청 전송` });
+    });
+
+    // ── 친구 요청 수락 ──
+    socket.on('friend_accept', (fromId) => {
+        const p = players[playerId];
+        if (!p) return;
+        if (!friendRequests[playerId]) return;
+        const reqIdx = friendRequests[playerId].findIndex(r => r.fromId === fromId);
+        if (reqIdx === -1) return;
+        friendRequests[playerId].splice(reqIdx, 1);
+
+        if (!friendLists[playerId]) friendLists[playerId] = [];
+        if (!friendLists[fromId]) friendLists[fromId] = [];
+        friendLists[playerId].push(fromId);
+        friendLists[fromId].push(playerId);
+
+        socket.emit('friend_result', { msg: `${players[fromId]?.displayName || '?'}와 친구가 되었습니다!` });
+        io.to(fromId).emit('friend_result', { msg: `${p.displayName}와 친구가 되었습니다!` });
+    });
+
+    // ── 친구 삭제 ──
+    socket.on('friend_remove', (targetId) => {
+        if (!friendLists[playerId]) return;
+        friendLists[playerId] = friendLists[playerId].filter(f => f !== targetId);
+        if (friendLists[targetId]) friendLists[targetId] = friendLists[targetId].filter(f => f !== playerId);
+        socket.emit('friend_result', { msg: '친구 삭제 완료' });
+    });
+
+    // ── 친구 목록 ──
+    socket.on('get_friends', () => {
+        const list = (friendLists[playerId] || []).map(fid => ({
+            id: fid, name: players[fid]?.displayName || '?',
+            level: players[fid]?.level || 0, className: players[fid]?.className || '?',
+            online: !!players[fid]?.isAlive,
+        }));
+        const requests = (friendRequests[playerId] || []).map(r => ({ fromId: r.fromId, fromName: r.fromName }));
+        socket.emit('friend_list', { friends: list, requests });
+    });
+
+    // ── 귓속말 (1:1 메시지) ──
+    socket.on('whisper', (data) => {
+        const p = players[playerId];
+        if (!p || typeof data.targetId !== 'string' || typeof data.msg !== 'string') return;
+        const target = players[data.targetId];
+        if (!target || target.isBot) { socket.emit('whisper_result', { msg: '상대를 찾을 수 없습니다' }); return; }
+        if (data.msg.length > 100) return;
+        const safeMsg = data.msg.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        io.to(data.targetId).emit('whisper_received', { fromId: playerId, fromName: p.displayName, msg: safeMsg });
+        socket.emit('whisper_sent', { toName: target.displayName, msg: safeMsg });
+    });
+
+    // ── 우편 거래 (아이템/골드 전송) ──
+    socket.on('mail_send', (data) => {
+        const p = players[playerId];
+        if (!p || p.level < 15) { socket.emit('mail_result', { msg: 'Lv.15 이상 필요' }); return; }
+        const { targetName, itemId, itemCount, gold } = data;
+
+        // 수신자 찾기
+        let targetId = null;
+        for (const [pid, pl] of Object.entries(players)) {
+            if (!pl.isBot && pl.displayName === targetName) { targetId = pid; break; }
+        }
+        if (!targetId) { socket.emit('mail_result', { msg: '존재하지 않는 플레이어' }); return; }
+        if (targetId === playerId) { socket.emit('mail_result', { msg: '자신에게 보낼 수 없음' }); return; }
+        const target = players[targetId];
+        if (!target) { socket.emit('mail_result', { msg: '상대 오프라인' }); return; }
+
+        // 우편 비용 50G
+        const mailCost = 50 + (gold > 0 ? Math.floor(gold * 0.01) : 0); // 골드 전송 시 1% 수수료
+        if (p.gold < mailCost) { socket.emit('mail_result', { msg: `우편 비용 ${mailCost}G 부족` }); return; }
+        p.gold -= mailCost;
+
+        // 아이템 전송
+        if (itemId && itemCount > 0) {
+            if (!p.inventory || !p.inventory[itemId] || p.inventory[itemId] < itemCount) {
+                socket.emit('mail_result', { msg: '아이템 부족' }); return;
+            }
+            // 귀속 아이템 체크
+            const eq = EQUIP_STATS[itemId];
+            if (eq && eq.bound) { socket.emit('mail_result', { msg: '귀속 아이템은 거래 불가' }); return; }
+
+            p.inventory[itemId] -= itemCount;
+            if (p.inventory[itemId] <= 0) delete p.inventory[itemId];
+            if (!target.inventory) target.inventory = {};
+            target.inventory[itemId] = (target.inventory[itemId] || 0) + itemCount;
+            const iName = TRADEABLE_ITEMS[itemId]?.name || EQUIP_STATS[itemId]?.name || itemId;
+            io.to(targetId).emit('mail_received', { from: p.displayName, item: iName, count: itemCount });
+            socket.emit('mail_result', { msg: `${target.displayName}에게 ${iName} x${itemCount} 전송 완료!` });
+        }
+
+        // 골드 전송
+        if (gold && gold > 0) {
+            if (p.gold < gold) { socket.emit('mail_result', { msg: '골드 부족' }); return; }
+            p.gold -= gold;
+            target.gold += gold;
+            io.to(targetId).emit('mail_received', { from: p.displayName, gold });
+            socket.emit('mail_result', { msg: `${target.displayName}에게 ${gold}G 전송 완료!` });
+        }
+
+        savePlayer(p); savePlayer(target);
+        io.emit('player_update', p); io.emit('player_update', target);
     });
 
     // ── 전직 (Lv.20) ──
@@ -1358,8 +2681,9 @@ io.on('connection', (socket) => {
             return;
         }
         const adv = CLASS_ADVANCE[p.className];
-        if (!adv) return;
+        if (!adv) { socket.emit('advance_result', { success: false, msg: '전직 불가 클래스' }); return; }
         p.isAdvanced = true;
+        p.baseClassName = p.className; // 스킬 시스템용 원본 클래스 보존
         p.advancedClass = adv.name;
         p.displayName = adv.displayName;
         if (adv.bonusAtk) p.atk += adv.bonusAtk;
@@ -1385,7 +2709,7 @@ io.on('connection', (socket) => {
 
         p.gold -= 5000;
         p.clanName = clanName;
-        clans[clanName] = { leader: playerId, members: [playerId], level: 1, exp: 0 };
+        clans[clanName] = { leader: playerId, officers:[], members: [playerId], level: 1, exp: 0, storage: {}, war: null, dungeonCooldown: 0 };
         savePlayer(p);
         io.emit('server_msg', { msg: `혈맹 [${clanName}] 창설! 군주: ${p.displayName}`, type: 'rare' });
         socket.emit('clan_result', { success: true, msg: `혈맹 [${clanName}] 창설 완료!` });
@@ -1396,7 +2720,8 @@ io.on('connection', (socket) => {
         const p = players[playerId];
         if (!p || p.clanName) return;
         if (!clans[clanName]) { socket.emit('clan_result', { success: false, msg: '존재하지 않는 혈맹' }); return; }
-        if (clans[clanName].members.length >= 20) { socket.emit('clan_result', { success: false, msg: '혈맹 정원 초과' }); return; }
+        const maxMembers = CLAN_MAX_MEMBERS[clans[clanName].level] || 10;
+        if (clans[clanName].members.length >= maxMembers) { socket.emit('clan_result', { success: false, msg: `혈맹 정원 초과 (${maxMembers}명)` }); return; }
         p.clanName = clanName;
         clans[clanName].members.push(playerId);
         savePlayer(p);
@@ -1406,10 +2731,345 @@ io.on('connection', (socket) => {
     // ── 혈맹 목록 ──
     socket.on('get_clans', () => {
         const list = Object.entries(clans).map(([name, c]) => ({
-            name, memberCount: c.members.length, level: c.level,
-            leader: players[c.leader]?.displayName || '?'
+            name, memberCount: c.members.length, level: c.level, exp: c.exp,
+            maxMembers: CLAN_MAX_MEMBERS[c.level] || 10,
+            leader: players[c.leader]?.displayName || '?',
+            skills: Object.keys(CLAN_SKILLS).filter(lv => c.level >= lv).map(lv => CLAN_SKILLS[lv].name),
         }));
         socket.emit('clan_list', list);
+    });
+
+    // ── 혈맹 경험치 기부 (몬스터 사냥 시 자동 + 수동 기부) ──
+    socket.on('clan_donate', (amount) => {
+        const p = players[playerId];
+        if (!p || !p.clanName || !clans[p.clanName]) return;
+        const gold = Math.min(Math.max(0, Math.floor(amount)), p.gold);
+        if (gold <= 0) return;
+        p.gold -= gold;
+        const clan = clans[p.clanName];
+        clan.exp += Math.floor(gold / 10);
+
+        // 레벨업 체크
+        const nextLevelExp = CLAN_LEVEL_EXP[clan.level] || 99999;
+        if (clan.exp >= nextLevelExp && clan.level < 5) {
+            clan.exp -= nextLevelExp;
+            clan.level++;
+            const newSkill = CLAN_SKILLS[clan.level];
+            io.emit('server_msg', { msg: `혈맹 [${p.clanName}] 레벨 ${clan.level} 달성! ${newSkill ? newSkill.name + ' 해금!' : ''}`, type: 'rare' });
+        }
+        socket.emit('clan_result', { success: true, msg: `${gold}G 기부 완료! (혈맹 EXP +${Math.floor(gold/10)})` });
+    });
+
+    // ── 혈맹 창고 (아이템 넣기/빼기) ──
+    socket.on('clan_storage_deposit', (data) => {
+        const p = players[playerId];
+        if (!p || !p.clanName || !clans[p.clanName]) return;
+        const { itemId, count } = data;
+        if (!p.inventory || !p.inventory[itemId] || p.inventory[itemId] < count) return;
+        p.inventory[itemId] -= count;
+        if (p.inventory[itemId] <= 0) delete p.inventory[itemId];
+        const storage = clans[p.clanName].storage;
+        storage[itemId] = (storage[itemId] || 0) + count;
+        socket.emit('clan_result', { success: true, msg: `창고에 ${itemId} x${count} 보관` });
+    });
+
+    socket.on('clan_storage_withdraw', (data) => {
+        const p = players[playerId];
+        if (!p || !p.clanName || !clans[p.clanName]) return;
+        const { itemId, count } = data;
+        const storage = clans[p.clanName].storage;
+        if (!storage[itemId] || storage[itemId] < count) return;
+        storage[itemId] -= count;
+        if (storage[itemId] <= 0) delete storage[itemId];
+        if (!p.inventory) p.inventory = {};
+        p.inventory[itemId] = (p.inventory[itemId] || 0) + count;
+        socket.emit('clan_result', { success: true, msg: `창고에서 ${itemId} x${count} 인출` });
+    });
+
+    // ── 혈맹 전쟁 선포 ──
+    socket.on('clan_war_declare', (targetClanName) => {
+        const p = players[playerId];
+        if (!p || !p.clanName || !clans[p.clanName]) return;
+        const clan = clans[p.clanName];
+        if (clan.leader !== playerId) { socket.emit('clan_result', { success: false, msg: '군주만 선포 가능' }); return; }
+        if (!clans[targetClanName]) { socket.emit('clan_result', { success: false, msg: '존재하지 않는 혈맹' }); return; }
+        if (clan.level < 3) { socket.emit('clan_result', { success: false, msg: '혈맹 Lv.3 이상 필요' }); return; }
+        if (clan.war) { socket.emit('clan_result', { success: false, msg: '이미 전쟁 중' }); return; }
+
+        clan.war = { target: targetClanName, startTime: Date.now(), endTime: Date.now() + 86400000, kills: 0 };
+        clans[targetClanName].war = { target: p.clanName, startTime: Date.now(), endTime: Date.now() + 86400000, kills: 0 };
+        io.emit('server_msg', { msg: `[혈맹 전쟁] ${p.clanName} vs ${targetClanName} 전쟁 시작! (24시간)`, type: 'boss' });
+        socket.emit('clan_result', { success: true, msg: `${targetClanName}에 전쟁 선포!` });
+    });
+
+    // ── 혈맹 직위 변경 ──
+    socket.on('clan_promote', (data) => {
+        const p = players[playerId];
+        if (!p || !p.clanName || !clans[p.clanName]) return;
+        const clan = clans[p.clanName];
+        const { targetId, rank } = data;
+        if (clan.leader !== playerId && !clan.officers.includes(playerId)) return;
+        if (rank === 'officer' && clan.leader === playerId) {
+            if (!clan.officers.includes(targetId)) clan.officers.push(targetId);
+            socket.emit('clan_result', { success: true, msg: '간부 임명 완료' });
+        }
+    });
+
+    // ── 혈맹 탈퇴 ──
+    socket.on('clan_leave', () => {
+        const p = players[playerId];
+        if (!p || !p.clanName || !clans[p.clanName]) return;
+        const clan = clans[p.clanName];
+        if (clan.leader === playerId) {
+            // 군주가 탈퇴하면 혈맹 해산
+            for (const mid of clan.members) {
+                if (players[mid]) { players[mid].clanName = null; io.to(mid).emit('clan_result', { success:true, msg:'혈맹 해산됨' }); }
+            }
+            delete clans[p.clanName];
+        } else {
+            clan.members = clan.members.filter(m => m !== playerId);
+            clan.officers = (clan.officers || []).filter(o => o !== playerId);
+        }
+        p.clanName = null;
+        savePlayer(p);
+        socket.emit('clan_result', { success: true, msg: '혈맹 탈퇴' });
+    });
+
+    // ── 혈맹 추방 ──
+    socket.on('clan_kick', (targetId) => {
+        const p = players[playerId];
+        if (!p || !p.clanName || !clans[p.clanName]) return;
+        const clan = clans[p.clanName];
+        if (clan.leader !== playerId && !(clan.officers || []).includes(playerId)) return;
+        if (targetId === clan.leader) return; // 군주는 추방 불가
+        clan.members = clan.members.filter(m => m !== targetId);
+        clan.officers = (clan.officers || []).filter(o => o !== targetId);
+        if (players[targetId]) {
+            players[targetId].clanName = null;
+            io.to(targetId).emit('clan_result', { success: true, msg: '혈맹에서 추방당했습니다' });
+        }
+        socket.emit('clan_result', { success: true, msg: '멤버 추방 완료' });
+    });
+
+    // ── 경매장: 아이템 등록 ──
+    socket.on('market_list_item', (data) => {
+        const p = players[playerId];
+        if (!p) return;
+        const { itemId, price } = data;
+        if (!itemId || !price || price <= 0) { socket.emit('market_result', { msg: '잘못된 입력' }); return; }
+        if (!p.inventory || !p.inventory[itemId] || p.inventory[itemId] <= 0) {
+            socket.emit('market_result', { msg: '아이템 없음' }); return;
+        }
+        // 귀속 아이템 거래 불가
+        if (EQUIP_STATS[itemId]?.bound) { socket.emit('market_result', { msg: '귀속 아이템은 거래 불가' }); return; }
+        // 동시 10개 제한
+        const myListings = marketListings.filter(l => l.sellerId === playerId);
+        if (myListings.length >= 10) { socket.emit('market_result', { msg: '최대 10개까지 등록 가능' }); return; }
+
+        p.inventory[itemId]--;
+        if (p.inventory[itemId] <= 0) delete p.inventory[itemId];
+
+        marketIdCounter++;
+        const listing = {
+            id: marketIdCounter, sellerId: playerId,
+            sellerName: p.displayName, itemId, price: Math.floor(price),
+            itemName: TRADEABLE_ITEMS[itemId]?.name || EQUIP_STATS[itemId]?.name || itemId,
+            grade: EQUIP_STATS[itemId]?.grade || null,
+            listedAt: Date.now(), expiresAt: Date.now() + 86400000, // 24시간
+            bids: [], // 입찰 목록
+        };
+        marketListings.push(listing);
+        socket.emit('market_result', { msg: `${listing.itemName} 등록 완료! (${price}G)` });
+        savePlayer(p);
+    });
+
+    // ── 경매장: 즉시 구매 ──
+    socket.on('market_buy', (listingId) => {
+        const p = players[playerId];
+        if (!p) return;
+        const idx = marketListings.findIndex(l => l.id === listingId);
+        if (idx === -1) { socket.emit('market_result', { msg: '매물 없음' }); return; }
+        const listing = marketListings[idx];
+        if (listing.sellerId === playerId) { socket.emit('market_result', { msg: '자기 매물 구매 불가' }); return; }
+        if (p.gold < listing.price) { socket.emit('market_result', { msg: '골드 부족' }); return; }
+
+        p.gold -= listing.price;
+        if (!p.inventory) p.inventory = {};
+        p.inventory[listing.itemId] = (p.inventory[listing.itemId] || 0) + 1;
+
+        // 판매자에게 수수료 제외 골드 지급
+        const sellerGold = Math.floor(listing.price * (1 - MARKET_FEE));
+        const seller = players[listing.sellerId];
+        if (seller) { seller.gold += sellerGold; savePlayer(seller); }
+
+        marketListings.splice(idx, 1);
+        socket.emit('market_result', { msg: `${listing.itemName} 구매 완료! (-${listing.price}G)` });
+        io.emit('player_update', p);
+        savePlayer(p);
+    });
+
+    // ── 경매장: 입찰 ──
+    socket.on('market_bid', (data) => {
+        const p = players[playerId];
+        if (!p) return;
+        const { listingId, bidAmount } = data;
+        const listing = marketListings.find(l => l.id === listingId);
+        if (!listing) { socket.emit('market_result', { msg: '매물 없음' }); return; }
+        if (listing.sellerId === playerId) { socket.emit('market_result', { msg: '자기 매물 입찰 불가' }); return; }
+        if (bidAmount <= 0 || p.gold < bidAmount) { socket.emit('market_result', { msg: '골드 부족' }); return; }
+
+        const highestBid = listing.bids.length > 0 ? listing.bids[listing.bids.length - 1].amount : 0;
+        if (bidAmount <= highestBid) { socket.emit('market_result', { msg: `현재 최고 입찰가(${highestBid}G)보다 높아야 함` }); return; }
+
+        // 이전 입찰자에게 골드 반환
+        if (listing.bids.length > 0) {
+            const prevBid = listing.bids[listing.bids.length - 1];
+            const prevBidder = players[prevBid.bidderId];
+            if (prevBidder) { prevBidder.gold += prevBid.amount; io.emit('player_update', prevBidder); }
+        }
+
+        p.gold -= bidAmount;
+        listing.bids.push({ bidderId: playerId, bidderName: p.displayName, amount: bidAmount });
+        socket.emit('market_result', { msg: `${listing.itemName}에 ${bidAmount}G 입찰 완료!` });
+        io.emit('player_update', p);
+    });
+
+    // ── 경매장: 목록 조회 ──
+    socket.on('market_browse', (filter) => {
+        const now = Date.now();
+        // 만료된 매물 정리
+        marketListings = marketListings.filter(l => {
+            if (l.expiresAt && now > l.expiresAt) {
+                // 입찰자가 있으면 낙찰 처리
+                if (l.bids && l.bids.length > 0) {
+                    const winBid = l.bids[l.bids.length - 1];
+                    const winner = players[winBid.bidderId];
+                    if (winner) {
+                        if (!winner.inventory) winner.inventory = {};
+                        winner.inventory[l.itemId] = (winner.inventory[l.itemId] || 0) + 1;
+                        io.to(winBid.bidderId).emit('market_result', { msg: `${l.itemName} 낙찰! 경매장에서 획득` });
+                    }
+                    const seller = players[l.sellerId];
+                    if (seller) {
+                        seller.gold += Math.floor(winBid.amount * (1 - MARKET_FEE));
+                        io.to(l.sellerId).emit('market_result', { msg: `${l.itemName} 낙찰 완료! +${Math.floor(winBid.amount * (1-MARKET_FEE))}G` });
+                    }
+                } else {
+                    // 입찰 없이 만료 → 판매자에게 반환
+                    const seller = players[l.sellerId];
+                    if (seller) {
+                        if (!seller.inventory) seller.inventory = {};
+                        seller.inventory[l.itemId] = (seller.inventory[l.itemId] || 0) + 1;
+                        io.to(l.sellerId).emit('market_result', { msg: `${l.itemName} 만료 반환` });
+                    }
+                }
+                return false;
+            }
+            return true;
+        });
+
+        let filtered = marketListings;
+        if (filter && filter.category) {
+            filtered = filtered.filter(l => (TRADEABLE_ITEMS[l.itemId]?.category || '') === filter.category);
+        }
+        socket.emit('market_listings', filtered.map(l => ({
+            id: l.id, itemId: l.itemId, itemName: l.itemName, price: l.price,
+            grade: l.grade, sellerName: l.sellerName,
+            highestBid: l.bids.length > 0 ? l.bids[l.bids.length - 1].amount : 0,
+            timeLeft: Math.max(0, Math.floor((l.expiresAt - now) / 60000)),
+        })));
+    });
+
+    // ── 경매장: 내 매물 취소 ──
+    socket.on('market_cancel', (listingId) => {
+        const p = players[playerId];
+        if (!p) return;
+        const idx = marketListings.findIndex(l => l.id === listingId && l.sellerId === playerId);
+        if (idx === -1) { socket.emit('market_result', { msg: '매물 없음' }); return; }
+        const listing = marketListings[idx];
+        // 입찰자에게 골드 반환
+        if (listing.bids && listing.bids.length > 0) {
+            const lastBid = listing.bids[listing.bids.length - 1];
+            const bidder = players[lastBid.bidderId];
+            if (bidder) { bidder.gold += lastBid.amount; io.emit('player_update', bidder); }
+        }
+        // 아이템 반환
+        if (!p.inventory) p.inventory = {};
+        p.inventory[listing.itemId] = (p.inventory[listing.itemId] || 0) + 1;
+        marketListings.splice(idx, 1);
+        socket.emit('market_result', { msg: `${listing.itemName} 등록 취소` });
+    });
+
+    // ── 아레나: 참가 신청 ──
+    socket.on('arena_join', () => {
+        const p = players[playerId];
+        if (!p || !p.isAlive) return;
+        if (p.level < 10) { socket.emit('arena_result', { msg: 'Lv.10 이상 필요' }); return; }
+        if ((p.arenaCountToday || 0) >= 10) { socket.emit('arena_result', { msg: '일일 아레나 10회 초과' }); return; }
+        if (arenaQueue.includes(playerId)) { socket.emit('arena_result', { msg: '이미 대기 중' }); return; }
+        // 이미 매치 중인지 체크
+        for (const m of Object.values(arenaMatches)) {
+            if (m.player1 === playerId || m.player2 === playerId) {
+                socket.emit('arena_result', { msg: '이미 매치 진행 중' }); return;
+            }
+        }
+        arenaQueue.push(playerId);
+        socket.emit('arena_result', { msg: '아레나 대기열 참가! 상대 매칭 중...' });
+
+        // 매칭 시도
+        if (arenaQueue.length >= 2) {
+            const p1Id = arenaQueue.shift();
+            const p2Id = arenaQueue.shift();
+            const p1 = players[p1Id], p2 = players[p2Id];
+            if (!p1 || !p2 || !p1.isAlive || !p2.isAlive) return;
+
+            arenaMatchIdCounter++;
+            const matchId = 'arena_' + arenaMatchIdCounter;
+            const arenaZone = ZONES.arena;
+            // 양 플레이어를 아레나로 이동
+            p1.x = arenaZone.x + 10; p1.y = arenaZone.y + arenaZone.h / 2;
+            p2.x = arenaZone.x + arenaZone.w - 10; p2.y = arenaZone.y + arenaZone.h / 2;
+            p1.hp = p1.maxHp; p2.hp = p2.maxHp; // HP 풀 회복
+
+            arenaMatches[matchId] = { player1: p1Id, player2: p2Id, startTime: Date.now() };
+            p1.arenaMatchId = matchId; p2.arenaMatchId = matchId;
+
+            io.to(p1Id).emit('arena_start', { matchId, opponent: p2.displayName, opponentClass: p2.className });
+            io.to(p2Id).emit('arena_start', { matchId, opponent: p1.displayName, opponentClass: p1.className });
+            io.emit('server_msg', { msg: `[아레나] ${p1.displayName} vs ${p2.displayName} 대결 시작!`, type: 'normal' });
+
+            // 3분 타임아웃
+            setTimeout(() => {
+                const match = arenaMatches[matchId];
+                if (!match) return;
+                const mp1 = players[match.player1], mp2 = players[match.player2];
+                // 남은 HP 비율로 승자 결정
+                const hp1Pct = mp1 ? mp1.hp / mp1.maxHp : 0;
+                const hp2Pct = mp2 ? mp2.hp / mp2.maxHp : 0;
+                const winnerId = hp1Pct >= hp2Pct ? match.player1 : match.player2;
+                const loserId = winnerId === match.player1 ? match.player2 : match.player1;
+                endArenaMatch(matchId, winnerId, loserId, '시간 초과 - HP 비율 판정');
+            }, 180000);
+        }
+    });
+
+    // ── 아레나: 대기열 취소 ──
+    socket.on('arena_leave', () => {
+        arenaQueue = arenaQueue.filter(id => id !== playerId);
+        socket.emit('arena_result', { msg: '대기열 취소' });
+    });
+
+    // ── 아레나: 랭킹 조회 ──
+    socket.on('arena_rankings', () => {
+        const sorted = Object.entries(arenaRankings)
+            .sort((a, b) => b[1].points - a[1].points)
+            .slice(0, 20)
+            .map(([pid, r], idx) => ({
+                rank: idx + 1, name: players[pid]?.displayName || '?',
+                className: players[pid]?.className || '?',
+                wins: r.wins, losses: r.losses, points: r.points
+            }));
+        socket.emit('arena_ranking_list', sorted);
     });
 
     // ── 파티 생성 ──
@@ -1421,6 +3081,7 @@ io.on('connection', (socket) => {
         p.partyId = pid;
         parties[pid] = { leader: playerId, members: [playerId], name: p.displayName + '의 파티' };
         socket.emit('party_result', { success: true, msg: '파티 생성!' });
+        socket.emit('party_info', parties[pid]);
     });
 
     // ── 파티 초대 (근처 플레이어 자동) ──
@@ -1440,9 +3101,102 @@ io.on('connection', (socket) => {
                 party.members.push(pid);
                 io.to(pid).emit('party_result', { success: true, msg: `${p.displayName}의 파티에 합류!` });
                 socket.emit('party_result', { success: true, msg: `${target.displayName} 파티 합류!` });
+                // 파티원 모두에게 업데이트
+                for (const mid of party.members) {
+                    io.to(mid).emit('party_info', { ...party, memberNames: party.members.map(m => players[m]?.displayName || '?') });
+                }
                 break;
             }
         }
+    });
+
+    // ── 파티 탈퇴 ──
+    socket.on('leave_party', () => {
+        const p = players[playerId];
+        if (!p || !p.partyId) return;
+        const party = parties[p.partyId];
+        if (!party) { p.partyId = null; return; }
+
+        party.members = party.members.filter(m => m !== playerId);
+
+        if (party.members.length === 0) {
+            delete parties[p.partyId];
+        } else {
+            // 리더가 떠나면 다음 사람이 리더
+            if (party.leader === playerId) {
+                party.leader = party.members[0];
+                io.to(party.leader).emit('party_result', { success: true, msg: '파티장이 되었습니다!' });
+            }
+            for (const mid of party.members) {
+                io.to(mid).emit('party_info', { ...party, memberNames: party.members.map(m => players[m]?.displayName || '?') });
+            }
+        }
+        p.partyId = null;
+        socket.emit('party_result', { success: true, msg: '파티 탈퇴' });
+    });
+
+    // ── 파티 해산 ──
+    socket.on('disband_party', () => {
+        const p = players[playerId];
+        if (!p || !p.partyId) return;
+        const party = parties[p.partyId];
+        if (!party || party.leader !== playerId) { socket.emit('party_result', { success: false, msg: '파티장만 해산 가능' }); return; }
+
+        for (const mid of party.members) {
+            if (players[mid]) players[mid].partyId = null;
+            io.to(mid).emit('party_result', { success: true, msg: '파티가 해산되었습니다' });
+        }
+        delete parties[p.partyId];
+    });
+
+    // ── 파티 정보 조회 ──
+    socket.on('get_party_info', () => {
+        const p = players[playerId];
+        if (!p || !p.partyId || !parties[p.partyId]) { socket.emit('party_info', null); return; }
+        const party = parties[p.partyId];
+        socket.emit('party_info', {
+            ...party,
+            memberNames: party.members.map(m => ({
+                id: m, name: players[m]?.displayName || '?',
+                level: players[m]?.level || 1, className: players[m]?.className || '?',
+                hp: players[m]?.hp || 0, maxHp: players[m]?.maxHp || 1,
+                isLeader: m === party.leader,
+            }))
+        });
+    });
+
+    // ── 파티 던전 입장 ──
+    socket.on('party_enter_dungeon', (dungeonId) => {
+        const p = players[playerId];
+        if (!p || !p.partyId) { socket.emit('dungeon_result', { msg: '파티 필요' }); return; }
+        const party = parties[p.partyId];
+        if (!party || party.leader !== playerId) { socket.emit('dungeon_result', { msg: '파티장만 입장 가능' }); return; }
+        const dungeon = DUNGEONS[dungeonId];
+        if (!dungeon) { socket.emit('dungeon_result', { msg: '존재하지 않는 던전' }); return; }
+        if (party.members.length > dungeon.maxParty) { socket.emit('dungeon_result', { msg: `최대 ${dungeon.maxParty}명` }); return; }
+
+        // 모든 파티원 레벨 체크
+        for (const mid of party.members) {
+            const member = players[mid];
+            if (!member || !member.isAlive) { socket.emit('dungeon_result', { msg: '모든 파티원이 생존해야 함' }); return; }
+            if (member.level < dungeon.minLevel) { socket.emit('dungeon_result', { msg: `${member.displayName}: 레벨 ${dungeon.minLevel} 이상 필요` }); return; }
+        }
+
+        entityIdCounter++;
+        const instanceId = 'dungeon_' + entityIdCounter;
+        activeDungeons[instanceId] = {
+            dungeonId, players: [...party.members], currentStage: 0,
+            monstersLeft: dungeon.monsters[0].count,
+            startTime: Date.now(), totalStages: dungeon.stages,
+        };
+        for (const mid of party.members) {
+            if (players[mid]) players[mid].inDungeon = instanceId;
+            io.to(mid).emit('dungeon_enter', {
+                instanceId, name: dungeon.name, stage: 1, totalStages: dungeon.stages,
+                monstersLeft: dungeon.monsters[0].count, tier: dungeon.monsters[0].tier
+            });
+        }
+        io.emit('server_msg', { msg: `${p.displayName}의 파티가 ${dungeon.name}에 입장! (${party.members.length}명)`, type: 'normal' });
     });
 
     // ── 창고 ──
@@ -1470,7 +3224,8 @@ io.on('connection', (socket) => {
 
     socket.on('get_warehouse', () => {
         const p = players[playerId];
-        socket.emit('warehouse_data', { warehouse: p?.warehouse || {}, inventory: p?.inventory || {} });
+        if (!p) return;
+        socket.emit('warehouse_data', { warehouse: p.warehouse || {}, inventory: p.inventory || {} });
     });
 
     // ── 몬스터 테이밍 (포켓몬) ──
@@ -1500,9 +3255,10 @@ io.on('connection', (socket) => {
         if (!mob || !mob.isAlive) { sock.emit('tame_result', { success:false, msg:'대상 없음' }); return; }
         const dist = Math.hypot(p.x - mob.x, p.y - mob.y);
         if (dist > 8) { sock.emit('tame_result', { success:false, msg:'너무 멀어요 (8 이내)' }); return; }
-        if (p.gold < TAME_COST) { sock.emit('tame_result', { success:false, msg:`${TAME_COST}G 필요` }); return; }
+        const tameCost = TAME_COSTS[mob.tier] || 50;
+        if (p.gold < tameCost) { sock.emit('tame_result', { success:false, msg:`${tameCost}G 필요` }); return; }
 
-        p.gold -= TAME_COST;
+        p.gold -= tameCost;
         const rate = TAME_RATES[mob.tier] || 0.1;
         const success = Math.random() < rate;
 
@@ -1604,6 +3360,10 @@ io.on('connection', (socket) => {
             p.inventory[goodsId] -= (qty || 1);
             if (p.inventory[goodsId] <= 0) delete p.inventory[goodsId];
             p.gold += price;
+            p.totalTradeProfit = (p.totalTradeProfit || 0) + price;
+            trackQuest(p, 'trade_count', qty || 1);
+            checkTitles(p);
+            capResources(p);
             savePlayer(p);
             socket.emit('trade_goods_result', { success:true, msg:`${townPrices[town][goodsId].name} x${qty||1} 판매 (+${price}G)` });
             io.emit('player_update', p);
@@ -1720,6 +3480,10 @@ io.on('connection', (socket) => {
         const p = players[playerId];
         if (!p) return;
         const result = handleCraft(p, recipeId, io);
+        if (result.success) {
+            p.totalCrafts = (p.totalCrafts || 0) + 1;
+            checkTitles(p);
+        }
         savePlayer(p);
         socket.emit('craft_result', result);
         if (result.success) io.emit('player_update', p);
@@ -1785,8 +3549,20 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         if (players[playerId]) {
-            if (players[playerId].isKing) hasKing = false;
-            savePlayer(players[playerId]);
+            const p = players[playerId];
+            if (p.isKing) hasKing = false;
+            // 던전 인스턴스 정리
+            if (p.inDungeon && activeDungeons[p.inDungeon]) {
+                const inst = activeDungeons[p.inDungeon];
+                inst.players = inst.players.filter(pid => pid !== playerId);
+                if (inst.players.length === 0) delete activeDungeons[p.inDungeon];
+            }
+            // 무한의 탑 정리
+            if (towerProgress[playerId]) delete towerProgress[playerId];
+            // 아레나 큐 정리
+            arenaQueue = arenaQueue.filter(id => id !== playerId);
+
+            savePlayer(p);
 
             for (let bId in players) {
                 if (players[bId].isBot && players[bId].ownerId === playerId) {
@@ -1889,23 +3665,26 @@ function createAutoArmy(ownerId) {
     const randomClass = classNames[Math.floor(Math.random() * classNames.length)];
     const cls = CLASSES[randomClass];
 
+    const botLevel = Math.max(1, Math.floor(p.level * 0.8));
+    const botHp = cls.maxHp + (botLevel - 1) * 25;
     players[botId] = {
         id: botId, deviceId: 'bot',
         className: randomClass,
         displayName: cls.displayName,
         x: p.x + (Math.random() * 4 - 2),
         y: p.y + (Math.random() * 4 - 2),
-        hp: cls.maxHp, maxHp: cls.maxHp,
+        hp: botHp, maxHp: botHp,
         atk: cls.atk, def: cls.def,
         critRate: cls.critRate, dodgeRate: cls.dodgeRate,
-        dmgMulti: 1.0,
+        dmgMulti: 1.0 + (botLevel - 1) * 0.08,
         dirX: 0, dirY: -1,
-        gold: 0, level: 1, exp: 0,
+        gold: 0, level: botLevel, exp: 0,
         isAlive: true, killCount: 0, karma: 0,
         team: p.team,
         ownerId,
         targetId: null,
         isKing: false, isBot: true,
+        element: p.element,
         lastHpRegen: Date.now(), autoSkillCooldown: 0
     };
     io.emit('player_join', players[botId]);
@@ -1933,40 +3712,240 @@ setInterval(() => {
 
     handleCollisions();
 
-    // 몬스터 이동 (1초마다)
+    // 몬스터 AI (1초마다)
     if (tickCounter % 30 === 0) {
         for (let mId in monsters) {
             const m = monsters[mId];
-            m.x += (Math.random() * 2 - 1) * 0.5;
-            m.y += (Math.random() * 2 - 1) * 0.5;
-            // 맵 경계
-            m.x = Math.max(-480, Math.min(480, m.x));
-            m.y = Math.max(-480, Math.min(480, m.y));
+            if (!m.isAlive) continue;
+
+            // 가장 가까운 플레이어 찾기
+            let nearestPlayer = null, nearestDist = 15; // 어그로 범위 15
+            // 도발 대상 우선
+            if (m.tauntTarget && players[m.tauntTarget]?.isAlive) {
+                nearestPlayer = players[m.tauntTarget];
+                nearestDist = Math.hypot(m.x - nearestPlayer.x, m.y - nearestPlayer.y);
+            } else {
+                m.tauntTarget = null;
+                for (const pId in players) {
+                    const p = players[pId];
+                    if (!p.isAlive) continue;
+                    const d = Math.hypot(m.x - p.x, m.y - p.y);
+                    if (d < nearestDist) { nearestDist = d; nearestPlayer = p; }
+                }
+            }
+
+            const now = Date.now();
+            const aiType = m.aiType || 'wander';
+
+            if (nearestPlayer && nearestDist < 12) {
+                // 플레이어를 향해 이동
+                const dx = nearestPlayer.x - m.x, dy = nearestPlayer.y - m.y;
+                const mag = Math.hypot(dx, dy);
+
+                switch (aiType) {
+                    case 'charge': // 엘리트: 돌진 — 빠르게 접근, 3초마다 돌진 공격
+                        if (mag > 2) {
+                            const spd = 0.8; // 일반보다 빠름
+                            m.x += (dx / mag) * spd;
+                            m.y += (dy / mag) * spd;
+                        }
+                        if (nearestDist < 3 && now - (m.lastSpecialAttack||0) > 3000) {
+                            m.lastSpecialAttack = now;
+                            // 돌진 데미지 + 넉백
+                            const chargeDmg = Math.floor(m.atk * 1.5);
+                            nearestPlayer.hp -= chargeDmg;
+                            // 넉백 (플레이어를 밀어냄)
+                            if (mag > 0.1) {
+                                nearestPlayer.x += (dx / mag) * -2;
+                                nearestPlayer.y += (dy / mag) * -2;
+                            }
+                            io.emit('player_hit', { id: nearestPlayer.id, hp: nearestPlayer.hp, damage: chargeDmg, isCrit: false, skillName: '돌진' });
+                            if (nearestPlayer.hp <= 0 && nearestPlayer.isAlive) {
+                                handlePlayerDeath(nearestPlayer, nearestPlayer.id, m, mId);
+                            }
+                        }
+                        break;
+
+                    case 'aoe': // 레어: 광역 — 느리지만 주기적 광역 공격
+                        if (mag > 3) {
+                            m.x += (dx / mag) * 0.3;
+                            m.y += (dy / mag) * 0.3;
+                        }
+                        if (now - (m.lastSpecialAttack||0) > 4000) {
+                            m.lastSpecialAttack = now;
+                            // 주변 3범위 광역 데미지
+                            const aoeDmg = Math.floor(m.atk * 1.2);
+                            for (const pId in players) {
+                                const p = players[pId];
+                                if (!p.isAlive) continue;
+                                const pd = Math.hypot(m.x - p.x, m.y - p.y);
+                                if (pd < 3) {
+                                    if (p.activeBuffs?.divine_shield) continue;
+                                    let dmg = aoeDmg;
+                                    if (p.activeBuffs?.iron_wall) dmg = Math.floor(dmg * 0.3);
+                                    p.hp -= dmg;
+                                    io.emit('player_hit', { id: pId, hp: p.hp, damage: dmg, isCrit: false, skillName: '광역 충격파' });
+                                    if (p.hp <= 0 && p.isAlive) handlePlayerDeath(p, pId, m, mId);
+                                }
+                            }
+                        }
+                        break;
+
+                    case 'breath': // 보스: 브레스 — 원거리 직선 공격 + 높은 데미지
+                        if (mag > 5) {
+                            m.x += (dx / mag) * 0.4;
+                            m.y += (dy / mag) * 0.4;
+                        }
+                        if (now - (m.lastSpecialAttack||0) > 5000) {
+                            m.lastSpecialAttack = now;
+                            // 브레스: 방향으로 범위 6, 폭 2의 직선 공격
+                            const breathDmg = Math.floor(m.atk * 2.0);
+                            const bdx = dx / mag, bdy = dy / mag;
+                            for (const pId in players) {
+                                const p = players[pId];
+                                if (!p.isAlive) continue;
+                                // 브레스 직선 범위 체크 (내적 + 거리)
+                                const px = p.x - m.x, py = p.y - m.y;
+                                const proj = px * bdx + py * bdy; // 정사영
+                                if (proj > 0 && proj < 8) {
+                                    const perp = Math.abs(px * bdy - py * bdx); // 수직 거리
+                                    if (perp < 2) {
+                                        if (p.activeBuffs?.divine_shield) continue;
+                                        let dmg = breathDmg;
+                                        if (p.activeBuffs?.iron_wall) dmg = Math.floor(dmg * 0.3);
+                                        p.hp -= dmg;
+                                        applyBuff(p, 'burn'); // 화상 디버프
+                                        io.emit('player_hit', { id: pId, hp: p.hp, damage: dmg, isCrit: false, skillName: '브레스' });
+                                        if (p.hp <= 0 && p.isAlive) handlePlayerDeath(p, pId, m, mId);
+                                    }
+                                }
+                            }
+                            io.emit('skill_effect', { casterId: mId, skillName: '브레스', type: 'aoe', targetX: nearestPlayer.x, targetY: nearestPlayer.y });
+                        }
+                        break;
+
+                    default: // wander: 느린 추적
+                        if (mag > 2) {
+                            m.x += (dx / mag) * 0.4;
+                            m.y += (dy / mag) * 0.4;
+                        }
+                        // 근접 시 기본 공격 (2초마다)
+                        if (nearestDist < 2 && now - (m.lastSpecialAttack||0) > 2000) {
+                            m.lastSpecialAttack = now;
+                            const mDmg = Math.max(1, m.atk - (nearestPlayer.def || 0) * 0.3);
+                            nearestPlayer.hp -= mDmg;
+                            io.emit('player_hit', { id: nearestPlayer.id, hp: nearestPlayer.hp, damage: Math.floor(mDmg), isCrit: false });
+                            if (nearestPlayer.hp <= 0 && nearestPlayer.isAlive) handlePlayerDeath(nearestPlayer, nearestPlayer.id, m, mId);
+                        }
+                }
+            } else {
+                // 어그로 없음: 스폰 존 중심으로 복귀
+                const mZoneHome = m.zoneId && ZONES[m.zoneId];
+                if (mZoneHome) {
+                    const homeX = mZoneHome.x + mZoneHome.w / 2;
+                    const homeY = mZoneHome.y + mZoneHome.h / 2;
+                    const homeDist = Math.hypot(m.x - homeX, m.y - homeY);
+                    if (homeDist > mZoneHome.w * 0.4) {
+                        // 존 중심으로 복귀
+                        m.x += (homeX - m.x) / homeDist * 0.5;
+                        m.y += (homeY - m.y) / homeDist * 0.5;
+                    } else {
+                        // 존 내 랜덤 배회
+                        m.x += (Math.random() * 2 - 1) * 0.3;
+                        m.y += (Math.random() * 2 - 1) * 0.3;
+                    }
+                } else {
+                    m.x += (Math.random() * 2 - 1) * 0.3;
+                    m.y += (Math.random() * 2 - 1) * 0.3;
+                }
+            }
+
+            // 존 경계 유지
+            const mZone = m.zoneId && ZONES[m.zoneId];
+            if (mZone) {
+                m.x = Math.max(mZone.x, Math.min(mZone.x + mZone.w, m.x));
+                m.y = Math.max(mZone.y, Math.min(mZone.y + mZone.h, m.y));
+            }
+            m.x = Math.max(-1020, Math.min(1020, m.x));
+            m.y = Math.max(-1020, Math.min(1020, m.y));
         }
     }
 
-    // HP 자동 회복 (2초마다, 최대HP의 2%)
+    // 버프/디버프 업데이트 (매 틱)
+    for (let pId in players) {
+        if (players[pId].isAlive) updateBuffs(players[pId]);
+    }
+
+    // HP 자동 회복 (2초마다, 최대HP의 2% + 펫 보너스)
     if (tickCounter % 60 === 0) {
         for (let pId in players) {
             const p = players[pId];
             if (p.isAlive && p.hp < p.maxHp) {
-                p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.02);
+                let regenRate = 0.01; // 1%/2초 (2%에서 하향)
+                const pet = getPetEffect(p);
+                if (pet && pet.effect === 'hpRegen') regenRate += pet.value;
+                p.hp = Math.min(p.maxHp, p.hp + p.maxHp * regenRate);
             }
-            // 자동 물약 (HP 30% 이하 시)
-            if (p.isAlive && p.autoPotion && !p.isBot && p.hp < p.maxHp * 0.3) {
-                if (p.inventory && p.inventory['pot_hp_s'] > 0) {
-                    p.inventory['pot_hp_s']--;
-                    if (p.inventory['pot_hp_s'] <= 0) delete p.inventory['pot_hp_s'];
-                    p.hp = Math.min(p.maxHp, p.hp + 100);
-                    io.to(pId).emit('combat_log', { msg: '자동 물약 사용! HP +100' });
+            // MP 자동 회복 (2초마다 최대 MP의 3%)
+            if (p.isAlive && p.mp !== undefined && p.mp < (p.maxMp || 100)) {
+                let mpRegen = (p.maxMp || 100) * 0.03;
+                // 메이지 마나 재생 패시브
+                const magePassive = SKILLS[p.baseClassName || p.className]?.find(s => s.type === 'passive' && s.mpRegenMulti);
+                if (magePassive && p.level >= magePassive.level) mpRegen *= magePassive.mpRegenMulti;
+                p.mp = Math.min(p.maxMp || 100, p.mp + mpRegen);
+            }
+            // 자동 물약 (HP 30% 이하 시, 상급→중급→하급 순서)
+            if (p.isAlive && p.autoPotion && !p.isBot && p.hp < p.maxHp * 0.3 && p.inventory) {
+                const potions = [
+                    { id:'pot_hp_l', heal:800, name:'상급 HP 물약' },
+                    { id:'pot_hp_m', heal:300, name:'중급 HP 물약' },
+                    { id:'pot_hp_s', heal:100, name:'하급 HP 물약' },
+                ];
+                for (const pot of potions) {
+                    if (p.inventory[pot.id] > 0) {
+                        p.inventory[pot.id]--;
+                        if (p.inventory[pot.id] <= 0) delete p.inventory[pot.id];
+                        p.hp = Math.min(p.maxHp, p.hp + pot.heal);
+                        io.to(pId).emit('combat_log', { msg: `${pot.name} 사용! HP +${pot.heal}` });
+                        break;
+                    }
                 }
             }
         }
     }
 
-    // 월드 보스 알림 (5분마다)
+    // 보스 카운트다운 타이머
+    const bossInterval = 30 * 300; // 5분 = 9000틱
+    const ticksUntilBoss = bossInterval - (tickCounter % bossInterval);
+    const secsUntilBoss = Math.floor(ticksUntilBoss / 30);
+    if (secsUntilBoss === 120 || secsUntilBoss === 60 || secsUntilBoss === 30 || secsUntilBoss === 10) {
+        io.emit('boss_countdown', { seconds: secsUntilBoss });
+    }
+
+    // 골드 피버 이벤트 (15분마다 랜덤 PK존에서 3분간 3배 보상)
+    if (tickCounter % (30 * 900) === 0 && tickCounter > 0) {
+        const feverZones = ['chaos','warzone','lawless','blood_arena'];
+        const feverZone = feverZones[Math.floor(Math.random() * feverZones.length)];
+        const zoneName = ZONES[feverZone]?.name || feverZone;
+        goldFeverZone = feverZone;
+        goldFeverEnd = Date.now() + 180000; // 3분
+        io.emit('gold_fever', { zoneId: feverZone, zoneName, duration: 180 });
+        io.emit('server_msg', { msg: `[골드 피버!] ${zoneName}에서 3분간 골드/EXP x3! 위험을 감수하라!`, type: 'boss' });
+    }
+
+    // 월드 보스 스폰 (5분마다)
     if (tickCounter % (30 * 300) === 0 && tickCounter > 0) {
-        io.emit('server_msg', { msg: '강력한 보스가 드래곤 둥지에 출현했습니다!', type: 'boss' });
+        spawnWorldBoss();
+    }
+
+    // 월드 보스 타이머 업데이트
+    if (worldBoss && worldBoss.isAlive && tickCounter % 30 === 0) {
+        // 보스 생존 시간 체크 (10분 후 사라짐)
+        if (Date.now() - worldBoss.spawnTime > 600000) {
+            io.emit('server_msg', { msg: `월드 보스 ${worldBoss.name}이(가) 사라졌습니다...`, type: 'danger' });
+            if (monsters[worldBoss.id]) delete monsters[worldBoss.id];
+            worldBoss = null;
+        }
     }
 
     // 낮/밤 순환 (1초마다 체크)
@@ -1975,12 +3954,79 @@ setInterval(() => {
         const wasNight = isNight;
         isNight = worldTime > DAY_NIGHT_CYCLE / 2; // 후반 5분 = 밤
         if (isNight && !wasNight) {
-            io.emit('server_msg', { msg: '밤이 찾아왔습니다... 언데드가 강해집니다!', type: 'danger' });
+            io.emit('server_msg', { msg: '밤이 찾아왔습니다... 몬스터가 강해집니다! (ATK/HP +20%, EXP +20%)', type: 'danger' });
             io.emit('day_night', { isNight: true });
+            // 밤: 모든 몬스터 ATK/HP 20% 증가
+            for (const mId in monsters) {
+                const m = monsters[mId];
+                if (!m.nightBuffed) {
+                    m.atk = Math.floor(m.atk * 1.2);
+                    m.hp = Math.floor(m.hp * 1.2);
+                    m.maxHp = Math.floor(m.maxHp * 1.2);
+                    m.nightBuffed = true;
+                }
+            }
         } else if (!isNight && wasNight) {
             io.emit('server_msg', { msg: '날이 밝았습니다. 안전한 사냥을!', type: 'normal' });
             io.emit('day_night', { isNight: false });
+            // 낮: 몬스터 원래 스탯 복구
+            for (const mId in monsters) {
+                const m = monsters[mId];
+                if (m.nightBuffed) {
+                    m.atk = Math.floor(m.atk / 1.2);
+                    m.hp = Math.floor(m.hp / 1.2);
+                    m.maxHp = Math.floor(m.maxHp / 1.2);
+                    if (m.hp > m.maxHp) m.hp = m.maxHp;
+                    m.nightBuffed = false;
+                }
+            }
         }
+    }
+
+    // 주간 랭킹 보상 체크 (1분마다)
+    if (tickCounter % (30 * 60) === 0) {
+        checkWeeklyRankingRewards();
+    }
+
+    // 시간대별 필드보스 스폰 (12:00, 20:00)
+    if (tickCounter % (30 * 60) === 0) {
+        const hour = new Date().getHours();
+        if ((hour === 12 || hour === 20) && lastFieldBossHour !== hour) {
+            lastFieldBossHour = hour;
+            // 고급 사냥터에 엘리트 필드보스 3마리 추가 스폰
+            const fieldBossZones = ['volcano','darkforest','graveyard'];
+            for (const zId of fieldBossZones) {
+                const zone = ZONES[zId];
+                if (!zone) continue;
+                entityIdCounter++;
+                const fbId = 'fieldboss_' + entityIdCounter;
+                monsters[fbId] = {
+                    id: fbId, tier: 'boss',
+                    name: '필드 보스 ' + zone.name,
+                    x: zone.x + zone.w / 2, y: zone.y + zone.h / 2,
+                    hp: 5000, maxHp: 5000, atk: 80, def: 40,
+                    color: '#FF2222', isAlive: true, isFieldBoss: true,
+                    element: ELEMENTS[Math.floor(Math.random() * ELEMENTS.length)],
+                    expReward: 1000, goldReward: 500,
+                };
+                io.emit('monster_spawn', monsters[fbId]);
+            }
+            io.emit('server_msg', { msg: `[필드 보스] ${hour}:00 - 필드 보스 3마리가 고급 사냥터에 출현!`, type: 'boss' });
+        }
+    }
+
+    // 공성전 세금 수입 (5분마다 성 소유 혈맹에게 지급)
+    if (tickCounter % (30 * 300) === 0 && castleOwner && clans[castleOwner]) {
+        const ownerClan = clans[castleOwner];
+        const taxGold = 500; // 5분마다 500G
+        for (const mid of ownerClan.members) {
+            const member = players[mid];
+            if (member && member.isAlive) {
+                member.gold += taxGold;
+                io.to(mid).emit('combat_log', { msg: `[세금] 왕의 성 세금 수입 +${taxGold}G` });
+            }
+        }
+        ownerClan.exp += 50; // 혈맹 경험치도
     }
 
     // 카르마 자연 감소 (매 분)
@@ -1990,6 +4036,35 @@ setInterval(() => {
             if (!p.isBot && p.karma > 0) {
                 p.karma = Math.max(0, p.karma - KARMA.DECAY_PER_MIN);
                 io.emit('player_update', p);
+            }
+        }
+    }
+
+    // 혈맹 전쟁 24시간 자동 종료 (1분마다 ���크)
+    if (tickCounter % (30 * 60) === 0) {
+        const now = Date.now();
+        for (const [clanName, clan] of Object.entries(clans)) {
+            if (clan.war && clan.war.endTime && now > clan.war.endTime) {
+                const targetClan = clans[clan.war.target];
+                io.emit('server_msg', { msg: `[혈맹 전쟁] ${clanName} vs ${clan.war.target} 전쟁 종료!`, type: 'normal' });
+                if (targetClan && targetClan.war) targetClan.war = null;
+                clan.war = null;
+            }
+        }
+    }
+
+    // 던전 인스턴스 타임아웃 (30분)
+    if (tickCounter % (30 * 60) === 0) {
+        const now = Date.now();
+        for (const [instId, inst] of Object.entries(activeDungeons)) {
+            if (now - inst.startTime > 1800000) {
+                for (const pid of inst.players) {
+                    if (players[pid]) {
+                        players[pid].inDungeon = null;
+                        io.to(pid).emit('dungeon_result', { msg: '던전 시간 초과! (30분)' });
+                    }
+                }
+                delete activeDungeons[instId];
             }
         }
     }
@@ -2007,7 +4082,8 @@ setInterval(() => {
             }
 
             let spawned = false;
-            while (p.gold >= 200 && myArmyCount < 30) {
+            const maxArmy = p.maxArmy || 30;
+            while (p.gold >= 200 && myArmyCount < maxArmy) {
                 p.gold -= 200;
                 createAutoArmy(pId);
                 myArmyCount++;
@@ -2108,30 +4184,301 @@ function updateBots() {
                 p.dirY = dy / mag;
             }
 
-            // 이동 (타워 제외)
+            // 이동 (타워 제외) — 탈것 속도 적용
             if (cls.speed > 0) {
-                p.x += p.dirX * (cls.speed / 100);
-                p.y += p.dirY * (cls.speed / 100);
+                let moveSpeed = cls.speed;
+                // 탈것 속도 보너스 (본인 또는 오너)
+                const speedOwner = p.ownerId ? players[p.ownerId] : p;
+                if (speedOwner) {
+                    const mountBonus = getMountSpeed(speedOwner);
+                    moveSpeed *= (1 + mountBonus);
+                    moveSpeed += (speedOwner.equipBonusSpd || 0);
+                }
+                p.x += p.dirX * (moveSpeed / 100);
+                p.y += p.dirY * (moveSpeed / 100);
             }
 
-            // 공격 확률
+            // 공격 확률 — 용병 공격 스타일별 분기
             const throwChance = (p.className === 'GuardianTower') ? 0.12 : 0.06;
-            if (Math.random() < throwChance) executeThrow(id);
+            if (Math.random() < throwChance) {
+                const atkStyle = p.attackStyle || 'melee';
+                if (atkStyle === 'charge' && target && minDist < 4) {
+                    // 돌진: 타겟에게 순간 접근 + 강타
+                    const dx = target.x - p.x, dy = target.y - p.y;
+                    const mag = Math.hypot(dx, dy);
+                    if (mag > 1) { p.x += (dx/mag) * 2; p.y += (dy/mag) * 2; }
+                    const chargeDmg = Math.floor((p.atk || 10) * 1.5 * (p.dmgMulti || 1));
+                    if (target.hp !== undefined) {
+                        target.hp -= chargeDmg;
+                        if (target.id) io.emit('player_hit', { id: target.id, hp: target.hp, damage: chargeDmg, isCrit: false, skillName: '돌진' });
+                    }
+                } else if (atkStyle === 'aoe' && target && minDist < 5) {
+                    // 광역: 주변 적에게 범위 데미지
+                    const aoeDmg = Math.floor((p.atk || 10) * 0.8 * (p.dmgMulti || 1));
+                    for (const [eid, enemy] of Object.entries(players)) {
+                        if (eid === id || !enemy.isAlive || enemy.team === p.team) continue;
+                        if (Math.hypot(enemy.x - p.x, enemy.y - p.y) < 3) {
+                            enemy.hp -= aoeDmg;
+                            if (enemy.id) io.emit('player_hit', { id: eid, hp: enemy.hp, damage: aoeDmg, isCrit: false, skillName: '광역' });
+                        }
+                    }
+                    for (const mi in monsters) {
+                        const mob = monsters[mi];
+                        if (mob && mob.isAlive && Math.hypot(mob.x - p.x, mob.y - p.y) < 3) {
+                            mob.hp -= aoeDmg;
+                        }
+                    }
+                } else if (atkStyle === 'breath' && target && minDist < 8) {
+                    // 브레스: 직선 범위 공격
+                    const breathDmg = Math.floor((p.atk || 10) * 1.8 * (p.dmgMulti || 1));
+                    const dx = target.x - p.x, dy = target.y - p.y;
+                    const mag = Math.hypot(dx, dy);
+                    if (mag > 0.1) {
+                        const bdx = dx/mag, bdy = dy/mag;
+                        for (const [eid, enemy] of Object.entries(players)) {
+                            if (eid === id || !enemy.isAlive || enemy.team === p.team) continue;
+                            const px = enemy.x - p.x, py = enemy.y - p.y;
+                            const proj = px*bdx + py*bdy;
+                            if (proj > 0 && proj < 6 && Math.abs(px*bdy - py*bdx) < 1.5) {
+                                enemy.hp -= breathDmg;
+                                if (enemy.id) io.emit('player_hit', { id: eid, hp: enemy.hp, damage: breathDmg, isCrit: false, skillName: '브레스' });
+                            }
+                        }
+                    }
+                } else {
+                    // melee (기본): 투사체 발사
+                    executeThrow(id);
+                }
+            }
 
-            // 스킬 자동 시전 (클래스별)
+            // 패시브 스킬 적용
             if (!p.skillCooldowns) p.skillCooldowns = {};
-            const classSkills = SKILLS[p.className];
+            if (!p.passiveApplied) p.passiveApplied = {};
+            const baseClassName = p.baseClassName || p.className;
+            const classSkills = SKILLS[baseClassName];
+            if (classSkills) {
+                for (const skill of classSkills) {
+                    if (skill.type !== 'passive' || p.level < skill.level) continue;
+                    // 어쌔신 - 독 바르기: 일반 공격 시 독 적용 (별도 처리 필요 없음, 투사체 적중 시 적용)
+                    // 워리어 - 분노: HP 50% 이하 시 ATK 30% 증가
+                    if (skill.atkBonus && skill.hpThreshold) {
+                        if (p.hp < p.maxHp * skill.hpThreshold) {
+                            if (!p.passiveApplied[skill.name]) {
+                                p.passiveApplied[skill.name] = true;
+                                p.passiveAtkBonus = skill.atkBonus;
+                            }
+                        } else {
+                            if (p.passiveApplied[skill.name]) {
+                                p.passiveApplied[skill.name] = false;
+                                p.passiveAtkBonus = 0;
+                            }
+                        }
+                    }
+                    // 나이트 - 수호 오라: 주변 아군 DEF +15%
+                    if (skill.allyDefMulti && skill.auraRange) {
+                        for (const [aid, ally] of Object.entries(players)) {
+                            if (aid === id || !ally.isAlive) continue;
+                            if (ally.team !== p.team && !(ally.ownerId === p.ownerId || ally.ownerId === id || aid === p.ownerId)) continue;
+                            const auraDist = Math.hypot(ally.x - p.x, ally.y - p.y);
+                            if (auraDist <= skill.auraRange) {
+                                ally.auraDefMulti = skill.allyDefMulti;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 스킬 자동 시전 (클래스별 액티브/궁극기)
             if (classSkills && target && minDist < 8) {
                 for (const skill of classSkills) {
+                    if (skill.type === 'passive') continue;
                     if (p.level < skill.level) continue;
+                    // MP 체크
+                    if (skill.mpCost && (p.mp || 0) < skill.mpCost) continue;
                     const lastUsed = p.skillCooldowns[skill.name] || 0;
                     if (Date.now() - lastUsed > skill.cooldown * 1000) {
                         p.skillCooldowns[skill.name] = Date.now();
-                        const skillDmg = Math.floor((p.atk || 10) * (skill.dmgMulti || 1) * (p.dmgMulti || 1));
-                        if (target.hp !== undefined) {
-                            target.hp -= skillDmg;
-                            if (target.id) io.emit('player_hit', { id: target.id, hp: target.hp, damage: skillDmg, isCrit: true, skillName: skill.name });
+                        // MP 소모
+                        if (skill.mpCost) p.mp = Math.max(0, (p.mp || 0) - skill.mpCost);
+
+                        // 은신 스킬 (버프만, 데미지 없음)
+                        if (skill.stealth) {
+                            applyBuff(p, 'stealth');
+                            p.stealthNextAtkMulti = skill.nextAtkMulti || 2.0;
+                            io.emit('skill_effect', { casterId: id, skillName: skill.name, type: 'stealth' });
+                            break;
                         }
+
+                        // 전투 함성 (아군 버프)
+                        if (skill.allyAtkMulti) {
+                            for (const [aid, ally] of Object.entries(players)) {
+                                if (!ally.isAlive) continue;
+                                if (ally.team !== p.team && !(ally.ownerId === p.ownerId || ally.ownerId === id || aid === p.ownerId)) continue;
+                                const buffDist = Math.hypot(ally.x - p.x, ally.y - p.y);
+                                if (buffDist <= (skill.range || 6)) {
+                                    applyBuff(ally, 'war_cry');
+                                }
+                            }
+                            io.emit('skill_effect', { casterId: id, skillName: skill.name, type: 'ally_buff' });
+                            break;
+                        }
+
+                        // 도발 (주변 몬스터의 타겟을 자신으로 변경)
+                        if (skill.taunt) {
+                            let tauntCount = 0;
+                            for (const monsterId in monsters) {
+                                const mob = monsters[monsterId];
+                                if (!mob.isAlive) continue;
+                                const dist = Math.hypot(mob.x - p.x, mob.y - p.y);
+                                if (dist <= (skill.range || 8)) {
+                                    mob.tauntTarget = id;
+                                    tauntCount++;
+                                    // 3초 후 도발 해제
+                                    setTimeout(() => {
+                                        if (monsters[monsterId]) monsters[monsterId].tauntTarget = null;
+                                    }, 3000);
+                                }
+                            }
+                            io.emit('skill_effect', { casterId: id, skillName: skill.name, type: 'aoe' });
+                            io.to(id).emit('combat_log', { msg: `도발! ${tauntCount}마리 몬스터의 주의를 끌었다!` });
+                            break;
+                        }
+
+                        // 철벽 방어 (자기 버프, 받는 데미지 70% 감소)
+                        if (skill.dmgReduce) {
+                            applyBuff(p, 'iron_wall');
+                            io.emit('skill_effect', { casterId: id, skillName: skill.name, type: 'self_buff' });
+                            break;
+                        }
+
+                        // 신성한 방벽 (주변 아군 무적)
+                        if (skill.allyInvincible) {
+                            for (const [aid, ally] of Object.entries(players)) {
+                                if (!ally.isAlive) continue;
+                                if (ally.team !== p.team && !(ally.ownerId === p.ownerId || ally.ownerId === id || aid === p.ownerId)) continue;
+                                const buffDist = Math.hypot(ally.x - p.x, ally.y - p.y);
+                                if (buffDist <= (skill.range || 6)) {
+                                    applyBuff(ally, 'divine_shield');
+                                }
+                            }
+                            io.emit('skill_effect', { casterId: id, skillName: skill.name, type: 'ally_invincible' });
+                            break;
+                        }
+
+                        // 체인 라이트닝 (연쇄 타격)
+                        if (skill.chainCount) {
+                            let chainTarget = target;
+                            const hitTargets = new Set();
+                            for (let c = 0; c < skill.chainCount; c++) {
+                                if (!chainTarget || hitTargets.has(chainTarget.id || chainTarget.idx)) break;
+                                hitTargets.add(chainTarget.id || chainTarget.idx);
+                                const chainDmg = Math.floor((p.atk || 10) * (skill.dmgMulti || 1) * (p.dmgMulti || 1));
+                                chainTarget.hp -= chainDmg;
+                                if (chainTarget.id) io.emit('player_hit', { id: chainTarget.id, hp: chainTarget.hp, damage: chainDmg, isCrit: true, skillName: skill.name });
+                                // 다음 타겟 찾기
+                                let nextTarget = null, nextDist = skill.chainRange || 4;
+                                for (const [eid, enemy] of Object.entries(players)) {
+                                    if (!enemy.isAlive || hitTargets.has(eid)) continue;
+                                    if (enemy.team === p.team) continue;
+                                    const d = Math.hypot(enemy.x - (chainTarget.x||0), enemy.y - (chainTarget.y||0));
+                                    if (d < nextDist) { nextDist = d; nextTarget = enemy; }
+                                }
+                                if (!nextTarget) {
+                                    for (let mi = 0; mi < monsters.length; mi++) {
+                                        const m = monsters[mi];
+                                        if (!m || hitTargets.has(mi)) continue;
+                                        const d = Math.hypot(m.x - (chainTarget.x||0), m.y - (chainTarget.y||0));
+                                        if (d < nextDist) { nextDist = d; nextTarget = m; }
+                                    }
+                                }
+                                chainTarget = nextTarget;
+                            }
+                            io.emit('skill_effect', { casterId: id, skillName: skill.name, type: 'chain' });
+                            break;
+                        }
+
+                        // 일반 데미지 스킬
+                        const atkValue = p.atk || 10;
+                        const passiveBonus = p.passiveAtkBonus || 0;
+                        const effectiveAtk = atkValue * (1 + passiveBonus);
+                        let skillDmg = Math.floor(effectiveAtk * (skill.dmgMulti || 1) * (p.dmgMulti || 1));
+
+                        // 은신 상태에서 공격 시 2배
+                        if (p.stealthNextAtkMulti && p.activeBuffs && p.activeBuffs['stealth']) {
+                            skillDmg = Math.floor(skillDmg * p.stealthNextAtkMulti);
+                            removeBuff(p, 'stealth');
+                            p.stealthNextAtkMulti = 0;
+                        }
+
+                        // 암살 스킬 - HP 30% 이하 적에게 처형 데미지
+                        if (skill.executeThreshold && target.hp !== undefined && target.maxHp) {
+                            if (target.hp / target.maxHp <= skill.executeThreshold) {
+                                skillDmg = Math.floor(skillDmg * 2);
+                            }
+                        }
+
+                        // 그림자 일격 - 크리티컬 확률 2배
+                        if (skill.critBonus) {
+                            const critRate = (CLASSES[baseClassName]?.critRate || 0.1) * 2;
+                            if (Math.random() < critRate) skillDmg = Math.floor(skillDmg * 2);
+                        }
+
+                        // 다중 히트 (연속 베기)
+                        const hitCount = skill.hits || 1;
+                        for (let h = 0; h < hitCount; h++) {
+                            if (target.hp !== undefined) {
+                                target.hp -= skillDmg;
+                                if (target.id) io.emit('player_hit', { id: target.id, hp: target.hp, damage: skillDmg, isCrit: true, skillName: skill.name });
+                            }
+                        }
+
+                        // 어쌔신 독 바르기 패시브 - 스킬 적중 시 독 적용
+                        const poisonPassive = classSkills.find(s => s.type === 'passive' && s.poisonDot);
+                        if (poisonPassive && p.level >= poisonPassive.level && target.activeBuffs !== undefined) {
+                            applyBuff(target, 'poison');
+                        }
+
+                        // 아이스 볼트 슬로우 적용
+                        if (skill.slow && target.activeBuffs !== undefined) {
+                            applyBuff(target, 'slow');
+                        }
+
+                        // 스턴 적용 (방패 강타)
+                        if (skill.stun && target.activeBuffs !== undefined) {
+                            applyBuff(target, 'stun');
+                        }
+
+                        // 버서커 버프 적용
+                        if (skill.buff && skill.dmgMulti && skill.spdMulti) {
+                            applyBuff(p, 'berserker');
+                            if (skill.defPenalty) {
+                                applyBuff(p, 'berserk_penalty');
+                            }
+                        }
+
+                        // AOE 데미지 (광역 스킬)
+                        if (skill.aoe && target) {
+                            const aoeR = skill.aoeRadius || 3;
+                            for (const [eid, enemy] of Object.entries(players)) {
+                                if (eid === id || !enemy.isAlive || eid === (target.id || '')) continue;
+                                if (enemy.team === p.team) continue;
+                                const d = Math.hypot(enemy.x - target.x, enemy.y - target.y);
+                                if (d <= aoeR) {
+                                    enemy.hp -= skillDmg;
+                                    if (enemy.id) io.emit('player_hit', { id: enemy.id, hp: enemy.hp, damage: skillDmg, isCrit: true, skillName: skill.name });
+                                }
+                            }
+                            for (let mi = 0; mi < monsters.length; mi++) {
+                                const m = monsters[mi];
+                                if (!m || m === target) continue;
+                                const d = Math.hypot(m.x - target.x, m.y - target.y);
+                                if (d <= aoeR) {
+                                    m.hp -= skillDmg;
+                                }
+                            }
+                        }
+
+                        io.emit('skill_effect', { casterId: id, skillName: skill.name, type: skill.aoe ? 'aoe' : 'single', targetX: target.x, targetY: target.y });
                         break; // 한 틱에 스킬 1개만
                     }
                 }
@@ -2152,16 +4499,19 @@ function updateBots() {
             }
 
         } else if (cls.speed > 0) {
-            // 주인 따라가기 (타겟 없을 때)
+            // 주인 따라가기 (타겟 없을 때) — 탈것 속도 적용
             if (p.ownerId && players[p.ownerId] && players[p.ownerId].isAlive) {
                 const owner = players[p.ownerId];
                 const dx = owner.x - p.x;
                 const dy = owner.y - p.y;
                 const mag = Math.hypot(dx, dy);
                 if (mag > 2.0) {
+                    let followSpeed = cls.speed;
+                    const mountBonus = getMountSpeed(owner);
+                    followSpeed *= (1 + mountBonus);
                     p.dirX = dx / mag;
                     p.dirY = dy / mag;
-                    p.x += p.dirX * (cls.speed / 100);
+                    p.x += p.dirX * (followSpeed / 100);
                     p.y += p.dirY * (cls.speed / 100);
                 }
             }
@@ -2179,18 +4529,60 @@ function giveExp(playerObj, amount) {
         target = players[playerObj.ownerId];
     }
 
+    // 파티 EXP 공유 (거리 10 이내 파티원에게 분배)
+    if (target.partyId && parties[target.partyId]) {
+        const party = parties[target.partyId];
+        const nearbyMembers = party.members.filter(mid => {
+            const m = players[mid];
+            if (!m || !m.isAlive || mid === target.id) return false;
+            return Math.hypot(m.x - target.x, m.y - target.y) <= 10;
+        });
+        if (nearbyMembers.length > 0) {
+            const baseShare = Math.floor(amount * 0.8 / (nearbyMembers.length + 1));
+            for (const mid of nearbyMembers) {
+                const member = players[mid];
+                if (member) {
+                    // 레벨차 패널티: 20레벨 이상 차이 시 EXP 50% 감소
+                    const lvlDiff = Math.abs(target.level - member.level);
+                    const penalty = lvlDiff >= 20 ? 0.5 : lvlDiff >= 10 ? 0.8 : 1.0;
+                    const shareAmount = Math.floor(baseShare * penalty);
+                    member.exp += shareAmount;
+                    const req = getExpRequired(member.level);
+                    if (member.exp >= req) {
+                        member.exp -= req;
+                        member.level++;
+                        member.maxHp += 25;
+                        member.hp = member.maxHp;
+                        member.dmgMulti += 0.08;
+                        member.statPoints = (member.statPoints || 0) + 3;
+                        io.emit('level_up', { id: member.id, level: member.level, className: member.displayName, statPoints: member.statPoints });
+                        trackQuest(member, 'reach_level', 0);
+                        savePlayer(member);
+                    }
+                    io.emit('player_update', member);
+                }
+            }
+            amount = baseShare; // 본인도 분배 몫만 받음
+        }
+    }
+
+    // 펫 EXP 보너스
+    const petEffect = getPetEffect(target);
+    if (petEffect && petEffect.effect === 'expBonus') amount = Math.floor(amount * (1 + petEffect.value));
+
     target.exp += amount;
     const required = getExpRequired(target.level);
 
-    if (target.exp >= required) {
+    if (target.exp >= required && target.level < MAX_LEVEL) {
         target.exp -= required;
         target.level++;
-        target.maxHp += 25;
+        target.maxHp += 20;
         target.hp = target.maxHp;
         target.dmgMulti += 0.08;
+        capResources(target);
 
         target.statPoints = (target.statPoints || 0) + 3; // 레벨업 시 스탯 3포인트
-        io.emit('level_up', { id: target.id, level: target.level, className: target.displayName, statPoints: target.statPoints });
+        io.emit('level_up', { id: target.id, level: target.level, className: target.displayName, statPoints: target.statPoints, maxHp: target.maxHp, atk: target.atk, def: target.def, maxExp: getExpRequired(target.level) });
         trackQuest(target, 'reach_level', 0);
 
         // Lv.20 전직 알림
@@ -2221,31 +4613,138 @@ function handleCollisions() {
 
             const dx = axe.x - mob.x, dy = axe.y - mob.y;
             if (dx * dx + dy * dy < 1.0) {
-                const { damage } = calcDamage(owner.atk || 10, mob.def, owner.dmgMulti, owner.critRate || 0.1);
+                const { damage } = calcDamage(owner.atk || 10, mob.def, owner.dmgMulti, owner.critRate || 0.1, owner.element, mob.element);
                 mob.hp -= damage;
+
+                // 월드보스 기여도 추적
+                if (mob.isWorldBoss && mob.damageContrib) {
+                    let realOwnerId = (owner.isBot && owner.ownerId) ? owner.ownerId : owner.id;
+                    mob.damageContrib[realOwnerId] = (mob.damageContrib[realOwnerId] || 0) + damage;
+                    // 보스 HP 바 업데이트
+                    if (tickCounter % 5 === 0) {
+                        io.emit('world_boss_update', { id: mId, hp: mob.hp, maxHp: mob.maxHp });
+                    }
+                }
 
                 if (mob.hp <= 0) {
                     mob.isAlive = false;
+
+                    // 월드보스 처치 시 기여도 기반 보상
+                    if (mob.isWorldBoss) {
+                        const totalDmg = Object.values(mob.damageContrib).reduce((s, d) => s + d, 0);
+                        const sorted = Object.entries(mob.damageContrib).sort((a,b) => b[1] - a[1]);
+                        io.emit('server_msg', { msg: `[월드 보스] ${mob.name} 처치 완료! MVP: ${players[sorted[0]?.[0]]?.displayName || '???'}`, type: 'boss' });
+
+                        for (const [pid, dmg] of sorted) {
+                            const p = players[pid];
+                            if (!p) continue;
+                            const ratio = dmg / totalDmg;
+                            const goldReward = Math.floor(mob.goldReward * ratio * 2);
+                            const expReward = Math.floor(mob.expReward * ratio * 2);
+                            p.gold += goldReward;
+                            giveExp(p, expReward);
+                            // MVP (1위)에게 전설 재료 보너스
+                            if (pid === sorted[0][0]) {
+                                if (!p.inventory) p.inventory = {};
+                                p.inventory['mat_dragon'] = (p.inventory['mat_dragon']||0) + 3;
+                                io.to(pid).emit('combat_log', { msg: `MVP 보너스! 드래곤 비늘 x3, ${goldReward}G, ${expReward} EXP` });
+                            } else {
+                                io.to(pid).emit('combat_log', { msg: `월드 보스 보상: ${goldReward}G, ${expReward} EXP (기여 ${Math.floor(ratio*100)}%)` });
+                            }
+                            // 상위 기여자 장비 드롭 기회
+                            if (ratio > 0.05 && Math.random() < ratio) {
+                                const bossDrops = ['equip_sword_4','equip_armor_4','equip_ring_3','equip_neck_3'];
+                                const dropItem = bossDrops[Math.floor(Math.random() * bossDrops.length)];
+                                if (!p.inventory) p.inventory = {};
+                                p.inventory[dropItem] = (p.inventory[dropItem]||0) + 1;
+                                const eName = EQUIP_STATS[dropItem]?.name || dropItem;
+                                io.to(pid).emit('combat_log', { msg: `${eName} 획득!` });
+                                io.emit('server_msg', { msg: `${p.displayName}이(가) 월드 보스에서 ${eName} 획득!`, type: 'rare' });
+                            }
+                            io.emit('player_update', p);
+                        }
+
+                        worldBoss = null;
+                        io.emit('world_boss_dead', { id: mId, name: mob.name });
+                        delete monsters[mId];
+                        destroyAxe(axeId);
+                        axeDestroyed = true;
+                        break;
+                    }
+
                     const tier = MONSTER_TIERS[mob.tier];
+                    // 존 스케일링된 보상 사용 (없으면 기본 티어 보상)
+                    const mobExpReward = mob.expReward || tier.expReward;
+                    const mobGoldReward = mob.goldReward || tier.goldReward;
 
                     let realOwner = (owner.isBot && owner.ownerId && players[owner.ownerId])
                         ? players[owner.ownerId] : owner;
 
-                    realOwner.gold += tier.goldReward;
-                    giveExp(owner, tier.expReward);
+                    // 존 보너스 + 혈맹 버프 + 장비 보너스 적용
+                    let goldMulti = 1, expMulti = 1;
+                    // 존 보너스 (몬스터가 위치한 존의 보너스)
+                    const mobZone = mob.zoneId && ZONE_MONSTERS[mob.zoneId];
+                    if (mobZone) {
+                        goldMulti += mobZone.goldBonus || 0;
+                        expMulti += mobZone.expBonus || 0;
+                    }
+                    // 혈맹 버프
+                    if (realOwner.clanName && clans[realOwner.clanName]) {
+                        const clanLv = clans[realOwner.clanName].level;
+                        if (clanLv >= 5) goldMulti += CLAN_SKILLS[5].multi;
+                        if (clanLv >= 3) expMulti += CLAN_SKILLS[3].multi;
+                        clans[realOwner.clanName].exp += 1;
+                    }
+                    // 장비 보너스
+                    goldMulti += (realOwner.equipGoldBonus || 0);
+                    expMulti += (realOwner.equipExpBonus || 0);
+                    // 밤 보너스 (+20% EXP)
+                    if (isNight) expMulti += 0.2;
+                    // 골드 피버 보너스 (해당 존 3배)
+                    if (goldFeverZone && mob.zoneId === goldFeverZone && Date.now() < goldFeverEnd) {
+                        goldMulti *= 3; expMulti *= 3;
+                    }
+                    // 킬 스트릭 보너스
+                    if (!realOwner._killStreak) realOwner._killStreak = { count:0, lastTime:0 };
+                    const ks = realOwner._killStreak;
+                    const ksNow = Date.now();
+                    if (ksNow - ks.lastTime < 10000) { ks.count++; } else { ks.count = 1; }
+                    ks.lastTime = ksNow;
+                    if (ks.count >= 100) { goldMulti *= 5; expMulti *= 5; }
+                    else if (ks.count >= 50) { goldMulti *= 3; expMulti *= 3; }
+                    else if (ks.count >= 25) { goldMulti *= 2; expMulti *= 2; }
+                    else if (ks.count >= 10) { goldMulti *= 1.5; expMulti *= 1.5; }
+                    // 스트릭 공지 (25/50/100)
+                    if (ks.count === 25 || ks.count === 50 || ks.count === 100) {
+                        io.emit('server_msg', { msg: `${realOwner.displayName}이(가) ${ks.count}킬 스트릭 달성!`, type: 'rare' });
+                    }
+                    if (ks.count % 10 === 0 && ks.count >= 10) {
+                        io.to(realOwner.id).emit('kill_streak_bonus', { count: ks.count, multi: goldMulti });
+                    }
+
+                    realOwner.gold += Math.floor(mobGoldReward * goldMulti);
+                    giveExp(owner, Math.floor(mobExpReward * expMulti));
 
                     // 변신 처치 카운트
                     if (!realOwner.morphKills) realOwner.morphKills = {};
                     if (mob.tier === 'normal') realOwner.morphKills['slime'] = (realOwner.morphKills['slime']||0) + 1;
                     if (mob.tier === 'elite') realOwner.morphKills['orc'] = (realOwner.morphKills['orc']||0) + 1;
                     if (mob.tier === 'rare') realOwner.morphKills['darkknight'] = (realOwner.morphKills['darkknight']||0) + 1;
-                    if (mob.tier === 'boss') realOwner.morphKills['dragon'] = (realOwner.morphKills['dragon']||0) + 1;
+                    if (mob.tier === 'boss' || mob.tier === 'legendary') realOwner.morphKills['dragon'] = (realOwner.morphKills['dragon']||0) + 1;
+
+                    // 전설 몬스터 처치 특별 보상
+                    if (mob.tier === 'legendary') {
+                        if (!realOwner.inventory) realOwner.inventory = {};
+                        realOwner.inventory['mat_dragon'] = (realOwner.inventory['mat_dragon']||0) + 3;
+                        realOwner.inventory['mat_soul'] = (realOwner.inventory['mat_soul']||0) + 5;
+                        io.emit('server_msg', { msg: `${realOwner.displayName}이(가) ${mob.name}을(를) 처치! 전설 재료 획득!`, type: 'rare' });
+                    }
 
                     // 퀘스트 추적
                     trackQuest(realOwner, 'kill_monster', 1);
-                    if (mob.tier === 'elite' || mob.tier === 'rare' || mob.tier === 'boss') trackQuest(realOwner, 'kill_elite', 1);
-                    if (mob.tier === 'boss') trackQuest(realOwner, 'kill_boss', 1);
-                    trackQuest(realOwner, 'earn_gold', tier.goldReward);
+                    if (mob.tier === 'elite' || mob.tier === 'rare' || mob.tier === 'boss' || mob.tier === 'legendary') trackQuest(realOwner, 'kill_elite', 1);
+                    if (mob.tier === 'boss' || mob.tier === 'legendary') trackQuest(realOwner, 'kill_boss', 1);
+                    trackQuest(realOwner, 'earn_gold', mobGoldReward);
 
                     // 재료 드롭 (인벤토리에 직접 추가)
                     if (!realOwner.inventory) realOwner.inventory = {};
@@ -2255,28 +4754,64 @@ function handleCollisions() {
                     if (mob.tier === 'boss' && Math.random() < 0.2) realOwner.inventory['mat_dragon'] = (realOwner.inventory['mat_dragon']||0) + 1;
                     if (Math.random() < 0.15) realOwner.inventory['pot_hp_s'] = (realOwner.inventory['pot_hp_s']||0) + 1;
 
-                    // 장비 드롭
+                    // 장��� 드롭 (등급별 확장)
                     const equipDrops = {
-                        normal: [{ id:'equip_sword_1', rate:0.05 }, { id:'equip_armor_1', rate:0.05 }],
-                        elite:  [{ id:'equip_sword_2', rate:0.08 }, { id:'equip_armor_2', rate:0.08 }, { id:'equip_ring_1', rate:0.05 }],
-                        rare:   [{ id:'equip_sword_2', rate:0.15 }, { id:'equip_armor_2', rate:0.15 }, { id:'equip_ring_1', rate:0.10 }],
-                        boss:   [{ id:'equip_sword_2', rate:0.30 }, { id:'equip_armor_2', rate:0.30 }, { id:'equip_ring_1', rate:0.20 }],
+                        normal: [
+                            { id:'equip_sword_1', rate:0.05 }, { id:'equip_armor_1', rate:0.05 },
+                            { id:'equip_helm_1', rate:0.03 }, { id:'equip_glove_1', rate:0.03 },
+                            { id:'equip_boots_1', rate:0.03 },
+                        ],
+                        elite: [
+                            { id:'equip_sword_2', rate:0.08 }, { id:'equip_armor_2', rate:0.08 },
+                            { id:'equip_helm_2', rate:0.05 }, { id:'equip_glove_2', rate:0.05 },
+                            { id:'equip_boots_2', rate:0.05 }, { id:'equip_ring_1', rate:0.04 },
+                            { id:'equip_neck_1', rate:0.03 },
+                        ],
+                        rare: [
+                            { id:'equip_sword_3', rate:0.10 }, { id:'equip_armor_3', rate:0.10 },
+                            { id:'equip_helm_3', rate:0.07 }, { id:'equip_glove_3', rate:0.07 },
+                            { id:'equip_boots_3', rate:0.07 }, { id:'equip_ring_2', rate:0.05 },
+                            { id:'equip_neck_2', rate:0.04 },
+                        ],
+                        boss: [
+                            { id:'equip_sword_4', rate:0.04 }, { id:'equip_armor_4', rate:0.04 },
+                            { id:'equip_sword_3', rate:0.15 }, { id:'equip_armor_3', rate:0.15 },
+                            { id:'equip_ring_3', rate:0.05 }, { id:'equip_neck_3', rate:0.04 },
+                            { id:'equip_sword_5', rate:0.01 }, { id:'equip_armor_5', rate:0.01 },
+                        ],
+                        legendary: [
+                            { id:'equip_sword_5', rate:0.15 }, { id:'equip_armor_5', rate:0.15 },
+                            { id:'equip_sword_4', rate:0.30 }, { id:'equip_armor_4', rate:0.30 },
+                            { id:'equip_ring_3', rate:0.20 }, { id:'equip_neck_3', rate:0.15 },
+                        ],
                     };
                     const drops = equipDrops[mob.tier] || [];
                     for (const d of drops) {
                         if (Math.random() < d.rate) {
                             realOwner.inventory[d.id] = (realOwner.inventory[d.id]||0) + 1;
-                            const eName = EQUIP_STATS[d.id]?.name || d.id;
-                            io.to(realOwner.id).emit('combat_log', { msg: eName + ' 획득!' });
-                            if (mob.tier === 'boss') io.emit('server_msg', { msg: `${realOwner.displayName}이(가) ${eName}을(를) 획득!`, type: 'rare' });
+                            // 랜덤 옵션 생성 (등급에 따라)
+                            const eqInfo = EQUIP_STATS[d.id];
+                            if (eqInfo) {
+                                const gradeInfo = GRADE_INFO[eqInfo.grade] || GRADE_INFO.normal;
+                                if (gradeInfo.randomOpts > 0) {
+                                    if (!realOwner.equipOptions) realOwner.equipOptions = {};
+                                    realOwner.equipOptions[d.id] = generateRandomOptions(gradeInfo.randomOpts);
+                                }
+                            }
+                            const eName = eqInfo?.name || d.id;
+                            const gradeColor = GRADE_INFO[eqInfo?.grade]?.color || '#ccc';
+                            io.to(realOwner.id).emit('combat_log', { msg: eName + ' 획득!', color: gradeColor });
+                            if (mob.tier === 'boss' || eqInfo?.grade === 'epic' || eqInfo?.grade === 'legendary') {
+                                io.emit('server_msg', { msg: `${realOwner.displayName}이(가) ${eName}을(를) 획득!`, type: 'rare' });
+                            }
                             break;
                         }
                     }
 
                     // 골드 드롭
-                    spawnDrop(mob.x, mob.y, Math.floor(tier.goldReward * 0.5), mId);
+                    spawnDrop(mob.x, mob.y, Math.floor(mobGoldReward * 0.5), mId);
 
-                    io.emit('monster_die', { id: mId, tier: mob.tier, killer: realOwner.id });
+                    io.emit('monster_die', { id: mId, tier: mob.tier, killer: realOwner.id, zone: mob.zoneId });
                     io.emit('player_update', realOwner);
 
                     delete monsters[mId];
@@ -2299,16 +4834,57 @@ function handleCollisions() {
             if (targetId === axe.ownerId || !target.isAlive) continue;
             if (owner.team === 'peace' && target.team === 'peace') continue;
             if (owner.team === target.team) continue;
+            // 안전지대 보호: 피격자가 마을 안에 있으면 공격 무효
+            const targetZone = getZone(target.x, target.y);
+            if (targetZone && ZONES[targetZone.id]?.safe) continue;
+            // 공격자가 안전지대에서 공격하는 것도 차단
+            const ownerZone = getZone(owner.x, owner.y);
+            if (ownerZone && ZONES[ownerZone.id]?.safe) continue;
 
             // 회피 판정
             if (Math.random() < (target.dodgeRate || 0)) continue;
 
             const dx = axe.x - target.x, dy = axe.y - target.y;
             if (dx * dx + dy * dy < 0.6 * 0.6) {
-                const { damage, isCrit } = calcDamage(
-                    owner.atk || 10, target.def || 0, owner.dmgMulti, owner.critRate || 0.1
+                // 무적 상태 체크
+                if (target.activeBuffs && target.activeBuffs['divine_shield']) {
+                    destroyAxe(axeId);
+                    break;
+                }
+
+                let { damage, isCrit } = calcDamage(
+                    owner.atk || 10, target.def || 0, owner.dmgMulti, owner.critRate || 0.1, owner.element, target.element
                 );
+
+                // 철벽 방어 (데미지 감소) 체크
+                if (target.activeBuffs && target.activeBuffs['iron_wall']) {
+                    damage = Math.floor(damage * 0.3);
+                }
+
+                // 수호 오라 방어 보너스 체크
+                if (target.auraDefMulti && target.auraDefMulti > 1) {
+                    damage = Math.floor(damage / target.auraDefMulti);
+                }
+
+                // 은신 상태에서 공격 시 2배 데미지
+                if (owner.stealthNextAtkMulti && owner.activeBuffs && owner.activeBuffs['stealth']) {
+                    damage = Math.floor(damage * owner.stealthNextAtkMulti);
+                    removeBuff(owner, 'stealth');
+                    owner.stealthNextAtkMulti = 0;
+                }
+
                 target.hp -= damage;
+
+                // 어쌔신 독 바르기 패시브 (일반 공격 시 독 적용)
+                const ownerBaseClass = owner.baseClassName || owner.className;
+                const ownerSkills = SKILLS[ownerBaseClass];
+                if (ownerSkills) {
+                    const poisonPassive = ownerSkills.find(s => s.type === 'passive' && s.poisonDot);
+                    if (poisonPassive && (owner.level || 1) >= poisonPassive.level) {
+                        if (!target.activeBuffs) target.activeBuffs = {};
+                        applyBuff(target, 'poison');
+                    }
+                }
 
                 io.emit('player_hit', {
                     id: targetId, hp: target.hp, damage, isCrit,
@@ -2339,7 +4915,7 @@ function handleAoeDamage() {
             if (!mob.isAlive) continue;
             const dx = aoe.x - mob.x, dy = aoe.y - mob.y;
             if (dx * dx + dy * dy <= aoe.radius * aoe.radius) {
-                const { damage } = calcDamage(owner.atk || 10, mob.def, owner.dmgMulti * 0.8, owner.critRate || 0.1);
+                const { damage } = calcDamage(owner.atk || 10, mob.def, owner.dmgMulti * 0.8, owner.critRate || 0.1, owner.element, mob.element);
                 mob.hp -= damage;
 
                 if (mob.hp <= 0) {
@@ -2370,10 +4946,21 @@ function handleAoeDamage() {
             if (!target.isAlive || targetId === aoe.ownerId) continue;
             if (owner.team === 'peace' && target.team === 'peace') continue;
             if (owner.team === target.team) continue;
+            // 안전지대 보호
+            const tgtZ = getZone(target.x, target.y);
+            if (tgtZ && ZONES[tgtZ.id]?.safe) continue;
+            // 무적 체크
+            if (target.activeBuffs && target.activeBuffs['divine_shield']) continue;
+            // 회피 판정
+            if (Math.random() < (target.dodgeRate || 0)) continue;
 
             const dx = aoe.x - target.x, dy = aoe.y - target.y;
             if (dx * dx + dy * dy <= aoe.radius * aoe.radius) {
-                const { damage } = calcDamage(owner.atk || 10, target.def || 0, owner.dmgMulti * 0.6, owner.critRate || 0.1);
+                let { damage } = calcDamage(owner.atk || 10, target.def || 0, owner.dmgMulti * 0.6, owner.critRate || 0.1, owner.element, target.element);
+                // 철벽 방어 데미지 감소
+                if (target.activeBuffs && target.activeBuffs['iron_wall']) damage = Math.floor(damage * 0.3);
+                // 수호 오라 방어 보너스
+                if (target.auraDefMulti && target.auraDefMulti > 1) damage = Math.floor(damage / target.auraDefMulti);
                 target.hp -= damage;
 
                 io.emit('player_hit', { id: targetId, hp: target.hp, damage, isCrit: false });
@@ -2392,6 +4979,21 @@ function handleAoeDamage() {
 // ==========================================
 
 function handlePlayerDeath(target, targetId, owner, attackerId) {
+    // 펫 자동 부활 체크 (천사 펫)
+    if (!target.isBot) {
+        const petEff = getPetEffect(target);
+        if (petEff && petEff.effect === 'autoRevive') {
+            const now = Date.now();
+            if (!target.lastAutoRevive || now - target.lastAutoRevive > 600000) { // 10분 쿨타임
+                target.lastAutoRevive = now;
+                target.hp = Math.floor(target.maxHp * 0.5);
+                io.to(targetId).emit('combat_log', { msg: '천사 펫이 당신을 부활시켰습니다! (HP 50%)' });
+                io.emit('player_update', target);
+                return; // 사망 처리 스킵
+            }
+        }
+    }
+
     target.isAlive = false;
 
     let realKiller = owner;
@@ -2399,12 +5001,33 @@ function handlePlayerDeath(target, targetId, owner, attackerId) {
         realKiller = players[owner.ownerId];
     }
 
+    // 아레나 매치 종료 체크
+    if (target.arenaMatchId && arenaMatches[target.arenaMatchId]) {
+        const match = arenaMatches[target.arenaMatchId];
+        const winnerId = (match.player1 === targetId) ? match.player2 : match.player1;
+        target.isAlive = true; // 아레나에서는 실제 사망 안함
+        target.hp = 1;
+        endArenaMatch(target.arenaMatchId, winnerId, targetId, 'KO');
+        return; // 아레나는 별도 처리, 일반 사망 로직 스킵
+    }
+
     realKiller.killCount++;
+    if (!target.isBot) {
+        realKiller.pvpWins = (realKiller.pvpWins || 0) + 1;
+        trackQuest(realKiller, 'pvp_win', 1);
+        trackQuest(realKiller, 'pvp_fight', 1);
+        checkTitles(realKiller);
+    }
 
     // ── PK 카르마 판정 ──
     let isPK = false;
-    if (!target.isBot && target.team === 'peace') {
-        // 평화 모드 유저를 죽이면 PK
+    // 혈맹 전쟁 중이면 PK 페널티 없음
+    const killerClan = realKiller.clanName && clans[realKiller.clanName];
+    const targetClan = target.clanName && clans[target.clanName];
+    const inClanWar = killerClan?.war?.target === target.clanName || targetClan?.war?.target === realKiller.clanName;
+
+    if (!target.isBot && target.team === 'peace' && !inClanWar) {
+        // 평화 모드 유저를 죽이면 PK (혈맹 전쟁 중 제외)
         isPK = true;
         realKiller.karma += KARMA.PK_PENALTY;
         io.emit('pk_alert', {
@@ -2503,7 +5126,7 @@ function handlePlayerDeath(target, targetId, owner, attackerId) {
 
     io.emit('player_update', target);
     io.emit('player_update', realKiller);
-    io.emit('player_die', { victimId: targetId, attackerId, stolen, isPK });
+    io.emit('player_die', { victimId: targetId, attackerId, stolen, isPK, killerName: realKiller.displayName || '몬스터' });
 }
 
 function destroyAxe(axeId) {
@@ -2534,7 +5157,14 @@ function syncGameState() {
                 karma: players[pId].karma,
                 zone: zone.id,
                 diamonds: players[pId].diamonds || 0,
-                skin: players[pId].activeSkin
+                skin: players[pId].activeSkin,
+                exp: players[pId].exp || 0,
+                maxExp: getExpRequired(players[pId].level),
+                mp: players[pId].mp || 0,
+                maxMp: players[pId].maxMp || 100,
+                maxHp: players[pId].maxHp || 100,
+                level: players[pId].level || 1,
+                killCount: players[pId].killCount || 0
             };
         }
     }
@@ -2545,4 +5175,24 @@ function syncGameState() {
     syncData.isNight = isNight;
     syncData.worldTime = worldTime;
     io.volatile.emit('sync', syncData);
+
+    // 개별 소켓에 버프 상태 전송 (5틱마다 = ~166ms)
+    if (tickCounter % 5 === 0) {
+        for (const pId in players) {
+            const p = players[pId];
+            if (p.isBot || !p.isAlive || !p.activeBuffs) continue;
+            const buffs = [];
+            const now = Date.now();
+            for (const [bId, buff] of Object.entries(p.activeBuffs)) {
+                const remaining = Math.max(0, Math.ceil((buff.endTime - now) / 1000));
+                if (remaining > 0) {
+                    buffs.push({ id: bId, name: buff.name, remaining, icon: buff.icon || 'buff' });
+                }
+            }
+            if (buffs.length > 0 || p.lastBuffCount > 0) {
+                io.to(pId).emit('buff_status', buffs);
+                p.lastBuffCount = buffs.length;
+            }
+        }
+    }
 }
