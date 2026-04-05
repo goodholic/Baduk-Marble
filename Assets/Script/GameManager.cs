@@ -701,16 +701,7 @@ public class GameManager : MonoBehaviour
 
     void FixedUpdate()
     {
-        if (pendingMove != Vector2.zero && !string.IsNullOrEmpty(myId) && players.ContainsKey(myId) && players[myId].go != null)
-        {
-            Rigidbody2D myRb = players[myId].go.GetComponent<Rigidbody2D>();
-            if (myRb != null)
-            {
-                Vector2 newPos = myRb.position + pendingMove;
-                myRb.MovePosition(newPos);
-            }
-            pendingMove = Vector2.zero;
-        }
+        // velocity 기반 이동은 Update에서 직접 설정
     }
 
     private void HandleLocalInput()
@@ -759,14 +750,12 @@ public class GameManager : MonoBehaviour
             float finalSpeed = currentMoveSpeed;
             if (Time.time < boostEndTime) finalSpeed += boostSpeed;
 
-            Vector3 movement = new Vector3(h, v, 0).normalized * finalSpeed * Time.deltaTime;
-
-            // FixedUpdate에서 Rigidbody2D.MovePosition 호출 (충돌 감지 위해)
-            pendingMove += new Vector2(movement.x, movement.y);
-
-            Vector3 correctedPos = players[myId].go.transform.position;
-            correctedPos.z = -1f;
-            players[myId].go.transform.position = correctedPos;
+            // Rigidbody2D velocity 기반 이동 (충돌 자동 처리)
+            Rigidbody2D myRb = players[myId].go.GetComponent<Rigidbody2D>();
+            if (myRb != null)
+            {
+                myRb.linearVelocity = new Vector2(h, v).normalized * finalSpeed;
+            }
 
             players[myId].go.transform.rotation = Quaternion.identity;
             FlipByDirection(players[myId].go, currentDir.x);
@@ -780,6 +769,12 @@ public class GameManager : MonoBehaviour
             #if UNITY_WEBGL && !UNITY_EDITOR
             SocketEmit("move", moveData.ToString(Newtonsoft.Json.Formatting.None));
             #endif
+        }
+        else
+        {
+            // 정지 시 velocity 0으로
+            Rigidbody2D myRb = players[myId].go.GetComponent<Rigidbody2D>();
+            if (myRb != null) myRb.linearVelocity = Vector2.zero;
         }
 
         // ── 공격: Space 키 또는 마우스 클릭 ──
@@ -1339,8 +1334,9 @@ public class GameManager : MonoBehaviour
             rb.gravityScale = 0;
             rb.freezeRotation = true;
             rb.bodyType = RigidbodyType2D.Dynamic;
+            rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
             rb.mass = 1f;
-            rb.linearDamping = 5f;
+            rb.linearDamping = 0f;
         }
         if (newPlayer.GetComponent<CircleCollider2D>() == null)
         {
