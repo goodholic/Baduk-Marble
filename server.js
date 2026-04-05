@@ -2128,7 +2128,7 @@ function updateBots() {
             // 주인과 거리 체크 → 너무 멀면 강제 복귀
             if (p.ownerId && players[p.ownerId] && cls.speed > 0) {
                 const ownerDist = Math.hypot(p.x - players[p.ownerId].x, p.y - players[p.ownerId].y);
-                if (ownerDist > 15) {
+                if (ownerDist > 8) {
                     // 주인에게 강제 복귀 (타겟 포기)
                     target = null;
                     const owner = players[p.ownerId];
