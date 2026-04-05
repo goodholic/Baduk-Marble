@@ -387,7 +387,7 @@
   </div>
 
   <script src="https://js.tosspayments.com/v1/payment"></script>
-  <script src="Build/WebBuild.loader.js"></script>
+  <script src="Build/WebGLBuild.loader.js"></script>
   <script>
     var canvas = document.querySelector("#unity-canvas");
     var loadingScreen = document.querySelector("#loading-screen");
@@ -399,9 +399,9 @@
     var deviceId = localStorage.getItem('deviceId') || (()=>{ var id='dev_'+Math.random().toString(36).substr(2,9); localStorage.setItem('deviceId',id); return id; })();
 
     var config = {
-      dataUrl: "Build/WebBuild.data",
-      frameworkUrl: "Build/WebBuild.framework.js",
-      codeUrl: "Build/WebBuild.wasm",
+      dataUrl: "Build/WebGLBuild.data",
+      frameworkUrl: "Build/WebGLBuild.framework.js",
+      codeUrl: "Build/WebGLBuild.wasm",
       streamingAssetsUrl: "StreamingAssets",
       companyName: "DefaultCompany",
       productName: "AutoBattle.io",
@@ -1157,7 +1157,12 @@
     function createParty() { window.socket.emit('create_party','{}'); }
     function partyInvite() { window.socket.emit('party_invite_nearby','{}'); }
 
-    // Space 공격은 Unity에서 처리 (WebGLInput.captureAllKeyboardInput = true)
+    // Space 기본 동작(스크롤) 차단 — Unity가 Space를 공격으로 처리
+    window.addEventListener('keydown', function(e) {
+      if (e.code === 'Space' && e.target.tagName !== 'INPUT') {
+        e.preventDefault();
+      }
+    });
 
     // ── 채팅 ──
     function sendChat() {

@@ -745,7 +745,18 @@ public class GameManager : MonoBehaviour
             if (Time.time < boostEndTime) finalSpeed += boostSpeed;
 
             Vector3 movement = new Vector3(h, v, 0).normalized * finalSpeed * Time.deltaTime;
-            players[myId].go.transform.position += movement;
+
+            // Rigidbody2D로 이동 (지형 충돌 적용)
+            Rigidbody2D myRb = players[myId].go.GetComponent<Rigidbody2D>();
+            if (myRb != null)
+            {
+                Vector2 newPos = (Vector2)players[myId].go.transform.position + new Vector2(movement.x, movement.y);
+                myRb.MovePosition(newPos);
+            }
+            else
+            {
+                players[myId].go.transform.position += movement;
+            }
 
             Vector3 correctedPos = players[myId].go.transform.position;
             correctedPos.z = -1f;
@@ -1315,6 +1326,22 @@ public class GameManager : MonoBehaviour
         // HP바 + 이름표 추가
         CreateHPBar(newPlayer, np.displayName, id == myId, np.className == "GuardianTower");
 
+        // 충돌체 추가 (지형지물과 충돌)
+        if (newPlayer.GetComponent<Rigidbody2D>() == null)
+        {
+            Rigidbody2D rb = newPlayer.AddComponent<Rigidbody2D>();
+            rb.gravityScale = 0;
+            rb.freezeRotation = true;
+            rb.bodyType = RigidbodyType2D.Dynamic;
+            rb.mass = 1f;
+            rb.linearDamping = 5f;
+        }
+        if (newPlayer.GetComponent<CircleCollider2D>() == null)
+        {
+            CircleCollider2D col = newPlayer.AddComponent<CircleCollider2D>();
+            col.radius = 0.3f;
+        }
+
         players[id] = np;
 
         if (id == myId) {
@@ -1695,7 +1722,12 @@ public class GameManager : MonoBehaviour
 
         sr.sprite = Sprite.Create(tex, new Rect(0, 0, 16, 16), new Vector2(0.5f, 0.5f), 8f);
         sr.sortingOrder = -1;
-        obj.transform.localScale = Vector3.one * scale * (0.8f + UnityEngine.Random.value * 0.5f);
+        float finalScale = scale * (0.8f + UnityEngine.Random.value * 0.5f);
+        obj.transform.localScale = Vector3.one * finalScale;
+
+        // 충돌체 추가 (통과 불가)
+        BoxCollider2D col = obj.AddComponent<BoxCollider2D>();
+        col.size = new Vector2(1.5f, 1.5f);
 
         terrainObjects.Add(obj);
     }
