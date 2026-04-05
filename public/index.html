@@ -48,7 +48,7 @@
     /* 채팅 */
     #chat-box { position:absolute; bottom:52px; left:10px; width:350px; z-index:16; display:none; }
     #chat-box.show { display:block; }
-    #chat-log { height:140px; overflow-y:auto; background:rgba(0,0,0,0.75); border:1px solid #2a2a4a; border-radius:6px 6px 0 0; padding:8px; font-size:13px; color:#ddd; }
+    #chat-log { height:140px; overflow-y:auto; background:rgba(10,10,25,0.85); border:1px solid #3a3a5a; border-radius:6px 6px 0 0; padding:8px; font-size:13px; color:#eee; }
     #chat-log div { padding:3px 0; border-bottom:1px solid rgba(255,255,255,0.03); }
     .chat-king { color:#ffd700; font-weight:bold; }
     .chat-chaotic { color:#ff4444; }
@@ -59,7 +59,7 @@
     #chat-send:hover { background:#ffd700; color:#000; }
 
     /* 전투 로그 */
-    #combat-log { position:absolute; bottom:52px; right:10px; width:300px; max-height:150px; overflow-y:auto; z-index:15; display:none; font-size:11px; color:#ccc; background:rgba(0,0,0,0.5); border-radius:6px; padding:6px; }
+    #combat-log { position:absolute; bottom:52px; right:10px; width:320px; max-height:150px; overflow-y:auto; z-index:15; display:none; font-size:12px; color:#ddd; background:rgba(10,10,25,0.8); border:1px solid #2a2a4a; border-radius:6px; padding:8px; }
     #combat-log.show { display:block; }
     #combat-log div { padding:1px 0; border-bottom:1px solid rgba(255,255,255,0.05); }
     .log-crit { color:#ff4444; font-weight:bold; }
@@ -150,11 +150,11 @@
 
     <!-- 하단 메뉴바 (5탭) -->
     <div id="bottom-bar">
-      <button class="tab" onclick="openSubMenu('combat')" style="color:#ff6b6b">전투</button>
-      <button class="tab" onclick="openSubMenu('items')">아이템</button>
-      <button class="tab" onclick="openSubMenu('trade')" style="color:#ffd700">교역</button>
-      <button class="tab" onclick="openSubMenu('social')" style="color:#44aaff">소셜</button>
-      <button class="tab" onclick="openSubMenu('etc')">기타</button>
+      <button class="tab" onclick="openSubMenu('combat')" style="color:#ff6b6b">⚔전투</button>
+      <button class="tab" onclick="openSubMenu('items')" style="color:#88ccff">🎒아이템</button>
+      <button class="tab" onclick="openSubMenu('trade')" style="color:#ffd700">💰교역</button>
+      <button class="tab" onclick="openSubMenu('social')" style="color:#44aaff">👥소셜</button>
+      <button class="tab" onclick="openSubMenu('etc')" style="color:#aaa">⚙기타</button>
     </div>
 
     <!-- 서브메뉴 -->
@@ -162,13 +162,19 @@
 
     <!-- 상태바 (상단 전체) -->
     <div id="status-bar">
-      <span class="stat"><b class="level-val" id="level-display">Lv.1</b></span>
-      <span class="stat">HP: <b class="hp-val" id="hp-display">-/-</b></span>
-      <span class="stat"><b class="team-val" id="team-display" style="color:#88ff88">평화</b></span>
+      <span class="stat"><b class="level-val" id="level-display" style="font-size:15px">Lv.1 워리어</b></span>
+      <span class="stat" style="display:flex;align-items:center;gap:4px">
+        <span style="color:#ff4444;font-size:11px">HP</span>
+        <span style="width:100px;height:10px;background:#333;border-radius:5px;overflow:hidden;display:inline-block">
+          <span id="hp-bar-fill" style="display:block;width:100%;height:100%;background:linear-gradient(90deg,#ff4444,#44ff44);border-radius:5px;transition:width 0.3s"></span>
+        </span>
+        <b class="hp-val" id="hp-display" style="font-size:11px">-/-</b>
+      </span>
+      <span class="stat"><b class="team-val" id="team-display" style="color:#88ff88;font-size:12px">평화 모드</b></span>
       <span style="flex:1"></span>
-      <span class="stat">💎<b class="diamond-val" id="diamond-val">100</b></span>
-      <span class="stat">💰<b class="gold-val" id="gold-val">0</b></span>
-      <span class="stat zone-val" id="zone-display">-</span>
+      <span class="stat" style="font-size:13px">💎<b class="diamond-val" id="diamond-val">100</b></span>
+      <span class="stat" style="font-size:13px">💰<b class="gold-val" id="gold-val">0</b></span>
+      <span class="stat zone-val" id="zone-display" style="font-size:12px">-</span>
       <span class="stat" id="siege-display" style="display:none;color:#ff4444;font-weight:bold"></span>
     </div>
 
@@ -177,7 +183,7 @@
     <button class="top-btn" style="top:35px" onclick="toggleAutoPotion()" id="btn-potion">AutoPot OFF</button>
 
     <!-- 공격 버튼 (브롤스타즈 스타일) -->
-    <button id="attack-btn" style="display:none;position:absolute;right:80px;bottom:100px;z-index:16;width:70px;height:70px;border-radius:50%;background:radial-gradient(circle,#ff4444,#aa0000);border:3px solid #ff6b6b;color:#fff;font-size:16px;font-weight:bold;cursor:pointer;box-shadow:0 4px 15px rgba(255,0,0,0.4);touch-action:none;user-select:none" ontouchstart="startAttack(event)" ontouchend="endAttack()" onmousedown="doAttack()">ATK</button>
+    <button id="attack-btn" style="display:none;position:absolute;right:20px;bottom:140px;z-index:16;width:75px;height:75px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#ff6666,#cc0000);border:3px solid #ff8888;color:#fff;font-size:18px;font-weight:bold;cursor:pointer;box-shadow:0 4px 20px rgba(255,0,0,0.5),inset 0 2px 4px rgba(255,255,255,0.2);touch-action:none;user-select:none;text-shadow:1px 1px 3px #000" ontouchstart="startAttack(event)" ontouchend="endAttack()" onmousedown="doAttack()">⚔<br>ATK</button>
 
     <!-- 부활 화면 -->
     <div id="respawn-screen" style="position:absolute;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:none;flex-direction:column;justify-content:center;align-items:center;z-index:22">
@@ -423,7 +429,10 @@
           var me = data.players[myPlayerId];
           if (me.diamonds !== undefined) document.getElementById('diamond-val').textContent = me.diamonds;
           if (me.gold !== undefined) document.getElementById('gold-val').textContent = me.gold;
-          if (me.hp !== undefined) document.getElementById('hp-display').textContent = Math.ceil(me.hp) + '/' + Math.ceil(me.hp); // maxHp는 별도
+          if (me.hp !== undefined) {
+            document.getElementById('hp-display').textContent = Math.ceil(me.hp);
+            // HP 바 업데이트는 player_update에서 처리
+          }
         }
         // 미니맵 업데이트
         updateMinimapData(data);
@@ -447,7 +456,11 @@
       window.socket.on('player_update', (d) => {
         if (d.id === myPlayerId || (!myPlayerId && d.level)) {
           if (d.level) document.getElementById('level-display').textContent = 'Lv.' + d.level + ' ' + (d.displayName||d.className||'');
-          if (d.hp !== undefined && d.maxHp) document.getElementById('hp-display').textContent = Math.ceil(d.hp)+'/'+Math.ceil(d.maxHp);
+          if (d.hp !== undefined && d.maxHp) {
+            document.getElementById('hp-display').textContent = Math.ceil(d.hp)+'/'+Math.ceil(d.maxHp);
+            var pct = Math.max(0, Math.min(100, (d.hp/d.maxHp)*100));
+            document.getElementById('hp-bar-fill').style.width = pct+'%';
+          }
           if (d.team) {
             var teamEl = document.getElementById('team-display');
             if (d.team === 'peace') { teamEl.textContent = '평화 모드'; teamEl.style.color = '#88ff88'; }

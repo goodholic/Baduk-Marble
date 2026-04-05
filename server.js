@@ -634,12 +634,18 @@ function spawnMonster() {
     const tierKey = pickMonsterTier();
     const tier = MONSTER_TIERS[tierKey];
 
+    // 사냥터 존에 몬스터 스폰 (마을/특수 존 제외)
+    const huntZones = Object.values(ZONES).filter(z => !z.safe && !z.isCastle && !z.isArena);
+    const zone = huntZones[Math.floor(Math.random() * huntZones.length)];
+    const mx = zone.x + Math.random() * zone.w;
+    const my = zone.y + Math.random() * zone.h;
+
     monsters[mId] = {
         id: mId,
         tier: tierKey,
         name: tier.name,
-        x: Math.random() * 900 - 450,
-        y: Math.random() * 900 - 450,
+        x: mx,
+        y: my,
         hp: tier.hp,
         maxHp: tier.hp,
         atk: tier.atk,

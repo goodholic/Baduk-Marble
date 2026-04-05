@@ -238,14 +238,19 @@ public class GameManager : MonoBehaviour
         if (levelText != null) levelText.gameObject.SetActive(false);
         if (teamText != null) teamText.gameObject.SetActive(false);
         if (karmaText != null) karmaText.gameObject.SetActive(false);
-        // Canvas 하위 모든 TextMeshPro 숨기기
+        // Canvas 하위 모든 TextMeshPro 및 Image 숨기기
         GameObject canvasObj = GameObject.Find("Canvas");
         if (canvasObj != null) {
-            var allTexts = canvasObj.GetComponentsInChildren<TextMeshProUGUI>(true);
-            foreach (var t in allTexts) t.gameObject.SetActive(false);
+            // 모든 자식을 비활성화하되, 조이스틱만 다시 활성화
+            foreach (Transform child in canvasObj.transform) {
+                child.gameObject.SetActive(false);
+            }
         }
-        // 조이스틱은 유지
-        if (joystick != null) joystick.gameObject.SetActive(true);
+        // 조이스틱 다시 활성화 (크기 축소)
+        if (joystick != null) {
+            joystick.gameObject.SetActive(true);
+            joystick.transform.localScale = Vector3.one * 0.7f; // 30% 축소
+        }
 
         // 한글 폰트 로드
         koreanFont = Resources.Load<Font>("MapleFont");
