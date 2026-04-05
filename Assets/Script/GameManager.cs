@@ -1051,6 +1051,16 @@ public class GameManager : MonoBehaviour
             newAxe.transform.localScale *= 1.3f;
         }
 
+        // 지형 충돌 → 총알 파괴
+        Rigidbody2D arb = newAxe.AddComponent<Rigidbody2D>();
+        arb.bodyType = RigidbodyType2D.Kinematic;
+        CircleCollider2D acol = newAxe.AddComponent<CircleCollider2D>();
+        acol.radius = 0.2f;
+        acol.isTrigger = true;
+        var destroyer = newAxe.AddComponent<ProjectileTerrainHit>();
+        destroyer.axeId = axeId;
+        destroyer.manager = this;
+
         axes[axeId] = nAxe;
     }
 
@@ -1660,6 +1670,20 @@ public class GameManager : MonoBehaviour
             {"village",(x,y) => SpawnTerrainObj(x, y, new Color(0.5f,0.35f,0.2f), 2.0f, "건물")},
         };
 
+        // 긴 벽/울타리 지형 생성 (존 경계, 던전 벽 등)
+        SpawnWall(-450, -400, true, 15, new Color(0.25f, 0.25f, 0.2f), "돌담");
+        SpawnWall(-300, -350, false, 12, new Color(0.25f, 0.25f, 0.2f), "돌담");
+        SpawnWall(-200, -200, true, 20, new Color(0.35f, 0.3f, 0.25f), "바위벽");
+        SpawnWall(50, 50, false, 18, new Color(0.4f, 0.15f, 0.1f), "용암벽");
+        SpawnWall(100, -50, true, 14, new Color(0.4f, 0.15f, 0.1f), "용암벽");
+        SpawnWall(-100, 80, true, 16, new Color(0.3f, 0.1f, 0.35f), "잔해벽");
+        SpawnWall(-480, -480, false, 10, new Color(0.4f, 0.3f, 0.15f), "나무울타리");
+        SpawnWall(300, -450, true, 12, new Color(0.4f, 0.3f, 0.15f), "나무울타리");
+        SpawnWall(-400, -200, false, 25, new Color(0.2f, 0.2f, 0.2f), "성벽");
+        SpawnWall(0, -300, true, 15, new Color(0.2f, 0.35f, 0.15f), "덤불");
+        SpawnWall(-250, -100, false, 10, new Color(0.2f, 0.35f, 0.15f), "덤불");
+        SpawnWall(200, 150, true, 18, new Color(0.5f, 0.2f, 0.1f), "절벽");
+
         // 전체 맵에 지형지물 밀집 배치
         var zones = new string[][] {
             // 숲 지역 (서쪽)
@@ -1775,6 +1799,44 @@ public class GameManager : MonoBehaviour
         terrainObjects.Add(obj);
     }
 
+    // 긴 벽/울타리 생성 (여러 블록을 일렬로 배치)
+    private void SpawnWall(float startX, float startY, bool horizontal, int length, Color color, string label)
+    {
+        float step = 1.8f; // 블록 간격
+        for (int i = 0; i < length; i++)
+        {
+            float wx = horizontal ? startX + i * step : startX;
+            float wy = horizontal ? startY : startY + i * step;
+
+            GameObject obj = new GameObject("Terrain_" + label);
+            obj.transform.position = new Vector3(wx, wy, 0f);
+
+            SpriteRenderer sr = obj.AddComponent<SpriteRenderer>();
+            Texture2D tex = new Texture2D(16, 16);
+            for (int px = 0; px < 16; px++)
+                for (int py = 0; py < 16; py++)
+                {
+                    // 벽 모양 (가로 or 세로로 긴 직사각형)
+                    bool inside = horizontal ? (py > 4 && py < 12) : (px > 4 && px < 12);
+                    Color c = color + new Color(UnityEngine.Random.value * 0.08f - 0.04f, UnityEngine.Random.value * 0.08f - 0.04f, UnityEngine.Random.value * 0.08f - 0.04f, 0);
+                    tex.SetPixel(px, py, inside ? c : Color.clear);
+                }
+            tex.filterMode = FilterMode.Point;
+            tex.Apply();
+
+            sr.sprite = Sprite.Create(tex, new Rect(0, 0, 16, 16), new Vector2(0.5f, 0.5f), 8f);
+            sr.sortingOrder = -1;
+            obj.transform.localScale = Vector3.one * 1.2f;
+
+            Rigidbody2D trb = obj.AddComponent<Rigidbody2D>();
+            trb.bodyType = RigidbodyType2D.Static;
+            BoxCollider2D col = obj.AddComponent<BoxCollider2D>();
+            col.size = horizontal ? new Vector2(1.8f, 0.8f) : new Vector2(0.8f, 1.8f);
+
+            terrainObjects.Add(obj);
+        }
+    }
+
     private void UpdateMyUI()
     {
         if (!players.ContainsKey(myId)) return;
@@ -1785,5 +1847,20 @@ public class GameManager : MonoBehaviour
         if (teamText != null) teamText.text = "";
 
         if (karmaText != null) karmaText.text = "";
+    }
+}
+
+// 총알이 지형(Terrain_)에 부딪히면 파괴
+public class ProjectileTerrainHit : MonoBehaviour
+{
+    public int axeId;
+    public GameManager manager;
+
+    void OnTriggerEnter2D(Collider2D other)
+    {
+        if (other.gameObject.name.StartsWith("Terrain_"))
+        {
+            Destroy(gameObject);
+        }
     }
 }
