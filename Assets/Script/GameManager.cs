@@ -928,6 +928,9 @@ public class GameManager : MonoBehaviour
         if (data["drops"] != null) {
             foreach (var dProp in (JObject)data["drops"]) SpawnDrop(dProp.Key, (JObject)dProp.Value);
         }
+
+        // 지형지물 생성
+        SpawnTerrain();
     }
 
     public void OnPlayerJoin(string jsonStr)
@@ -1591,6 +1594,101 @@ public class GameManager : MonoBehaviour
             bgRenderer.sprite = bgSprite;
             bgRenderer.color = Color.white;
         }
+    }
+
+    // ── 지형지물 생성 ──
+    private bool terrainSpawned = false;
+    private List<GameObject> terrainObjects = new List<GameObject>();
+
+    private void SpawnTerrain()
+    {
+        if (terrainSpawned) return;
+        terrainSpawned = true;
+
+        // 존 타입별 지형지물 정의
+        var terrainDefs = new Dictionary<string, System.Action<float, float>>() {
+            {"forest", (x,y) => SpawnTerrainObj(x, y, new Color(0.15f,0.45f,0.1f), 1.5f, "나무")},
+            {"plains", (x,y) => SpawnTerrainObj(x, y, new Color(0.3f,0.5f,0.15f), 1.0f, "풀")},
+            {"dungeon",(x,y) => SpawnTerrainObj(x, y, new Color(0.35f,0.3f,0.25f), 1.2f, "바위")},
+            {"dragon", (x,y) => SpawnTerrainObj(x, y, new Color(0.6f,0.15f,0.05f), 1.0f, "용암")},
+            {"chaos",  (x,y) => SpawnTerrainObj(x, y, new Color(0.3f,0.1f,0.35f), 1.3f, "잔해")},
+            {"village",(x,y) => SpawnTerrainObj(x, y, new Color(0.5f,0.35f,0.2f), 2.0f, "건물")},
+        };
+
+        // 각 존에 지형지물 20~40개 랜덤 배치
+        var zones = new string[][] {
+            new[]{"forest", "-420","-400","80","70"},
+            new[]{"forest", "-200","-180","60","50"},
+            new[]{"plains", "-300","-450","80","60"},
+            new[]{"plains", "-130","-200","60","50"},
+            new[]{"dungeon","-400","-200","70","70"},
+            new[]{"dungeon","-250","-200","70","60"},
+            new[]{"dragon", "150","50","70","70"},
+            new[]{"chaos",  "50","100","80","70"},
+            new[]{"chaos",  "-100","100","50","50"},
+            new[]{"village","-500","-500","60","60"},
+            new[]{"village","350","-450","50","50"},
+            new[]{"village","-100","0","50","50"},
+        };
+
+        foreach (var zone in zones)
+        {
+            string type = zone[0];
+            float zx = float.Parse(zone[1]);
+            float zy = float.Parse(zone[2]);
+            float zw = float.Parse(zone[3]);
+            float zh = float.Parse(zone[4]);
+
+            int count = type == "village" ? 8 : 20 + (int)(UnityEngine.Random.value * 15);
+
+            if (terrainDefs.ContainsKey(type))
+            {
+                for (int i = 0; i < count; i++)
+                {
+                    float tx = zx + UnityEngine.Random.value * zw;
+                    float ty = zy + UnityEngine.Random.value * zh;
+                    terrainDefs[type](tx, ty);
+                }
+            }
+        }
+    }
+
+    private void SpawnTerrainObj(float x, float y, Color color, float scale, string label)
+    {
+        GameObject obj = new GameObject("Terrain_" + label);
+        obj.transform.position = new Vector3(x, y, 0.5f); // z=0.5 캐릭터 뒤에
+
+        SpriteRenderer sr = obj.AddComponent<SpriteRenderer>();
+        Texture2D tex = new Texture2D(16, 16);
+        for (int px = 0; px < 16; px++)
+            for (int py = 0; py < 16; py++)
+            {
+                // 원형 모양
+                float dx = px - 8f, dy = py - 8f;
+                if (label == "건물")
+                {
+                    // 사각형
+                    tex.SetPixel(px, py, (px > 1 && px < 14 && py > 1 && py < 14) ? color : Color.clear);
+                }
+                else if (dx * dx + dy * dy < 50)
+                {
+                    // 원형 (나무/바위)
+                    Color c = color + new Color(UnityEngine.Random.value * 0.1f - 0.05f, UnityEngine.Random.value * 0.1f - 0.05f, UnityEngine.Random.value * 0.1f - 0.05f, 0);
+                    tex.SetPixel(px, py, c);
+                }
+                else
+                {
+                    tex.SetPixel(px, py, Color.clear);
+                }
+            }
+        tex.filterMode = FilterMode.Point;
+        tex.Apply();
+
+        sr.sprite = Sprite.Create(tex, new Rect(0, 0, 16, 16), new Vector2(0.5f, 0.5f), 8f);
+        sr.sortingOrder = -1;
+        obj.transform.localScale = Vector3.one * scale * (0.8f + UnityEngine.Random.value * 0.5f);
+
+        terrainObjects.Add(obj);
     }
 
     private void UpdateMyUI()
