@@ -147,6 +147,13 @@ public class GameManager : MonoBehaviour
         {"rare", "mon_darkknight"}, {"boss", "mon_dragon"}
     };
 
+    // JToken null-safe float 변환
+    private float JF(JToken t, float def = 0f)
+    {
+        if (t == null || t.Type == JTokenType.Null) return def;
+        try { return (float)t; } catch { return def; }
+    }
+
     // 스프라이트 캐시
     private Dictionary<string, Sprite[]> spriteCache = new Dictionary<string, Sprite[]>();
 
@@ -467,8 +474,8 @@ public class GameManager : MonoBehaviour
             var u = (JObject)unitList[i];
             string name = u["displayName"]?.ToString() ?? "???";
             int lv = u["level"] != null ? (int)u["level"] : 1;
-            float hp = u["hp"] != null ? (float)u["hp"] : 0;
-            float maxHp = u["maxHp"] != null ? (float)u["maxHp"] : 1;
+            float hp = JF(u["hp"]);
+            float maxHp = JF(u["maxHp"], 1f);
 
             GUI.Label(new Rect(x + 10, iy, 180, 28), $"Lv.{lv} {name}");
             GUI.Label(new Rect(x + 200, iy, 100, 28), $"HP: {Mathf.CeilToInt(hp)}/{Mathf.CeilToInt(maxHp)}");
@@ -978,8 +985,8 @@ public class GameManager : MonoBehaviour
             p.level = (int)data["level"];
             p.className = (string)data["className"];
             p.displayName = data["displayName"]?.ToString() ?? p.className;
-            p.maxHp = (float)data["maxHp"];
-            p.hp = (float)data["hp"];
+            p.maxHp = JF(data["maxHp"], 1f);
+            p.hp = JF(data["hp"]);
             p.team = (string)data["team"];
             p.ownerId = data["ownerId"]?.ToString();
             if (data["karma"] != null) p.karma = (int)data["karma"];
@@ -1001,9 +1008,9 @@ public class GameManager : MonoBehaviour
             string pId = pProp.Key;
             JObject pObj = (JObject)pProp.Value;
             if (players.ContainsKey(pId)) {
-                players[pId].targetPos = new Vector3((float)pObj["x"], (float)pObj["y"], -1f);
+                players[pId].targetPos = new Vector3(JF(pObj["x"]), JF(pObj["y"]), -1f);
                 if (pObj["gold"] != null) players[pId].gold = (int)pObj["gold"];
-                if (pObj["hp"] != null) players[pId].hp = (float)pObj["hp"];
+                if (pObj["hp"] != null) players[pId].hp = JF(pObj["hp"]);
                 if (pObj["karma"] != null) players[pId].karma = (int)pObj["karma"];
                 if (pObj["diamonds"] != null && pId == myId) myDiamonds = (int)pObj["diamonds"];
                 if (pId == myId) {
@@ -1022,7 +1029,7 @@ public class GameManager : MonoBehaviour
             string mId = mProp.Key;
             JObject mObj = (JObject)mProp.Value;
             if (monsters.ContainsKey(mId))
-                monsters[mId].targetPos = new Vector3((float)mObj["x"], (float)mObj["y"], 0f);
+                monsters[mId].targetPos = new Vector3(JF(mObj["x"]), JF(mObj["y"]), 0f);
         }
     }
 
@@ -1030,12 +1037,12 @@ public class GameManager : MonoBehaviour
     {
         JObject aData = JObject.Parse(jsonStr);
         int axeId = (int)aData["id"];
-        GameObject newAxe = Instantiate(axePrefab, new Vector3((float)aData["x"], (float)aData["y"], -1f), Quaternion.identity);
+        GameObject newAxe = Instantiate(axePrefab, new Vector3(JF(aData["x"]), JF(aData["y"]), -1f), Quaternion.identity);
 
         NetworkAxe nAxe = new NetworkAxe();
         nAxe.go = newAxe;
-        nAxe.dir = new Vector3((float)aData["dirX"], (float)aData["dirY"], 0).normalized;
-        nAxe.speed = (float)aData["speed"];
+        nAxe.dir = new Vector3(JF(aData["dirX"]), JF(aData["dirY"]), 0).normalized;
+        nAxe.speed = JF(aData["speed"], 5f);
 
         // 크리티컬 이펙트
         if (aData["isCrit"] != null && (bool)aData["isCrit"]) {
@@ -1061,8 +1068,8 @@ public class GameManager : MonoBehaviour
         JObject data = JObject.Parse(jsonStr);
         int id = (int)data["id"];
         if (aoePrefab != null) {
-            GameObject aoe = Instantiate(aoePrefab, new Vector3((float)data["x"], (float)data["y"], -1f), Quaternion.identity);
-            aoe.transform.localScale = new Vector3((float)data["radius"] * 2, (float)data["radius"] * 2, 1);
+            GameObject aoe = Instantiate(aoePrefab, new Vector3(JF(data["x"]), JF(data["y"]), -1f), Quaternion.identity);
+            aoe.transform.localScale = new Vector3(JF(data["radius"], 2f) * 2, JF(data["radius"], 2f) * 2, 1);
             aoes[id] = aoe;
         }
     }
@@ -1078,7 +1085,7 @@ public class GameManager : MonoBehaviour
         JObject hitData = JObject.Parse(jsonStr);
         string pId = (string)hitData["id"];
         if (players.ContainsKey(pId)) {
-            players[pId].hp = (float)hitData["hp"];
+            players[pId].hp = JF(hitData["hp"]);
 
             // 타격 이펙트
             if (hitData["damage"] != null && players[pId].go != null) {
@@ -1121,8 +1128,8 @@ public class GameManager : MonoBehaviour
 
         if (players.ContainsKey(pId)) {
             players[pId].isAlive = true;
-            players[pId].hp = (float)respawnData["hp"];
-            Vector3 pos = new Vector3((float)respawnData["x"], (float)respawnData["y"], -1f);
+            players[pId].hp = JF(respawnData["hp"]);
+            Vector3 pos = new Vector3(JF(respawnData["x"]), JF(respawnData["y"]), -1f);
             players[pId].go.transform.position = pos;
             players[pId].targetPos = pos;
             players[pId].go.SetActive(true);
@@ -1145,7 +1152,7 @@ public class GameManager : MonoBehaviour
         JObject mData = JObject.Parse(jsonStr);
         string mId = (string)mData["id"];
         if (monsters.ContainsKey(mId)) {
-            monsters[mId].hp = (float)mData["hp"];
+            monsters[mId].hp = JF(mData["hp"]);
 
             // 타격 이펙트
             if (mData["damage"] != null && monsters[mId].go != null) {
@@ -1291,14 +1298,14 @@ public class GameManager : MonoBehaviour
         if (players.ContainsKey(id)) return;
 
         bool alive = (bool)data["isAlive"];
-        GameObject newPlayer = Instantiate(playerPrefab, new Vector3((float)data["x"], (float)data["y"], -1f), Quaternion.identity);
+        GameObject newPlayer = Instantiate(playerPrefab, new Vector3(JF(data["x"]), JF(data["y"]), -1f), Quaternion.identity);
         newPlayer.SetActive(alive);
 
         NetworkPlayer np = new NetworkPlayer();
         np.go = newPlayer;
         np.targetPos = newPlayer.transform.position;
-        np.hp = (float)data["hp"];
-        np.maxHp = (float)data["maxHp"];
+        np.hp = JF(data["hp"]);
+        np.maxHp = JF(data["maxHp"], 1f);
         np.gold = data["gold"] != null ? (int)data["gold"] : 0;
         np.level = (int)data["level"];
         np.className = (string)data["className"];
@@ -1364,12 +1371,12 @@ public class GameManager : MonoBehaviour
     {
         if (monsters.ContainsKey(id) || monsterPrefab == null) return;
 
-        GameObject mGo = Instantiate(monsterPrefab, new Vector3((float)data["x"], (float)data["y"], 0f), Quaternion.identity);
+        GameObject mGo = Instantiate(monsterPrefab, new Vector3(JF(data["x"]), JF(data["y"]), 0f), Quaternion.identity);
         NetworkMonster nm = new NetworkMonster();
         nm.go = mGo;
         nm.targetPos = mGo.transform.position;
-        nm.hp = (float)data["hp"];
-        nm.maxHp = (float)data["maxHp"];
+        nm.hp = JF(data["hp"]);
+        nm.maxHp = JF(data["maxHp"], 1f);
         nm.tier = data["tier"]?.ToString() ?? "normal";
         nm.monsterName = data["name"]?.ToString() ?? "슬라임";
 
@@ -1396,7 +1403,7 @@ public class GameManager : MonoBehaviour
     {
         if (drops.ContainsKey(id)) return;
 
-        Vector3 pos = new Vector3((float)data["x"], (float)data["y"], -0.5f);
+        Vector3 pos = new Vector3(JF(data["x"]), JF(data["y"]), -0.5f);
         GameObject dropGo;
 
         if (dropPrefab != null) {
