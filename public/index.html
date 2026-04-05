@@ -1157,10 +1157,11 @@
     function createParty() { window.socket.emit('create_party','{}'); }
     function partyInvite() { window.socket.emit('party_invite_nearby','{}'); }
 
-    // Space 기본 동작(스크롤) 차단 — Unity가 Space를 공격으로 처리
+    // Space키 → 공격 (브라우저 스크롤 차단 + JS에서 직접 공격 호출)
     window.addEventListener('keydown', function(e) {
       if (e.code === 'Space' && e.target.tagName !== 'INPUT') {
         e.preventDefault();
+        doAttack();
       }
     });
 

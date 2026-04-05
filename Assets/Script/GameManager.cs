@@ -1653,20 +1653,40 @@ public class GameManager : MonoBehaviour
             {"village",(x,y) => SpawnTerrainObj(x, y, new Color(0.5f,0.35f,0.2f), 2.0f, "건물")},
         };
 
-        // 각 존에 지형지물 20~40개 랜덤 배치
+        // 각 존에 지형지물 배치 (밀도 높게)
         var zones = new string[][] {
-            new[]{"forest", "-420","-400","80","70"},
-            new[]{"forest", "-200","-180","60","50"},
-            new[]{"plains", "-300","-450","80","60"},
-            new[]{"plains", "-130","-200","60","50"},
-            new[]{"dungeon","-400","-200","70","70"},
-            new[]{"dungeon","-250","-200","70","60"},
-            new[]{"dragon", "150","50","70","70"},
-            new[]{"chaos",  "50","100","80","70"},
-            new[]{"chaos",  "-100","100","50","50"},
-            new[]{"village","-500","-500","60","60"},
-            new[]{"village","350","-450","50","50"},
-            new[]{"village","-100","0","50","50"},
+            // 숲 지역
+            new[]{"forest", "-450","-430","120","100"},
+            new[]{"forest", "-300","-350","100","80"},
+            new[]{"forest", "-200","-180","80","70"},
+            new[]{"forest", "-150","-300","70","60"},
+            // 평원 지역
+            new[]{"plains", "-350","-480","100","80"},
+            new[]{"plains", "-130","-250","90","70"},
+            new[]{"plains", "0","-300","80","60"},
+            new[]{"plains", "-200","-100","70","60"},
+            // 던전 지역
+            new[]{"dungeon","-420","-220","100","90"},
+            new[]{"dungeon","-280","-230","90","80"},
+            new[]{"dungeon","-150","-150","70","60"},
+            // 드래곤 지역
+            new[]{"dragon", "100","20","120","100"},
+            new[]{"dragon", "200","100","80","70"},
+            new[]{"dragon", "50","-50","70","60"},
+            // 카오스 지역
+            new[]{"chaos",  "20","80","120","100"},
+            new[]{"chaos",  "-120","80","80","70"},
+            new[]{"chaos",  "100","200","70","60"},
+            // 마을 지역 (건물)
+            new[]{"village","-500","-500","80","80"},
+            new[]{"village","330","-470","70","70"},
+            new[]{"village","-120","-20","60","60"},
+            new[]{"village","200","-300","60","60"},
+            new[]{"village","-400","200","60","60"},
+            // 시작 지역 (바람개비/해바라기) 근처
+            new[]{"plains", "-500","-480","60","40"},
+            new[]{"forest", "-460","-500","50","40"},
+            new[]{"plains", "-380","-490","60","50"},
         };
 
         foreach (var zone in zones)
@@ -1677,7 +1697,7 @@ public class GameManager : MonoBehaviour
             float zw = float.Parse(zone[3]);
             float zh = float.Parse(zone[4]);
 
-            int count = type == "village" ? 8 : 20 + (int)(UnityEngine.Random.value * 15);
+            int count = type == "village" ? 15 : 35 + (int)(UnityEngine.Random.value * 25);
 
             if (terrainDefs.ContainsKey(type))
             {
