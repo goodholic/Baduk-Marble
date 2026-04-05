@@ -259,6 +259,11 @@ public class GameManager : MonoBehaviour
             }
         }
 
+        // Unity WebGL 키보드 캡처 비활성화 (HTML 채팅 입력 허용)
+        #if UNITY_WEBGL && !UNITY_EDITOR
+        WebGLInput.captureAllKeyboardInput = false;
+        #endif
+
         // 한글 폰트 로드
         koreanFont = Resources.Load<Font>("MapleFont");
 

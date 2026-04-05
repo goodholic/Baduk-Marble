@@ -370,10 +370,18 @@
 
   <!-- 채팅 (Unity 밖) -->
   <div id="chat-box" style="position:fixed;bottom:60px;left:10px;width:320px;z-index:9999;display:none">
-    <div id="chat-log" style="height:140px;overflow-y:auto;background:rgba(8,8,18,0.9);border:1px solid rgba(255,215,0,0.1);border-radius:8px 8px 0 0;padding:10px;font-size:12px;color:#ccc;font-family:'Noto Sans KR',sans-serif">
+    <div id="chat-log" style="height:130px;overflow-y:auto;background:rgba(8,8,18,0.9);border:1px solid rgba(255,215,0,0.1);border-radius:8px 8px 0 0;padding:10px;font-size:12px;color:#ccc;font-family:'Noto Sans KR',sans-serif">
       <div style="color:#666">채팅에 오신 것을 환영합니다</div>
     </div>
-    <button onclick="event.stopPropagation();openChatPrompt()" style="width:100%;padding:12px;border:none;border-radius:0 0 8px 8px;background:url('ui/btn_yellow.png') center/100% 100% no-repeat;color:#333;font-size:14px;font-weight:900;cursor:pointer;text-shadow:none">💬 채팅 입력 (클릭 또는 Enter)</button>
+    <div style="display:flex">
+      <input id="chat-input" type="text" placeholder="메시지 입력..." maxlength="100"
+        style="flex:1;padding:10px 12px;border:1px solid rgba(255,215,0,0.1);border-top:none;border-radius:0 0 0 8px;background:rgba(8,8,18,0.95);color:#fff;font-size:13px;outline:none;font-family:'Noto Sans KR',sans-serif"
+        onkeydown="event.stopPropagation();if(event.key==='Enter'){sendChat();}"
+        onkeyup="event.stopPropagation()"
+        onkeypress="event.stopPropagation()"
+      >
+      <button onclick="event.stopPropagation();sendChat()" style="padding:10px 16px;border:none;border-radius:0 0 8px 0;background:url('ui/btn_yellow.png') center/100% 100% no-repeat;color:#333;font-size:13px;font-weight:900;cursor:pointer">전송</button>
+    </div>
   </div>
 
   <script src="https://js.tosspayments.com/v1/payment"></script>
@@ -1156,21 +1164,15 @@
       }
     });
 
-    // ── 채팅 (prompt 방식 — Unity 키보드 간섭 없음) ──
-    function openChatPrompt() {
-      var msg = prompt('채팅 메시지를 입력하세요:');
-      if (msg && msg.trim() && window.socket) {
-        window.socket.emit('chat', msg.trim());
-      }
+    // ── 채팅 ──
+    function sendChat() {
+      var input = document.getElementById('chat-input');
+      if (!input) return;
+      var msg = input.value.trim();
+      if (!msg || !window.socket) return;
+      window.socket.emit('chat', msg);
+      input.value = '';
     }
-
-    // Enter 키로도 채팅 열기
-    document.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter' && gameStarted && e.target.tagName !== 'INPUT') {
-        e.preventDefault();
-        openChatPrompt();
-      }
-    });
 
     function addChatMsg(text, cls) {
       var log = document.getElementById('chat-log');
