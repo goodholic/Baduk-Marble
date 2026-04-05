@@ -61,7 +61,7 @@
     .team-val { font-size:12px !important; }
 
     /* ═══ 채팅 ═══ */
-    #chat-box { position:absolute; bottom:100px; left:10px; width:300px; z-index:18; display:none; }
+    #chat-box { position:fixed; bottom:100px; left:10px; width:300px; z-index:9999; display:none; }
     #chat-box.show { display:block; }
     #chat-log { height:130px; overflow-y:auto; background:rgba(8,8,18,0.88); border:1px solid rgba(255,255,255,0.08); border-radius:8px 8px 0 0; padding:8px 10px; font-size:12px; color:#ccc; }
     #chat-log div { padding:2px 0; }
@@ -209,7 +209,7 @@
     </div>
 
     <!-- 공격 버튼 (브롤스타즈 스타일) -->
-    <button id="attack-btn" style="display:none;position:absolute;right:20px;bottom:230px;z-index:17;width:85px;height:85px;border-radius:50%;background:url('ui/btn_red.png') center/100% 100% no-repeat;border:none;color:#fff;font-size:16px;font-weight:900;cursor:pointer;touch-action:none;user-select:none;text-shadow:0 2px 4px rgba(0,0,0,0.8);filter:drop-shadow(0 4px 8px rgba(255,0,0,0.4))" ontouchstart="startAttack(event)" ontouchend="endAttack(event)" onmousedown="doAttack(event)" onclick="event.stopPropagation()">⚔ATK</button>
+    <button id="attack-btn" style="display:none;position:fixed;right:20px;bottom:230px;z-index:9999;width:85px;height:85px;border-radius:50%;background:url('ui/btn_red.png') center/100% 100% no-repeat;border:none;color:#fff;font-size:16px;font-weight:900;cursor:pointer;touch-action:none;user-select:none;text-shadow:0 2px 4px rgba(0,0,0,0.8);filter:drop-shadow(0 4px 8px rgba(255,0,0,0.4))" ontouchstart="startAttack(event)" ontouchend="endAttack(event)" onmousedown="doAttack(event)" onclick="event.stopPropagation()">⚔ATK</button>
 
     <!-- 부활 화면 -->
     <div id="respawn-screen" style="position:absolute;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:none;flex-direction:column;justify-content:center;align-items:center;z-index:22">
@@ -222,23 +222,7 @@
     </div>
 
     <!-- 테이밍 버튼 (게임 화면 우측) -->
-    <button id="tame-btn" onclick="window.socket.emit('tame_nearest','{}')" style="display:none;position:absolute;right:15px;bottom:130px;z-index:16;padding:12px 20px;background:url('ui/btn_purple.png') center/100% 100% no-repeat;border:none;border-radius:14px;color:#fff;font-size:13px;cursor:pointer;font-weight:900;text-shadow:0 2px 4px rgba(0,0,0,0.8);filter:drop-shadow(0 3px 6px rgba(100,0,200,0.4))">테이밍 (50G)</button>
-
-    <!-- 채팅 -->
-    <div id="chat-box">
-      <div id="chat-log"></div>
-      <div id="chat-input-wrap">
-        <input id="chat-input" type="text" placeholder="채팅 입력... (Enter)" maxlength="100"
-          onkeydown="event.stopPropagation();if(event.key==='Enter')sendChat()"
-          onkeyup="event.stopPropagation()"
-          onkeypress="event.stopPropagation()"
-          onclick="event.stopPropagation();document.getElementById('unity-canvas').blur();this.focus();"
-          onfocus="document.getElementById('unity-canvas').blur();"
-          onmousedown="event.stopPropagation();setTimeout(()=>this.focus(),10);"
-        >
-        <button id="chat-send" onmousedown="event.stopPropagation()" onclick="event.stopPropagation();sendChat()">전송</button>
-      </div>
-    </div>
+    <button id="tame-btn" onclick="event.stopPropagation();window.socket.emit('tame_nearest','{}')" style="display:none;position:fixed;right:15px;bottom:130px;z-index:9999;padding:12px 20px;background:url('ui/btn_purple.png') center/100% 100% no-repeat;border:none;border-radius:14px;color:#fff;font-size:13px;cursor:pointer;font-weight:900;text-shadow:0 2px 4px rgba(0,0,0,0.8);filter:drop-shadow(0 3px 6px rgba(100,0,200,0.4))">테이밍 (50G)</button>
 
     <!-- 전투 로그 -->
     <div id="combat-log"></div>
@@ -381,6 +365,21 @@
     <div class="panel" id="panel-ranking">
       <div class="panel-header"><h2>랭킹</h2><button class="panel-close" onclick="closePanel('ranking')">X</button></div>
       <div class="panel-body" id="ranking-body"><p style="color:#888">로딩 중...</p></div>
+    </div>
+  </div>
+
+  <!-- 채팅 (Unity 컨테이너 밖 — 독립적 입력) -->
+  <div id="chat-box">
+    <div id="chat-log"></div>
+    <div id="chat-input-wrap">
+      <input id="chat-input" type="text" placeholder="채팅 입력... (Enter)" maxlength="100"
+        onkeydown="event.stopPropagation();if(event.key==='Enter')sendChat()"
+        onkeyup="event.stopPropagation()"
+        onkeypress="event.stopPropagation()"
+        onclick="event.stopPropagation();this.focus();"
+        onmousedown="event.stopPropagation();"
+      >
+      <button id="chat-send" onmousedown="event.stopPropagation()" onclick="event.stopPropagation();sendChat()">전송</button>
     </div>
   </div>
 
