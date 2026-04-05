@@ -213,6 +213,7 @@ async function savePlayer(player) {
         totalTradeProfit: player.totalTradeProfit || 0,
         totalCrafts: player.totalCrafts || 0,
         dungeonClears: player.dungeonClears || 0,
+        bestiary: player.bestiary || {},
         maxArmy: player.maxArmy || 30,
         autoPotion: player.autoPotion || false,
         questProgress: player.questProgress || {},
@@ -1094,6 +1095,18 @@ function getExpRequired(level) {
 
 // ── 방어력 기반 데미지 계산 ──
 const MAX_STACK = 999; // 아이템 최대 스택
+// ── 재미 시스템 전역 변수 ──
+let treasureGoblin = null; // { id, zoneId, spawnTime }
+let nextTreasureTime = Date.now() + 180000 + Math.random() * 300000;
+let bountyBoard = []; // [{ targetId, targetName, reward, timeLimit, claimedBy, claimedAt }]
+let lastBountyUpdate = 0;
+let zoneConquest = {}; // { zoneId: { clanName, kills:{} } }
+let lastConquestReset = Date.now();
+let meteorShower = null; // { zoneId, endTime }
+let nextMeteorTime = Date.now() + 1200000 + Math.random() * 1200000;
+let rogueMerchant = null; // { townId, deals:[], expiresAt }
+let nextRogueTime = Date.now() + 480000 + Math.random() * 420000;
+
 const MAX_GOLD = 999999999;
 const MAX_DIAMONDS = 9999999;
 const MAX_LEVEL = 99;
@@ -1509,6 +1522,7 @@ io.on('connection', (socket) => {
                         totalTradeProfit: ext.totalTradeProfit || 0,
                         totalCrafts: ext.totalCrafts || 0,
                         dungeonClears: ext.dungeonClears || 0,
+                        bestiary: ext.bestiary || {},
                         maxArmy: ext.maxArmy || 30,
                         autoPotion: ext.autoPotion || false,
                         questProgress: ext.questProgress || {},
@@ -3000,6 +3014,172 @@ io.on('connection', (socket) => {
         socket.emit('market_result', { msg: `${listing.itemName} 등록 취소` });
     });
 
+    // ── 현상금 수락 ──
+    socket.on('claim_bounty', (targetName) => {
+        const p = players[playerId];
+        if (!p || !p.isAlive) return;
+        const bounty = bountyBoard.find(b => b.targetName === targetName && !b.claimedBy);
+        if (!bounty) { socket.emit('bounty_result', { msg: '이미 수락됨 또는 만료' }); return; }
+        bounty.claimedBy = playerId;
+        bounty.claimedAt = Date.now();
+        p._activeBounty = bounty;
+        socket.emit('bounty_result', { msg: `${bounty.targetName} 현상금 수락! 5분 내 처치하세요. 보상: ${bounty.reward}G + 50D` });
+        // 5분 타이머
+        setTimeout(() => {
+            if (p._activeBounty === bounty && bounty.claimedBy === playerId) {
+                p._activeBounty = null; bounty.claimedBy = null;
+                socket.emit('bounty_result', { msg: '현상금 시간 초과! 실패' });
+            }
+        }, 300000);
+    });
+
+    // ── 현상금 목록 ──
+    socket.on('get_bounties', () => {
+        socket.emit('bounty_update', bountyBoard.map(b => ({ targetName: b.targetName, reward: b.reward, claimed: !!b.claimedBy })));
+    });
+
+    // ── 몬스터 도감 ──
+    socket.on('get_bestiary', () => {
+        const p = players[playerId];
+        if (!p) return;
+        const bestiary = p.bestiary || {};
+        const totalTypes = Object.keys(ZONE_MONSTER_NAMES).reduce((sum, zId) => sum + Object.keys(ZONE_MONSTER_NAMES[zId]).length, 0);
+        const discovered = Object.keys(bestiary).length;
+        socket.emit('bestiary_data', { bestiary, discovered, total: totalTypes });
+    });
+
+    // ── 주사위 도박 ──
+    socket.on('dice_challenge', (data) => {
+        const p = players[playerId];
+        if (!p || !p.isAlive) return;
+        const { targetId, bet } = data;
+        const target = players[targetId];
+        if (!target || target.isBot || !target.isAlive) { socket.emit('dice_result', { msg: '상대를 찾을 수 없음' }); return; }
+        const zone = getZone(p.x, p.y);
+        if (!zone || !ZONES[zone.id]?.safe) { socket.emit('dice_result', { msg: '마을에서만 가능' }); return; }
+        const betAmount = Math.max(100, Math.min(10000, Math.floor(bet)));
+        if (p.gold < betAmount || target.gold < betAmount) { socket.emit('dice_result', { msg: '골드 부족' }); return; }
+        if (!p._diceCount) p._diceCount = { hour: Math.floor(Date.now()/3600000), count: 0 };
+        if (p._diceCount.hour !== Math.floor(Date.now()/3600000)) { p._diceCount = { hour: Math.floor(Date.now()/3600000), count: 0 }; }
+        if (p._diceCount.count >= 5) { socket.emit('dice_result', { msg: '시간당 5회 제한 초과' }); return; }
+        p._diceCount.count++;
+
+        const roll1 = Math.floor(Math.random()*6)+1 + Math.floor(Math.random()*6)+1;
+        const roll2 = Math.floor(Math.random()*6)+1 + Math.floor(Math.random()*6)+1;
+        const tax = Math.floor(betAmount * 0.05);
+        let winner, loser;
+        if (roll1 > roll2) { winner = p; loser = target; }
+        else if (roll2 > roll1) { winner = target; loser = p; }
+        else { // 동점
+            socket.emit('dice_result', { msg: `동점! (${roll1} vs ${roll2}) 무승부`, roll1, roll2, tie: true });
+            io.to(targetId).emit('dice_result', { msg: `동점! (${roll2} vs ${roll1}) 무승부`, roll1: roll2, roll2: roll1, tie: true });
+            return;
+        }
+        loser.gold -= betAmount;
+        winner.gold += betAmount - tax;
+        const result = { roll1, roll2, bet: betAmount, winner: winner.displayName, tax };
+        socket.emit('dice_result', { msg: `주사위: ${roll1} vs ${roll2} → ${winner.displayName} 승리!${winner===p ? ' +'+( betAmount-tax)+'G' : ' -'+betAmount+'G'}`, ...result });
+        io.to(targetId).emit('dice_result', { msg: `주사위: ${roll2} vs ${roll1} → ${winner.displayName} 승리!${winner===target ? ' +'+(betAmount-tax)+'G' : ' -'+betAmount+'G'}`, ...result });
+        if (betAmount >= 5000) io.emit('server_msg', { msg: `[도박] ${p.displayName} vs ${target.displayName} — ${betAmount}G 판돈! ${winner.displayName} 승리!`, type: 'rare' });
+        io.emit('player_update', p); io.emit('player_update', target);
+    });
+
+    // ── 떠돌이 상인 구매 ──
+    socket.on('rogue_buy', (dealIdx) => {
+        const p = players[playerId];
+        if (!p || !rogueMerchant) { socket.emit('rogue_result', { msg: '상인이 없습니다' }); return; }
+        if (rogueMerchant.bought[dealIdx]) { socket.emit('rogue_result', { msg: '이미 판매됨' }); return; }
+        const deal = rogueMerchant.deals[dealIdx];
+        if (!deal) return;
+        if (deal.currency === 'diamond' && (p.diamonds||0) < deal.price) { socket.emit('rogue_result', { msg: '다이아 부족' }); return; }
+        if (deal.currency === 'gold' && p.gold < deal.price) { socket.emit('rogue_result', { msg: '골드 부족' }); return; }
+        if (deal.currency === 'diamond') p.diamonds -= deal.price; else p.gold -= deal.price;
+        rogueMerchant.bought[dealIdx] = playerId;
+        if (!p.inventory) p.inventory = {};
+
+        if (deal.type === 'equip') {
+            p.inventory[deal.itemId] = (p.inventory[deal.itemId]||0) + 1;
+            socket.emit('rogue_result', { msg: `${deal.name} 구매 완료!` });
+        } else if (deal.type === 'material') {
+            p.inventory[deal.itemId] = (p.inventory[deal.itemId]||0) + (deal.qty||1);
+            socket.emit('rogue_result', { msg: `${deal.name} 구매 완료!` });
+        } else if (deal.type === 'mystery') {
+            const roll = Math.random();
+            let item, grade;
+            if (roll < 0.01) { item = 'equip_sword_5'; grade = '전설'; }
+            else if (roll < 0.05) { item = 'equip_sword_4'; grade = '영웅'; }
+            else if (roll < 0.15) { item = 'equip_sword_3'; grade = '희귀'; }
+            else if (roll < 0.40) { item = 'equip_sword_2'; grade = '고급'; }
+            else { item = 'pot_hp_s'; grade = '꽝'; }
+            p.inventory[item] = (p.inventory[item]||0) + 1;
+            const iName = EQUIP_STATS[item]?.name || item;
+            socket.emit('rogue_result', { msg: `미스터리 박스 오픈! → ${iName} (${grade})` });
+            if (grade === '전설' || grade === '영웅') io.emit('server_msg', { msg: `${p.displayName}이(가) 미스터리 박스에서 ${iName} 획득!`, type: 'rare' });
+        }
+        savePlayer(p); io.emit('player_update', p);
+    });
+
+    // ── 장비 합성 (같은 등급 3개 → 상위 1개) ──
+    socket.on('fuse_equipment', (data) => {
+        const p = players[playerId];
+        if (!p) return;
+        const { item1, item2, item3 } = data;
+        if (!p.inventory) return;
+        const items = [item1, item2, item3];
+        // 3개 모두 보유 확인
+        for (const it of items) {
+            if (!p.inventory[it] || p.inventory[it] <= 0) { socket.emit('fuse_result', { msg: '재료 부족' }); return; }
+        }
+        // 같은 등급 확인
+        const grades = items.map(it => EQUIP_STATS[it]?.grade);
+        if (!grades[0] || grades[0] !== grades[1] || grades[1] !== grades[2]) { socket.emit('fuse_result', { msg: '같은 등급 장비 3개 필요' }); return; }
+        const gradeOrder = ['normal','uncommon','rare','epic','legendary'];
+        const curIdx = gradeOrder.indexOf(grades[0]);
+        if (curIdx >= gradeOrder.length - 1) { socket.emit('fuse_result', { msg: '전설 등급은 합성 불가' }); return; }
+        const nextGrade = gradeOrder[curIdx + 1];
+        const fuseCosts = { normal:500, uncommon:2000, rare:5000, epic:15000 };
+        const cost = fuseCosts[grades[0]] || 500;
+        if (p.gold < cost) { socket.emit('fuse_result', { msg: `골드 부족 (${cost}G 필요)` }); return; }
+        p.gold -= cost;
+        // 재료 소모
+        for (const it of items) { p.inventory[it]--; if (p.inventory[it] <= 0) delete p.inventory[it]; }
+        // 결과: 상위 등급 랜덤 장비
+        const candidates = Object.entries(EQUIP_STATS).filter(([id, eq]) => eq.grade === nextGrade);
+        if (candidates.length === 0) { socket.emit('fuse_result', { msg: '합성 실패' }); return; }
+        const [resultId, resultEq] = candidates[Math.floor(Math.random() * candidates.length)];
+        p.inventory[resultId] = (p.inventory[resultId]||0) + 1;
+        // 랜덤 옵션 생성
+        const gi = GRADE_INFO[nextGrade];
+        if (gi && gi.randomOpts > 0) {
+            if (!p.equipOptions) p.equipOptions = {};
+            p.equipOptions[resultId] = generateRandomOptions(gi.randomOpts);
+        }
+        savePlayer(p);
+        socket.emit('fuse_result', { msg: `합성 성공! ${resultEq.name} (${GRADE_INFO[nextGrade].name}) 획득!` });
+        if (nextGrade === 'epic' || nextGrade === 'legendary') io.emit('server_msg', { msg: `${p.displayName}이(가) 장비 합성으로 ${resultEq.name} 획득!`, type: 'rare' });
+        io.emit('player_update', p);
+    });
+
+    // ── 옵션 리롤 (100 다이아) ──
+    socket.on('reroll_options', (itemId) => {
+        const p = players[playerId];
+        if (!p) return;
+        const eq = EQUIP_STATS[itemId];
+        if (!eq) { socket.emit('reroll_result', { msg: '장비 없음' }); return; }
+        if (!p.equipped || !Object.values(p.equipped).includes(itemId)) { socket.emit('reroll_result', { msg: '장착 중인 장비만 리롤 가능' }); return; }
+        if ((p.diamonds||0) < 100) { socket.emit('reroll_result', { msg: '다이아 100개 필요' }); return; }
+        p.diamonds -= 100;
+        const gi = GRADE_INFO[eq.grade];
+        if (!gi || gi.randomOpts <= 0) { socket.emit('reroll_result', { msg: '이 등급은 옵션 없음' }); return; }
+        if (!p.equipOptions) p.equipOptions = {};
+        const oldOpts = p.equipOptions[itemId] || [];
+        p.equipOptions[itemId] = generateRandomOptions(gi.randomOpts);
+        recalcStats(p);
+        savePlayer(p);
+        socket.emit('reroll_result', { msg: `옵션 리롤 완료! (-100D)`, oldOpts, newOpts: p.equipOptions[itemId] });
+        io.emit('player_update', p);
+    });
+
     // ── 아레나: 참가 신청 ──
     socket.on('arena_join', () => {
         const p = players[playerId];
@@ -3914,6 +4094,167 @@ setInterval(() => {
         }
     }
 
+    // ══════════════════════════════════════
+    // 재미 시스템 틱 처리
+    // ══════════════════════════════════════
+
+    const now = Date.now();
+
+    // ── 1. 트레저 고블린 (3~8분마다) ──
+    if (!treasureGoblin && now > nextTreasureTime && Math.random() < 0.7) {
+        const huntZoneEntries = Object.entries(ZONES).filter(([id, z]) => !z.safe && !z.isCastle && !z.isArena);
+        if (huntZoneEntries.length > 0) {
+            const [zId, zone] = huntZoneEntries[Math.floor(Math.random() * huntZoneEntries.length)];
+            entityIdCounter++;
+            const gId = 'goblin_' + entityIdCounter;
+            monsters[gId] = {
+                id: gId, tier: 'treasure', name: '보물 도깨비',
+                x: zone.x + zone.w/2, y: zone.y + zone.h/2,
+                hp: 500, maxHp: 500, atk: 0, def: 100,
+                color: '#FFD700', isAlive: true, zoneId: zId,
+                aiType: 'flee', element: 'fire',
+                expReward: 0, goldReward: 0, lastSpecialAttack: 0,
+            };
+            treasureGoblin = { id: gId, zoneId: zId, spawnTime: now };
+            io.emit('server_msg', { msg: `[보물 도깨비] ${ZONES[zId].name}에 보물 도깨비 출현! 15초 내에 잡아라!`, type: 'boss' });
+            io.emit('rare_spawn', { id: gId, name: '보물 도깨비', tier: 'treasure', zoneId: zId, zoneName: ZONES[zId].name });
+            // 15초 후 도주
+            setTimeout(() => {
+                if (monsters[gId] && monsters[gId].isAlive) {
+                    delete monsters[gId];
+                    treasureGoblin = null;
+                    io.emit('server_msg', { msg: '[보물 도깨비] 도깨비가 도망쳤다! 하하하!', type: 'danger' });
+                }
+                nextTreasureTime = now + 180000 + Math.random() * 300000;
+            }, 15000);
+        }
+    }
+    // 고블린 도주 AI (매 틱 빠르게 도주)
+    if (treasureGoblin && monsters[treasureGoblin.id]) {
+        const g = monsters[treasureGoblin.id];
+        if (g.isAlive) {
+            // 가장 가까운 플레이어 반대 방향으로 도주
+            let nearP = null, nearD = 20;
+            for (const pid in players) {
+                const p = players[pid]; if (!p.isAlive) continue;
+                const d = Math.hypot(g.x - p.x, g.y - p.y);
+                if (d < nearD) { nearD = d; nearP = p; }
+            }
+            if (nearP) {
+                const dx = g.x - nearP.x, dy = g.y - nearP.y;
+                const mag = Math.hypot(dx, dy) || 1;
+                g.x += (dx/mag) * 1.5; g.y += (dy/mag) * 1.5;
+            } else {
+                g.x += (Math.random()-0.5) * 2; g.y += (Math.random()-0.5) * 2;
+            }
+            g.x = Math.max(-1020, Math.min(1020, g.x));
+            g.y = Math.max(-1020, Math.min(1020, g.y));
+        }
+    }
+
+    // ── 2. 현상금 게시판 (10분마다) ──
+    if (now - lastBountyUpdate > 600000) {
+        lastBountyUpdate = now;
+        bountyBoard = [];
+        const candidates = Object.values(players).filter(p => !p.isBot && p.isAlive && (p.karma > 100 || p.level >= 20));
+        candidates.sort((a,b) => (b.karma||0) - (a.karma||0));
+        for (let i = 0; i < Math.min(3, candidates.length); i++) {
+            const t = candidates[i];
+            const reward = Math.floor(500 + t.level * 100 + (t.karma||0) * 10);
+            bountyBoard.push({ targetId: t.id, targetName: t.displayName, reward: Math.min(reward, 5000), claimedBy: null, claimedAt: 0 });
+        }
+        if (bountyBoard.length > 0) {
+            io.emit('bounty_update', bountyBoard.map(b => ({ targetName: b.targetName, reward: b.reward, claimed: !!b.claimedBy })));
+            io.emit('server_msg', { msg: `[현상금] 새 현상금 ${bountyBoard.length}건 등록!`, type: 'rare' });
+        }
+    }
+
+    // ── 6. 유성우 이벤트 (20~40분마다) ──
+    if (!meteorShower && now > nextMeteorTime) {
+        const huntZones = Object.entries(ZONES).filter(([id, z]) => !z.safe && !z.isCastle && !z.isArena);
+        const [mzId, mZone] = huntZones[Math.floor(Math.random() * huntZones.length)];
+        meteorShower = { zoneId: mzId, endTime: now + 120000 };
+        io.emit('server_msg', { msg: `[유성우] ${mZone.name}에 유성우 발생! 2분간 파편 수집 + EXP/골드 x2!`, type: 'boss' });
+        io.emit('meteor_shower', { zoneId: mzId, zoneName: mZone.name, duration: 120 });
+        nextMeteorTime = now + 1200000 + Math.random() * 1200000;
+    }
+    // 유성우 진행 중: 3초마다 유성 낙하
+    if (meteorShower) {
+        if (now > meteorShower.endTime) {
+            io.emit('server_msg', { msg: '[유성우] 유성우가 끝났습니다.', type: 'normal' });
+            meteorShower = null;
+        } else if (tickCounter % 90 === 0) { // 3초마다
+            const mz = ZONES[meteorShower.zoneId];
+            if (mz) {
+                const mx = mz.x + Math.random() * mz.w, my = mz.y + Math.random() * mz.h;
+                // 유성 데미지
+                for (const pid in players) {
+                    const p = players[pid]; if (!p.isAlive) continue;
+                    if (Math.hypot(p.x - mx, p.y - my) < 3) {
+                        p.hp -= 200;
+                        io.emit('player_hit', { id: pid, hp: p.hp, damage: 200, isCrit: false, skillName: '유성' });
+                        if (p.hp <= 0 && p.isAlive) { p.isAlive = false; io.emit('player_die', { victimId: pid, attackerId: 'meteor', killerName: '유성' }); }
+                    }
+                }
+                // 파편 드롭
+                const fragGold = 50 + Math.floor(Math.random() * 450);
+                spawnDrop(mx, my, fragGold, 'meteor_frag');
+                if (Math.random() < 0.05) {
+                    // 5% 확률 드래곤 비늘 파편
+                    for (const pid in players) {
+                        const p = players[pid]; if (!p.isAlive || p.isBot) continue;
+                        if (Math.hypot(p.x - mx, p.y - my) < 4) {
+                            if (!p.inventory) p.inventory = {};
+                            p.inventory['mat_dragon'] = (p.inventory['mat_dragon']||0) + 1;
+                            io.to(pid).emit('combat_log', { msg: '유성 파편에서 드래곤 비늘 발견!' });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // ── 4. 존 정복 집계 (매시 정각 리셋) ──
+    if (now - lastConquestReset > 3600000) {
+        lastConquestReset = now;
+        // 영주 발표
+        for (const [zId, data] of Object.entries(zoneConquest)) {
+            if (!data.kills || Object.keys(data.kills).length === 0) continue;
+            let maxClan = null, maxKills = 0;
+            for (const [clan, kills] of Object.entries(data.kills)) {
+                if (kills > maxKills) { maxKills = kills; maxClan = clan; }
+            }
+            if (maxClan) {
+                data.lordClan = maxClan;
+                data.kills = {};
+                io.emit('server_msg', { msg: `[존 정복] ${ZONES[zId]?.name||zId} 영주: [${maxClan}] (${maxKills}킬)`, type: 'normal' });
+            }
+        }
+    }
+
+    // ── 8. 떠돌이 상인 (8~15분마다) ──
+    if (!rogueMerchant && now > nextRogueTime) {
+        const towns = Object.entries(ZONES).filter(([id, z]) => z.safe && z.npcs);
+        const [townId, town] = towns[Math.floor(Math.random() * towns.length)];
+        const deals = [];
+        // 3개 랜덤 딜
+        const allEquips = Object.keys(EQUIP_STATS).filter(k => EQUIP_STATS[k].grade === 'epic' || EQUIP_STATS[k].grade === 'legendary');
+        if (allEquips.length > 0) {
+            const eq = allEquips[Math.floor(Math.random() * allEquips.length)];
+            deals.push({ type: 'equip', itemId: eq, name: EQUIP_STATS[eq].name, price: 150, currency: 'diamond', desc: '50% 할인 장비' });
+        }
+        deals.push({ type: 'material', itemId: 'mat_dragon', name: '드래곤 비늘 x20', price: 2000, currency: 'gold', qty: 20, desc: '대량 재료' });
+        deals.push({ type: 'mystery', name: '미스터리 박스', price: 500, currency: 'gold', desc: '60%쓰레기/25%고급/10%희귀/4%영웅/1%전설' });
+        rogueMerchant = { townId, deals, expiresAt: now + 90000, bought: {} };
+        io.emit('server_msg', { msg: `[떠돌이 상인] ${town.name}에 신비한 상인이 90초간 출현!`, type: 'rare' });
+        io.emit('rogue_merchant', { townId, townName: town.name, deals: deals.map((d,i) => ({ idx:i, name:d.name, price:d.price, currency:d.currency, desc:d.desc, sold:false })), expiresIn: 90 });
+        nextRogueTime = now + 480000 + Math.random() * 420000;
+    }
+    if (rogueMerchant && now > rogueMerchant.expiresAt) {
+        io.emit('server_msg', { msg: '[떠돌이 상인] 상인이 사라졌습니다...', type: 'normal' });
+        rogueMerchant = null;
+    }
+
     // 보스 카운트다운 타이머
     const bossInterval = 30 * 300; // 5분 = 9000틱
     const ticksUntilBoss = bossInterval - (tickCounter % bossInterval);
@@ -4732,6 +5073,52 @@ function handleCollisions() {
                     if (mob.tier === 'rare') realOwner.morphKills['darkknight'] = (realOwner.morphKills['darkknight']||0) + 1;
                     if (mob.tier === 'boss' || mob.tier === 'legendary') realOwner.morphKills['dragon'] = (realOwner.morphKills['dragon']||0) + 1;
 
+                    // 몬스터 도감 기록
+                    if (!realOwner.bestiary) realOwner.bestiary = {};
+                    if (!realOwner.bestiary[mob.name]) {
+                        realOwner.bestiary[mob.name] = 1;
+                        const discovered = Object.keys(realOwner.bestiary).length;
+                        if (discovered === 10) { realOwner.gold += 500; io.to(realOwner.id).emit('combat_log', { msg: '도감 10종 달성! +500G' }); }
+                        if (discovered === 25) { realOwner.gold += 1000; io.to(realOwner.id).emit('achievement_unlock', { name: '몬스터 학자', desc: '25종 처치', reward: {gold:1000} }); }
+                        if (discovered === 50) { realOwner.gold += 5000; realOwner.diamonds = (realOwner.diamonds||0) + 100; io.to(realOwner.id).emit('achievement_unlock', { name: '도감 마스터', desc: '50종 처치', reward: {gold:5000, diamonds:100} }); }
+                    } else {
+                        realOwner.bestiary[mob.name]++;
+                    }
+
+                    // 트레저 고블린 처치 보상
+                    if (mob.tier === 'treasure' && treasureGoblin) {
+                        const zoneGold = (ZONE_MONSTERS[mob.zoneId]?.goldBonus || 0) + 1;
+                        const goblinReward = Math.floor(500 * zoneGold);
+                        realOwner.gold += goblinReward;
+                        if (!realOwner.inventory) realOwner.inventory = {};
+                        realOwner.inventory['mat_dragon'] = (realOwner.inventory['mat_dragon']||0) + 1;
+                        io.emit('server_msg', { msg: `${realOwner.displayName}이(가) 보물 도깨비를 잡았다! +${goblinReward}G + 드래곤 비늘!`, type: 'boss' });
+                        treasureGoblin = null;
+                        nextTreasureTime = Date.now() + 180000 + Math.random() * 300000;
+                    }
+
+                    // 존 정복 킬 카운트
+                    if (mob.zoneId && realOwner.clanName) {
+                        if (!zoneConquest[mob.zoneId]) zoneConquest[mob.zoneId] = { kills: {}, lordClan: null };
+                        const zc = zoneConquest[mob.zoneId].kills;
+                        zc[realOwner.clanName] = (zc[realOwner.clanName] || 0) + 1;
+                    }
+                    // 존 정복 영주 보너스
+                    if (mob.zoneId && zoneConquest[mob.zoneId]?.lordClan === realOwner.clanName) {
+                        goldMulti += 0.15; expMulti += 0.15;
+                    }
+
+                    // 유성우 존 보너스 (x2)
+                    if (meteorShower && mob.zoneId === meteorShower.zoneId) {
+                        goldMulti *= 2; expMulti *= 2;
+                    }
+
+                    // 현상금 처치 체크
+                    if (!realOwner.isBot && realOwner._activeBounty) {
+                        const bounty = realOwner._activeBounty;
+                        // (이건 PvP 킬에서 처리 — 몬스터 킬과 무관)
+                    }
+
                     // 전설 몬스터 처치 특별 보상
                     if (mob.tier === 'legendary') {
                         if (!realOwner.inventory) realOwner.inventory = {};
@@ -5017,6 +5404,38 @@ function handlePlayerDeath(target, targetId, owner, attackerId) {
         trackQuest(realKiller, 'pvp_win', 1);
         trackQuest(realKiller, 'pvp_fight', 1);
         checkTitles(realKiller);
+        // 현상금 처치 보상
+        if (realKiller._activeBounty && realKiller._activeBounty.targetId === targetId) {
+            const bounty = realKiller._activeBounty;
+            realKiller.gold += bounty.reward;
+            realKiller.diamonds = (realKiller.diamonds||0) + 50;
+            realKiller._activeBounty = null;
+            io.emit('server_msg', { msg: `[현상금] ${realKiller.displayName}이(가) ${target.displayName}의 현상금을 수령! +${bounty.reward}G +50D`, type: 'rare' });
+            io.to(realKiller.id).emit('bounty_result', { msg: `현상금 완료! +${bounty.reward}G +50D` });
+        }
+        // 카오틱 상자 드롭
+        if ((target.karma||0) >= 200) {
+            const chestGold = Math.floor(target.gold * 0.2);
+            let chestItem = null;
+            if (target.equipped) {
+                const slots = Object.keys(target.equipped).filter(s => target.equipped[s]);
+                if (slots.length > 0) {
+                    const rSlot = slots[Math.floor(Math.random() * slots.length)];
+                    chestItem = target.equipped[rSlot];
+                    delete target.equipped[rSlot];
+                    recalcStats(target);
+                }
+            }
+            const chestId = 'chaotic_chest_' + (++entityIdCounter);
+            drops[chestId] = {
+                id: chestId, x: target.x, y: target.y,
+                gold: chestGold, item: chestItem, spawnTime: Date.now(), pickupRadius: 3.0,
+                type: 'chaotic_chest'
+            };
+            setTimeout(() => { if (drops[chestId]) { io.emit('drop_destroy', chestId); delete drops[chestId]; } }, 30000);
+            io.emit('drop_spawn', drops[chestId]);
+            io.emit('server_msg', { msg: `[카오틱 상자] ${target.displayName}의 상자가 ${getZone(target.x,target.y)?.id||'필드'}에 나타났다!`, type: 'danger' });
+        }
     }
 
     // ── PK 카르마 판정 ──

@@ -503,6 +503,21 @@
         </div>
       </div>
     </div>
+
+    <!-- 현상금 게시판 -->
+    <div class="panel" id="panel-bounty">
+      <div class="panel-header"><h2>현상금</h2><button class="panel-close" onclick="closePanel('bounty')">X</button></div>
+      <div class="panel-body">
+        <button onclick="window.socket.emit('get_bounties')" style="width:100%;padding:6px;background:#333;color:#eee;border:1px solid #555;border-radius:4px;font-size:11px;margin-bottom:5px">갱신</button>
+        <div id="bounty-list"><p style="color:#888">로딩 중...</p></div>
+      </div>
+    </div>
+
+    <!-- 몬스터 도감 -->
+    <div class="panel" id="panel-bestiary">
+      <div class="panel-header"><h2>몬스터 도감</h2><button class="panel-close" onclick="closePanel('bestiary')">X</button></div>
+      <div class="panel-body" id="bestiary-body"><p style="color:#888">로딩 중...</p></div>
+    </div>
   </div>
 
   <!-- 채팅 (Unity 밖) -->
@@ -1065,6 +1080,59 @@
         ol.classList.add('show');
         playSFX('levelup'); playSFX('buff'); playSFX('gold');
         setTimeout(function(){ ol.classList.remove('show'); }, 3000);
+      });
+
+      // 현상금
+      window.socket.on('bounty_update', (list) => {
+        var el = document.getElementById('bounty-list');
+        if (!el) return;
+        if (!list.length) { el.innerHTML = '<p style="color:#888">현상금 없음</p>'; return; }
+        var html = '';
+        list.forEach(function(b) {
+          var clr = b.claimed ? '#888' : '#ff4444';
+          html += '<div class="panel-item" style="border-left:3px solid '+clr+'"><span class="name" style="color:'+clr+'">'+b.targetName+' <b style="color:#ffd700">'+b.reward+'G</b></span>';
+          if (!b.claimed) html += '<button onclick="window.socket.emit(\'claim_bounty\',\''+b.targetName+'\')">수락</button>';
+          else html += '<span style="color:#888;font-size:10px">수락됨</span>';
+          html += '</div>';
+        });
+        el.innerHTML = html;
+      });
+      window.socket.on('bounty_result', (d) => showToast(d.msg));
+
+      // 떠돌이 상인
+      window.socket.on('rogue_merchant', (d) => {
+        showModal('떠돌이 상인 — '+d.townName, '<p style="color:#ffd700;font-size:12px">'+d.expiresIn+'초 한정! 선착순 1명!</p>', d.deals.map(function(dl) {
+          return { label: dl.name+' ('+dl.price+(dl.currency==='diamond'?'D':'G')+')', action: "window.socket.emit('rogue_buy',"+dl.idx+");closeModal();" };
+        }).concat([{label:'닫기',type:'cancel',action:'closeModal()'}]));
+        playSFX('buff');
+      });
+      window.socket.on('rogue_result', (d) => { showToast(d.msg); playSFX('gold'); });
+
+      // 유성우
+      window.socket.on('meteor_shower', (d) => {
+        showToast('[유성우] '+d.zoneName+' — '+d.duration+'초간! 파편 수집 + x2 보상!');
+        playSFX('boss');
+      });
+
+      // 주사위
+      window.socket.on('dice_result', (d) => {
+        showToast(d.msg);
+        if (d.tie) playSFX('hit'); else playSFX(d.winner ? 'gold' : 'die');
+      });
+
+      // 합성/리롤
+      window.socket.on('fuse_result', (d) => { showToast(d.msg); playSFX(d.msg.includes('성공') ? 'levelup' : 'die'); });
+      window.socket.on('reroll_result', (d) => { showToast(d.msg); playSFX('buff'); });
+
+      // 도감
+      window.socket.on('bestiary_data', (d) => {
+        var el = document.getElementById('bestiary-body');
+        if (!el) return;
+        var pct = d.total > 0 ? Math.floor(d.discovered / d.total * 100) : 0;
+        var html = '<p style="color:#ffd700">발견: '+d.discovered+'/'+d.total+' ('+pct+'%)</p><div style="width:100%;height:8px;background:#333;border-radius:4px;margin:5px 0"><div style="width:'+pct+'%;height:100%;background:linear-gradient(90deg,#aa44ff,#ffd700);border-radius:4px;transition:width 0.5s"></div></div>';
+        var sorted = Object.entries(d.bestiary).sort((a,b)=>b[1]-a[1]);
+        sorted.forEach(function(e) { html += '<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:11px;border-bottom:1px solid #222"><span style="color:#eee">'+e[0]+'</span><span style="color:#ffd700">x'+e[1]+'</span></div>'; });
+        el.innerHTML = html;
       });
 
       // 자동 물약 상태
@@ -1814,12 +1882,16 @@
         {label:'퀘스트', action:()=>{togglePanel('quests');window.socket.emit('get_quests','{}');}},
         {label:'투기장', action:()=>{togglePanel('arena');window.socket.emit('arena_rankings');}},
         {label:'친구', action:()=>{togglePanel('friends');window.socket.emit('get_friends');}},
+        {label:'현상금', action:()=>{togglePanel('bounty');window.socket.emit('get_bounties');}},
+        {label:'도감', action:()=>{togglePanel('bestiary');window.socket.emit('get_bestiary');}},
       ],
       etc: [
         {label:'던전', action:()=>{showModal('던전 입장','<p style="color:#888;font-size:12px;margin-bottom:10px">입장할 던전을 선택하세요</p>',[{label:'어둠의 동굴 (Lv.15)',action:"closeModal();window.socket.emit('enter_dungeon','cave_dungeon')"},{label:'지하 감옥 (Lv.20)',action:"closeModal();window.socket.emit('enter_dungeon','ruins_dungeon')"},{label:'드래곤 레이드 (Lv.25)',action:"closeModal();window.socket.emit('enter_dungeon','dragon_raid')"},{label:'취소',type:'cancel',action:'closeModal()'}]);}},
         {label:'무한의 탑', action:()=>togglePanel('tower')},
         {label:'상자 오픈', action:()=>window.socket.emit('open_rare_box')},
         {label:'스탯 리셋', action:()=>{showModal('스탯 초기화','<p style="color:#ff8800">모든 스탯 포인트가 반환됩니다.</p><p style="color:#888;font-size:11px">비용: 500G + 레벨×100G</p>',[{label:'초기화',action:"closeModal();window.socket.emit('reset_stats')"},{label:'취소',type:'cancel',action:'closeModal()'}]);}},
+        {label:'장비 합성', action:()=>{showModal('장비 합성','<p style="color:#ffd700">같은 등급 장비 3개 → 상위 등급 1개</p><p style="color:#888;font-size:11px">일반:500G / 고급:2000G / 희귀:5000G / 영웅:15000G</p><input id="fuse1" placeholder="장비ID 1" style="width:100%;padding:6px;background:#222;color:#fff;border:1px solid #555;border-radius:4px;margin:3px 0"><input id="fuse2" placeholder="장비ID 2" style="width:100%;padding:6px;background:#222;color:#fff;border:1px solid #555;border-radius:4px;margin:3px 0"><input id="fuse3" placeholder="장비ID 3" style="width:100%;padding:6px;background:#222;color:#fff;border:1px solid #555;border-radius:4px;margin:3px 0">',[{label:'합성!',action:"window.socket.emit('fuse_equipment',{item1:getModalInput('fuse1'),item2:getModalInput('fuse2'),item3:getModalInput('fuse3')});closeModal();"},{label:'취소',type:'cancel',action:'closeModal()'}]);}},
+        {label:'옵션 리롤', action:()=>{var id=prompt('리롤할 장착 장비 ID (100D):');if(id)window.socket.emit('reroll_options',id);}},
         {label:'일일 보상', action:()=>claimDaily()},
       ],
     };
