@@ -368,19 +368,10 @@
     </div>
   </div>
 
-  <!-- 채팅 (Unity 컨테이너 밖 — 독립적 입력) -->
-  <div id="chat-box">
-    <div id="chat-log"></div>
-    <div id="chat-input-wrap">
-      <input id="chat-input" type="text" placeholder="채팅 입력... (Enter)" maxlength="100"
-        onkeydown="event.stopPropagation();if(event.key==='Enter')sendChat()"
-        onkeyup="event.stopPropagation()"
-        onkeypress="event.stopPropagation()"
-        onclick="event.stopPropagation();this.focus();"
-        onmousedown="event.stopPropagation();"
-      >
-      <button id="chat-send" onmousedown="event.stopPropagation()" onclick="event.stopPropagation();sendChat()">전송</button>
-    </div>
+  <!-- 채팅 (Unity 밖) -->
+  <div id="chat-box" style="position:fixed;bottom:60px;left:10px;width:320px;z-index:9999;display:none">
+    <div id="chat-log" style="height:120px;overflow-y:auto;background:rgba(8,8,18,0.88);border:1px solid rgba(255,255,255,0.08);border-radius:8px 8px 0 0;padding:8px;font-size:12px;color:#ccc"></div>
+    <button onclick="event.stopPropagation();openChatPrompt()" style="width:100%;padding:10px;border:none;border-radius:0 0 8px 8px;background:linear-gradient(180deg,rgba(255,215,0,0.15),rgba(255,215,0,0.05));color:#ffd700;font-size:13px;font-weight:700;cursor:pointer">채팅 입력 (클릭)</button>
   </div>
 
   <script src="https://js.tosspayments.com/v1/payment"></script>
@@ -1163,33 +1154,19 @@
       }
     });
 
-    // ── 채팅 ──
-    function sendChat() {
-      var input = document.getElementById('chat-input');
-      var msg = input.value.trim();
-      if (!msg || !window.socket) return;
-      window.socket.emit('chat', msg);
-      input.value = '';
-      input.blur(); // 키보드 입력을 Unity로 돌려줌
+    // ── 채팅 (prompt 방식 — Unity 키보드 간섭 없음) ──
+    function openChatPrompt() {
+      var msg = prompt('채팅 메시지를 입력하세요:');
+      if (msg && msg.trim() && window.socket) {
+        window.socket.emit('chat', msg.trim());
+      }
     }
 
-    // 채팅 입력 시 Unity 키보드 입력 차단
-    document.addEventListener('DOMContentLoaded', function() {
-      var chatInput = document.getElementById('chat-input');
-      if (chatInput) {
-        chatInput.addEventListener('focus', function() {
-          // Unity WebGL 키보드 입력 비활성화
-          if (window.myUnityInstance) {
-            document.getElementById('unity-canvas').style.pointerEvents = 'none';
-          }
-        });
-        chatInput.addEventListener('blur', function() {
-          // Unity WebGL 키보드 입력 복원
-          document.getElementById('unity-canvas').style.pointerEvents = 'auto';
-        });
-        chatInput.addEventListener('keydown', function(e) { e.stopPropagation(); });
-        chatInput.addEventListener('keyup', function(e) { e.stopPropagation(); });
-        chatInput.addEventListener('keypress', function(e) { e.stopPropagation(); });
+    // Enter 키로도 채팅 열기
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && gameStarted && e.target.tagName !== 'INPUT') {
+        e.preventDefault();
+        openChatPrompt();
       }
     });
 
