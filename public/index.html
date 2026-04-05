@@ -10,7 +10,7 @@
     body { overflow:hidden; background:#0a0a12; display:flex; justify-content:center; align-items:center; height:100vh; width:100vw; font-family:'Noto Sans KR','Segoe UI',sans-serif; touch-action:none; }
     #unity-container { position:relative; width:100vw; max-height:100vh; aspect-ratio:16/9; }
     @media (min-aspect-ratio:16/9) { #unity-container { width:calc(100vh*(16/9)); height:100vh; } }
-    #unity-canvas { width:100%; height:100%; display:block; outline:none; }
+    #unity-canvas { width:100%; height:100%; display:block; outline:none; position:relative; z-index:1; }
 
     /* ═══ 로딩 ═══ */
     #loading-screen { position:absolute; left:0; top:0; width:100%; height:100%; background:radial-gradient(ellipse at center,#1a1a2e,#0a0a12); display:flex; flex-direction:column; justify-content:center; align-items:center; color:#fff; z-index:10; }
@@ -33,6 +33,13 @@
     .class-btn .name { font-size:18px; font-weight:700; color:#ffd700; }
     .class-btn .stats { font-size:12px; color:#8888aa; margin-top:3px; font-family:monospace; }
     .class-btn .desc { font-size:13px; color:#aaa; margin-top:5px; }
+
+    /* 모든 UI가 캔버스 위에서 클릭 가능하도록 */
+    #status-bar, #bottom-bar, #sub-menu, #chat-box, #combat-log, #minimap-container,
+    #action-buttons, #attack-btn, #tame-btn, #town-npc, #toast, #server-msg,
+    #class-select, #respawn-screen, .panel, .top-btn {
+      pointer-events: auto !important;
+    }
 
     /* ═══ 하단 메뉴바 ═══ */
     #bottom-bar { position:absolute; bottom:0; left:0; width:100%; height:50px; background:linear-gradient(180deg,rgba(15,15,28,0.97),rgba(8,8,18,0.99)); display:none; z-index:15; border-top:2px solid rgba(255,215,0,0.15); }
