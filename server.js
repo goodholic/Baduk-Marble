@@ -1514,7 +1514,7 @@ io.on('connection', (socket) => {
             players[botId] = {
                 id: botId, deviceId: 'tamed',
                 className: 'Warrior', displayName: p.displayName + '의 ' + mob.name,
-                x: mob.x, y: mob.y,
+                x: p.x + (Math.random() * 4 - 2), y: p.y + (Math.random() * 4 - 2),
                 hp: mob.maxHp, maxHp: mob.maxHp,
                 atk: mob.atk || 10, def: mob.def || 5,
                 critRate: 0.1, dodgeRate: 0.05,
@@ -1850,7 +1850,8 @@ function createBot(victimPlayer, ownerTeam, ownerId) {
         id: botId, deviceId: 'bot',
         className: victimPlayer.className,
         displayName: cls.displayName,
-        x: victimPlayer.x, y: victimPlayer.y,
+        x: (players[ownerId] ? players[ownerId].x : victimPlayer.x) + (Math.random() * 4 - 2),
+        y: (players[ownerId] ? players[ownerId].y : victimPlayer.y) + (Math.random() * 4 - 2),
         hp: victimPlayer.maxHp, maxHp: victimPlayer.maxHp,
         atk: cls.atk, def: cls.def,
         critRate: cls.critRate, dodgeRate: cls.dodgeRate,
@@ -1881,8 +1882,8 @@ function createAutoArmy(ownerId) {
         id: botId, deviceId: 'bot',
         className: randomClass,
         displayName: cls.displayName,
-        x: Math.random() * 900 - 450,
-        y: Math.random() * 900 - 450,
+        x: p.x + (Math.random() * 4 - 2),
+        y: p.y + (Math.random() * 4 - 2),
         hp: cls.maxHp, maxHp: cls.maxHp,
         atk: cls.atk, def: cls.def,
         critRate: cls.critRate, dodgeRate: cls.dodgeRate,
@@ -2128,7 +2129,7 @@ function updateBots() {
             // 주인과 거리 체크 → 너무 멀면 강제 복귀
             if (p.ownerId && players[p.ownerId] && cls.speed > 0) {
                 const ownerDist = Math.hypot(p.x - players[p.ownerId].x, p.y - players[p.ownerId].y);
-                if (ownerDist > 8) {
+                if (ownerDist > 15) {
                     // 주인에게 강제 복귀 (타겟 포기)
                     target = null;
                     const owner = players[p.ownerId];
