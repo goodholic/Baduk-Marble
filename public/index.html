@@ -436,7 +436,7 @@
       document.getElementById('tame-btn').style.display = 'block';
       document.getElementById('attack-btn').style.display = 'block';
       document.getElementById('action-buttons').style.display = 'flex';
-      document.getElementById('chat-box').classList.add("show");
+      document.getElementById('chat-box').style.display = 'block';
       addCombatLog(className + ' 클래스로 게임 시작!', 'log-lvl');
       // Unity에 init_request 전송
       window.socket.emit('init_request', JSON.stringify({ className, deviceId }));
