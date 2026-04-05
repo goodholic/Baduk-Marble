@@ -184,13 +184,13 @@ public class GameManager : MonoBehaviour
 
     // 스프라이트별 게임 내 스케일
     private Dictionary<string, float> spriteScales = new Dictionary<string, float>() {
-        {"char_assassin", 2f}, {"char_warrior", 2f},
-        {"char_knight", 2f}, {"char_mage", 2f},
-        {"char_tower", 2.2f},
-        {"mon_slime", 1.8f}, {"mon_orc", 2f},
-        {"mon_darkknight", 2.2f}, {"mon_dragon", 2.8f},
-        {"item_gold", 1.5f}, {"proj_axe", 1.2f}, {"proj_magic", 1.2f},
-        {"effect_aoe", 2.5f},
+        {"char_assassin", 3f}, {"char_warrior", 3f},
+        {"char_knight", 3f}, {"char_mage", 3f},
+        {"char_tower", 3.5f},
+        {"mon_slime", 2.5f}, {"mon_orc", 3f},
+        {"mon_darkknight", 3.5f}, {"mon_dragon", 4.5f},
+        {"item_gold", 2f}, {"proj_axe", 2f}, {"proj_magic", 2f},
+        {"effect_aoe", 3.5f},
     };
 
     private void ApplySprite(GameObject go, string spriteName)
@@ -246,10 +246,17 @@ public class GameManager : MonoBehaviour
                 child.gameObject.SetActive(false);
             }
         }
-        // 조이스틱 다시 활성화 (크기 축소)
+        // 조이스틱: 작고 반투명하게
         if (joystick != null) {
             joystick.gameObject.SetActive(true);
-            joystick.transform.localScale = Vector3.one * 0.7f; // 30% 축소
+            joystick.transform.localScale = Vector3.one * 0.5f; // 50% 축소
+            // 반투명 처리
+            var joyImages = joystick.GetComponentsInChildren<UnityEngine.UI.Image>(true);
+            foreach (var img in joyImages) {
+                Color c = img.color;
+                c.a = 0.35f;
+                img.color = c;
+            }
         }
 
         // 한글 폰트 로드
@@ -384,71 +391,8 @@ public class GameManager : MonoBehaviour
     }
 
     // ── GUI: 클래스 선택 & 버튼 ──
-    void OnGUI()
-    {
-        // 한글 폰트 스타일 설정
-        if (!stylesReady && koreanFont != null)
-        {
-            GUI.skin.font = koreanFont;
-            GUI.skin.button.font = koreanFont;
-            GUI.skin.label.font = koreanFont;
-            GUI.skin.box.font = koreanFont;
-            GUI.skin.textField.font = koreanFont;
-            stylesReady = true;
-        }
-        GUI.skin.button.fontSize = 14;
-        GUI.skin.box.fontSize = 16;
-        GUI.skin.label.fontSize = 13;
-
-        // 클래스 선택 + 부활 → 전부 HTML에서 처리 (OnGUI 완전 제거)
-
-        if (isMyPlayerAlive && players.ContainsKey(myId))
-        {
-            float btnW = 170, btnH = 42;
-            float topY = 20;
-
-            if (players[myId].team == "peace")
-            {
-                if (GUI.Button(new Rect(Screen.width / 2 - btnW / 2, topY, btnW, btnH), "[PvP 선언]"))
-                    TogglePvP();
-            }
-            else
-            {
-                if (GUI.Button(new Rect(Screen.width / 2 - btnW - 5, topY, btnW, btnH), "[평화 복귀]"))
-                    TogglePvP();
-
-                if (GUI.Button(new Rect(Screen.width / 2 + 5, topY, btnW, btnH), "타워 건설 (-80G)"))
-                    BuildTower();
-            }
-
-            if (GUI.Button(new Rect(Screen.width - 210, topY, 190, btnH), "용병 고용 (-150G)"))
-                AddBot();
-
-            // 하단 메뉴바 → HTML로 이동됨
-
-            // 카르마 표시
-            if (players[myId].karma > 0)
-            {
-                string karmaStatus = players[myId].karma >= 200 ? "<color=red>카오틱</color>" : "<color=yellow>카르마: " + players[myId].karma + "</color>";
-                GUI.Label(new Rect(Screen.width / 2 - 80, topY + btnH + 5, 160, 25), karmaStatus);
-            }
-
-            // 상점 메시지
-            if (shopMsgTimer > 0)
-            {
-                GUI.Box(new Rect(Screen.width / 2 - 150, Screen.height / 2 - 20, 300, 40), shopMsg);
-                shopMsgTimer -= Time.deltaTime;
-            }
-
-            // 각종 창
-            if (showShop) DrawShop();
-            if (showMarket) DrawMarket();
-            if (showInventory) DrawInventory();
-            if (showQuest) DrawQuests();
-            if (showUnits) DrawUnits();
-            if (showRanking) DrawRanking();
-        }
-    }
+    // OnGUI 완전 제거 — 모든 UI는 HTML에서 처리
+    void OnGUI() { }
 
     private void DrawQuests()
     {

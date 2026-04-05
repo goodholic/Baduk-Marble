@@ -191,6 +191,13 @@
     <button class="top-btn" style="top:32px" onclick="toggleSound()" id="btn-sound">Sound OFF</button>
     <button class="top-btn" style="top:52px" onclick="toggleAutoPotion()" id="btn-potion">AutoPot OFF</button>
 
+    <!-- 게임 액션 버튼 (상단) -->
+    <div id="action-buttons" style="display:none;position:absolute;top:32px;left:50%;transform:translateX(-50%);z-index:16;display:none;gap:8px">
+      <button onclick="window.socket.emit('toggle_pvp','{}')" style="padding:8px 18px;border:none;border-radius:10px;background:url('ui/btn_orange.png') center/100% 100% no-repeat;color:#fff;font-size:13px;font-weight:700;cursor:pointer;text-shadow:0 1px 3px #000" id="pvp-btn">PvP 선언</button>
+      <button onclick="window.socket.emit('build_tower','{}')" style="padding:8px 18px;border:none;border-radius:10px;background:url('ui/btn_blue.png') center/100% 100% no-repeat;color:#fff;font-size:12px;font-weight:700;cursor:pointer;text-shadow:0 1px 3px #000">타워 (-80G)</button>
+      <button onclick="window.socket.emit('add_bot','{}')" style="padding:8px 18px;border:none;border-radius:10px;background:url('ui/btn_green.png') center/100% 100% no-repeat;color:#fff;font-size:12px;font-weight:700;cursor:pointer;text-shadow:0 1px 3px #000">용병 (-150G)</button>
+    </div>
+
     <!-- 공격 버튼 (브롤스타즈 스타일) -->
     <button id="attack-btn" style="display:none;position:absolute;right:20px;bottom:230px;z-index:17;width:85px;height:85px;border-radius:50%;background:url('ui/btn_red.png') center/100% 100% no-repeat;border:none;color:#fff;font-size:16px;font-weight:900;cursor:pointer;touch-action:none;user-select:none;text-shadow:0 2px 4px rgba(0,0,0,0.8);filter:drop-shadow(0 4px 8px rgba(255,0,0,0.4))" ontouchstart="startAttack(event)" ontouchend="endAttack()" onmousedown="doAttack()">⚔ATK</button>
 
@@ -421,6 +428,7 @@
       document.getElementById('combat-log').classList.add("show");
       document.getElementById('tame-btn').style.display = 'block';
       document.getElementById('attack-btn').style.display = 'block';
+      document.getElementById('action-buttons').style.display = 'flex';
       document.getElementById('chat-box').classList.add("show");
       addCombatLog(className + ' 클래스로 게임 시작!', 'log-lvl');
       // Unity에 init_request 전송
@@ -472,9 +480,9 @@
           }
           if (d.team) {
             var teamEl = document.getElementById('team-display');
-            if (d.team === 'peace') { teamEl.textContent = '평화 모드'; teamEl.style.color = '#88ff88'; }
-            else if (d.team.startsWith('king_')) { teamEl.textContent = '👑 왕'; teamEl.style.color = '#ffd700'; }
-            else { teamEl.textContent = 'PvP'; teamEl.style.color = '#ff6b6b'; }
+            if (d.team === 'peace') { teamEl.textContent = '평화 모드'; teamEl.style.color = '#88ff88'; document.getElementById('pvp-btn').textContent='PvP 선언'; }
+            else if (d.team.startsWith('king_')) { teamEl.textContent = '👑 왕'; teamEl.style.color = '#ffd700'; document.getElementById('pvp-btn').textContent='평화 복귀'; }
+            else { teamEl.textContent = 'PvP'; teamEl.style.color = '#ff6b6b'; document.getElementById('pvp-btn').textContent='평화 복귀'; }
           }
           if (d.karma >= 200) document.getElementById('team-display').textContent += ' [카오틱]';
         }
