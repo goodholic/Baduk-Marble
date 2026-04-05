@@ -103,7 +103,7 @@
     #sub-menu button:hover { filter:brightness(1.3); transform:scale(1.03); }
 
     /* ═══ 미니맵 ═══ */
-    #minimap-container { position:absolute; top:8px; left:8px; z-index:15; display:none; }
+    #minimap-container { position:absolute; bottom:60px; left:8px; z-index:15; display:none; }
     #minimap-container.show { display:block; }
     #minimap { border:2px solid rgba(255,215,0,0.15); border-radius:8px; background:rgba(8,8,18,0.85); cursor:pointer; box-shadow:0 4px 15px rgba(0,0,0,0.5); }
     #minimap-zone { color:#ffd700; font-size:10px; text-align:center; margin-top:3px; text-shadow:0 1px 3px #000; font-weight:700; }
@@ -1184,8 +1184,8 @@
       var mag = Math.sqrt(dx * dx + dy * dy);
       if (mag > 0.01) { dx /= mag; dy /= mag; }
       else { dx = 0; dy = 1; }
-      // 방향 업데이트 후 공격
-      window.socket.emit('move', JSON.stringify({ dirX: dx, dirY: dy }));
+      // 방향만 업데이트 후 공격
+      window.socket.emit('update_dir', JSON.stringify({ dirX: dx, dirY: dy }));
       window.socket.emit('throw', '{}');
       playSFX('hit');
       var btn = document.getElementById('attack-btn');

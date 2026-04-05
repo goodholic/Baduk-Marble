@@ -971,6 +971,17 @@ io.on('connection', (socket) => {
         }
     });
 
+    // 방향만 업데이트 (위치 변경 없이)
+    socket.on('update_dir', (data) => {
+        try {
+            const d = JSON.parse(data);
+            if (players[playerId] && players[playerId].isAlive) {
+                if (d.dirX !== undefined) players[playerId].dirX = d.dirX;
+                if (d.dirY !== undefined) players[playerId].dirY = d.dirY;
+            }
+        } catch(e) {}
+    });
+
     socket.on('throw', () => {
         executeThrow(playerId);
     });
