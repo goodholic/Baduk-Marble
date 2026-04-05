@@ -54,7 +54,7 @@
     .team-val { font-size:12px !important; }
 
     /* ═══ 채팅 ═══ */
-    #chat-box { position:absolute; bottom:54px; left:10px; width:330px; z-index:16; display:none; }
+    #chat-box { position:absolute; bottom:100px; left:10px; width:300px; z-index:18; display:none; }
     #chat-box.show { display:block; }
     #chat-log { height:130px; overflow-y:auto; background:rgba(8,8,18,0.88); border:1px solid rgba(255,255,255,0.08); border-radius:8px 8px 0 0; padding:8px 10px; font-size:12px; color:#ccc; }
     #chat-log div { padding:2px 0; }
@@ -67,7 +67,7 @@
     #chat-send:hover { background:linear-gradient(180deg,#ffd700,#cc9900); color:#000; }
 
     /* ═══ 전투 로그 ═══ */
-    #combat-log { position:absolute; bottom:54px; right:10px; width:300px; max-height:140px; overflow-y:auto; z-index:15; display:none; font-size:11px; color:#999; background:rgba(8,8,18,0.75); border:1px solid rgba(255,255,255,0.05); border-radius:8px; padding:8px; }
+    #combat-log { position:absolute; bottom:100px; right:10px; width:280px; max-height:140px; overflow-y:auto; z-index:15; display:none; font-size:11px; color:#999; background:rgba(8,8,18,0.75); border:1px solid rgba(255,255,255,0.05); border-radius:8px; padding:8px; }
     #combat-log.show { display:block; }
     #combat-log div { padding:1px 0; }
     .log-crit { color:#ff4444; font-weight:bold; }
@@ -90,7 +90,7 @@
     .top-btn:hover { background:rgba(255,215,0,0.15); color:#ffd700; border-color:rgba(255,215,0,0.3); }
 
     /* ═══ 서브메뉴 ═══ */
-    #sub-menu { position:absolute; bottom:50px; left:0; width:100%; display:none; z-index:16; background:linear-gradient(180deg,rgba(12,12,22,0.97),rgba(8,8,18,0.99)); border-top:1px solid rgba(255,215,0,0.1); }
+    #sub-menu { position:absolute; bottom:50px; left:0; width:100%; display:none; z-index:17; background:linear-gradient(180deg,rgba(12,12,22,0.97),rgba(8,8,18,0.99)); border-top:1px solid rgba(255,215,0,0.1); }
     #sub-menu.show { display:flex; flex-wrap:wrap; }
     #sub-menu button { flex:1; min-width:90px; padding:12px 8px; margin:3px 2px; border:none; border-radius:10px; background:url('ui/btn_gray.png') center/100% 100% no-repeat; color:#fff; font-size:13px; font-weight:700; cursor:pointer; transition:all 0.15s; text-shadow:0 1px 2px rgba(0,0,0,0.5); }
     #sub-menu button:hover { filter:brightness(1.3); transform:scale(1.03); }
@@ -190,6 +190,9 @@
     <!-- 옵션 버튼 -->
     <button class="top-btn" style="top:32px" onclick="toggleSound()" id="btn-sound">Sound OFF</button>
     <button class="top-btn" style="top:52px" onclick="toggleAutoPotion()" id="btn-potion">AutoPot OFF</button>
+
+    <!-- 마을 NPC 안내 -->
+    <div id="town-npc" style="display:none;position:absolute;top:60px;left:50%;transform:translateX(-50%);z-index:16;padding:8px 20px;background:url('ui/btn_green.png') center/100% 100% no-repeat;color:#fff;font-size:13px;font-weight:700;border-radius:10px;text-shadow:0 1px 3px #000"></div>
 
     <!-- 게임 액션 버튼 (상단) -->
     <div id="action-buttons" style="display:none;position:absolute;top:32px;left:50%;transform:translateX(-50%);z-index:16;display:none;gap:8px">
@@ -458,10 +461,18 @@
           var z = data.players[myPlayerId].zone;
           myCurrentZone = z;
           var zName = zones[z] ? zones[z].name : z;
-          var isSafe = ['aden','harbor','oasis'].includes(z);
-          var zLabel = zName + (isSafe ? ' [안전]' : '');
+          var isSafe = ['aden','harbor','oasis','mountain','frontier'].includes(z);
+          var zLabel = zName + (isSafe ? ' [마을]' : '');
           document.getElementById('zone-display').textContent = zLabel;
           document.getElementById('zone-display').style.color = isSafe ? '#44ff44' : '#ff6b6b';
+          // 마을 진입 시 NPC 안내
+          var townNpc = document.getElementById('town-npc');
+          if (isSafe && townNpc) {
+            townNpc.style.display = 'block';
+            townNpc.textContent = '🏘 ' + zName + ' — 상점/대장장이/힐러 이용 가능';
+          } else if (townNpc) {
+            townNpc.style.display = 'none';
+          }
         }
         // 낮/밤 적용
         if (data.isNight !== undefined) {
@@ -809,7 +820,7 @@
     function mapToMinimap(x, y) {
       return {
         mx: ((x - MAP_MIN) / (MAP_MAX - MAP_MIN)) * MAP_SIZE,
-        my: ((y - MAP_MIN) / (MAP_MAX - MAP_MIN)) * MAP_SIZE
+        my: MAP_SIZE - ((y - MAP_MIN) / (MAP_MAX - MAP_MIN)) * MAP_SIZE  // Y축 뒤집기 (위=북)
       };
     }
 
@@ -833,7 +844,7 @@
         // 존 이름 (작게)
         ctx.fillStyle = 'rgba(255,255,255,0.4)';
         ctx.font = '7px sans-serif';
-        ctx.fillText(z.name, tl.mx + 2, tl.my + 8);
+        ctx.fillText(z.name, tl.mx + 2, br.my - 2);
       });
 
       // 몬스터 (작은 점)
@@ -870,6 +881,18 @@
           ctx.fillRect(p.mx - 2, p.my - 2, 4, 4);
         }
       });
+
+      // 동서남북 표시
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.font = 'bold 9px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('N', MAP_SIZE/2, 10);
+      ctx.fillText('S', MAP_SIZE/2, MAP_SIZE-3);
+      ctx.textAlign = 'left';
+      ctx.fillText('W', 3, MAP_SIZE/2+3);
+      ctx.textAlign = 'right';
+      ctx.fillText('E', MAP_SIZE-3, MAP_SIZE/2+3);
+      ctx.textAlign = 'left';
 
       // 존 이름 표시
       if (myZone && zones[myZone]) {

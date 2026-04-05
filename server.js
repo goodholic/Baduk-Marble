@@ -718,8 +718,8 @@ io.on('connection', (socket) => {
             deviceId,
             className: selectedClass,
             displayName: cls.displayName,
-            x: Math.random() * 800 - 400,
-            y: Math.random() * 800 - 400,
+            x: -480 + Math.random() * 40, // 바람개비 마을 안에서 시작
+            y: -480 + Math.random() * 40,
             hp: cls.maxHp,
             maxHp: cls.maxHp,
             atk: cls.atk,
@@ -998,8 +998,8 @@ io.on('connection', (socket) => {
             p.hp = p.maxHp;
             p.dmgMulti = 1.0;
             p.isAlive = true;
-            p.x = Math.random() * 800 - 400;
-            p.y = Math.random() * 800 - 400;
+            p.x = -480 + Math.random() * 40; // 바람개비 마을에서 부활
+            p.y = -480 + Math.random() * 40;
 
             savePlayer(p);
             io.emit('player_respawn', p);
