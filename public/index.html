@@ -131,7 +131,7 @@
 </head>
 <body>
   <div id="unity-container">
-    <canvas id="unity-canvas" width="1920" height="1080" tabindex="-1"></canvas>
+    <canvas id="unity-canvas" width="1920" height="1080"></canvas>
 
     <div id="loading-screen">
       <div id="loading-text">AutoBattle.io 로딩 중...</div>
@@ -228,8 +228,15 @@
     <div id="chat-box">
       <div id="chat-log"></div>
       <div id="chat-input-wrap">
-        <input id="chat-input" type="text" placeholder="채팅 입력... (Enter)" maxlength="100" onkeydown="event.stopPropagation();if(event.key==='Enter')sendChat()" onclick="event.stopPropagation()" onkeyup="event.stopPropagation()">
-        <button id="chat-send" onclick="sendChat()">전송</button>
+        <input id="chat-input" type="text" placeholder="채팅 입력... (Enter)" maxlength="100"
+          onkeydown="event.stopPropagation();if(event.key==='Enter')sendChat()"
+          onkeyup="event.stopPropagation()"
+          onkeypress="event.stopPropagation()"
+          onclick="event.stopPropagation();document.getElementById('unity-canvas').blur();this.focus();"
+          onfocus="document.getElementById('unity-canvas').blur();"
+          onmousedown="event.stopPropagation();setTimeout(()=>this.focus(),10);"
+        >
+        <button id="chat-send" onmousedown="event.stopPropagation()" onclick="event.stopPropagation();sendChat()">전송</button>
       </div>
     </div>
 
