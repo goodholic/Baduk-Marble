@@ -259,9 +259,10 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        // Unity WebGL 키보드 캡처 비활성화 (HTML 채팅 입력 허용)
+        // Unity WebGL 키보드 캡처 — 기본 ON (WASD 작동)
+        // 채팅 시 JS에서 SetKeyCapture("false") 호출
         #if UNITY_WEBGL && !UNITY_EDITOR
-        WebGLInput.captureAllKeyboardInput = false;
+        WebGLInput.captureAllKeyboardInput = true;
         #endif
 
         // 한글 폰트 로드
@@ -396,8 +397,16 @@ public class GameManager : MonoBehaviour
     }
 
     // ── GUI: 클래스 선택 & 버튼 ──
-    // OnGUI 완전 제거 — 모든 UI는 HTML에서 처리
+    // OnGUI 완전 제거
     void OnGUI() { }
+
+    // JS에서 호출: 채팅 입력 시 키보드 캡처 토글
+    public void SetKeyCapture(string enabled)
+    {
+        #if UNITY_WEBGL && !UNITY_EDITOR
+        WebGLInput.captureAllKeyboardInput = (enabled == "true");
+        #endif
+    }
 
     private void DrawQuests()
     {

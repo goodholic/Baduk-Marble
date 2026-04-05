@@ -376,7 +376,9 @@
     <div style="display:flex">
       <input id="chat-input" type="text" placeholder="메시지 입력..." maxlength="100"
         style="flex:1;padding:10px 12px;border:1px solid rgba(255,215,0,0.1);border-top:none;border-radius:0 0 0 8px;background:rgba(8,8,18,0.95);color:#fff;font-size:13px;outline:none;font-family:'Noto Sans KR',sans-serif"
-        onkeydown="event.stopPropagation();if(event.key==='Enter'){sendChat();}"
+        onfocus="if(window.myUnityInstance)window.myUnityInstance.SendMessage('GameManager','SetKeyCapture','false')"
+        onblur="if(window.myUnityInstance)window.myUnityInstance.SendMessage('GameManager','SetKeyCapture','true')"
+        onkeydown="event.stopPropagation();if(event.key==='Enter'){sendChat();this.blur();}"
         onkeyup="event.stopPropagation()"
         onkeypress="event.stopPropagation()"
       >
@@ -1155,14 +1157,7 @@
     function createParty() { window.socket.emit('create_party','{}'); }
     function partyInvite() { window.socket.emit('party_invite_nearby','{}'); }
 
-    // ── 키보드 공격 (Space) ──
-    document.addEventListener('keydown', function(e) {
-      if (e.target.tagName === 'INPUT') return; // 채팅 중이면 무시
-      if (e.code === 'Space' && gameStarted) {
-        e.preventDefault();
-        doAttack();
-      }
-    });
+    // Space 공격은 Unity에서 처리 (WebGLInput.captureAllKeyboardInput = true)
 
     // ── 채팅 ──
     function sendChat() {
