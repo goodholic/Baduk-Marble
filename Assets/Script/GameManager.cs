@@ -115,6 +115,7 @@ public class GameManager : MonoBehaviour
     private float moveSkillCooldown = 0f;
     private float boostSpeed = 0f;
     private float boostEndTime = 0f;
+    private Vector2 pendingMove = Vector2.zero;
 
     private RectTransform contentRect;
     private List<Camera> miniCameras = new List<Camera>();
@@ -698,6 +699,20 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    void FixedUpdate()
+    {
+        if (pendingMove != Vector2.zero && !string.IsNullOrEmpty(myId) && players.ContainsKey(myId) && players[myId].go != null)
+        {
+            Rigidbody2D myRb = players[myId].go.GetComponent<Rigidbody2D>();
+            if (myRb != null)
+            {
+                Vector2 newPos = myRb.position + pendingMove;
+                myRb.MovePosition(newPos);
+            }
+            pendingMove = Vector2.zero;
+        }
+    }
+
     private void HandleLocalInput()
     {
         if (string.IsNullOrEmpty(myId) || !players.ContainsKey(myId) || !isMyPlayerAlive)
@@ -746,17 +761,8 @@ public class GameManager : MonoBehaviour
 
             Vector3 movement = new Vector3(h, v, 0).normalized * finalSpeed * Time.deltaTime;
 
-            // Rigidbody2D로 이동 (지형 충돌 적용)
-            Rigidbody2D myRb = players[myId].go.GetComponent<Rigidbody2D>();
-            if (myRb != null)
-            {
-                Vector2 newPos = (Vector2)players[myId].go.transform.position + new Vector2(movement.x, movement.y);
-                myRb.MovePosition(newPos);
-            }
-            else
-            {
-                players[myId].go.transform.position += movement;
-            }
+            // FixedUpdate에서 Rigidbody2D.MovePosition 호출 (충돌 감지 위해)
+            pendingMove += new Vector2(movement.x, movement.y);
 
             Vector3 correctedPos = players[myId].go.transform.position;
             correctedPos.z = -1f;
@@ -1692,7 +1698,7 @@ public class GameManager : MonoBehaviour
     private void SpawnTerrainObj(float x, float y, Color color, float scale, string label)
     {
         GameObject obj = new GameObject("Terrain_" + label);
-        obj.transform.position = new Vector3(x, y, 0.5f); // z=0.5 캐릭터 뒤에
+        obj.transform.position = new Vector3(x, y, 0f); // z=0 캐릭터와 동일 평면 (2D 충돌용)
 
         SpriteRenderer sr = obj.AddComponent<SpriteRenderer>();
         Texture2D tex = new Texture2D(16, 16);
@@ -1726,6 +1732,8 @@ public class GameManager : MonoBehaviour
         obj.transform.localScale = Vector3.one * finalScale;
 
         // 충돌체 추가 (통과 불가)
+        Rigidbody2D trb = obj.AddComponent<Rigidbody2D>();
+        trb.bodyType = RigidbodyType2D.Static;
         BoxCollider2D col = obj.AddComponent<BoxCollider2D>();
         col.size = new Vector2(1.5f, 1.5f);
 
