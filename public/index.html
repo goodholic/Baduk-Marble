@@ -196,13 +196,13 @@
 
     <!-- 게임 액션 버튼 (상단) -->
     <div id="action-buttons" style="display:none;position:absolute;top:32px;left:50%;transform:translateX(-50%);z-index:16;display:none;gap:8px">
-      <button onclick="window.socket.emit('toggle_pvp','{}')" style="padding:8px 18px;border:none;border-radius:10px;background:url('ui/btn_orange.png') center/100% 100% no-repeat;color:#fff;font-size:13px;font-weight:700;cursor:pointer;text-shadow:0 1px 3px #000" id="pvp-btn">PvP 선언</button>
-      <button onclick="window.socket.emit('build_tower','{}')" style="padding:8px 18px;border:none;border-radius:10px;background:url('ui/btn_blue.png') center/100% 100% no-repeat;color:#fff;font-size:12px;font-weight:700;cursor:pointer;text-shadow:0 1px 3px #000">타워 (-80G)</button>
-      <button onclick="window.socket.emit('add_bot','{}')" style="padding:8px 18px;border:none;border-radius:10px;background:url('ui/btn_green.png') center/100% 100% no-repeat;color:#fff;font-size:12px;font-weight:700;cursor:pointer;text-shadow:0 1px 3px #000">용병 (-150G)</button>
+      <button onclick="event.stopPropagation();window.socket.emit('toggle_pvp','{}')" style="padding:8px 18px;border:none;border-radius:10px;background:url('ui/btn_orange.png') center/100% 100% no-repeat;color:#fff;font-size:13px;font-weight:700;cursor:pointer;text-shadow:0 1px 3px #000" id="pvp-btn">PvP 선언</button>
+      <button onclick="event.stopPropagation();window.socket.emit('build_tower','{}')" style="padding:8px 18px;border:none;border-radius:10px;background:url('ui/btn_blue.png') center/100% 100% no-repeat;color:#fff;font-size:12px;font-weight:700;cursor:pointer;text-shadow:0 1px 3px #000">타워 (-80G)</button>
+      <button onclick="event.stopPropagation();window.socket.emit('add_bot','{}')" style="padding:8px 18px;border:none;border-radius:10px;background:url('ui/btn_green.png') center/100% 100% no-repeat;color:#fff;font-size:12px;font-weight:700;cursor:pointer;text-shadow:0 1px 3px #000">용병 (-150G)</button>
     </div>
 
     <!-- 공격 버튼 (브롤스타즈 스타일) -->
-    <button id="attack-btn" style="display:none;position:absolute;right:20px;bottom:230px;z-index:17;width:85px;height:85px;border-radius:50%;background:url('ui/btn_red.png') center/100% 100% no-repeat;border:none;color:#fff;font-size:16px;font-weight:900;cursor:pointer;touch-action:none;user-select:none;text-shadow:0 2px 4px rgba(0,0,0,0.8);filter:drop-shadow(0 4px 8px rgba(255,0,0,0.4))" ontouchstart="startAttack(event)" ontouchend="endAttack()" onmousedown="doAttack()">⚔ATK</button>
+    <button id="attack-btn" style="display:none;position:absolute;right:20px;bottom:230px;z-index:17;width:85px;height:85px;border-radius:50%;background:url('ui/btn_red.png') center/100% 100% no-repeat;border:none;color:#fff;font-size:16px;font-weight:900;cursor:pointer;touch-action:none;user-select:none;text-shadow:0 2px 4px rgba(0,0,0,0.8);filter:drop-shadow(0 4px 8px rgba(255,0,0,0.4))" ontouchstart="startAttack(event)" ontouchend="endAttack(event)" onmousedown="doAttack(event)" onclick="event.stopPropagation()">⚔ATK</button>
 
     <!-- 부활 화면 -->
     <div id="respawn-screen" style="position:absolute;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:none;flex-direction:column;justify-content:center;align-items:center;z-index:22">
@@ -221,7 +221,7 @@
     <div id="chat-box">
       <div id="chat-log"></div>
       <div id="chat-input-wrap">
-        <input id="chat-input" type="text" placeholder="채팅 입력... (Enter)" maxlength="100" onkeydown="if(event.key==='Enter')sendChat()">
+        <input id="chat-input" type="text" placeholder="채팅 입력... (Enter)" maxlength="100" onkeydown="event.stopPropagation();if(event.key==='Enter')sendChat()" onclick="event.stopPropagation()" onkeyup="event.stopPropagation()">
         <button id="chat-send" onclick="sendChat()">전송</button>
       </div>
     </div>
@@ -1004,25 +1004,26 @@
 
     function doCraft(recipeId) { window.socket.emit('craft', recipeId); }
 
-    // ── 공격 버튼 (브롤스타즈 스타일) ──
-    function doAttack() {
-      if (window.socket) window.socket.emit('throw', '{}');
-      playSFX('hit');
-      // 버튼 시각 피드백
+    // ── 공격 버튼 ──
+    function doAttack(e) {
+      if (e) { e.stopPropagation(); e.preventDefault(); }
+      if (window.socket) {
+        window.socket.emit('throw', '{}');
+        playSFX('hit');
+      }
       var btn = document.getElementById('attack-btn');
-      btn.style.transform = 'scale(0.9)';
-      setTimeout(() => btn.style.transform = 'scale(1)', 100);
+      btn.style.transform = 'scale(0.85)';
+      btn.style.filter = 'brightness(1.5)';
+      setTimeout(() => { btn.style.transform = 'scale(1)'; btn.style.filter = ''; }, 120);
     }
 
-    // 모바일: 터치 드래그로 공격 방향
     var attackTouchStart = null;
     function startAttack(e) {
-      e.preventDefault();
-      var touch = e.touches[0];
-      attackTouchStart = { x: touch.clientX, y: touch.clientY };
+      e.stopPropagation(); e.preventDefault();
+      attackTouchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     }
-    function endAttack() {
-      // 터치 종료 시 공격 발사
+    function endAttack(e) {
+      if (e) { e.stopPropagation(); e.preventDefault(); }
       doAttack();
       attackTouchStart = null;
     }
@@ -1140,6 +1141,15 @@
     function createParty() { window.socket.emit('create_party','{}'); }
     function partyInvite() { window.socket.emit('party_invite_nearby','{}'); }
 
+    // ── 키보드 공격 (Space) ──
+    document.addEventListener('keydown', function(e) {
+      if (e.target.tagName === 'INPUT') return; // 채팅 중이면 무시
+      if (e.code === 'Space' && gameStarted) {
+        e.preventDefault();
+        doAttack();
+      }
+    });
+
     // ── 채팅 ──
     function sendChat() {
       var input = document.getElementById('chat-input');
@@ -1147,7 +1157,28 @@
       if (!msg || !window.socket) return;
       window.socket.emit('chat', msg);
       input.value = '';
+      input.blur(); // 키보드 입력을 Unity로 돌려줌
     }
+
+    // 채팅 입력 시 Unity 키보드 입력 차단
+    document.addEventListener('DOMContentLoaded', function() {
+      var chatInput = document.getElementById('chat-input');
+      if (chatInput) {
+        chatInput.addEventListener('focus', function() {
+          // Unity WebGL 키보드 입력 비활성화
+          if (window.myUnityInstance) {
+            document.getElementById('unity-canvas').style.pointerEvents = 'none';
+          }
+        });
+        chatInput.addEventListener('blur', function() {
+          // Unity WebGL 키보드 입력 복원
+          document.getElementById('unity-canvas').style.pointerEvents = 'auto';
+        });
+        chatInput.addEventListener('keydown', function(e) { e.stopPropagation(); });
+        chatInput.addEventListener('keyup', function(e) { e.stopPropagation(); });
+        chatInput.addEventListener('keypress', function(e) { e.stopPropagation(); });
+      }
+    });
 
     function addChatMsg(text, cls) {
       var log = document.getElementById('chat-log');
