@@ -6740,6 +6740,9 @@ function handleCollisions() {
                             const eName = eqInfo?.name || d.id;
                             const gradeColor = GRADE_INFO[eqInfo?.grade]?.color || '#ccc';
                             io.to(realOwner.id).emit('combat_log', { msg: eName + ' 획득!', color: gradeColor });
+                            if (eqInfo?.grade === 'epic' || eqInfo?.grade === 'legendary') {
+                                io.to(realOwner.id).emit('rare_drop_celebration', { grade: eqInfo.grade, name: eName });
+                            }
                             if (mob.tier === 'boss' || eqInfo?.grade === 'epic' || eqInfo?.grade === 'legendary') {
                                 io.emit('server_msg', { msg: `${realOwner.displayName}이(가) ${eName}을(를) 획득!`, type: 'rare' });
                             }
