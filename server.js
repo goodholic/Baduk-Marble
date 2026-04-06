@@ -810,9 +810,37 @@ const QUESTS = {
     main_pvp:      { name:'PvP 입문', desc:'PvP 모드로 전환', target:'toggle_pvp', goal:1, reward:{gold:1000,diamonds:30}, type:'main' },
     main_army:     { name:'군단장', desc:'용병 10명 보유', target:'army_count', goal:10, reward:{gold:2000,diamonds:50}, type:'main' },
     // ── 업적 (1회, 특별 보상) ──
+    // ── 업적 (30종) ──
     ach_first_pk:    { name:'피의 세례', desc:'다른 유저 첫 처치', target:'pvp_win', goal:1, reward:{gold:500}, type:'achievement' },
-    ach_dragon100:   { name:'드래곤 슬레이어', desc:'드래곤 100회 처치', target:'kill_boss', goal:100, reward:{gold:10000,diamonds:200}, type:'achievement' },
+    ach_pk10:        { name:'헌터', desc:'PvP 10승', target:'pvp_win', goal:10, reward:{gold:2000,diamonds:30}, type:'achievement' },
+    ach_pk100:       { name:'학살자', desc:'PvP 100승', target:'pvp_win', goal:100, reward:{gold:10000,diamonds:100}, type:'achievement' },
+    ach_kill100:     { name:'사냥꾼', desc:'몬스터 100 처치', target:'kill_monster', goal:100, reward:{gold:500}, type:'achievement' },
+    ach_kill1000:    { name:'전투 전문가', desc:'몬스터 1,000 처치', target:'kill_monster', goal:1000, reward:{gold:3000,diamonds:50}, type:'achievement' },
+    ach_kill10000:   { name:'전설의 사냥꾼', desc:'몬스터 10,000 처치', target:'kill_monster', goal:10000, reward:{gold:20000,diamonds:300}, type:'achievement' },
+    ach_elite100:    { name:'엘리트 헌터', desc:'엘리트+ 100 처치', target:'kill_elite', goal:100, reward:{gold:5000,diamonds:80}, type:'achievement' },
+    ach_boss10:      { name:'보스 사냥꾼', desc:'보스 10 처치', target:'kill_boss', goal:10, reward:{gold:3000,diamonds:50}, type:'achievement' },
+    ach_dragon100:   { name:'드래곤 슬레이어', desc:'보스 100 처치', target:'kill_boss', goal:100, reward:{gold:10000,diamonds:200}, type:'achievement' },
     ach_millionaire: { name:'백만장자', desc:'골드 1,000,000 보유', target:'total_gold', goal:1000000, reward:{diamonds:500}, type:'achievement' },
+    ach_dungeon5:    { name:'던전 탐험가', desc:'던전 5회 클리어', target:'dungeon_clear', goal:5, reward:{gold:3000,diamonds:30}, type:'achievement' },
+    ach_dungeon20:   { name:'던전 마스터', desc:'던전 20회 클리어', target:'dungeon_clear', goal:20, reward:{gold:10000,diamonds:100}, type:'achievement' },
+    ach_tower30:     { name:'탑 정복자', desc:'무한의 탑 30층', target:'reach_level', goal:30, reward:{gold:5000,diamonds:50}, type:'achievement' },
+    ach_trade50:     { name:'상인', desc:'교역 50회', target:'trade_count', goal:50, reward:{gold:5000}, type:'achievement' },
+    ach_craft30:     { name:'장인', desc:'제작 30회', target:'craft_count', goal:30, reward:{gold:3000,diamonds:30}, type:'achievement' },
+    ach_fish50:      { name:'낚시왕', desc:'물고기 50마리', target:'fish_catch', goal:50, reward:{gold:2000,diamonds:20}, type:'achievement' },
+    ach_explore25:   { name:'모험가', desc:'25개 존 탐험', target:'explore_count', goal:25, reward:{gold:2000,diamonds:50}, type:'achievement' },
+    ach_explore50:   { name:'세계 여행자', desc:'50개 존 탐험', target:'explore_count', goal:50, reward:{gold:10000,diamonds:200}, type:'achievement' },
+    ach_prestige:    { name:'불사', desc:'첫 환생', target:'prestige_count', goal:1, reward:{gold:5000,diamonds:100}, type:'achievement' },
+    ach_prestige5:   { name:'전설의 귀환', desc:'5차 환생', target:'prestige_count', goal:5, reward:{gold:30000,diamonds:500}, type:'achievement' },
+    ach_streak20:    { name:'연쇄 살인마', desc:'20킬 스트릭', target:'kill_streak', goal:20, reward:{gold:3000}, type:'achievement' },
+    ach_arena_gold:  { name:'투기장 골드', desc:'아레나 골드 티어', target:'arena_tier', goal:1300, reward:{gold:5000,diamonds:80}, type:'achievement' },
+    ach_arena_diamond:{ name:'투기장 다이아', desc:'아레나 다이아 티어', target:'arena_tier', goal:1800, reward:{gold:20000,diamonds:300}, type:'achievement' },
+    ach_guild_raid:  { name:'레이드 히어로', desc:'길드 레이드 클리어', target:'guild_raid', goal:1, reward:{gold:3000,diamonds:50}, type:'achievement' },
+    ach_rune_word:   { name:'룬 마스터', desc:'첫 룬 워드 발동', target:'rune_word', goal:1, reward:{gold:2000,diamonds:30}, type:'achievement' },
+    ach_tame10:      { name:'조련사', desc:'몬스터 10마리 테이밍', target:'tame_count', goal:10, reward:{gold:2000}, type:'achievement' },
+    ach_enchant10:   { name:'강화 도사', desc:'강화 +10 달성', target:'enchant_level', goal:10, reward:{gold:5000,diamonds:50}, type:'achievement' },
+    ach_set_bonus:   { name:'세트 수집가', desc:'세트 보너스 2개 이상', target:'set_bonus', goal:2, reward:{gold:5000,diamonds:80}, type:'achievement' },
+    ach_weather_all: { name:'기상 관측자', desc:'5가지 날씨 모두 경험', target:'weather_count', goal:5, reward:{gold:1000}, type:'achievement' },
+    ach_faction:     { name:'진영 전사', desc:'진영 기여도 500', target:'faction_rep', goal:500, reward:{gold:5000,diamonds:100}, type:'achievement' },
 };
 
 // ==========================================
@@ -1965,7 +1993,13 @@ io.on('connection', (socket) => {
             // 파티
             partyId: null,
             lastHpRegen: Date.now(),
-            autoSkillCooldown: 0
+            autoSkillCooldown: 0,
+            // 퀘스트/도감/탐험 초기화 (신규 플레이어)
+            questProgress: {},
+            questCompleted: {},
+            bestiary: {},
+            discoveredZones: ['aden'],
+            waypoints: ['aden'],
         };
 
         if (loadedData && loadedData.is_alive) {
@@ -6955,7 +6989,12 @@ function syncGameState() {
         const m = monsters[mId];
         const prev = prevMonsterSync[mId];
         if (fullSync || !prev || Math.abs(m.x - prev.x) > 0.1 || Math.abs(m.y - prev.y) > 0.1 || m.hp !== prev.hp) {
-            monsterDelta[mId] = { x: m.x, y: m.y, hp: m.hp, maxHp: m.maxHp, name: m.name, tier: m.tier, element: m.element, aiType: m.aiType };
+            // 풀 sync 시에만 정적 필드 포함, 델타는 위치/HP만
+            if (fullSync || !prev) {
+                monsterDelta[mId] = { x: m.x, y: m.y, hp: m.hp, maxHp: m.maxHp, name: m.name, tier: m.tier, element: m.element, aiType: m.aiType };
+            } else {
+                monsterDelta[mId] = { x: m.x, y: m.y, hp: m.hp };
+            }
             prevMonsterSync[mId] = { x: m.x, y: m.y, hp: m.hp };
         }
     }
