@@ -315,6 +315,76 @@ const ZONES = {
     magma_core: { name:'용암 핵심부',     x:500,  y:300,  w:70, h:70, lvl:[28,42], safe:false, bg:'map_dragon' },
 };
 
+// 존 분위기 텍스트 (진입 시 표시)
+const ZONE_AMBIENCE = {
+    aden:      '따스한 햇살이 내리쬐는 평화로운 마을. 대장장이의 망치 소리가 들린다.',
+    harbor:    '짭짤한 바닷바람이 불어온다. 갈매기 울음소리와 파도 소리.',
+    oasis:     '사막 한가운데 맑은 샘물. 야자수 그늘에서 잠시 쉬어가자.',
+    mountain:  '구름 위의 산장. 저 멀리 드래곤 둥지가 보인다.',
+    frontier:  '문명의 끝자락. 이곳을 넘어서면 위험한 전장이 펼쳐진다.',
+    forest:    '이슬 맺힌 나뭇잎 사이로 햇살이 들어온다. 슬라임이 통통 튀어다닌다.',
+    plains:    '끝없이 펼쳐진 해바라기 들판. 바람에 꽃이 출렁인다.',
+    meadow:    '알록달록한 꽃들이 만발한 초원. 나비가 날아다닌다.',
+    swamp:     '안개가 자욱하다. 발밑에서 꿀렁거리는 소리가 난다... 조심하자.',
+    desert:    '뜨거운 모래바람이 분다. 신기루가 아른거린다.',
+    cave:      '동굴 입구에서 차가운 바람이 불어온다. 수정이 희미하게 빛난다.',
+    ruins:     '고대 문명의 흔적. 달빛 아래 그림자가 흔들린다.',
+    coral:     '투명한 바닷물 아래 산호가 반짝인다. 물고기가 헤엄친다.',
+    volcano:   '대지가 뜨겁다. 용암이 부글거리며 화염 기둥이 솟는다.',
+    graveyard: '서늘한 기운이 감돈다. 저 멀리서 신음 소리가...',
+    darkforest:'빛이 닿지 않는 어둠의 숲. 눈빛 같은 것이 스쳐간다.',
+    glacier:   '매서운 바람이 뼈를 파고든다. 눈보라 속에서 무언가 움직인다.',
+    dragon:    '하늘을 뒤덮는 거대한 날개 그림자. 드래곤의 울음소리가 대지를 뒤흔든다.',
+    abyss:     '빛이 사라진 곳. 심연에서 올라오는 공포가 온몸을 감싼다.',
+    hell:      '불길과 유황 냄새. 이곳에 오래 있으면 정신이 갈라진다.',
+    ancient:   '거대한 고목들이 하늘을 가린다. 수천 년의 기운이 느껴진다.',
+    chaos:     '광기가 넘치는 곳. 누구도 믿을 수 없다. PK 자유 구역.',
+    warzone:   '전투의 함성이 끊이지 않는다. 여기서는 강한 자만 살아남는다.',
+    castle:    '왕의 성채. 공성전의 흔적이 성벽에 새겨져 있다.',
+    celestial: '구름 위로 솟은 신성한 정상. 빛의 기둥이 하늘로 뻗어있다.',
+    void_rift: '현실과 공허의 경계. 차원이 찢어진 틈에서 무언가 엿보고 있다.',
+    demon:     '마왕의 성. 어둠의 군단이 이곳을 지키고 있다.',
+    world_tree:'생명의 근원. 세계수의 잎에서 빛의 입자가 흩날린다.',
+    fishing:   '잔잔한 물결과 갈대. 낚시하기 좋은 평화로운 곳.',
+    shrine:    '신성한 기운이 흐르는 고요한 마을. 종소리가 은은히 울린다.',
+    bazaar:    '향신료와 보석의 향기. 상인들의 호객 소리가 가득하다.',
+};
+
+// 몬스터 도감 로어 (첫 처치 시 표시)
+const MONSTER_LORE = {
+    '숲 슬라임':'숲의 이슬이 모여 생명을 얻은 존재. 무해하지만 끈적끈적하다.',
+    '야생토끼':'해바라기 들판에 서식하는 토끼. 놀라면 엄청 빠르다.',
+    '꽃 요정':'꽃에서 태어난 작은 정령. 화가 나면 꽃가루를 뿌린다.',
+    '독거미':'이슬숲 깊은 곳에 사는 독거미. 거미줄에 걸리면 위험하다.',
+    '늑대':'들판의 포식자. 무리를 지어 사냥한다.',
+    '독 두꺼비':'늪지대의 맹독 두꺼비. 독을 뿜으며 접근하면 안 된다.',
+    '늪지 골렘':'늪의 진흙이 마력으로 뭉쳐진 존재. 느리지만 단단하다.',
+    '전갈':'사막의 맹독 전갈. 꼬리의 독침 한 방은 치명적이다.',
+    '모래 웜':'사막 지하에 서식하는 거대 지렁이. 진동에 반응해 튀어나온다.',
+    '박쥐':'동굴 천장에 매달려 있다가 습격하는 야행성 생물.',
+    '동굴 트롤':'수정 동굴을 지키는 거인. 돌을 던지며 침입자를 쫓는다.',
+    '수정 골렘':'수정이 모여 만들어진 광물 생명체. 마법에 강하다.',
+    '유령':'달그림자 유적을 떠도는 영혼. 물리 공격이 잘 통하지 않는다.',
+    '가고일':'유적 위에 석상처럼 앉아있다가 기습하는 마물.',
+    '화염 정령':'불꽃산에서 태어난 순수 화염 존재. 물에 약하다.',
+    '용암 골렘':'용암이 굳어 만들어진 거인. 가까이 가면 화상을 입는다.',
+    '좀비':'무덤에서 되살아난 시체. 느리지만 수가 많다.',
+    '뱀파이어':'밤에만 나타나는 흡혈 귀족. 은에 약하다.',
+    '그림자 늑대':'그림자숲의 야수. 어둠 속에서 눈만 빛난다.',
+    '다크 엘프':'타락한 엘프 전사. 독 화살을 쏜다.',
+    '와이번':'드래곤의 하위 종. 날개가 있지만 브레스는 못 쓴다.',
+    '레드 드래곤':'용의 요람을 지키는 고대 드래곤. 브레스 한 방에 전멸 가능.',
+    '고대 드래곤':'수천 년을 살아온 전설의 존재. 세계를 멸할 힘을 가졌다.',
+    '태초의 존재':'세상이 만들어지기 전부터 존재한 신화적 생명체.',
+    '보물 도깨비':'금화를 잔뜩 안고 도망치는 장난꾸러기. 잡으면 대박!',
+    '심연의 그림자':'어둠의 심연에서 기어나온 형체 없는 공포.',
+    '천사':'천공의 정상을 지키는 빛의 전사. 순수하지만 강하다.',
+    '세라핌':'6개의 날개를 가진 상위 천사. 신성한 불꽃을 다룬다.',
+    '하급 악마':'마왕성의 잡졸. 수는 많지만 약하다.',
+    '악마 장군':'마왕의 오른팔. 어둠의 마법을 구사한다.',
+    '보물 도깨비':'반짝이는 보물 주머니를 들고 도망치는 수상한 녀석.',
+};
+
 // ══════════════════════════════════════
 // 맵 동선 시스템 — 존 연결 + 지형 장벽 + 도로
 // ══════════════════════════════════════
@@ -521,13 +591,26 @@ const ZONE_MONSTERS = {
 
 // NPC 정의
 const NPCS = {
-    '상점':    { type:'shop',    msg:'어서오세요! 물건을 사고파세요.' },
-    '대장장이': { type:'smith',   msg:'장비를 강화해드리겠습니다.' },
-    '힐러':    { type:'healer',  msg:'치료해드릴까요? (무료)' },
-    '낚시꾼':  { type:'fisher',  msg:'낚시를 하려면 낚싯대가 필요합니다.' },
-    '요리사':  { type:'cook',    msg:'재료를 가져오시면 요리를 만들어드립니다.' },
-    '항해사':  { type:'travel',  msg:'다른 마을로 이동하시겠습니까?' },
+    '상점':    { type:'shop',    msgs:['어서오세요! 좋은 물건 많습니다!','오늘의 특가 상품이 있어요!','강한 전사에게는 좋은 장비가 필요하죠.'] },
+    '대장장이': { type:'smith',   msgs:['장비를 강화해드리겠습니다.','좋은 재료를 가져오셨군요!','이 검은... 대단한 물건이에요!'] },
+    '힐러':    { type:'healer',  msgs:['치료해드릴까요?','상처가 깊군요... 걱정 마세요.','모험은 쉬운 게 아니지요.'] },
+    '낚시꾼':  { type:'fisher',  msgs:['오늘 낚시 하기 좋은 날이에요!','큰 물고기가 물 것 같은 예감이...','인내심이 있어야 대어를 낚지요.'] },
+    '요리사':  { type:'cook',    msgs:['재료를 가져오시면 요리를 만들어드립니다.','이 레시피는 비밀이에요...','맛있는 음식은 전투력의 원천이죠!'] },
+    '항해사':  { type:'travel',  msgs:['어디로 떠나시겠습니까?','바다 건너에 새로운 세계가 기다리고 있어요.','안전한 항해를 보장합니다!'] },
+    '펫 상인': { type:'shop',    msgs:['귀여운 친구를 찾고 계신가요?','이 펫은 전투에 큰 도움이 됩니다!'] },
+    '제작소':  { type:'cook',    msgs:['무엇을 제작하시겠습니까?','좋은 재료로 좋은 장비를 만들지요.'] },
 };
+function getNpcMsg(npcType, player) {
+    const npc = NPCS[npcType];
+    if (!npc || !npc.msgs) return '...';
+    // 상황별 특수 대사
+    if (npc.type === 'healer' && player.hp < player.maxHp * 0.3) return '이런! 상처가 심하시군요! 어서 치료합시다!';
+    if (npc.type === 'healer' && isNight) return '이 밤에 무슨 일이시죠... 치료해드리겠습니다.';
+    if (npc.type === 'smith' && player.level >= 30) return '오, 숙련된 전사시군요! 전설 장비도 다뤄봤습니다.';
+    if (npc.type === 'shop' && player.gold < 100) return '골드가 부족하신 것 같군요... 몬스터를 더 사냥해보세요.';
+    if (npc.type === 'travel' && currentWeather.id === 'storm') return '폭풍이 심합니다... 그래도 떠나시겠습니까?';
+    return npc.msgs[Math.floor(Math.random() * npc.msgs.length)];
+}
 
 // 성 소유
 let castleOwner = null;
@@ -2108,6 +2191,9 @@ io.on('connection', (socket) => {
                             giveExp(p, 10);
                         }
                     }
+                    // 존 분위기 텍스트
+                    const ambience = ZONE_AMBIENCE[curZone.id];
+                    if (ambience) socket.emit('zone_ambient', { text: ambience, zone: ZONES[curZone.id].name });
                     // 탐험도 자동 등록
                     if (!p.discoveredZones) p.discoveredZones = [];
                     if (!p.discoveredZones.includes(curZone.id)) {
@@ -2163,27 +2249,27 @@ io.on('connection', (socket) => {
                         }
                     }
                 }
-                socket.emit('npc_smith', { msg: npcInfo.msg, items: enchantable });
+                socket.emit('npc_smith', { msg: getNpcMsg(npcType, p), items: enchantable });
                 break;
             case 'shop':
-                socket.emit('npc_result', { msg: npcInfo.msg, type: 'shop' });
+                socket.emit('npc_result', { msg: getNpcMsg(npcType, p), type: 'shop' });
                 break;
             case 'cook':
-                socket.emit('npc_result', { msg: npcInfo.msg, type: 'cook' });
+                socket.emit('npc_result', { msg: getNpcMsg(npcType, p), type: 'cook' });
                 break;
             case 'travel': {
                 // 다른 마을 목록
                 const towns = Object.entries(ZONES)
                     .filter(([id, z]) => z.safe && z.npcs && id !== zone.id)
                     .map(([id, z]) => ({ id, name: z.name, x: z.x + z.w/2, y: z.y + z.h/2 }));
-                socket.emit('npc_travel', { msg: npcInfo.msg, towns });
+                socket.emit('npc_travel', { msg: getNpcMsg(npcType, p), towns });
                 break;
             }
             case 'fisher':
-                socket.emit('npc_result', { msg: npcInfo.msg, type: 'fisher' });
+                socket.emit('npc_result', { msg: getNpcMsg(npcType, p), type: 'fisher' });
                 break;
             default:
-                socket.emit('npc_result', { msg: npcInfo.msg });
+                socket.emit('npc_result', { msg: getNpcMsg(npcType, p) });
         }
     });
 
@@ -4749,12 +4835,17 @@ io.on('connection', (socket) => {
         const p = players[playerId];
         if (!p || typeof msg !== 'string' || msg.length > 100) return;
         const cleanMsg = msg.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const titleInfo = p.activeTitle && TITLES[p.activeTitle] ? TITLES[p.activeTitle] : null;
         io.emit('chat_msg', {
             sender: p.displayName || p.className,
             msg: cleanMsg,
             team: p.team,
             isKing: p.isKing,
-            karma: p.karma
+            karma: p.karma,
+            title: titleInfo?.name || null,
+            titleColor: titleInfo?.color || null,
+            faction: p.faction ? FACTIONS[p.faction]?.name : null,
+            level: p.level,
         });
     });
 
@@ -6176,6 +6267,9 @@ function handleCollisions() {
                     if (!realOwner.bestiary) realOwner.bestiary = {};
                     if (!realOwner.bestiary[mob.name]) {
                         realOwner.bestiary[mob.name] = 1;
+                        // 몬스터 도감 로어 표시
+                        const lore = MONSTER_LORE[mob.name];
+                        if (lore) io.to(realOwner.id).emit('monster_lore', { name: mob.name, lore, tier: mob.tier });
                         const discovered = Object.keys(realOwner.bestiary).length;
                         if (discovered === 10) { realOwner.gold += 500; io.to(realOwner.id).emit('combat_log', { msg: '도감 10종 달성! +500G' }); }
                         if (discovered === 25) { realOwner.gold += 1000; io.to(realOwner.id).emit('achievement_unlock', { name: '몬스터 학자', desc: '25종 처치', reward: {gold:1000} }); }

@@ -1750,7 +1750,26 @@
       window.socket.on('chat_msg', (d) => {
         var cls = d.isKing ? 'chat-king' : (d.karma >= 200 ? 'chat-chaotic' : '');
         var prefix = d.isKing ? '[King] ' : (d.karma >= 200 ? '[PK] ' : '');
-        addChatMsg(prefix + d.sender + ': ' + d.msg, cls);
+        var titleTag = d.title ? '<span style="color:'+d.titleColor+';font-size:9px">['+d.title+']</span> ' : '';
+        var lvTag = d.level ? '<span style="color:#888;font-size:9px">Lv.'+d.level+'</span> ' : '';
+        addChatMsg(titleTag + lvTag + prefix + d.sender + ': ' + d.msg, cls);
+      });
+
+      // 존 분위기 텍스트
+      window.socket.on('zone_ambient', (d) => {
+        var el = document.createElement('div');
+        el.style.cssText = 'position:fixed;bottom:55%;left:50%;transform:translateX(-50%);z-index:40;color:rgba(200,200,200,0.8);font-size:12px;font-style:italic;text-align:center;max-width:400px;pointer-events:none;text-shadow:0 1px 4px #000;animation:lvlFade 4s ease-out forwards';
+        el.textContent = d.text;
+        document.body.appendChild(el);
+        setTimeout(function(){ el.remove(); }, 4000);
+      });
+
+      // 몬스터 도감 로어
+      window.socket.on('monster_lore', (d) => {
+        var tierColors = {normal:'#88cc88',elite:'#ccaa44',rare:'#aa44cc',boss:'#ff4444',legendary:'#ff8800',mythic:'#ff00ff'};
+        showModal('새로운 발견!', '<div style="text-align:center"><div style="font-size:18px;color:'+(tierColors[d.tier]||'#fff')+'">'+d.name+'</div><p style="color:#ccc;font-size:12px;font-style:italic;margin-top:8px;line-height:1.6">"'+d.lore+'"</p><p class="text-muted text-xs" style="margin-top:6px">📖 도감에 기록되었습니다</p></div>',
+          [{label:'확인', action:'closeModal()'}]);
+        playSFX('buff');
       });
 
       window.socket.on('auto_potion_status', (d) => {
