@@ -1807,6 +1807,8 @@
       });
 
       // 누락 핸들러 보완
+      window.socket.on('shop_list_result', (d) => { /* 상점 목록은 클라이언트에서 렌더링 */ });
+      window.socket.on('whisper_result', (d) => showToast(d.msg));
       window.socket.on('pk_alert', (d) => { addCombatLog('[PK] '+d.killerName+' PK! 카르마:'+d.karma, 'log-crit'); });
       window.socket.on('chaotic_death_penalty', (d) => { addCombatLog('[카오틱] 골드/EXP 손실!', 'log-crit'); });
       window.socket.on('player_respawn', (d) => { if(d.id===myPlayerId) { document.getElementById('respawn-screen').style.display='none'; showToast('부활!'); } });
