@@ -1248,6 +1248,35 @@
       });
 
       // 보스 카운트다운
+      // 보스 페이즈
+      window.socket.on('boss_phase', (d) => {
+        var phaseNames = { enrage:'분노', desperate:'필사' };
+        addCombatLog('[보스] ' + (phaseNames[d.phase]||d.phase) + ' 페이즈!', 'log-crit');
+        showToast(d.msg);
+        playSFX('boss');
+        document.getElementById('unity-container').classList.add('shake');
+        setTimeout(function(){ document.getElementById('unity-container').classList.remove('shake'); }, 500);
+      });
+
+      // 날씨
+      window.socket.on('weather_change', (d) => {
+        var overlays = { clear:'none', rain:'sepia(0.1) brightness(0.9)', fog:'contrast(0.8) brightness(0.85)', snow:'saturate(0.5) brightness(1.1)', storm:'contrast(1.2) brightness(0.8)' };
+        document.getElementById('unity-container').style.filter = overlays[d.id] || 'none';
+        if (d.id !== 'clear') showToast('[날씨] ' + d.name);
+      });
+
+      // 전직 선택
+      window.socket.on('advance_options', (options) => {
+        var html = '<p class="text-muted text-sm" style="margin-bottom:10px">Lv.20 전직 — 2가지 경로 중 선택하세요 (되돌릴 수 없음!)</p>';
+        var btns = options.map(function(o) {
+          return { label: o.name + ' — ' + o.desc, action: "window.socket.emit('class_advance'," + o.idx + ");closeModal();" };
+        });
+        btns.push({label:'취소',type:'cancel',action:'closeModal()'});
+        showModal('전직 선택', html + options.map(function(o) {
+          return '<div class="card" style="margin-bottom:6px"><b class="text-gold">' + o.name + '</b><div class="text-sm text-muted">' + o.desc + '</div><div class="text-xs" style="color:#aaa;margin-top:2px">' + o.stats + '</div></div>';
+        }).join(''), btns);
+      });
+
       window.socket.on('boss_countdown', (d) => {
         showToast('[월드 보스] ' + d.seconds + '초 후 출현!');
         if (d.seconds <= 30) playSFX('boss');
@@ -2468,7 +2497,7 @@
 
     // ── 스탯/전직/혈맹/파티 ──
     function addStat(stat) { window.socket.emit('add_stat', stat); }
-    function classAdvance() { window.socket.emit('class_advance','{}'); }
+    function classAdvance() { window.socket.emit('get_advance_options'); }
     function createClan() {
       var name = document.getElementById('clan-name-input').value.trim();
       if (name) window.socket.emit('create_clan', name);

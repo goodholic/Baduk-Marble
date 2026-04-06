@@ -723,14 +723,37 @@ const DAY_NIGHT_CYCLE = 600; // 10분 = 600초
 let worldTime = 0; // 0~599
 let isNight = false;
 
+// 날씨 시스템
+const WEATHERS = [
+    { id:'clear', name:'맑음', effect:null, duration:300 },
+    { id:'rain',  name:'비',   effect:{ element:'water', dodgeUp:0.03 }, duration:180 },
+    { id:'fog',   name:'안개', effect:{ dodgeUp:0.05, visionDown:true }, duration:120 },
+    { id:'snow',  name:'눈',   effect:{ element:'water', spdDown:0.2 }, duration:150 },
+    { id:'storm', name:'폭풍', effect:{ element:'wind', atkUp:0.1, defDown:0.1 }, duration:90 },
+];
+let currentWeather = WEATHERS[0];
+let nextWeatherChange = Date.now() + 300000;
+
 // ==========================================
 // 전직 시스템 (Lv.20)
 // ==========================================
 const CLASS_ADVANCE = {
-    Assassin:  { name: 'ShadowLord',  displayName: '쉐도우로드', bonusAtk: 20, bonusCrit: 0.1, bonusSpeed: 5 },
-    Warrior:   { name: 'Warlord',     displayName: '워로드',     bonusAtk: 15, bonusDef: 15, bonusHp: 100 },
-    Knight:    { name: 'HolyKnight',  displayName: '홀리나이트', bonusDef: 25, bonusHp: 200, bonusDodge: 0.05 },
-    Mage:      { name: 'Archmage',    displayName: '아크메이지', bonusAtk: 30, bonusCrit: 0.15 },
+    Assassin: [
+        { name: 'ShadowLord', displayName: '쉐도우로드', desc: '극한의 암살 — 크리 특화', bonusAtk: 20, bonusCrit: 0.12, bonusSpeed: 5 },
+        { name: 'Nightblade',  displayName: '나이트블레이드', desc: '독+회피 — 지속 전투', bonusAtk: 10, bonusCrit: 0.05, bonusDodge: 0.1, bonusSpeed: 3 },
+    ],
+    Warrior: [
+        { name: 'Warlord',    displayName: '워로드', desc: '공방 균형 — 만능 전사', bonusAtk: 15, bonusDef: 15, bonusHp: 100 },
+        { name: 'Berserker',   displayName: '버서커', desc: '극한 공격 — 방어 포기', bonusAtk: 35, bonusDef: -5, bonusHp: 50, bonusCrit: 0.08 },
+    ],
+    Knight: [
+        { name: 'HolyKnight', displayName: '홀리나이트', desc: '철벽 수비 — 팀 수호', bonusDef: 25, bonusHp: 200, bonusDodge: 0.05 },
+        { name: 'DarkKnight',  displayName: '다크나이트', desc: '공격형 탱커 — HP 흡수', bonusAtk: 15, bonusDef: 15, bonusHp: 100 },
+    ],
+    Mage: [
+        { name: 'Archmage',   displayName: '아크메이지', desc: '순수 마법 — 극한 데미지', bonusAtk: 30, bonusCrit: 0.15 },
+        { name: 'Elementalist', displayName: '엘리멘탈리스트', desc: '속성 마스터 — 광역+상태이상', bonusAtk: 15, bonusDef: 10, bonusHp: 50, bonusCrit: 0.05 },
+    ],
 };
 
 // ==========================================
@@ -897,6 +920,11 @@ function recalcStats(p) {
         }
     }
 
+    // ── 전직 보너스 ──
+    const ab = p.advanceBonus || {};
+    const advAtk = ab.atk || 0, advDef = ab.def || 0, advHp = ab.hp || 0;
+    const advCrit = ab.crit || 0, advDodge = ab.dodge || 0;
+
     // ── 진영 보너스 ──
     let factionAtkMulti = 1, factionDefMulti = 1;
     if (p.faction && FACTIONS[p.faction]) {
@@ -911,13 +939,13 @@ function recalcStats(p) {
     const te = getTitleBonus(p, 'expBonus'); if (te) titleExp = te;
 
     // ── 최종 스탯 계산 ──
-    p.atk = Math.floor((cls.atk + bonusAtk + setAtkBonus + runeAtk + legacyAtk + str * 2) * petAtkMulti * setAtkMulti * factionAtkMulti * legacyAllMulti * (1 + titleAtk));
-    p.def = Math.floor((cls.def + bonusDef + setDefBonus + runeDef + legacyDef) * setDefMulti * factionDefMulti * legacyAllMulti);
-    p.equipBonusHp = bonusHp + con * 10 + setHpBonus + runeHp + legacyHp;
+    p.atk = Math.floor((cls.atk + bonusAtk + setAtkBonus + runeAtk + legacyAtk + advAtk + str * 2) * petAtkMulti * setAtkMulti * factionAtkMulti * legacyAllMulti * (1 + titleAtk));
+    p.def = Math.floor((cls.def + bonusDef + setDefBonus + runeDef + legacyDef + advDef) * setDefMulti * factionDefMulti * legacyAllMulti);
+    p.equipBonusHp = bonusHp + con * 10 + setHpBonus + runeHp + legacyHp + advHp;
     p.maxHp = cls.hp + (p.level - 1) * 20 + p.equipBonusHp;
     p.dmgMulti = 1.0 + (p.level - 1) * 0.08 + int_ * 0.02;
-    p.critRate = (cls.critRate || 0.1) + bonusCrit + runeCrit + legacyCrit + dex * 0.005;
-    p.dodgeRate = (cls.dodgeRate || 0) + bonusDodge + runeDodge + dex * 0.003;
+    p.critRate = (cls.critRate || 0.1) + bonusCrit + runeCrit + legacyCrit + advCrit + dex * 0.005;
+    p.dodgeRate = (cls.dodgeRate || 0) + bonusDodge + runeDodge + advDodge + dex * 0.003;
     p.equipBonusSpd = bonusSpd + runeSpd + legacySpd;
     p.equipExpBonus = bonusExp + setExpBonus + runeExp + legacyExpBonus + titleExp;
     p.equipGoldBonus = bonusGold + runeGold + legacyGoldBonus;
@@ -1209,11 +1237,15 @@ function calcDamage(atk, def, dmgMulti, critRate, attackerElement, defenderEleme
     let isCrit = Math.random() < critRate;
     let baseDmg = Math.max(1, atk * dmgMulti - def * 0.3);
     if (isCrit) baseDmg *= 2.0;
-    // 속성 상성 보너스 (fire>wind>earth>water>fire)
+    // 속성 상성 보너스 (fire>wind>earth>water>fire) + 날씨 영향
     if (attackerElement && defenderElement && ELEMENT_BONUS[attackerElement] === defenderElement) {
-        baseDmg *= 1.25; // 유리 속성 25% 추가 데미지
+        baseDmg *= 1.25;
     } else if (defenderElement && attackerElement && ELEMENT_BONUS[defenderElement] === attackerElement) {
-        baseDmg *= 0.8; // 불리 속성 20% 감소
+        baseDmg *= 0.8;
+    }
+    // 날씨 속성 보너스 (날씨 속성과 같으면 +15%)
+    if (currentWeather.effect?.element && attackerElement === currentWeather.effect.element) {
+        baseDmg *= 1.15;
     }
     return { damage: Math.floor(baseDmg), isCrit };
 }
@@ -3056,27 +3088,40 @@ io.on('connection', (socket) => {
     });
 
     // ── 전직 (Lv.20) ──
-    socket.on('class_advance', () => {
+    // ── 전직 선택지 요청 ──
+    socket.on('get_advance_options', () => {
+        const p = players[playerId];
+        if (!p || p.isAdvanced || p.level < 20) return;
+        const options = CLASS_ADVANCE[p.className];
+        if (!options) return;
+        socket.emit('advance_options', options.map((o, i) => ({ idx: i, name: o.displayName, desc: o.desc,
+            stats: `ATK+${o.bonusAtk||0} DEF+${o.bonusDef||0} HP+${o.bonusHp||0} CRIT+${Math.floor((o.bonusCrit||0)*100)}% 회피+${Math.floor((o.bonusDodge||0)*100)}%`
+        })));
+    });
+
+    // ── 전직 (분기 선택) ──
+    socket.on('class_advance', (choiceIdx) => {
         const p = players[playerId];
         if (!p || p.isAdvanced || p.level < 20) {
             socket.emit('advance_result', { success: false, msg: p?.isAdvanced ? '이미 전직함' : 'Lv.20 필요' });
             return;
         }
-        const adv = CLASS_ADVANCE[p.className];
-        if (!adv) { socket.emit('advance_result', { success: false, msg: '전직 불가 클래스' }); return; }
+        const options = CLASS_ADVANCE[p.className];
+        if (!options) { socket.emit('advance_result', { success: false, msg: '전직 불가' }); return; }
+        const idx = parseInt(choiceIdx) || 0;
+        const adv = options[Math.min(idx, options.length - 1)];
+        if (!adv) return;
         p.isAdvanced = true;
-        p.baseClassName = p.className; // 스킬 시스템용 원본 클래스 보존
+        p.baseClassName = p.className;
         p.advancedClass = adv.name;
         p.displayName = adv.displayName;
-        if (adv.bonusAtk) p.atk += adv.bonusAtk;
-        if (adv.bonusDef) p.def += adv.bonusDef;
-        if (adv.bonusHp) { p.maxHp += adv.bonusHp; p.hp = p.maxHp; }
-        if (adv.bonusCrit) p.critRate += adv.bonusCrit;
-        if (adv.bonusSpeed) p.speed = (CLASSES[p.className]?.speed || 10) + adv.bonusSpeed;
-        if (adv.bonusDodge) p.dodgeRate += adv.bonusDodge;
+        // 보너스 스탯은 recalcStats에서 처리할 수 있도록 저장
+        p.advanceBonus = { atk: adv.bonusAtk||0, def: adv.bonusDef||0, hp: adv.bonusHp||0, crit: adv.bonusCrit||0, dodge: adv.bonusDodge||0, speed: adv.bonusSpeed||0 };
+        recalcStats(p);
+        p.hp = p.maxHp;
         savePlayer(p);
         io.emit('server_msg', { msg: `${p.displayName} 전직! [${adv.displayName}]`, type: 'rare' });
-        socket.emit('advance_result', { success: true, msg: `${adv.displayName}(으)로 전직 완료!` });
+        socket.emit('advance_result', { success: true, msg: `${adv.displayName}(으)로 전직 완료! — ${adv.desc}` });
         io.emit('player_update', p);
     });
 
@@ -4815,6 +4860,19 @@ setInterval(() => {
 
     const now = Date.now();
 
+    // ── 날씨 변경 ──
+    if (Date.now() > nextWeatherChange) {
+        const newWeather = WEATHERS[Math.floor(Math.random() * WEATHERS.length)];
+        if (newWeather.id !== currentWeather.id) {
+            currentWeather = newWeather;
+            io.emit('weather_change', { id: newWeather.id, name: newWeather.name, effect: newWeather.effect });
+            if (newWeather.id !== 'clear') {
+                io.emit('server_msg', { msg: `[날씨] ${newWeather.name} — ${newWeather.effect?.element ? newWeather.effect.element + ' 속성 강화' : '전투 환경 변화'}`, type: 'normal' });
+            }
+        }
+        nextWeatherChange = Date.now() + newWeather.duration * 1000;
+    }
+
     // ── 시즌 균열 로테이션 (2주마다) ──
     if (Date.now() - currentSeason.startTime > 14 * 86400000) {
         // 시즌 종료 → 보상 지급 + 다음 시즌
@@ -5699,7 +5757,23 @@ function handleCollisions() {
                     mob.damageContrib[realOwnerId] = (mob.damageContrib[realOwnerId] || 0) + damage;
                     // 보스 HP 바 업데이트
                     if (tickCounter % 5 === 0) {
-                        io.emit('world_boss_update', { id: mId, hp: mob.hp, maxHp: mob.maxHp });
+                        // 보스 페이즈 전환
+                        const hpPct = mob.hp / mob.maxHp;
+                        if (!mob._phase) mob._phase = 'normal';
+                        if (hpPct <= 0.25 && mob._phase !== 'desperate') {
+                            mob._phase = 'desperate';
+                            mob.atk = Math.floor(mob.atk * 1.8);
+                            mob.aiType = 'aoe';
+                            io.emit('boss_phase', { id: mId, phase: 'desperate', msg: '보스가 필사적으로 발악합니다! ATK x1.8 + 광역 공격!' });
+                            io.emit('server_msg', { msg: `[월드 보스] 필사 페이즈! ATK 대폭 증가!`, type: 'danger' });
+                        } else if (hpPct <= 0.5 && mob._phase === 'normal') {
+                            mob._phase = 'enrage';
+                            mob.atk = Math.floor(mob.atk * 1.3);
+                            mob.aiType = 'breath';
+                            io.emit('boss_phase', { id: mId, phase: 'enrage', msg: '보스가 분노합니다! ATK x1.3 + 브레스!' });
+                            io.emit('server_msg', { msg: `[월드 보스] 분노 페이즈! 브레스 공격 시작!`, type: 'danger' });
+                        }
+                        io.emit('world_boss_update', { id: mId, hp: mob.hp, maxHp: mob.maxHp, phase: mob._phase });
                     }
                 }
 
@@ -6395,10 +6469,12 @@ function syncGameState() {
         }
     }
     for (const mId in monsters) {
-        syncData.monsters[mId] = { x: monsters[mId].x, y: monsters[mId].y };
+        const m = monsters[mId];
+        syncData.monsters[mId] = { x: m.x, y: m.y, name: m.name, tier: m.tier, element: m.element, hp: m.hp, maxHp: m.maxHp, aiType: m.aiType };
     }
 
     syncData.isNight = isNight;
+    syncData.weather = currentWeather.id;
     syncData.worldTime = worldTime;
     io.volatile.emit('sync', syncData);
 
