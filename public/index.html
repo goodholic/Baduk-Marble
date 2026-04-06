@@ -325,6 +325,8 @@
 
     <!-- 버프/디버프 아이콘 바 -->
     <div id="buff-bar" style="position:absolute;top:36px;left:15px;z-index:15;display:flex;gap:3px;flex-wrap:wrap;max-width:400px"></div>
+    <!-- 스킬 쿨타임 바 -->
+    <div id="skill-cooldown-bar" style="position:fixed;bottom:52px;left:50%;transform:translateX(-50%);z-index:16;display:flex;gap:4px;pointer-events:none"></div>
 
     <!-- 도파민 UI 요소들 -->
     <div id="session-stats"><span id="ss-time">⏱ 0:00</span><span id="ss-kills">💀 0</span><span id="ss-gold">💰 +0G</span></div>
@@ -645,6 +647,18 @@
     <div class="panel" id="panel-contracts">
       <div class="panel-header"><h2>의뢰 게시판</h2><button class="panel-close" onclick="closePanel('contracts')">X</button></div>
       <div class="panel-body" id="contract-body"><div class="loading-text"><span class="spinner"></span> 로딩 중...</div></div>
+    </div>
+
+    <!-- 캐릭터 프로필 -->
+    <div class="panel" id="panel-profile">
+      <div class="panel-header"><h2>캐릭터</h2><button class="panel-close" onclick="closePanel('profile')">X</button></div>
+      <div class="panel-body" id="profile-body"><div class="loading-text"><span class="spinner"></span> 로딩 중...</div></div>
+    </div>
+
+    <!-- 월드 이벤트 로그 -->
+    <div class="panel" id="panel-events">
+      <div class="panel-header"><h2>월드 이벤트</h2><button class="panel-close" onclick="closePanel('events')">X</button></div>
+      <div class="panel-body" id="events-body"><div class="loading-text"><span class="spinner"></span> 로딩 중...</div></div>
     </div>
 
     <!-- 균열 패널 -->
@@ -1263,6 +1277,101 @@
         var overlays = { clear:'none', rain:'sepia(0.1) brightness(0.9)', fog:'contrast(0.8) brightness(0.85)', snow:'saturate(0.5) brightness(1.1)', storm:'contrast(1.2) brightness(0.8)' };
         document.getElementById('unity-container').style.filter = overlays[d.id] || 'none';
         if (d.id !== 'clear') showToast('[날씨] ' + d.name);
+      });
+
+      // 캐릭터 프로필
+      window.socket.on('profile_data', (d) => {
+        var el = document.getElementById('profile-body');
+        if (!el) return;
+        var gradeColors = {normal:'#ccc',uncommon:'#4c4',rare:'#48f',epic:'#a4f',legendary:'#f80'};
+        var html = '<div style="text-align:center;margin-bottom:12px">';
+        html += '<div class="text-gold" style="font-size:16px;font-weight:900">' + d.name + '</div>';
+        html += '<div class="text-muted text-sm">' + (d.advancedClass||d.class) + ' Lv.' + d.level;
+        if (d.prestige > 0) html += ' <span style="color:#ff8800">★' + d.prestige + '</span>';
+        html += '</div>';
+        if (d.faction !== '없음') html += '<div class="text-sm" style="color:#88ccff">' + d.faction + ' (기여: ' + d.factionRep + ')</div>';
+        html += '</div>';
+        // 스탯
+        html += '<div class="card" style="margin-bottom:8px"><div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px">';
+        html += '<div>⚔ ATK <b class="text-gold">' + d.atk + '</b></div>';
+        html += '<div>🛡 DEF <b style="color:#4488ff">' + d.def + '</b></div>';
+        html += '<div>❤ HP <b style="color:#44ff44">' + d.maxHp + '</b></div>';
+        html += '<div>⚡ CRIT <b style="color:#ff6666">' + d.critRate + '%</b></div>';
+        html += '<div>💨 DODGE <b style="color:#44ffff">' + d.dodgeRate + '%</b></div>';
+        html += '<div>📈 DMG <b style="color:#ffa500">x' + d.dmgMulti + '</b></div>';
+        html += '</div></div>';
+        // 장비
+        html += '<div class="card" style="margin-bottom:8px"><b class="text-sm text-gold">장착 장비</b>';
+        if (d.equipped.length === 0) html += '<div class="text-muted text-xs">없음</div>';
+        d.equipped.forEach(function(e) {
+          var gc = gradeColors[e.grade] || '#ccc';
+          html += '<div style="font-size:10px;color:'+gc+';padding:2px 0">['+e.slot+'] '+e.name+' +'+(e.enchant||0);
+          if (e.runes.length > 0) html += ' <span style="color:#ffd700">['+e.runes.join('')+']</span>';
+          html += '</div>';
+        });
+        html += '</div>';
+        // 업적 요약
+        html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:10px;color:#aaa">';
+        html += '<div>💀 킬: ' + d.kills + '</div><div>⚔ PvP승: ' + d.pvpWins + '</div>';
+        html += '<div>🏰 탑: ' + d.towerHighest + '층</div><div>📖 도감: ' + d.bestiary + '종</div>';
+        html += '<div>🗺 탐험: ' + d.exploration + '/50</div><div>🎣 낚시: Lv.' + d.fishingLevel + '</div>';
+        html += '</div>';
+        el.innerHTML = html;
+      });
+
+      // 다른 플레이어 조회
+      window.socket.on('inspect_data', (d) => {
+        var gradeColors = {normal:'#ccc',uncommon:'#4c4',rare:'#48f',epic:'#a4f',legendary:'#f80'};
+        var html = '<div style="text-align:center"><b class="text-gold" style="font-size:14px">' + d.name + '</b>';
+        html += '<div class="text-muted text-sm">' + d.class + ' Lv.' + d.level;
+        if (d.prestige > 0) html += ' ★' + d.prestige;
+        html += '</div>';
+        if (d.faction) html += '<div class="text-sm" style="color:#88ccff">' + d.faction + '</div>';
+        html += '<div class="text-xs" style="color:#888">킬: ' + d.kills + '</div></div>';
+        html += '<div style="margin-top:8px">';
+        d.equipped.forEach(function(e) {
+          html += '<div style="font-size:10px;color:' + (gradeColors[e.grade]||'#ccc') + '">['+e.slot+'] '+e.name+' +'+e.enchant+'</div>';
+        });
+        html += '</div>';
+        showModal('플레이어 정보', html, [{label:'닫기', type:'cancel', action:'closeModal()'}]);
+      });
+
+      // 길드 채팅
+      window.socket.on('guild_chat_msg', (d) => {
+        addCombatLog('[길드] ' + d.sender + ': ' + d.msg, 'log-morph');
+      });
+      window.socket.on('guild_members', (d) => {
+        showModal('길드 멤버 — ' + d.name + ' Lv.' + d.level,
+          d.members.map(function(m) {
+            var color = m.online ? '#44ff44' : '#888';
+            return '<div class="panel-item"><span class="text-sm" style="color:'+color+'">'+m.name+' Lv.'+m.level+' ('+m.class+')</span></div>';
+          }).join(''), [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+      });
+
+      // 월드 이벤트 로그
+      window.socket.on('world_events', (list) => {
+        var el = document.getElementById('events-body');
+        if (!el) return;
+        if (!list.length) { el.innerHTML = '<p class="text-muted text-sm">이벤트 없음</p>'; return; }
+        var typeColors = {boss:'#ff4444',rare:'#4488ff',danger:'#ff8800',normal:'#888'};
+        el.innerHTML = list.map(function(e) {
+          return '<div class="panel-item" style="border-left:3px solid '+(typeColors[e.type]||'#888')+'"><span class="text-sm">'+e.msg+'</span><span class="text-xs text-muted">'+e.time+'분 전</span></div>';
+        }).join('');
+      });
+
+      // 스킬 쿨타임
+      window.socket.on('skill_cooldowns', (cds) => {
+        var html = '';
+        cds.forEach(function(s) {
+          var color = s.ready ? '#44ff44' : '#ff8800';
+          var pct = s.cooldown > 0 ? Math.floor((1 - s.remaining/s.cooldown) * 100) : 100;
+          html += '<div style="display:inline-flex;flex-direction:column;align-items:center;width:60px;font-size:9px;color:'+color+'">';
+          html += '<div style="width:40px;height:4px;background:#333;border-radius:2px;overflow:hidden"><div style="width:'+pct+'%;height:100%;background:'+color+';border-radius:2px"></div></div>';
+          html += s.name.slice(0,4) + (s.ready ? ' ✓' : ' '+s.remaining+'s');
+          html += '</div>';
+        });
+        var skillBar = document.getElementById('skill-cooldown-bar');
+        if (skillBar) skillBar.innerHTML = html;
       });
 
       // 전직 선택
@@ -2246,6 +2355,8 @@
         personalBests.maxStreak = killStreak;
         localStorage.setItem('ab_records', JSON.stringify(personalBests));
       }
+      // 스킬 쿨타임 갱신
+      if (window.socket && gameStarted) window.socket.emit('get_skill_cooldowns');
     }, 1000);
 
     // 루트 로그 추가
@@ -2370,6 +2481,7 @@
         {label:'변신', action:()=>togglePanel('morph')},
         {label:'스탯 배분', action:()=>togglePanel('stats')},
         {label:'스킬 보기', action:()=>{togglePanel('skills');window.socket.emit('get_skills');}},
+        {label:'캐릭터', action:()=>{togglePanel('profile');window.socket.emit('get_profile');}},
         {label:'펫 & 탈것', action:()=>togglePanel('petmount')},
         {label:'NPC 힐러', action:()=>window.socket.emit('interact_npc','힐러')},
         {label:'NPC 대장장이', action:()=>window.socket.emit('interact_npc','대장장이')},
@@ -2413,6 +2525,8 @@
         {label:'낚시', action:()=>window.socket.emit('start_fishing')},
         {label:'출석 캘��더', action:()=>window.socket.emit('get_attendance_calendar')},
         {label:'탐험도', action:()=>window.socket.emit('get_exploration')},
+        {label:'길드멤버', action:()=>window.socket.emit('get_guild_members')},
+        {label:'이벤트', action:()=>{togglePanel('events');window.socket.emit('get_world_events');}},
         {label:'이모트', action:()=>{showModal('이모트','<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">' +
           Object.entries({taunt:'😤 도발',cheer:'🎉 환호',greet:'👋 인사',laugh:'😂 ㅋㅋ',cry:'😢 ㅠㅠ',gg:'🤝 GG',help:'🆘 도움',thanks:'❤ 감사'}).map(function(e) {
             return '<button class="btn btn-sm" onclick="window.socket.emit(\'emote\',\''+e[0]+'\');closeModal();">'+e[1]+'</button>';

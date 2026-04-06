@@ -734,6 +734,13 @@ const WEATHERS = [
 let currentWeather = WEATHERS[0];
 let nextWeatherChange = Date.now() + 300000;
 
+// 월드 이벤트 로그
+let worldEventLog = []; // { time, msg, type }
+function logWorldEvent(msg, type) {
+    worldEventLog.push({ time: Date.now(), msg, type });
+    if (worldEventLog.length > 30) worldEventLog.shift();
+}
+
 // ==========================================
 // 전직 시스템 (Lv.20)
 // ==========================================
@@ -2601,6 +2608,104 @@ io.on('connection', (socket) => {
         p.mp -= 50;
         p.activeBuffs[buffId].endTime += 2000;
         socket.emit('buff_result', { msg: p.activeBuffs[buffId].name + ' +2초 연장! (-50MP)' });
+    });
+
+    // ── 캐릭터 프로필 ──
+    socket.on('get_profile', () => {
+        const p = players[playerId];
+        if (!p) return;
+        const equippedList = [];
+        if (p.equipped) {
+            for (const [slot, eqId] of Object.entries(p.equipped)) {
+                if (!eqId) continue;
+                const eq = EQUIP_STATS[eqId];
+                const enchant = p.enchantLevels?.[eqId] || 0;
+                const runes = p.itemRunes?.[eqId] || [];
+                equippedList.push({ slot, id: eqId, name: eq?.name || eqId, grade: eq?.grade, enchant, runes });
+            }
+        }
+        socket.emit('profile_data', {
+            name: p.displayName, class: p.className, advancedClass: p.advancedClass,
+            level: p.level, prestige: p.prestigeLevel || 0,
+            atk: p.atk, def: p.def, maxHp: p.maxHp, critRate: Math.floor((p.critRate||0)*100),
+            dodgeRate: Math.floor((p.dodgeRate||0)*100), dmgMulti: (p.dmgMulti||1).toFixed(2),
+            gold: p.gold, diamonds: p.diamonds || 0,
+            faction: p.faction ? FACTIONS[p.faction]?.name : '없음',
+            factionRep: p.factionRep || 0,
+            titles: (p.titles || []).length, activeTitle: p.activeTitle,
+            equipped: equippedList,
+            kills: p.killCount || 0, pvpWins: p.pvpWins || 0,
+            towerHighest: p.towerHighest || 0,
+            bestiary: Object.keys(p.bestiary || {}).length,
+            exploration: (p.discoveredZones || []).length,
+            fishingLevel: p.fishingLevel || 1,
+        });
+    });
+
+    // ── 다른 플레이어 조회 ──
+    socket.on('inspect_player', (targetId) => {
+        const target = players[targetId];
+        if (!target || target.isBot) return;
+        const equippedList = [];
+        if (target.equipped) {
+            for (const [slot, eqId] of Object.entries(target.equipped)) {
+                if (!eqId) continue;
+                const eq = EQUIP_STATS[eqId];
+                equippedList.push({ slot, name: eq?.name || eqId, grade: eq?.grade, enchant: target.enchantLevels?.[eqId] || 0 });
+            }
+        }
+        socket.emit('inspect_data', {
+            name: target.displayName, class: target.advancedClass || target.className,
+            level: target.level, prestige: target.prestigeLevel || 0,
+            faction: target.faction ? FACTIONS[target.faction]?.name : null,
+            team: target.team, kills: target.killCount || 0,
+            equipped: equippedList,
+        });
+    });
+
+    // ── 월드 이벤트 로그 ──
+    socket.on('get_world_events', () => {
+        socket.emit('world_events', worldEventLog.slice(-20).reverse().map(e => ({
+            time: Math.floor((Date.now() - e.time) / 60000), msg: e.msg, type: e.type
+        })));
+    });
+
+    // ── 스킬 쿨타임 실시간 ──
+    socket.on('get_skill_cooldowns', () => {
+        const p = players[playerId];
+        if (!p) return;
+        const cls = p.baseClassName || p.className;
+        const skills = SKILLS[cls] || [];
+        const cds = skills.filter(s => s.type !== 'passive').map(s => {
+            const lastUsed = p.skillCooldowns?.[s.name] || 0;
+            const remaining = Math.max(0, Math.ceil((s.cooldown * 1000 - (Date.now() - lastUsed)) / 1000));
+            return { name: s.name, cooldown: s.cooldown, remaining, mpCost: s.mpCost || 0, ready: remaining === 0 };
+        });
+        socket.emit('skill_cooldowns', cds);
+    });
+
+    // ── 길드 채팅 ──
+    socket.on('guild_chat', (msg) => {
+        const p = players[playerId];
+        if (!p || !p.clanName || typeof msg !== 'string' || msg.length > 100) return;
+        const clan = clans[p.clanName];
+        if (!clan) return;
+        const cleanMsg = msg.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        for (const mid of clan.members) {
+            io.to(mid).emit('guild_chat_msg', { sender: p.displayName, msg: cleanMsg });
+        }
+    });
+
+    // ── 길드 온라인 멤버 ──
+    socket.on('get_guild_members', () => {
+        const p = players[playerId];
+        if (!p || !p.clanName || !clans[p.clanName]) return;
+        const clan = clans[p.clanName];
+        const members = clan.members.map(mid => {
+            const m = players[mid];
+            return { id: mid, name: m?.displayName || '?', level: m?.level || 0, online: !!m?.isAlive, class: m?.advancedClass || m?.className || '?' };
+        });
+        socket.emit('guild_members', { name: p.clanName, level: clan.level, members });
     });
 
     // ── 랭킹 조회 ──
@@ -4911,6 +5016,7 @@ setInterval(() => {
             };
             treasureGoblin = { id: gId, zoneId: zId, spawnTime: now };
             io.emit('server_msg', { msg: `[보물 도깨비] ${ZONES[zId].name}에 보물 도깨비 출현! 15초 내에 잡아라!`, type: 'boss' });
+            logWorldEvent(`보물 도깨비 — ${ZONES[zId].name}`, 'boss');
             io.emit('rare_spawn', { id: gId, name: '보물 도깨비', tier: 'treasure', zoneId: zId, zoneName: ZONES[zId].name });
             // 15초 후 도주
             setTimeout(() => {
