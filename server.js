@@ -839,21 +839,89 @@ function recalcStats(p) {
         }
     }
 
-    // 펫 ATK 보너스
+    // 펫 보너스
     let petAtkMulti = 1.0;
     const pet = getPetEffect(p);
     if (pet && pet.effect === 'atkBonus') petAtkMulti += pet.value;
 
-    p.atk = Math.floor((cls.atk + bonusAtk + setAtkBonus + str * 2) * petAtkMulti * setAtkMulti);
-    p.def = Math.floor((cls.def + bonusDef + setDefBonus) * setDefMulti);
-    p.equipBonusHp = bonusHp + con * 10 + setHpBonus;
+    // ── 룬 개별 스탯 + 룬 워드 보너스 ──
+    let runeAtk = 0, runeDef = 0, runeHp = 0, runeSpd = 0, runeCrit = 0, runeDodge = 0, runeExp = 0, runeGold = 0;
+    let runeDropRate = 0;
+    if (p.itemRunes && p.equipped) {
+        for (const eqId of Object.values(p.equipped)) {
+            const runes = p.itemRunes[eqId];
+            if (!runes) continue;
+            // 개별 룬 스탯
+            for (const rId of runes) {
+                const r = RUNES[rId];
+                if (!r) continue;
+                if (r.stat === 'atk') runeAtk += r.value;
+                if (r.stat === 'def') runeDef += r.value;
+                if (r.stat === 'hp') runeHp += r.value;
+                if (r.stat === 'spd') runeSpd += r.value;
+                if (r.stat === 'crit') runeCrit += r.value;
+                if (r.stat === 'dodge') runeDodge += r.value;
+                if (r.stat === 'exp') runeExp += r.value;
+                if (r.stat === 'gold') runeGold += r.value;
+                if (r.stat === 'mp') { /* MP는 별도 처리 */ }
+                if (r.stat === 'all') { runeAtk += r.value; runeDef += r.value; }
+            }
+            // 룬 워드 보너스
+            const runeKey = [...runes].sort().join('');
+            const rw = RUNE_WORDS[runeKey];
+            if (rw && rw.bonus) {
+                if (rw.bonus.atk) runeAtk += rw.bonus.atk;
+                if (rw.bonus.def) runeDef += rw.bonus.def;
+                if (rw.bonus.spd) runeSpd += rw.bonus.spd;
+                if (rw.bonus.exp) runeExp += rw.bonus.exp;
+                if (rw.bonus.hpRegen) { /* 별도 처리 */ }
+                if (rw.bonus.dropRate) runeDropRate += rw.bonus.dropRate;
+            }
+        }
+    }
+
+    // ── 프레스티지 (환생) 영구 보너스 ──
+    let legacyAtk = 0, legacyDef = 0, legacyHp = 0, legacySpd = 0, legacyCrit = 0;
+    let legacyExpBonus = 0, legacyGoldBonus = 0, legacyDropRate = 0, legacyAllMulti = 1;
+    if (p.legacyPerks && p.legacyPerks.length > 0) {
+        for (const perk of p.legacyPerks) {
+            if (perk.stat === 'atk') legacyAtk += perk.value;
+            if (perk.stat === 'def') legacyDef += perk.value;
+            if (perk.stat === 'hp') legacyHp += perk.value;
+            if (perk.stat === 'spd') legacySpd += perk.value;
+            if (perk.stat === 'crit') legacyCrit += perk.value;
+            if (perk.stat === 'goldBonus') legacyGoldBonus += perk.value;
+            if (perk.stat === 'expBonus') legacyExpBonus += perk.value;
+            if (perk.stat === 'dropRate') legacyDropRate += perk.value;
+            if (perk.stat === 'allMulti') legacyAllMulti += perk.value;
+        }
+    }
+
+    // ── 진영 보너스 ──
+    let factionAtkMulti = 1, factionDefMulti = 1;
+    if (p.faction && FACTIONS[p.faction]) {
+        const fb = FACTIONS[p.faction];
+        if (fb.bonus === 'atk') factionAtkMulti += fb.bonusValue;
+        if (fb.bonus === 'def') factionDefMulti += fb.bonusValue;
+    }
+
+    // ── 칭호 보너스 ──
+    let titleAtk = 0, titleExp = 0;
+    const tb = getTitleBonus(p, 'atk'); if (tb) titleAtk = tb;
+    const te = getTitleBonus(p, 'expBonus'); if (te) titleExp = te;
+
+    // ── 최종 스탯 계산 ──
+    p.atk = Math.floor((cls.atk + bonusAtk + setAtkBonus + runeAtk + legacyAtk + str * 2) * petAtkMulti * setAtkMulti * factionAtkMulti * legacyAllMulti * (1 + titleAtk));
+    p.def = Math.floor((cls.def + bonusDef + setDefBonus + runeDef + legacyDef) * setDefMulti * factionDefMulti * legacyAllMulti);
+    p.equipBonusHp = bonusHp + con * 10 + setHpBonus + runeHp + legacyHp;
     p.maxHp = cls.hp + (p.level - 1) * 20 + p.equipBonusHp;
     p.dmgMulti = 1.0 + (p.level - 1) * 0.08 + int_ * 0.02;
-    p.critRate = (cls.critRate || 0.1) + bonusCrit + dex * 0.005;
-    p.dodgeRate = (cls.dodgeRate || 0) + bonusDodge + dex * 0.003;
-    p.equipBonusSpd = bonusSpd;
-    p.equipExpBonus = bonusExp;
-    p.equipGoldBonus = bonusGold;
+    p.critRate = (cls.critRate || 0.1) + bonusCrit + runeCrit + legacyCrit + dex * 0.005;
+    p.dodgeRate = (cls.dodgeRate || 0) + bonusDodge + runeDodge + dex * 0.003;
+    p.equipBonusSpd = bonusSpd + runeSpd + legacySpd;
+    p.equipExpBonus = bonusExp + setExpBonus + runeExp + legacyExpBonus + titleExp;
+    p.equipGoldBonus = bonusGold + runeGold + legacyGoldBonus;
+    p.dropRateBonus = runeDropRate + legacyDropRate;
 }
 
 function trackQuest(p, target, amount) {
@@ -4427,9 +4495,11 @@ function executeThrow(pId) {
         }, cls.projLife);
     } else {
         // 액티브 플레이 보너스 적용
+        // 버프 아이템 반영 (atk_boost, food_atk 등)
+        const buffedAtk = getBuffedStat(player, 'atk');
         let activeDmgMulti = player.dmgMulti;
         if (player._activeBonus && Date.now() < player._activeBonus) activeDmgMulti *= 1.3;
-        const { damage, isCrit } = calcDamage(cls.atk, 0, activeDmgMulti, player.critRate);
+        const { damage, isCrit } = calcDamage(buffedAtk, 0, activeDmgMulti, player.critRate);
         axes[currentObjId] = {
             id: currentObjId, ownerId: pId,
             x: player.x + finalDirX * 0.5,
@@ -4744,6 +4814,27 @@ setInterval(() => {
     // ══════════════════════════════════════
 
     const now = Date.now();
+
+    // ── 시즌 균열 로테이션 (2주마다) ──
+    if (Date.now() - currentSeason.startTime > 14 * 86400000) {
+        // 시즌 종료 → 보상 지급 + 다음 시즌
+        const sorted = Object.entries(currentSeason.leaderboard).sort((a,b) => b[1] - a[1]);
+        for (let i = 0; i < Math.min(10, sorted.length); i++) {
+            const [pid, depth] = sorted[i];
+            const p = players[pid];
+            if (!p) continue;
+            const reward = Math.floor(5000 / (i + 1));
+            p.gold += reward;
+            p.diamonds = (p.diamonds||0) + Math.floor(100 / (i + 1));
+            io.to(pid).emit('server_msg', { msg: `[시즌 종료] ${i+1}위! +${reward}G +${Math.floor(100/(i+1))}D`, type: 'rare' });
+        }
+        // 다음 테마
+        const nextIdx = (RIFT_THEMES.indexOf(currentSeason.theme) + 1) % RIFT_THEMES.length;
+        currentSeason = { theme: RIFT_THEMES[nextIdx], depth: 0, startTime: Date.now(), leaderboard: {} };
+        // 모든 플레이어 균열 깊이 리셋
+        for (const pid in players) { if (players[pid]._riftDepth) players[pid]._riftDepth = 0; }
+        io.emit('server_msg', { msg: `[새 시즌] "${RIFT_THEMES[nextIdx].name}" 시즌 시작!`, type: 'boss' });
+    }
 
     // ── 1. 트레저 고블린 (3~8분마다) ──
     if (!treasureGoblin && now > nextTreasureTime && Math.random() < 0.7) {
@@ -5761,12 +5852,10 @@ function handleCollisions() {
                             factionState[realOwner.faction].zones[mob.zoneId]++;
                             realOwner.factionRep = (realOwner.factionRep || 0) + 1;
                         }
-                        // 진영 보너스
+                        // 진영 보너스 (ATK/DEF는 recalcStats에서 적용, EXP만 여기서)
                         const fb = FACTIONS[realOwner.faction];
                         if (fb) {
-                            if (fb.bonus === 'atk') goldMulti += 0; // ATK은 recalcStats에서
                             if (fb.bonus === 'exp') expMulti += fb.bonusValue;
-                            if (fb.bonus === 'def') goldMulti += 0;
                         }
                     }
 
@@ -5860,7 +5949,8 @@ function handleCollisions() {
                     };
                     const drops = equipDrops[mob.tier] || [];
                     for (const d of drops) {
-                        if (Math.random() < d.rate) {
+                        const effectiveRate = d.rate * (1 + (realOwner.dropRateBonus || 0));
+                        if (Math.random() < effectiveRate) {
                             realOwner.inventory[d.id] = (realOwner.inventory[d.id]||0) + 1;
                             // 랜덤 옵션 생성 (등급에 따라)
                             const eqInfo = EQUIP_STATS[d.id];
@@ -6071,17 +6161,22 @@ function handleAoeDamage() {
 // ==========================================
 
 function handlePlayerDeath(target, targetId, owner, attackerId) {
-    // 펫 자동 부활 체크 (천사 펫)
+    // 자동 부활 체크 (펫 + 프레스티지)
     if (!target.isBot) {
         const petEff = getPetEffect(target);
-        if (petEff && petEff.effect === 'autoRevive') {
+        const hasLegacyRevive = target.legacyPerks?.some(pk => pk.stat === 'autoRevive');
+        const canRevive = (petEff && petEff.effect === 'autoRevive') || hasLegacyRevive;
+        if (canRevive) {
             const now = Date.now();
-            if (!target.lastAutoRevive || now - target.lastAutoRevive > 600000) { // 10분 쿨타임
+            if (!target.lastAutoRevive || now - target.lastAutoRevive > 600000) {
                 target.lastAutoRevive = now;
-                target.hp = Math.floor(target.maxHp * 0.5);
-                io.to(targetId).emit('combat_log', { msg: '천사 펫이 당신을 부활시켰습니다! (HP 50%)' });
+                const reviveHp = hasLegacyRevive ? 0.1 : 0.5; // 프레스티지: 10%, 펫: 50%
+                target.hp = Math.floor(target.maxHp * Math.max(reviveHp, petEff?.effect === 'autoRevive' ? 0.5 : 0));
+                if (target.hp < 1) target.hp = 1;
+                const source = (petEff?.effect === 'autoRevive') ? '천사 펫' : '환생 특성';
+                io.to(targetId).emit('combat_log', { msg: `${source}이(가) 당신을 부활시켰습니다! (HP ${Math.floor(target.hp/target.maxHp*100)}%)` });
                 io.emit('player_update', target);
-                return; // 사망 처리 스킵
+                return;
             }
         }
     }
