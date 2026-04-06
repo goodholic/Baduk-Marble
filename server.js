@@ -315,6 +315,118 @@ const ZONES = {
     magma_core: { name:'용암 핵심부',     x:500,  y:300,  w:70, h:70, lvl:[28,42], safe:false, bg:'map_dragon' },
 };
 
+// ══════════════════════════════════════
+// 맵 동선 시스템 — 존 연결 + 지형 장벽 + 도로
+// ══════════════════════════════════════
+
+// 존 연결 그래프 (이웃한 존끼리만 이동 가능, 레벨 게이트 포함)
+const ZONE_CONNECTIONS = {
+    // ── 서쪽 대륙 (초보~중급) ──
+    aden:     ['forest','plains','tundra'],           // 시작 마을 → 초보 사냥터
+    forest:   ['aden','plains','cave'],               // 숲 → 마을, 들판, 동굴
+    plains:   ['aden','forest','meadow','harbor'],    // 들판 → 넓은 연결
+    meadow:   ['plains','swamp','oasis'],             // 초원 → 중급 진입
+    tundra:   ['aden','frozen_deep','training'],      // 극서 초보
+    training: ['tundra','shrine','crystal_mine'],     // 훈련장 → 서쪽 마을
+
+    // ── 중앙 대륙 (중급) ──
+    oasis:    ['meadow','ruins','volcano','warzone'], // 중앙 마을 허브
+    swamp:    ['meadow','desert','cave'],             // 늪 → 사막/동굴
+    desert:   ['swamp','harbor','coral'],             // 사막 → 항구
+    harbor:   ['plains','desert','coral','mushroom'], // 동쪽 관문
+    cave:     ['forest','swamp','graveyard','crystal_mine'], // 던전 루트
+    ruins:    ['oasis','graveyard','volcano'],        // 유적 → 고급 진입
+    coral:    ['desert','harbor','riverbank'],        // 해안 → 동쪽
+
+    // ── 서쪽 대륙 (고급) ──
+    shrine:       ['training','crystal_mine','toxic_marsh','glacier'],
+    crystal_mine: ['training','cave','shrine'],
+    graveyard:    ['cave','ruins','glacier','abyss'],
+    glacier:      ['shrine','graveyard','abyss'],
+    abyss:        ['graveyard','glacier','hell'],
+    hell:         ['abyss','warzone','demon'],
+    toxic_marsh:  ['shrine','haunted','lawless'],
+    haunted:      ['toxic_marsh','sky_ruins'],
+    sky_ruins:    ['haunted','demon'],
+    frozen_deep:  ['tundra','fortress'],
+    demon:        ['hell','sky_ruins','world_tree'],
+
+    // ── 중앙 고급 ──
+    volcano:    ['ruins','oasis','darkforest','magma_core'],
+    darkforest: ['volcano','dragon','chaos','ancient'],
+    dragon:     ['darkforest','mountain','shadow'],
+    ancient:    ['darkforest','chaos','castle','world_tree'],
+    chaos:      ['ancient','darkforest','warzone'],
+    warzone:    ['oasis','chaos','hell','frontier','castle'],
+    castle:     ['warzone','ancient','world_tree'],
+    frontier:   ['warzone','lawless'],
+    mountain:   ['dragon','sunken','bazaar'],
+
+    // ── 동쪽 대륙 ──
+    mushroom:   ['harbor','riverbank','port_east'],
+    port_east:  ['mushroom','colosseum','blood_arena'],
+    riverbank:  ['mushroom','coral','sandstorm','fishing'],
+    sandstorm:  ['riverbank','sunken','magma_core'],
+    fishing:    ['riverbank','sunken'],
+    sunken:     ['sandstorm','mountain','fishing','shadow'],
+    shadow:     ['dragon','sunken','celestial'],
+    celestial:  ['shadow','bazaar','void_rift'],
+    void_rift:  ['celestial'],
+    blood_arena:['port_east','colosseum'],
+    colosseum:  ['port_east','blood_arena','fortress'],
+    magma_core: ['volcano','sandstorm','bazaar'],
+    bazaar:     ['magma_core','celestial','mountain','arena'],
+    arena:      ['bazaar'],
+
+    // ── 최종 ──
+    lawless:    ['frontier','toxic_marsh','world_tree'],
+    world_tree: ['castle','demon','lawless'],
+    fortress:   ['frozen_deep','colosseum'],
+};
+
+// 지형 장벽 (이동 불가 직사각형 — 산맥/바다/절벽)
+const TERRAIN_BARRIERS = [
+    // 서쪽 산맥 (초보 지역과 고급 지역 사이)
+    { x:-480, y:-300, w:40, h:200, type:'mountain', name:'그림자 산맥' },
+    { x:-480, y:50,   w:40, h:200, type:'mountain', name:'서쪽 절벽' },
+    // 동쪽 바다 (항구에서 배로만 건너는 영역)
+    { x:450,  y:-600, w:30, h:300, type:'water', name:'동해' },
+    // 중앙 용암 지대 (고급 존 경계)
+    { x:50,   y:-100, w:80, h:30, type:'lava', name:'용암 강' },
+    // 북쪽 빙하 (최상급 존 경계)
+    { x:-200, y:-750, w:400, h:30, type:'ice', name:'영원의 빙벽' },
+    // 남쪽 혼돈 장벽
+    { x:-150, y:700,  w:300, h:30, type:'chaos', name:'혼돈의 균열' },
+];
+
+// 도로 (존 사이 안전 통로 — 몬스터 스폰 안 됨, 이동속도 +20%)
+const ROADS = [
+    { from:'aden', to:'plains', path:[{x:-460,y:-480},{x:-340,y:-460}] },
+    { from:'aden', to:'forest', path:[{x:-480,y:-460},{x:-440,y:-420}] },
+    { from:'plains', to:'harbor', path:[{x:-260,y:-440},{x:320,y:-440}] },
+    { from:'oasis', to:'volcano', path:[{x:-60,y:30},{x:160,y:-130}] },
+    { from:'harbor', to:'mushroom', path:[{x:380,y:-430},{x:580,y:-480}] },
+    { from:'frontier', to:'warzone', path:[{x:-280,y:360},{x:-120,y:360}] },
+];
+
+// 도로 위 이동속도 보너스 체크
+function isOnRoad(x, y) {
+    for (const road of ROADS) {
+        for (const pt of road.path) {
+            if (Math.abs(x - pt.x) < 15 && Math.abs(y - pt.y) < 15) return true;
+        }
+    }
+    return false;
+}
+
+// 지형 장벽 충돌 체크
+function isBlocked(x, y) {
+    for (const b of TERRAIN_BARRIERS) {
+        if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) return b;
+    }
+    return null;
+}
+
 // 존별 몬스터 배합 + 보너스
 const ZONE_MONSTERS = {
     // 초보: 노말 위주
@@ -1868,6 +1980,9 @@ io.on('connection', (socket) => {
             monsterTiers: MONSTER_TIERS,
             mountSpeed: getMountSpeed(pInfo),
             gradeInfo: GRADE_INFO,
+            barriers: TERRAIN_BARRIERS,
+            roads: ROADS,
+            zoneConnections: ZONE_CONNECTIONS,
         });
 
         socket.broadcast.emit('player_join', players[playerId]);
@@ -1916,6 +2031,12 @@ io.on('connection', (socket) => {
             // 이동 거리 검증 (텔레포트 핵 방지)
             const dist = Math.hypot(nx - p.x, ny - p.y);
             if (dist > 3) return; // 틱당 최대 이동 거리 제한
+            // 지형 장벽 충돌 체크
+            const barrier = isBlocked(nx, ny);
+            if (barrier) {
+                // 장벽에 부딪히면 이동 취소 (현재 위치 유지)
+                return;
+            }
             // 맵 범위 제한
             p.x = Math.max(-1020, Math.min(1020, nx));
             p.y = Math.max(-1020, Math.min(1020, ny));

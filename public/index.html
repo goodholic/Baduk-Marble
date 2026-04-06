@@ -834,7 +834,12 @@
 
     function setupSocketListeners() {
       window.socket.on('init', (data) => {
-        try { myPlayerId = data.id; } catch(e) { console.warn('[init error]', e); }
+        try {
+          myPlayerId = data.id;
+          if (data.barriers) window._barriers = data.barriers;
+          if (data.roads) window._roads = data.roads;
+          if (data.zoneConnections) window._zoneConns = data.zoneConnections;
+        } catch(e) { console.warn('[init error]', e); }
       });
 
       var lastGold = 0, lastDiamonds = 0, lastZone = '', lastKills = 0;
@@ -2133,6 +2138,30 @@
       // 배경
       ctx.fillStyle = '#1a1a2e';
       ctx.fillRect(0, 0, MAP_SIZE, MAP_SIZE);
+
+      // 지형 장벽 (산맥/바다/용암)
+      var barrierColors = {mountain:'#3a2a1a',water:'#1a2a4a',lava:'#4a1a0a',ice:'#3a4a5a',chaos:'#2a0a2a'};
+      (window._barriers||[]).forEach(function(b) {
+        var tl = mapToMinimap(b.x, b.y);
+        var br = mapToMinimap(b.x + b.w, b.y + b.h);
+        ctx.fillStyle = barrierColors[b.type] || '#333';
+        ctx.fillRect(tl.mx, tl.my, br.mx - tl.mx, br.my - tl.my);
+      });
+
+      // 도로 (안전 통로)
+      ctx.strokeStyle = 'rgba(255,215,0,0.2)';
+      ctx.lineWidth = 1;
+      (window._roads||[]).forEach(function(r) {
+        if (r.path.length < 2) return;
+        ctx.beginPath();
+        var start = mapToMinimap(r.path[0].x, r.path[0].y);
+        ctx.moveTo(start.mx, start.my);
+        for (var i = 1; i < r.path.length; i++) {
+          var pt = mapToMinimap(r.path[i].x, r.path[i].y);
+          ctx.lineTo(pt.mx, pt.my);
+        }
+        ctx.stroke();
+      });
 
       // 존 영역
       Object.values(zones).forEach(z => {
