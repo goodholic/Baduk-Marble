@@ -276,7 +276,35 @@
     <div id="loading-screen">
       <div id="loading-text">AutoBattle.io 로딩 중...</div>
       <div id="progress-bar-bg"><div id="progress-bar-fill"></div></div>
+      <div id="loading-tip" style="margin-top:20px;color:#888;font-size:11px;font-style:italic;max-width:350px;text-align:center;line-height:1.5"></div>
     </div>
+    <script>
+    (function(){
+      var tips = [
+        '💡 늪지대에서는 독 데미지를 받습니다. 물약을 준비하세요!',
+        '💡 도로 위에서는 이동속도가 20% 빨라집니다.',
+        '💡 밤에는 몬스터가 강해지지만 EXP +20% 보너스!',
+        '💡 비 오는 날에는 수(水) 속성 데미지가 15% 증가합니다.',
+        '💡 보물 도깨비가 나타나면 15초 내에 잡으세요!',
+        '💡 같은 등급 장비 3개로 상위 등급 1개를 합성할 수 있습니다.',
+        '💡 룬 3개를 조합하면 강력한 룬 워드가 발동됩니다!',
+        '💡 환생(Lv.50)하면 영구 보너스를 얻습니다.',
+        '💡 진영에 가입하면 ATK/DEF/EXP 보너스를 받습니다.',
+        '💡 시즌 균열은 2주마다 테마가 변경됩니다.',
+        '💡 길드 레이드는 주 1회! 길드원과 함께 도전하세요.',
+        '💡 PvP 아레나에서 마스터 티어를 목표로!',
+        '💡 몬스터 도감을 완성하면 전설 장비를 받습니다.',
+        '💡 낚시 만에서 용왕의 물고기를 낚아보세요!',
+        '💡 공허의 균열은 최고 난이도 존! MP가 빨려갑니다.',
+      ];
+      var tipEl = document.getElementById('loading-tip');
+      var tipIdx = 0;
+      function showTip(){ if(tipEl) tipEl.textContent = tips[tipIdx % tips.length]; tipIdx++; }
+      showTip();
+      var tipTimer = setInterval(showTip, 3000);
+      window._clearLoadingTips = function(){ clearInterval(tipTimer); if(tipEl) tipEl.style.display='none'; };
+    })();
+    </script>
 
     <!-- 클래스 선택 -->
     <div id="class-select">
@@ -367,7 +395,7 @@
     <div id="skill-cooldown-bar" style="position:fixed;bottom:52px;left:50%;transform:translateX(-50%);z-index:16;display:flex;gap:4px;pointer-events:none"></div>
 
     <!-- 도파민 UI 요소들 -->
-    <div id="session-stats"><span id="ss-time">⏱ 0:00</span><span id="ss-kills">💀 0</span><span id="ss-gold">💰 +0G</span></div>
+    <div id="session-stats"><span id="ss-time">⏱ 0:00</span><span id="ss-kills">💀 0</span><span id="ss-gold">💰 +0G</span><span id="ss-deaths">☠ 0</span></div>
     <div id="dps-meter">DPS: 0</div>
     <div id="combat-status"></div>
     <div id="next-milestone"><span id="nm-text" style="color:#ffd700"></span><div class="bar"><div class="fill" id="nm-fill" style="width:0%"></div></div></div>
@@ -394,6 +422,8 @@
       <button onclick="event.stopPropagation();window.socket.emit('toggle_pvp','{}')" class="btn" style="background:rgba(200,100,0,0.7);color:#fff;border-color:rgba(255,150,0,0.3)" id="pvp-btn">⚔ PvP 선언</button>
       <button onclick="event.stopPropagation();window.socket.emit('build_tower','{}')" class="btn" style="background:rgba(0,80,180,0.7);color:#fff;border-color:rgba(68,136,255,0.3)">🏰 타워 (-80G)</button>
       <button onclick="event.stopPropagation();window.socket.emit('add_bot','{}')" class="btn" style="background:rgba(0,120,60,0.7);color:#fff;border-color:rgba(68,255,68,0.3)">🗡 용병 (-150G)</button>
+      <button onclick="event.stopPropagation();window.socket.emit('active_tap')" class="btn" style="background:rgba(255,150,0,0.7);color:#fff;border-color:rgba(255,200,0,0.3)">⚡부스트</button>
+      <button onclick="event.stopPropagation();window.socket.emit('interact_npc','힐러')" class="btn" style="background:rgba(0,180,80,0.7);color:#fff;border-color:rgba(68,255,68,0.3)">💚힐</button>
     </div>
 
     <!-- 공격 버튼 -->
@@ -817,6 +847,7 @@
       document.getElementById('status-bar').classList.add("show");
       minimapContainer.classList.add("show");
       document.getElementById('combat-log').classList.add("show");
+      if (window._clearLoadingTips) window._clearLoadingTips();
       // 세션 시작 기록
       sessionStartTime = Date.now();
       sessionStartGold = 0; // init 시점에서 갱신됨
@@ -1057,6 +1088,7 @@
               ' | 💰 획득 ' + (lastGold - sessionStartGold) + 'G' +
               ' | 🔥 최고 스트릭 ' + (personalBests.maxStreak||0) + 'x</div>';
           }
+          sessionDeaths++;
           // 3초 딜레이 후 리스폰 버튼 표시
           var rs = document.getElementById('respawn-screen');
           rs.style.display = 'flex';
@@ -1694,8 +1726,14 @@
         el.innerHTML = html;
       });
 
-      // 장비 비교
+      // 장비 비교 (+ 자동 장착)
       window.socket.on('equip_compare', (d) => {
+        // 자동 장착 설정 시 더 강하면 바로 장착
+        if (window._autoEquip && d.atkDiff + d.defDiff > 0) {
+          // 서버에 장착 요청 (itemId 필요)
+          showToast('자동 장착: ' + d.new.name + ' (ATK+' + d.atkDiff + ')');
+          return;
+        }
         var gradeColors = {normal:'#ccc',uncommon:'#4c4',rare:'#48f',epic:'#a4f',legendary:'#f80'};
         var diffColor = function(v) { return v > 0 ? '#44ff44' : v < 0 ? '#ff4444' : '#888'; };
         var diffStr = function(v) { return v > 0 ? '▲+'+v : v < 0 ? '▼'+v : '='; };
@@ -1753,6 +1791,17 @@
         var titleTag = d.title ? '<span style="color:'+d.titleColor+';font-size:9px">['+d.title+']</span> ' : '';
         var lvTag = d.level ? '<span style="color:#888;font-size:9px">Lv.'+d.level+'</span> ' : '';
         addChatMsg(titleTag + lvTag + prefix + d.sender + ': ' + d.msg, cls);
+      });
+
+      // 환영 메시지
+      window.socket.on('welcome_back', (d) => {
+        showToast('다시 오셨군요! Lv.' + d.level + (d.prestige>0?' ★'+d.prestige:'') + ' | ' + d.kills + '킬 | ' + d.gold + 'G');
+      });
+      // 추천 존
+      window.socket.on('recommend_zone', (d) => {
+        setTimeout(function() {
+          addCombatLog('[추천] ' + d.name + ' (Lv.' + d.lvl[0] + '~' + d.lvl[1] + ', 보너스+' + d.bonus + '%)', 'log-gold');
+        }, 5500);
       });
 
       // 존 위험 요소 데미지
@@ -2477,6 +2526,7 @@
     var dpsSamples = []; // [{time, damage}]
     var sessionStartGold = 0;
     var sessionStartTime = Date.now();
+    var sessionDeaths = 0;
     var recentLoots = [];
     var personalBests = JSON.parse(localStorage.getItem('ab_records') || '{}');
 
@@ -2508,6 +2558,7 @@
       document.getElementById('ss-kills').textContent = '💀 ' + (gameStats.kills || 0);
       var goldDelta = lastGold - sessionStartGold;
       document.getElementById('ss-gold').textContent = '💰 ' + (goldDelta >= 0 ? '+' : '') + goldDelta + 'G';
+      document.getElementById('ss-deaths').textContent = '☠ ' + sessionDeaths;
       // 킬 스트릭 개인 기록
       if (killStreak > (personalBests.maxStreak || 0)) {
         personalBests.maxStreak = killStreak;

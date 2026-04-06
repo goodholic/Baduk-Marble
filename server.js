@@ -2224,6 +2224,28 @@ io.on('connection', (socket) => {
                 }
             }
         }
+        // ── 환영 메시지 (복귀 유저) ──
+        if (pInfo.level > 1 && loadedData) {
+            setTimeout(() => {
+                socket.emit('welcome_back', {
+                    level: pInfo.level, kills: pInfo.killCount || 0, gold: pInfo.gold,
+                    prestige: pInfo.prestigeLevel || 0,
+                });
+            }, 1500);
+        }
+        // ── 추천 존 ──
+        setTimeout(() => {
+            let bestZone = null, bestBonus = 0;
+            for (const [zId, z] of Object.entries(ZONES)) {
+                if (z.safe || z.isCastle || z.isArena) continue;
+                if (pInfo.level >= z.lvl[0] && pInfo.level <= z.lvl[1]) {
+                    const zm = ZONE_MONSTERS[zId];
+                    const bonus = zm ? (zm.expBonus || 0) + (zm.goldBonus || 0) : 0;
+                    if (bonus > bestBonus) { bestBonus = bonus; bestZone = { name: z.name, lvl: z.lvl }; }
+                }
+            }
+            if (bestZone) socket.emit('recommend_zone', { name: bestZone.name, lvl: bestZone.lvl, bonus: Math.floor(bestBonus * 100) });
+        }, 5000);
     });
 
     socket.on('move', (data) => {
