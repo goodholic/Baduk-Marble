@@ -347,43 +347,45 @@
     </div>
 
     <!-- 마을 NPC 안내 -->
-    <div id="town-npc" style="display:none;position:absolute;top:60px;left:50%;transform:translateX(-50%);z-index:16;padding:8px 20px;background:url('ui/btn_green.png') center/100% 100% no-repeat;color:#fff;font-size:13px;font-weight:700;border-radius:10px;text-shadow:0 1px 3px #000"></div>
+    <div id="town-npc" style="display:none;position:absolute;top:60px;left:50%;transform:translateX(-50%);z-index:16;padding:var(--sp-md) var(--sp-xl);background:rgba(0,100,50,0.85);backdrop-filter:blur(6px);color:#fff;font-size:var(--fs-base);font-weight:700;border-radius:var(--r-lg);border:1px solid rgba(68,255,68,0.2)"></div>
 
     <!-- 게임 액션 버튼 (상단) -->
-    <div id="action-buttons" style="display:none;position:absolute;top:32px;left:50%;transform:translateX(-50%);z-index:16;gap:8px">
-      <button onclick="event.stopPropagation();window.socket.emit('toggle_pvp','{}')" style="padding:8px 18px;border:none;border-radius:10px;background:url('ui/btn_orange.png') center/100% 100% no-repeat;color:#fff;font-size:13px;font-weight:700;cursor:pointer;text-shadow:0 1px 3px #000" id="pvp-btn">PvP 선언</button>
-      <button onclick="event.stopPropagation();window.socket.emit('build_tower','{}')" style="padding:8px 18px;border:none;border-radius:10px;background:url('ui/btn_blue.png') center/100% 100% no-repeat;color:#fff;font-size:12px;font-weight:700;cursor:pointer;text-shadow:0 1px 3px #000">타워 (-80G)</button>
-      <button onclick="event.stopPropagation();window.socket.emit('add_bot','{}')" style="padding:8px 18px;border:none;border-radius:10px;background:url('ui/btn_green.png') center/100% 100% no-repeat;color:#fff;font-size:12px;font-weight:700;cursor:pointer;text-shadow:0 1px 3px #000">용병 (-150G)</button>
+    <div id="action-buttons" style="display:none;position:absolute;top:32px;left:50%;transform:translateX(-50%);z-index:16;gap:var(--sp-sm)">
+      <button onclick="event.stopPropagation();window.socket.emit('toggle_pvp','{}')" class="btn" style="background:rgba(200,100,0,0.7);color:#fff;border-color:rgba(255,150,0,0.3)" id="pvp-btn">⚔ PvP 선언</button>
+      <button onclick="event.stopPropagation();window.socket.emit('build_tower','{}')" class="btn" style="background:rgba(0,80,180,0.7);color:#fff;border-color:rgba(68,136,255,0.3)">🏰 타워 (-80G)</button>
+      <button onclick="event.stopPropagation();window.socket.emit('add_bot','{}')" class="btn" style="background:rgba(0,120,60,0.7);color:#fff;border-color:rgba(68,255,68,0.3)">🗡 용병 (-150G)</button>
     </div>
 
-    <!-- 공격 버튼 (브롤스타즈 스타일) -->
-    <button id="attack-btn" style="display:none;position:fixed;right:20px;bottom:230px;z-index:20;width:85px;height:85px;border-radius:50%;background:url('ui/btn_red.png') center/100% 100% no-repeat;border:none;color:#fff;font-size:16px;font-weight:900;cursor:pointer;touch-action:none;user-select:none;text-shadow:0 2px 4px rgba(0,0,0,0.8);filter:drop-shadow(0 4px 8px rgba(255,0,0,0.4))" ontouchstart="startAttack(event)" ontouchend="endAttack(event)" onmousedown="doAttack(event)" onclick="event.stopPropagation()">⚔ATK</button>
+    <!-- 공격 버튼 -->
+    <button id="attack-btn" style="display:none;position:fixed;right:20px;bottom:230px;z-index:20;width:80px;height:80px;border-radius:50%;background:radial-gradient(circle,rgba(220,40,40,0.9),rgba(150,0,0,0.9));border:2px solid rgba(255,100,100,0.4);color:#fff;font-size:15px;font-weight:900;cursor:pointer;touch-action:none;user-select:none;box-shadow:0 4px 16px rgba(255,0,0,0.3);transition:all 0.1s" ontouchstart="startAttack(event)" ontouchend="endAttack(event)" onmousedown="doAttack(event)" onclick="event.stopPropagation()">⚔ATK</button>
 
     <!-- 부활 화면 -->
     <div id="respawn-screen" style="position:absolute;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:none;flex-direction:column;justify-content:center;align-items:center;z-index:22">
       <h2 style="color:#ff4444;font-size:36px;margin-bottom:5px;text-shadow:0 0 30px #f00;animation:lvlPop 0.5s ease-out">SLAIN</h2>
       <div id="death-info" style="color:#ccc;font-size:13px;margin-bottom:10px"></div>
       <p style="color:#aaa;margin-bottom:15px;font-size:12px">EXP -10% / 인벤 30% + 골드 50% 약탈 | 마을에서 부활</p>
-      <button onclick="respawnAs('Assassin')" class="class-btn" style="width:320px;padding:12px">
-        <div class="name" style="color:#ff6b6b">Assassin [어쌔신]</div>
-        <small style="color:#888">HP:120 ATK:45 SPD:22 | 크리티컬 암살자</small>
-      </button>
-      <button onclick="respawnAs('Warrior')" class="class-btn" style="width:320px;padding:12px">
-        <div class="name" style="color:#ffa500">Warrior [워리어]</div>
-        <small style="color:#888">HP:180 ATK:30 DEF:15 | 균형 전사</small>
-      </button>
-      <button onclick="respawnAs('Knight')" class="class-btn" style="width:320px;padding:12px">
-        <div class="name" style="color:#44aaff">Knight [나이트]</div>
-        <small style="color:#888">HP:300 ATK:15 DEF:30 | 철벽 탱커</small>
-      </button>
-      <button onclick="respawnAs('Mage')" class="class-btn" style="width:320px;padding:12px">
-        <div class="name" style="color:#aa44ff">Mage [메이지]</div>
-        <small style="color:#888">HP:90 ATK:10 AoE | 광역 마법사</small>
-      </button>
+      <div style="display:flex;flex-wrap:wrap;gap:var(--sp-md);justify-content:center;max-width:660px">
+        <button onclick="respawnAs('Assassin')" class="class-btn" style="width:300px">
+          <div class="name" style="color:var(--c-red)">Assassin [어쌔신]</div>
+          <small class="text-muted">HP:130 ATK:35 SPD:20 CRIT:20% | 암살자</small>
+        </button>
+        <button onclick="respawnAs('Warrior')" class="class-btn" style="width:300px">
+          <div class="name" style="color:var(--c-orange)">Warrior [워리어]</div>
+          <small class="text-muted">HP:200 ATK:28 DEF:16 | 밸런스 전사</small>
+        </button>
+        <button onclick="respawnAs('Knight')" class="class-btn" style="width:300px">
+          <div class="name" style="color:var(--c-blue)">Knight [나이트]</div>
+          <small class="text-muted">HP:350 ATK:18 DEF:28 | 탱커</small>
+        </button>
+        <button onclick="respawnAs('Mage')" class="class-btn" style="width:300px">
+          <div class="name" style="color:var(--c-purple)">Mage [메이지]</div>
+          <small class="text-muted">HP:110 ATK:18 AoE CRIT:15% | 마법사</small>
+        </button>
+      </div>
     </div>
 
     <!-- 테이밍 버튼 (게임 화면 우측) -->
-    <button id="tame-btn" onclick="event.stopPropagation();window.socket.emit('tame_nearest','{}')" style="display:none;position:fixed;right:15px;bottom:130px;z-index:20;padding:12px 20px;background:url('ui/btn_purple.png') center/100% 100% no-repeat;border:none;border-radius:14px;color:#fff;font-size:13px;cursor:pointer;font-weight:900;text-shadow:0 2px 4px rgba(0,0,0,0.8);filter:drop-shadow(0 3px 6px rgba(100,0,200,0.4))">테이밍 (50G)</button>
+    <button id="tame-btn" onclick="event.stopPropagation();window.socket.emit('tame_nearest','{}')" class="btn" style="display:none;position:fixed;right:15px;bottom:130px;z-index:20;background:rgba(100,0,200,0.7);color:#fff;border-color:rgba(170,68,255,0.3);font-size:var(--fs-md);font-weight:900;border-radius:var(--r-lg);box-shadow:0 3px 12px rgba(100,0,200,0.3)">🐾 테이밍</button>
 
     <!-- 전투 로그 -->
     <div id="combat-log"></div>
@@ -534,10 +536,10 @@
       <div class="panel-header"><h2>경매장</h2><button class="panel-close" onclick="closePanel('market')">X</button></div>
       <div class="panel-body" id="market-body">
         <div style="display:flex;gap:4px;margin-bottom:8px">
-          <button onclick="window.socket.emit('market_browse',{})" style="flex:1;padding:6px;font-size:11px;background:#333;color:#eee;border:1px solid #555;border-radius:4px">전체</button>
-          <button onclick="window.socket.emit('market_browse',{category:'장비'})" style="flex:1;padding:6px;font-size:11px;background:#333;color:#48f;border:1px solid #555;border-radius:4px">장비</button>
-          <button onclick="window.socket.emit('market_browse',{category:'재료'})" style="flex:1;padding:6px;font-size:11px;background:#333;color:#4c4;border:1px solid #555;border-radius:4px">재료</button>
-          <button onclick="window.socket.emit('market_browse',{category:'물약'})" style="flex:1;padding:6px;font-size:11px;background:#333;color:#f88;border:1px solid #555;border-radius:4px">물약</button>
+          <button onclick="window.socket.emit('market_browse',{})" class="btn btn-sm" style="flex:1">전체</button>
+          <button onclick="window.socket.emit('market_browse',{category:'장비'})" class="btn btn-sm" style="flex:1;color:var(--c-blue)">장비</button>
+          <button onclick="window.socket.emit('market_browse',{category:'재료'})" class="btn btn-sm" style="flex:1;color:var(--c-green)">재료</button>
+          <button onclick="window.socket.emit('market_browse',{category:'물약'})" class="btn btn-sm" style="flex:1;color:var(--c-red)">물약</button>
         </div>
         <div id="market-list"><p style="color:#888">검색 버튼을 눌러주세요</p></div>
       </div>
@@ -549,12 +551,12 @@
       <div class="panel-body">
         <div style="text-align:center;margin-bottom:10px">
           <p style="color:#ffd700;font-size:12px">1:1 PvP 아레나 (Lv.10+, 일일 10회)</p>
-          <button onclick="window.socket.emit('arena_join')" style="padding:10px 20px;background:linear-gradient(135deg,#ff4444,#cc0000);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:bold;cursor:pointer">대전 참가</button>
-          <button onclick="window.socket.emit('arena_leave')" style="padding:10px 15px;background:#555;color:#eee;border:none;border-radius:8px;font-size:12px;cursor:pointer;margin-left:5px">취소</button>
+          <button onclick="window.socket.emit('arena_join')" class="btn btn-danger" style="font-size:var(--fs-md)">⚔ 대전 참가</button>
+          <button onclick="window.socket.emit('arena_leave')" class="btn" style="margin-left:5px">취소</button>
         </div>
         <div style="border-top:1px solid #333;padding-top:8px">
           <p style="color:#ffd700;font-size:11px;margin-bottom:5px">아레나 랭킹</p>
-          <button onclick="window.socket.emit('arena_rankings')" style="padding:4px 10px;background:#333;color:#eee;border:1px solid #555;border-radius:4px;font-size:11px;margin-bottom:5px">새로고침</button>
+          <button onclick="window.socket.emit('arena_rankings')" class="btn btn-sm" style="margin-bottom:5px">새로고침</button>
           <div id="arena-ranking"><p style="color:#888;font-size:11px">랭킹 조회 버튼을 눌러주세요</p></div>
         </div>
       </div>
@@ -564,7 +566,7 @@
     <div class="panel" id="panel-friends">
       <div class="panel-header"><h2>친구</h2><button class="panel-close" onclick="closePanel('friends')">X</button></div>
       <div class="panel-body">
-        <button onclick="window.socket.emit('get_friends')" style="width:100%;padding:6px;background:#333;color:#eee;border:1px solid #555;border-radius:4px;font-size:11px;margin-bottom:5px">새로고침</button>
+        <button onclick="window.socket.emit('get_friends')" class="btn btn-sm" style="width:100%;margin-bottom:5px">새로고침</button>
         <div id="friend-list"><p style="color:#888;font-size:11px">친구 목록을 불러오세요</p></div>
       </div>
     </div>
@@ -577,8 +579,8 @@
         <p style="color:#888;font-size:11px">올라갈수록 몬스터가 강해집니다</p>
         <p style="color:#888;font-size:11px">10층마다 특별 보상</p>
         <div style="margin:10px 0">
-          <button onclick="window.socket.emit('tower_enter')" style="padding:10px 20px;background:linear-gradient(135deg,#ffd700,#ff8800);color:#000;border:none;border-radius:8px;font-size:14px;font-weight:bold;cursor:pointer">도전 시작</button>
-          <button onclick="window.socket.emit('tower_leave')" style="padding:10px 15px;background:#555;color:#eee;border:none;border-radius:8px;font-size:12px;cursor:pointer;margin-left:5px">포기</button>
+          <button onclick="window.socket.emit('tower_enter')" class="btn btn-primary">도전 시작</button>
+          <button onclick="window.socket.emit('tower_leave')" class="btn" style="margin-left:5px">포기</button>
         </div>
       </div>
     </div>
@@ -587,7 +589,7 @@
     <div class="panel" id="panel-bounty">
       <div class="panel-header"><h2>현상금</h2><button class="panel-close" onclick="closePanel('bounty')">X</button></div>
       <div class="panel-body">
-        <button onclick="window.socket.emit('get_bounties')" style="width:100%;padding:6px;background:#333;color:#eee;border:1px solid #555;border-radius:4px;font-size:11px;margin-bottom:5px">갱신</button>
+        <button onclick="window.socket.emit('get_bounties')" class="btn btn-sm" style="width:100%;margin-bottom:5px">갱신</button>
         <div id="bounty-list"><div class="loading-text"><span class="spinner"></span> 로딩 중...</div></div>
       </div>
     </div>
@@ -617,10 +619,10 @@
         </div>
         <h4 style="color:#ffd700;margin:0 0 8px;font-size:12px">자동 물약 임계값</h4>
         <div style="display:flex;gap:5px;margin-bottom:10px">
-          <button onclick="window._potThreshold=0.2;showToast('물약 임계값: 20%')" style="padding:5px 10px;background:#333;color:#eee;border:1px solid #555;border-radius:4px;font-size:11px">20%</button>
+          <button onclick="window._potThreshold=0.2;showToast('물약 임계값: 20%')" class="btn btn-sm">20%</button>
           <button onclick="window._potThreshold=0.3;showToast('물약 임계값: 30%')" style="padding:5px 10px;background:#555;color:#ffd700;border:1px solid #ffd700;border-radius:4px;font-size:11px">30%</button>
-          <button onclick="window._potThreshold=0.4;showToast('물약 임계값: 40%')" style="padding:5px 10px;background:#333;color:#eee;border:1px solid #555;border-radius:4px;font-size:11px">40%</button>
-          <button onclick="window._potThreshold=0.5;showToast('물약 임계값: 50%')" style="padding:5px 10px;background:#333;color:#eee;border:1px solid #555;border-radius:4px;font-size:11px">50%</button>
+          <button onclick="window._potThreshold=0.4;showToast('물약 임계값: 40%')" class="btn btn-sm">40%</button>
+          <button onclick="window._potThreshold=0.5;showToast('물약 임계값: 50%')" class="btn btn-sm">50%</button>
         </div>
         <h4 style="color:#ffd700;margin:0 0 8px;font-size:12px">화면 효과</h4>
         <label style="display:flex;align-items:center;gap:6px;color:#ccc;font-size:11px;margin-bottom:5px"><input type="checkbox" checked id="set-shake" onchange="window._shakeEnabled=this.checked">화면 흔들림</label>
@@ -647,7 +649,7 @@
         onkeyup="event.stopPropagation()"
         onkeypress="event.stopPropagation()"
       >
-      <button onclick="event.stopPropagation();sendChat()" style="padding:10px 16px;border:none;border-radius:0 0 8px 0;background:url('ui/btn_yellow.png') center/100% 100% no-repeat;color:#333;font-size:13px;font-weight:900;cursor:pointer">전송</button>
+      <button onclick="event.stopPropagation();sendChat()" id="chat-send">전송</button>
     </div>
   </div>
 
@@ -2197,9 +2199,8 @@
       document.getElementById('modal-body').innerHTML = bodyHtml;
       var btnHtml = '';
       buttons.forEach(function(b) {
-        var style = b.style || 'background:linear-gradient(135deg,#ffd700,#ff8800);color:#000;border:none;border-radius:6px;padding:8px 16px;font-weight:bold;cursor:pointer;font-size:13px';
-        if (b.type === 'cancel') style = 'background:#444;color:#ccc;border:none;border-radius:6px;padding:8px 16px;cursor:pointer;font-size:13px';
-        btnHtml += '<button style="'+style+'" onclick="'+b.action+'">'+b.label+'</button>';
+        var cls = b.type === 'cancel' ? 'btn' : 'btn btn-primary';
+        btnHtml += '<button class="'+cls+'" onclick="'+b.action+'">'+b.label+'</button>';
       });
       document.getElementById('modal-buttons').innerHTML = btnHtml;
       m.style.display = 'flex';
