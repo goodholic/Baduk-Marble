@@ -6549,42 +6549,63 @@ function destroyAxe(axeId) {
 // 동기화
 // ==========================================
 
+let prevMonsterSync = {};
 function syncGameState() {
     if (Object.keys(players).length === 0) return;
 
-    const syncData = { players: {}, monsters: {} };
-
+    // 플레이어별 존 기반 sync (자기 존 + 인접 존만)
+    const playersByZone = {};
     for (const pId in players) {
-        if (players[pId].isAlive) {
-            const zone = getZone(players[pId].x, players[pId].y);
-            syncData.players[pId] = {
-                x: players[pId].x,
-                y: players[pId].y,
-                gold: players[pId].gold,
-                hp: players[pId].hp,
-                karma: players[pId].karma,
-                zone: zone.id,
-                diamonds: players[pId].diamonds || 0,
-                skin: players[pId].activeSkin,
-                exp: players[pId].exp || 0,
-                maxExp: getExpRequired(players[pId].level),
-                mp: players[pId].mp || 0,
-                maxMp: players[pId].maxMp || 100,
-                maxHp: players[pId].maxHp || 100,
-                level: players[pId].level || 1,
-                killCount: players[pId].killCount || 0
-            };
-        }
+        if (!players[pId].isAlive || players[pId].isBot) continue;
+        const zone = getZone(players[pId].x, players[pId].y);
+        const zId = zone?.id || 'plains';
+        if (!playersByZone[zId]) playersByZone[zId] = [];
+        playersByZone[zId].push(pId);
     }
+
+    // 몬스터 델타 sync (변경된 것만)
+    const fullSync = (tickCounter % 150 === 0); // 5초마다 풀 sync
+    const monsterDelta = {};
     for (const mId in monsters) {
         const m = monsters[mId];
-        syncData.monsters[mId] = { x: m.x, y: m.y, name: m.name, tier: m.tier, element: m.element, hp: m.hp, maxHp: m.maxHp, aiType: m.aiType };
+        const prev = prevMonsterSync[mId];
+        if (fullSync || !prev || Math.abs(m.x - prev.x) > 0.1 || Math.abs(m.y - prev.y) > 0.1 || m.hp !== prev.hp) {
+            monsterDelta[mId] = { x: m.x, y: m.y, hp: m.hp, maxHp: m.maxHp, name: m.name, tier: m.tier, element: m.element, aiType: m.aiType };
+            prevMonsterSync[mId] = { x: m.x, y: m.y, hp: m.hp };
+        }
+    }
+    // 삭제된 몬스터 정리
+    for (const mId in prevMonsterSync) {
+        if (!monsters[mId]) { monsterDelta[mId] = null; delete prevMonsterSync[mId]; }
     }
 
-    syncData.isNight = isNight;
-    syncData.weather = currentWeather.id;
-    syncData.worldTime = worldTime;
-    io.volatile.emit('sync', syncData);
+    // 각 실제 플레이어에게 sync 전송
+    for (const pId in players) {
+        const p = players[pId];
+        if (p.isBot || !p.isAlive) continue;
+        const zone = getZone(p.x, p.y);
+        const myZoneId = zone?.id || 'plains';
+
+        const syncData = { players: {}, monsters: monsterDelta, isNight, weather: currentWeather.id, worldTime };
+
+        // 가시 범위 내 플레이어만 (거리 150 이내)
+        for (const opId in players) {
+            if (!players[opId].isAlive) continue;
+            const op = players[opId];
+            if (Math.abs(op.x - p.x) < 150 && Math.abs(op.y - p.y) < 150) {
+                const opZone = getZone(op.x, op.y);
+                syncData.players[opId] = {
+                    x: op.x, y: op.y, gold: op.gold, hp: op.hp, karma: op.karma,
+                    zone: opZone?.id || '', diamonds: op.diamonds || 0, skin: op.activeSkin,
+                    exp: op.exp || 0, maxExp: getExpRequired(op.level),
+                    mp: op.mp || 0, maxMp: op.maxMp || 100,
+                    maxHp: op.maxHp || 100, level: op.level || 1, killCount: op.killCount || 0
+                };
+            }
+        }
+
+        io.to(pId).volatile.emit('sync', syncData);
+    }
 
     // 개별 소켓에 버프 상태 전송 (5틱마다 = ~166ms)
     if (tickCounter % 5 === 0) {
@@ -6606,3 +6627,80 @@ function syncGameState() {
         }
     }
 }
+
+// ══════════════════════════════════════
+// 서버 안정성 시스템
+// ═══════��══════════════════════════════
+
+// ── 주기적 자동 저장 (60초마다) ──
+setInterval(async () => {
+    let saved = 0;
+    for (const pId in players) {
+        const p = players[pId];
+        if (!p.isBot && p.isAlive && p.deviceId && p.deviceId !== 'bot') {
+            await savePlayer(p);
+            saved++;
+        }
+    }
+    if (saved > 0) console.log(`[AutoSave] ${saved}명 저장 완료`);
+}, 60000);
+
+// ── 월드 상태 영속화 (2분마다) ──
+async function saveWorldState() {
+    try {
+        const worldState = JSON.stringify({
+            clans, bountyBoard: bountyBoard.slice(0, 10),
+            arenaRankings, castleOwner, factionState,
+            currentSeason: { theme: currentSeason.theme, startTime: currentSeason.startTime, leaderboard: currentSeason.leaderboard },
+            zoneConquest,
+        });
+        await pool.query(`
+            INSERT INTO players_save (device_id, class_name, level, exp, gold, kill_count, karma, team, is_alive, army_data, ext_data)
+            VALUES ('__world_state__', 'system', 0, 0, 0, 0, 0, 'system', true, '[]', ?)
+            ON DUPLICATE KEY UPDATE ext_data=VALUES(ext_data)
+        `, [worldState]);
+    } catch(e) { console.error('[WorldState] Save Error:', e.message); }
+}
+setInterval(saveWorldState, 120000);
+
+// ── 월드 상태 복원 (서버 시작 시) ──
+async function loadWorldState() {
+    try {
+        const [rows] = await pool.query('SELECT ext_data FROM players_save WHERE device_id = ?', ['__world_state__']);
+        if (rows.length > 0 && rows[0].ext_data) {
+            const ws = JSON.parse(rows[0].ext_data);
+            if (ws.clans) Object.assign(clans, ws.clans);
+            if (ws.arenaRankings) Object.assign(arenaRankings, ws.arenaRankings);
+            if (ws.castleOwner) castleOwner = ws.castleOwner;
+            if (ws.factionState) Object.assign(factionState, ws.factionState);
+            if (ws.zoneConquest) Object.assign(zoneConquest, ws.zoneConquest);
+            if (ws.currentSeason) {
+                currentSeason.startTime = ws.currentSeason.startTime;
+                currentSeason.leaderboard = ws.currentSeason.leaderboard || {};
+                const themeIdx = RIFT_THEMES.findIndex(t => t.id === ws.currentSeason.theme?.id);
+                if (themeIdx >= 0) currentSeason.theme = RIFT_THEMES[themeIdx];
+            }
+            console.log('[WorldState] 복원 완료 — 혈맹:', Object.keys(clans).length, '진영:', Object.keys(factionState).length);
+        }
+    } catch(e) { console.error('[WorldState] Load Error:', e.message); }
+}
+loadWorldState();
+
+// ── Graceful Shutdown (SIGTERM) ──
+async function gracefulShutdown(signal) {
+    console.log(`[Server] ${signal} 수신 — 안전 종료 시작...`);
+    // 모든 플레이어 저장
+    const promises = [];
+    for (const pId in players) {
+        if (!players[pId].isBot && players[pId].deviceId && players[pId].deviceId !== 'bot') {
+            promises.push(savePlayer(players[pId]));
+        }
+    }
+    // 월드 상태 저장
+    promises.push(saveWorldState());
+    await Promise.allSettled(promises);
+    console.log(`[Server] ${promises.length}건 저장 완료. 종료합니다.`);
+    process.exit(0);
+}
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
