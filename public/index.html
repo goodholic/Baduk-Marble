@@ -2140,7 +2140,7 @@
       ctx.fillRect(0, 0, MAP_SIZE, MAP_SIZE);
 
       // 지형 장벽 (산맥/바다/용암)
-      var barrierColors = {mountain:'#3a2a1a',water:'#1a2a4a',lava:'#4a1a0a',ice:'#3a4a5a',chaos:'#2a0a2a'};
+      var barrierColors = {mountain:'#4a3a2a',water:'#1a2a4a',lava:'#5a1a0a',ice:'#4a5a6a',chaos:'#3a0a3a',forest_wall:'#1a3a1a',swamp_wall:'#2a3a1a'};
       (window._barriers||[]).forEach(function(b) {
         var tl = mapToMinimap(b.x, b.y);
         var br = mapToMinimap(b.x + b.w, b.y + b.h);
@@ -2148,9 +2148,10 @@
         ctx.fillRect(tl.mx, tl.my, br.mx - tl.mx, br.my - tl.my);
       });
 
-      // 도로 (안전 통로)
-      ctx.strokeStyle = 'rgba(255,215,0,0.2)';
-      ctx.lineWidth = 1;
+      // 도로 (안전 통로 — 금색 점선)
+      ctx.strokeStyle = 'rgba(255,215,0,0.3)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([3,3]);
       (window._roads||[]).forEach(function(r) {
         if (r.path.length < 2) return;
         ctx.beginPath();
@@ -2162,6 +2163,7 @@
         }
         ctx.stroke();
       });
+      ctx.setLineDash([]);
 
       // 존 영역
       Object.values(zones).forEach(z => {

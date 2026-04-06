@@ -384,29 +384,74 @@ const ZONE_CONNECTIONS = {
     fortress:   ['frozen_deep','colosseum'],
 };
 
-// 지형 장벽 (이동 불가 직사각형 — 산맥/바다/절벽)
+// 지형 장벽 (산맥/강/바다/절벽 — 이동 불가, 동선을 자연스럽게 유도)
 const TERRAIN_BARRIERS = [
-    // 서쪽 산맥 (초보 지역과 고급 지역 사이)
-    { x:-480, y:-300, w:40, h:200, type:'mountain', name:'그림자 산맥' },
-    { x:-480, y:50,   w:40, h:200, type:'mountain', name:'서쪽 절벽' },
-    // 동쪽 바다 (항구에서 배로만 건너는 영역)
-    { x:450,  y:-600, w:30, h:300, type:'water', name:'동해' },
-    // 중앙 용암 지대 (고급 존 경계)
-    { x:50,   y:-100, w:80, h:30, type:'lava', name:'용암 강' },
-    // 북쪽 빙하 (최상급 존 경계)
-    { x:-200, y:-750, w:400, h:30, type:'ice', name:'영원의 빙벽' },
-    // 남쪽 혼돈 장벽
-    { x:-150, y:700,  w:300, h:30, type:'chaos', name:'혼돈의 균열' },
+    // ── 서쪽 대산맥 (초보→고급 경계, 동굴/광산 입구로만 통과) ──
+    { x:-470, y:-350, w:35, h:100, type:'mountain', name:'북서 산맥' },
+    { x:-470, y:-150, w:35, h:80,  type:'mountain', name:'서쪽 산등성이' },
+    { x:-470, y:0,    w:35, h:100, type:'mountain', name:'서쪽 절벽' },
+    { x:-470, y:150,  w:35, h:80,  type:'mountain', name:'남서 산맥' },
+    // ── 동쪽 바다 (항구→동대륙, 배/항해사로만 이동) ──
+    { x:440, y:-700, w:50, h:120, type:'water', name:'북해' },
+    { x:460, y:-500, w:40, h:180, type:'water', name:'동해 북부' },
+    { x:470, y:-250, w:30, h:100, type:'water', name:'동해 중부' },
+    { x:460, y:-100, w:40, h:150, type:'water', name:'동해 남부' },
+    // ── 중앙 대하 (강 — 다리 위치에서만 건너기) ──
+    { x:-200, y:-280, w:300, h:20, type:'water', name:'은빛 강 서쪽' },
+    { x:150,  y:-280, w:200, h:20, type:'water', name:'은빛 강 동쪽' },
+    // ── 용암 지대 (중급→고급 경계) ──
+    { x:30,   y:-120, w:100, h:25, type:'lava', name:'용암 강' },
+    { x:180,  y:-90,  w:80,  h:25, type:'lava', name:'용암 삼각주' },
+    // ── 북쪽 빙하 (최상급 존 경계, 빙결 심연으로만 진입) ──
+    { x:-650, y:-760, w:200, h:25, type:'ice', name:'영원의 빙벽 서' },
+    { x:-350, y:-760, w:200, h:25, type:'ice', name:'영원의 빙벽 중' },
+    { x:-50,  y:-820, w:200, h:25, type:'ice', name:'영원의 빙벽 동' },
+    // ── 남쪽 혼돈 장벽 (엔드게임 존 경계) ──
+    { x:-300, y:680, w:150, h:25, type:'chaos', name:'혼돈의 균열 서' },
+    { x:0,    y:720, w:200, h:25, type:'chaos', name:'혼돈의 균열 중' },
+    { x:300,  y:680, w:150, h:25, type:'chaos', name:'혼돈의 균열 동' },
+    // ── 숲 밀림 (시야 제한 구간, 통과 가능하지만 속도 -30%) ──
+    { x:-450, y:-420, w:20, h:60, type:'forest_wall', name:'울창한 수풀 1' },
+    { x:170,  y:-70,  w:20, h:60, type:'forest_wall', name:'울창한 수풀 2' },
+    // ── 동대륙 산맥 ──
+    { x:650, y:-200, w:30, h:200, type:'mountain', name:'동쪽 산맥 남' },
+    { x:650, y:100,  w:30, h:200, type:'mountain', name:'동쪽 산맥 북' },
+    // ── 남쪽 늪지대 ──
+    { x:-650, y:350, w:80, h:25, type:'swamp_wall', name:'깊은 늪' },
 ];
 
-// 도로 (존 사이 안전 통로 — 몬스터 스폰 안 됨, 이동속도 +20%)
+// 도로 (존 사이 안전 통로, 금색 표시, 이동속도 +20%, 몬스터 없음)
 const ROADS = [
-    { from:'aden', to:'plains', path:[{x:-460,y:-480},{x:-340,y:-460}] },
-    { from:'aden', to:'forest', path:[{x:-480,y:-460},{x:-440,y:-420}] },
-    { from:'plains', to:'harbor', path:[{x:-260,y:-440},{x:320,y:-440}] },
-    { from:'oasis', to:'volcano', path:[{x:-60,y:30},{x:160,y:-130}] },
-    { from:'harbor', to:'mushroom', path:[{x:380,y:-430},{x:580,y:-480}] },
-    { from:'frontier', to:'warzone', path:[{x:-280,y:360},{x:-120,y:360}] },
+    // ── 서쪽 대륙 도로 (초보 루트) ──
+    { from:'aden', to:'forest',  path:[{x:-490,y:-470},{x:-450,y:-430},{x:-430,y:-400}], name:'숲길' },
+    { from:'aden', to:'plains',  path:[{x:-470,y:-490},{x:-380,y:-480},{x:-320,y:-460}], name:'들판길' },
+    { from:'forest', to:'cave',  path:[{x:-410,y:-370},{x:-400,y:-300},{x:-400,y:-230}], name:'동굴 입구' },
+    { from:'plains', to:'meadow', path:[{x:-260,y:-440},{x:-200,y:-420},{x:-160,y:-400}], name:'초원길' },
+    // ── 대 교역로 (서→동 관통, 가장 긴 도로) ──
+    { from:'plains', to:'harbor', path:[{x:-260,y:-445},{x:-100,y:-440},{x:50,y:-430},{x:200,y:-435},{x:320,y:-440}], name:'대교역로' },
+    { from:'harbor', to:'mushroom', path:[{x:370,y:-440},{x:500,y:-460},{x:580,y:-490}], name:'동쪽 교역로' },
+    // ── 중앙 도로 ──
+    { from:'meadow', to:'oasis', path:[{x:-130,y:-380},{x:-110,y:-200},{x:-100,y:-30},{x:-90,y:10}], name:'오아시스 도로' },
+    { from:'oasis', to:'ruins',  path:[{x:-80,y:20},{x:-150,y:-50},{x:-230,y:-180}], name:'유적 탐험로' },
+    { from:'oasis', to:'volcano', path:[{x:-70,y:10},{x:0,y:-40},{x:80,y:-100},{x:150,y:-140}], name:'화산 등반로' },
+    { from:'ruins', to:'volcano', path:[{x:-220,y:-180},{x:-100,y:-170},{x:50,y:-160},{x:150,y:-150}], name:'화산 우회로' },
+    // ── 고급 존 도로 ──
+    { from:'volcano', to:'darkforest', path:[{x:190,y:-130},{x:200,y:-80},{x:210,y:-50}], name:'그림자 산길' },
+    { from:'darkforest', to:'dragon', path:[{x:230,y:-40},{x:280,y:50},{x:340,y:140}], name:'용의 길' },
+    { from:'cave', to:'graveyard', path:[{x:-400,y:-170},{x:-400,y:-100},{x:-400,y:-50}], name:'지하 통로' },
+    // ── 남쪽 위험 도로 (PK존 연결) ──
+    { from:'frontier', to:'warzone', path:[{x:-280,y:360},{x:-200,y:360},{x:-120,y:360}], name:'전쟁 가도' },
+    { from:'warzone', to:'castle', path:[{x:-80,y:360},{x:-30,y:380},{x:10,y:400}], name:'공성 진입로' },
+    // ── 동대륙 도로 ──
+    { from:'riverbank', to:'sandstorm', path:[{x:800,y:-270},{x:750,y:-200},{x:650,y:-100}], name:'사막 도로' },
+    { from:'sandstorm', to:'sunken', path:[{x:640,y:-60},{x:670,y:30},{x:700,y:100}], name:'신전 참배길' },
+    { from:'sunken', to:'shadow', path:[{x:730,y:140},{x:770,y:250},{x:800,y:370}], name:'그림자 계곡길' },
+    // ── 최종 존 도로 ──
+    { from:'shadow', to:'celestial', path:[{x:810,y:430},{x:770,y:550},{x:730,y:670}], name:'천공의 계단' },
+    { from:'celestial', to:'void_rift', path:[{x:750,y:740},{x:800,y:800},{x:860,y:870}], name:'차원의 통로' },
+    // ── 마을 간 연결 도로 ──
+    { from:'shrine', to:'training', path:[{x:-810,y:210},{x:-850,y:100},{x:-880,y:20}], name:'서쪽 마을길' },
+    { from:'mountain', to:'bazaar', path:[{x:320,y:120},{x:380,y:250},{x:450,y:400},{x:490,y:490}], name:'상인의 길' },
 ];
 
 // 도로 위 이동속도 보너스 체크
@@ -2028,9 +2073,11 @@ io.on('connection', (socket) => {
             if (!p || !p.isAlive || p.isBot) return;
             const nx = parseFloat(moveData.x), ny = parseFloat(moveData.y);
             if (!isFinite(nx) || !isFinite(ny)) return;
-            // 이동 거리 검증 (텔레포트 핵 방지)
+            // 이동 거리 검증 (텔레포트 핵 방지 + 도로 보너스)
+            const onRoad = isOnRoad(p.x, p.y);
+            const maxDist = onRoad ? 3.6 : 3; // 도로 위 +20% 속도
             const dist = Math.hypot(nx - p.x, ny - p.y);
-            if (dist > 3) return; // 틱당 최대 이동 거리 제한
+            if (dist > maxDist) return;
             // 지형 장벽 충돌 체크
             const barrier = isBlocked(nx, ny);
             if (barrier) {
