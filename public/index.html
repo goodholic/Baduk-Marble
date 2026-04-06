@@ -7,7 +7,41 @@
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
     * { margin:0; padding:0; box-sizing:border-box; }
-    body { overflow:hidden; background:#0a0a12; display:flex; justify-content:center; align-items:center; height:100vh; width:100vw; font-family:'Noto Sans KR','Segoe UI',sans-serif; touch-action:none; }
+    :root {
+      /* 색상 시스템 */
+      --c-bg: #0a0a12; --c-bg-panel: rgba(10,10,20,0.94); --c-bg-card: rgba(255,255,255,0.04);
+      --c-gold: #ffd700; --c-gold-dim: rgba(255,215,0,0.15);
+      --c-text: #ddd; --c-text-muted: #888; --c-text-dim: #555;
+      --c-red: #ff4444; --c-green: #44ff44; --c-blue: #4488ff; --c-purple: #aa44ff; --c-orange: #ff8800;
+      --c-border: rgba(255,255,255,0.08); --c-border-gold: rgba(255,215,0,0.15);
+      /* 타이포그래피 */
+      --fs-xs: 9px; --fs-sm: 11px; --fs-base: 12px; --fs-md: 13px; --fs-lg: 15px; --fs-xl: 18px; --fs-2xl: 24px;
+      /* 간격 */
+      --sp-xs: 2px; --sp-sm: 4px; --sp-md: 8px; --sp-lg: 12px; --sp-xl: 16px;
+      /* 둥글기 */
+      --r-sm: 4px; --r-md: 8px; --r-lg: 12px; --r-xl: 16px;
+      /* 글래스 */
+      --glass: rgba(10,10,20,0.88); --blur: blur(8px);
+    }
+    /* 공통 버튼 */
+    .btn { padding:var(--sp-md) var(--sp-xl); border:1px solid var(--c-border); border-radius:var(--r-md); background:var(--c-bg-card); color:var(--c-text); font-size:var(--fs-base); font-weight:700; cursor:pointer; transition:all 0.15s; }
+    .btn:hover { background:var(--c-gold-dim); color:var(--c-gold); border-color:var(--c-border-gold); transform:translateY(-1px); }
+    .btn:active { transform:scale(0.97); }
+    .btn-primary { background:linear-gradient(135deg,var(--c-gold),var(--c-orange)); color:#000; border:none; }
+    .btn-primary:hover { filter:brightness(1.1); }
+    .btn-danger { background:rgba(255,68,68,0.2); color:var(--c-red); border-color:rgba(255,68,68,0.3); }
+    .btn-sm { padding:var(--sp-sm) var(--sp-md); font-size:var(--fs-sm); }
+    /* 공통 텍스트 */
+    .text-muted { color:var(--c-text-muted); } .text-dim { color:var(--c-text-dim); }
+    .text-gold { color:var(--c-gold); } .text-red { color:var(--c-red); } .text-green { color:var(--c-green); }
+    .text-xs { font-size:var(--fs-xs); } .text-sm { font-size:var(--fs-sm); } .text-base { font-size:var(--fs-base); }
+    /* 공통 카드 */
+    .card { background:var(--c-bg-card); border:1px solid var(--c-border); border-radius:var(--r-md); padding:var(--sp-md); }
+    /* 로딩 스피너 */
+    .spinner { display:inline-block; width:16px; height:16px; border:2px solid var(--c-text-dim); border-top-color:var(--c-gold); border-radius:50%; animation:spin 0.6s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .loading-text { color:var(--c-text-muted); font-size:var(--fs-sm); display:flex; align-items:center; gap:var(--sp-md); justify-content:center; padding:var(--sp-xl); }
+    body { overflow:hidden; background:var(--c-bg); display:flex; justify-content:center; align-items:center; height:100vh; width:100vw; font-family:'Noto Sans KR','Segoe UI',sans-serif; touch-action:none; }
     #unity-container { position:relative; width:100vw; max-height:100vh; aspect-ratio:16/9; }
     @media (min-aspect-ratio:16/9) { #unity-container { width:calc(100vh*(16/9)); height:100vh; } }
     #unity-canvas { width:100%; height:100%; display:block; outline:none; position:relative; z-index:1; }
@@ -22,7 +56,8 @@
     #class-select { position:absolute; left:0; top:0; width:100%; height:100%; background:radial-gradient(ellipse at center,rgba(15,15,30,0.92),rgba(0,0,0,0.95)); display:none; flex-direction:column; justify-content:center; align-items:center; z-index:20; backdrop-filter:blur(4px); }
     #class-select h1 { color:#ffd700; font-size:36px; margin-bottom:8px; font-weight:900; text-shadow:0 0 30px rgba(255,215,0,0.3); letter-spacing:4px; }
     #class-select p.subtitle { color:#888; font-size:14px; margin-bottom:25px; }
-    .class-btn { width:420px; padding:18px 24px; margin:6px; border:none; border-radius:16px; background:url('ui/btn_gray.png') center/100% 100% no-repeat; color:#fff; cursor:pointer; transition:all 0.25s; text-align:left; position:relative; overflow:hidden; }
+    .class-btn { width:420px; padding:var(--sp-xl) var(--sp-xl); margin:var(--sp-sm); border:1px solid var(--c-border); border-radius:var(--r-lg); background:var(--c-bg-card); color:#fff; cursor:pointer; transition:all 0.25s; text-align:left; position:relative; overflow:hidden; }
+    .class-btn:hover { background:var(--c-gold-dim); border-color:var(--c-border-gold); transform:translateY(-2px); box-shadow:0 6px 20px rgba(255,215,0,0.1); }
     .class-btn:nth-child(2) { background-image:url('ui/btn_blue.png'); }
     .class-btn:nth-child(3) { background-image:url('ui/btn_green.png'); }
     .class-btn:nth-child(4) { background-image:url('ui/btn_orange.png'); }
@@ -61,7 +96,7 @@
     .team-val { font-size:11px !important; }
 
     /* ═══ 채팅 — 컴팩트 ═══ */
-    #chat-box { position:fixed; bottom:56px; left:8px; width:260px; z-index:9999; display:none; }
+    #chat-box { position:fixed; bottom:56px; left:8px; width:260px; z-index:20; display:none; }
     #chat-box.show { display:block; }
     #chat-log { height:120px; overflow-y:auto; background:rgba(8,8,18,0.85); backdrop-filter:blur(6px); border:1px solid rgba(255,255,255,0.06); border-radius:10px 10px 0 0; padding:8px 10px; font-size:11px; color:#bbb; scrollbar-width:thin; scrollbar-color:#333 transparent; }
     #chat-log::-webkit-scrollbar { width:4px; }
@@ -181,11 +216,13 @@
     .panel-close { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#666; font-size:14px; cursor:pointer; width:28px; height:28px; border-radius:6px; line-height:26px; text-align:center; transition:all 0.15s; }
     .panel-close:hover { background:rgba(255,68,68,0.8); color:#fff; border-color:transparent; }
     .panel-body { padding:12px 16px; }
-    .panel-item { display:flex; justify-content:space-between; align-items:center; padding:10px 8px; border-bottom:1px solid rgba(255,255,255,0.04); border-radius:6px; margin:2px 0; transition:background 0.15s; }
+    .panel-item { display:flex; justify-content:space-between; align-items:center; padding:var(--sp-md); border-bottom:1px solid rgba(255,255,255,0.04); border-radius:var(--r-md); margin:var(--sp-xs) 0; transition:background 0.15s; gap:var(--sp-sm); }
+    .panel-item:hover { background:rgba(255,255,255,0.02); }
     .panel-item:hover { background:rgba(255,255,255,0.03); }
     .panel-item .name { flex:1; font-size:13px; line-height:1.5; }
-    .panel-item button { padding:6px 14px; border:none; border-radius:10px; background:url('ui/btn_blue.png') center/100% 100% no-repeat; color:#fff; cursor:pointer; font-size:11px; font-weight:700; transition:all 0.15s; text-shadow:0 1px 2px rgba(0,0,0,0.5); }
-    .panel-item button:hover { filter:brightness(1.3); transform:scale(1.05); }
+    .panel-item button { padding:var(--sp-sm) var(--sp-lg); border:1px solid var(--c-border); border-radius:var(--r-md); background:var(--c-bg-card); color:#ddd; cursor:pointer; font-size:var(--fs-sm); font-weight:700; transition:all 0.15s; }
+    .panel-item button:hover { background:var(--c-gold-dim); color:var(--c-gold); border-color:var(--c-border-gold); transform:translateY(-1px); }
+    .panel-item button:active { transform:scale(0.96); }
     .panel-item small { color:#666; }
 
     /* ═══ 알림 ═══ */
@@ -320,7 +357,7 @@
     </div>
 
     <!-- 공격 버튼 (브롤스타즈 스타일) -->
-    <button id="attack-btn" style="display:none;position:fixed;right:20px;bottom:230px;z-index:9999;width:85px;height:85px;border-radius:50%;background:url('ui/btn_red.png') center/100% 100% no-repeat;border:none;color:#fff;font-size:16px;font-weight:900;cursor:pointer;touch-action:none;user-select:none;text-shadow:0 2px 4px rgba(0,0,0,0.8);filter:drop-shadow(0 4px 8px rgba(255,0,0,0.4))" ontouchstart="startAttack(event)" ontouchend="endAttack(event)" onmousedown="doAttack(event)" onclick="event.stopPropagation()">⚔ATK</button>
+    <button id="attack-btn" style="display:none;position:fixed;right:20px;bottom:230px;z-index:20;width:85px;height:85px;border-radius:50%;background:url('ui/btn_red.png') center/100% 100% no-repeat;border:none;color:#fff;font-size:16px;font-weight:900;cursor:pointer;touch-action:none;user-select:none;text-shadow:0 2px 4px rgba(0,0,0,0.8);filter:drop-shadow(0 4px 8px rgba(255,0,0,0.4))" ontouchstart="startAttack(event)" ontouchend="endAttack(event)" onmousedown="doAttack(event)" onclick="event.stopPropagation()">⚔ATK</button>
 
     <!-- 부활 화면 -->
     <div id="respawn-screen" style="position:absolute;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:none;flex-direction:column;justify-content:center;align-items:center;z-index:22">
@@ -346,7 +383,7 @@
     </div>
 
     <!-- 테이밍 버튼 (게임 화면 우측) -->
-    <button id="tame-btn" onclick="event.stopPropagation();window.socket.emit('tame_nearest','{}')" style="display:none;position:fixed;right:15px;bottom:130px;z-index:9999;padding:12px 20px;background:url('ui/btn_purple.png') center/100% 100% no-repeat;border:none;border-radius:14px;color:#fff;font-size:13px;cursor:pointer;font-weight:900;text-shadow:0 2px 4px rgba(0,0,0,0.8);filter:drop-shadow(0 3px 6px rgba(100,0,200,0.4))">테이밍 (50G)</button>
+    <button id="tame-btn" onclick="event.stopPropagation();window.socket.emit('tame_nearest','{}')" style="display:none;position:fixed;right:15px;bottom:130px;z-index:20;padding:12px 20px;background:url('ui/btn_purple.png') center/100% 100% no-repeat;border:none;border-radius:14px;color:#fff;font-size:13px;cursor:pointer;font-weight:900;text-shadow:0 2px 4px rgba(0,0,0,0.8);filter:drop-shadow(0 3px 6px rgba(100,0,200,0.4))">테이밍 (50G)</button>
 
     <!-- 전투 로그 -->
     <div id="combat-log"></div>
@@ -404,7 +441,7 @@
     <!-- 퀘스트 패널 -->
     <div class="panel" id="panel-quests">
       <div class="panel-header"><h2>퀘스트</h2><button class="panel-close" onclick="closePanel('quests')">X</button></div>
-      <div class="panel-body" id="quests-body"><p style="color:#888">로딩 중...</p></div>
+      <div class="panel-body" id="quests-body"><div class="loading-text"><span class="spinner"></span> 로딩 중...</div></div>
     </div>
 
     <!-- 제작 패널 -->
@@ -489,7 +526,7 @@
     <!-- 랭킹 패널 -->
     <div class="panel" id="panel-ranking">
       <div class="panel-header"><h2>랭킹</h2><button class="panel-close" onclick="closePanel('ranking')">X</button></div>
-      <div class="panel-body" id="ranking-body"><p style="color:#888">로딩 중...</p></div>
+      <div class="panel-body" id="ranking-body"><div class="loading-text"><span class="spinner"></span> 로딩 중...</div></div>
     </div>
 
     <!-- 경매장 패널 -->
@@ -551,20 +588,20 @@
       <div class="panel-header"><h2>현상금</h2><button class="panel-close" onclick="closePanel('bounty')">X</button></div>
       <div class="panel-body">
         <button onclick="window.socket.emit('get_bounties')" style="width:100%;padding:6px;background:#333;color:#eee;border:1px solid #555;border-radius:4px;font-size:11px;margin-bottom:5px">갱신</button>
-        <div id="bounty-list"><p style="color:#888">로딩 중...</p></div>
+        <div id="bounty-list"><div class="loading-text"><span class="spinner"></span> 로딩 중...</div></div>
       </div>
     </div>
 
     <!-- 몬스터 도감 -->
     <div class="panel" id="panel-bestiary">
       <div class="panel-header"><h2>몬스터 도감</h2><button class="panel-close" onclick="closePanel('bestiary')">X</button></div>
-      <div class="panel-body" id="bestiary-body"><p style="color:#888">로딩 중...</p></div>
+      <div class="panel-body" id="bestiary-body"><div class="loading-text"><span class="spinner"></span> 로딩 중...</div></div>
     </div>
 
     <!-- 스킬 상세 패널 -->
     <div class="panel" id="panel-skills">
       <div class="panel-header"><h2>스킬</h2><button class="panel-close" onclick="closePanel('skills')">X</button></div>
-      <div class="panel-body" id="skills-body"><p style="color:#888">로딩 중...</p></div>
+      <div class="panel-body" id="skills-body"><div class="loading-text"><span class="spinner"></span> 로딩 중...</div></div>
     </div>
 
     <!-- 설정 패널 -->
@@ -597,7 +634,7 @@
   </div>
 
   <!-- 채팅 (Unity 밖) -->
-  <div id="chat-box" style="position:fixed;top:230px;left:10px;width:240px;z-index:9999;display:none">
+  <div id="chat-box" style="position:fixed;top:230px;left:10px;width:240px;z-index:20;display:none">
     <div id="chat-log" style="height:100px;overflow-y:auto;background:rgba(8,8,18,0.9);border:1px solid rgba(255,215,0,0.1);border-radius:8px 8px 0 0;padding:8px;font-size:11px;color:#ccc;font-family:'Noto Sans KR',sans-serif">
       <div style="color:#666">채팅에 오신 것을 환영합니다</div>
     </div>
@@ -812,7 +849,8 @@
         if (d.id === myPlayerId || (!myPlayerId && d.level)) {
           if (d.level) document.getElementById('level-display').textContent = 'Lv.' + d.level + ' ' + (d.displayName||d.className||'');
           if (d.hp !== undefined && d.maxHp) {
-            document.getElementById('hp-display').textContent = Math.ceil(d.hp)+'/'+Math.ceil(d.maxHp);
+            var hpEl = document.getElementById('hp-text');
+            if (hpEl) hpEl.textContent = Math.ceil(d.hp)+' / '+Math.ceil(d.maxHp);
             var pct = Math.max(0, Math.min(100, (d.hp/d.maxHp)*100));
             document.getElementById('hp-bar-fill').style.width = pct+'%';
           }
