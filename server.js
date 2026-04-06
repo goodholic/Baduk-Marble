@@ -3848,6 +3848,61 @@ io.on('connection', (socket) => {
         if (result.success) io.emit('player_update', p);
     });
 
+    // ── 스킬 상세 정보 ──
+    socket.on('get_skills', () => {
+        const p = players[playerId];
+        if (!p) return;
+        const cls = p.baseClassName || p.className;
+        const skills = SKILLS[cls] || [];
+        const skillData = skills.map(s => ({
+            name: s.name, type: s.type,
+            dmgMulti: s.dmgMulti || 0, cooldown: s.cooldown || 0,
+            mpCost: s.mpCost || 0, range: s.range || 0,
+            level: s.level, aoe: s.aoe || false,
+            desc: s.stealth ? '은신 후 다음 공격 2배' :
+                  s.allyAtkMulti ? '아군 ATK +' + Math.floor((s.allyAtkMulti-1)*100) + '%' :
+                  s.taunt ? '몬스터 어그로 강제 변경' :
+                  s.dmgReduce ? '받는 데미지 ' + Math.floor(s.dmgReduce*100) + '% 감소' :
+                  s.allyInvincible ? '아군 무적 ' + s.duration + '초' :
+                  s.chainCount ? '적 ' + s.chainCount + '명 연쇄 타격' :
+                  s.executeThreshold ? 'HP ' + Math.floor(s.executeThreshold*100) + '% 이하 처형' :
+                  s.poisonDot ? '공격 시 독 ' + s.poisonDot + '/초' :
+                  s.hpThreshold ? 'HP ' + Math.floor(s.hpThreshold*100) + '%↓ → ATK +' + Math.floor(s.atkBonus*100) + '%' :
+                  s.allyDefMulti ? '아군 DEF +' + Math.floor((s.allyDefMulti-1)*100) + '%' :
+                  s.mpRegenMulti ? 'MP 회복 +' + Math.floor((s.mpRegenMulti-1)*100) + '%' :
+                  s.dmgMulti ? '데미지 x' + s.dmgMulti : '패시브',
+            unlocked: p.level >= s.level,
+            cooldownLeft: p.skillCooldowns?.[s.name] ? Math.max(0, Math.ceil((s.cooldown*1000 - (Date.now() - p.skillCooldowns[s.name]))/1000)) : 0,
+        }));
+        socket.emit('skill_data', skillData);
+    });
+
+    // ── 장비 비교 정보 ──
+    socket.on('compare_equip', (itemId) => {
+        const p = players[playerId];
+        if (!p) return;
+        const newEq = EQUIP_STATS[itemId];
+        if (!newEq) return;
+        const curId = p.equipped?.[newEq.slot];
+        const curEq = curId ? EQUIP_STATS[curId] : null;
+        const curEnchant = curId && p.enchantLevels?.[curId] ? p.enchantLevels[curId] : 0;
+        const newEnchant = p.enchantLevels?.[itemId] || 0;
+        const curGrade = curEq ? GRADE_INFO[curEq.grade] : null;
+        const newGrade = GRADE_INFO[newEq.grade];
+
+        const curAtk = curEq ? Math.floor(curEq.atk * (curGrade?.atkMulti||1) * (1+getEnchantBonus(curEnchant))) : 0;
+        const curDef = curEq ? Math.floor(curEq.def * (curGrade?.defMulti||1) * (1+getEnchantBonus(curEnchant))) : 0;
+        const newAtk = Math.floor(newEq.atk * (newGrade?.atkMulti||1) * (1+getEnchantBonus(newEnchant)));
+        const newDef = Math.floor(newEq.def * (newGrade?.defMulti||1) * (1+getEnchantBonus(newEnchant)));
+
+        socket.emit('equip_compare', {
+            slot: newEq.slot,
+            current: curEq ? { name: curEq.name, grade: curEq.grade, enchant: curEnchant, atk: curAtk, def: curDef } : null,
+            new: { name: newEq.name, grade: newEq.grade, enchant: newEnchant, atk: newAtk, def: newDef },
+            atkDiff: newAtk - curAtk, defDiff: newDef - curDef,
+        });
+    });
+
     socket.on('get_recipes', () => {
         socket.emit('recipe_list', RECIPES);
     });
@@ -5765,7 +5820,14 @@ function handlePlayerDeath(target, targetId, owner, attackerId) {
 
     io.emit('player_update', target);
     io.emit('player_update', realKiller);
-    io.emit('player_die', { victimId: targetId, attackerId, stolen, isPK, killerName: realKiller.displayName || '몬스터' });
+    io.emit('player_die', {
+        victimId: targetId, attackerId, stolen, isPK,
+        killerName: realKiller.displayName || '몬스터',
+        killerClass: realKiller.className || '',
+        killerLevel: realKiller.level || 0,
+        victimLevel: target.level || 0,
+        goldLost: Math.floor((target._deathGoldLost || 0)),
+    });
 }
 
 function destroyAxe(axeId) {

@@ -560,6 +560,40 @@
       <div class="panel-header"><h2>몬스터 도감</h2><button class="panel-close" onclick="closePanel('bestiary')">X</button></div>
       <div class="panel-body" id="bestiary-body"><p style="color:#888">로딩 중...</p></div>
     </div>
+
+    <!-- 스킬 상세 패널 -->
+    <div class="panel" id="panel-skills">
+      <div class="panel-header"><h2>스킬</h2><button class="panel-close" onclick="closePanel('skills')">X</button></div>
+      <div class="panel-body" id="skills-body"><p style="color:#888">로딩 중...</p></div>
+    </div>
+
+    <!-- 설정 패널 -->
+    <div class="panel" id="panel-settings">
+      <div class="panel-header"><h2>설정</h2><button class="panel-close" onclick="closePanel('settings')">X</button></div>
+      <div class="panel-body" style="padding:12px">
+        <h4 style="color:#ffd700;margin:0 0 8px;font-size:12px">사운드</h4>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <span style="color:#888;font-size:11px">BGM</span>
+          <input type="range" min="0" max="100" value="30" id="set-bgm-vol" style="flex:1" oninput="window._bgmVol=this.value/100">
+          <span style="color:#888;font-size:11px">SFX</span>
+          <input type="range" min="0" max="100" value="70" id="set-sfx-vol" style="flex:1" oninput="window._sfxVol=this.value/100">
+        </div>
+        <h4 style="color:#ffd700;margin:0 0 8px;font-size:12px">자동 물약 임계값</h4>
+        <div style="display:flex;gap:5px;margin-bottom:10px">
+          <button onclick="window._potThreshold=0.2;showToast('물약 임계값: 20%')" style="padding:5px 10px;background:#333;color:#eee;border:1px solid #555;border-radius:4px;font-size:11px">20%</button>
+          <button onclick="window._potThreshold=0.3;showToast('물약 임계값: 30%')" style="padding:5px 10px;background:#555;color:#ffd700;border:1px solid #ffd700;border-radius:4px;font-size:11px">30%</button>
+          <button onclick="window._potThreshold=0.4;showToast('물약 임계값: 40%')" style="padding:5px 10px;background:#333;color:#eee;border:1px solid #555;border-radius:4px;font-size:11px">40%</button>
+          <button onclick="window._potThreshold=0.5;showToast('물약 임계값: 50%')" style="padding:5px 10px;background:#333;color:#eee;border:1px solid #555;border-radius:4px;font-size:11px">50%</button>
+        </div>
+        <h4 style="color:#ffd700;margin:0 0 8px;font-size:12px">화면 효과</h4>
+        <label style="display:flex;align-items:center;gap:6px;color:#ccc;font-size:11px;margin-bottom:5px"><input type="checkbox" checked id="set-shake" onchange="window._shakeEnabled=this.checked">화면 흔들림</label>
+        <label style="display:flex;align-items:center;gap:6px;color:#ccc;font-size:11px;margin-bottom:5px"><input type="checkbox" checked id="set-flash" onchange="window._flashEnabled=this.checked">피격 플래시</label>
+        <label style="display:flex;align-items:center;gap:6px;color:#ccc;font-size:11px;margin-bottom:10px"><input type="checkbox" checked id="set-dmgnum" onchange="window._dmgNumEnabled=this.checked">데미지 숫자</label>
+        <h4 style="color:#ffd700;margin:0 0 8px;font-size:12px">자동화</h4>
+        <label style="display:flex;align-items:center;gap:6px;color:#ccc;font-size:11px;margin-bottom:5px"><input type="checkbox" id="set-autoequip" onchange="window._autoEquip=this.checked">더 강한 장비 자동 장착</label>
+        <label style="display:flex;align-items:center;gap:6px;color:#ccc;font-size:11px"><input type="checkbox" id="set-autodismantle" onchange="window._autoDismantle=this.checked">일반 등급 자동 분해</label>
+      </div>
+    </div>
   </div>
 
   <!-- 채팅 (Unity 밖) -->
@@ -858,8 +892,17 @@
           // 킬러 이름 표시
           var deathInfo = document.getElementById('death-info');
           if (deathInfo) {
-            deathInfo.innerHTML = (d.killerName ? '<span style="color:#ff4444">'+d.killerName+'</span>에게 처치당함' : '') +
-              '<br><small style="color:#888">킬 수: '+(gameStats.kills||0)+' | 생존: '+Math.floor((Date.now()-gameStats.startTime)/60000)+'분</small>';
+            var killerInfo = d.killerName ? '<span style="color:#ff4444;font-size:16px">'+d.killerName+'</span>' : '';
+            if (d.killerClass) killerInfo += ' <span style="color:#888;font-size:11px">['+d.killerClass+' Lv.'+d.killerLevel+']</span>';
+            var surviveMin = Math.floor((Date.now()-gameStats.startTime)/60000);
+            var surviveSec = Math.floor(((Date.now()-gameStats.startTime)%60000)/1000);
+            deathInfo.innerHTML = (killerInfo ? killerInfo + '에게 처치당함' : '사망') +
+              (d.goldLost > 0 ? '<br><span style="color:#ff8800">골드 -'+d.goldLost+'G 약탈당함</span>' : '') +
+              '<br><div style="margin-top:8px;padding:8px;background:rgba(255,255,255,0.03);border-radius:6px;font-size:11px;color:#aaa">' +
+              '⏱ 생존 ' + surviveMin + ':' + (surviveSec<10?'0':'') + surviveSec +
+              ' | 💀 처치 ' + (gameStats.kills||0) + '마리' +
+              ' | 💰 획득 ' + (lastGold - sessionStartGold) + 'G' +
+              ' | 🔥 최고 스트릭 ' + (personalBests.maxStreak||0) + 'x</div>';
           }
           // 3초 딜레이 후 리스폰 버튼 표시
           var rs = document.getElementById('respawn-screen');
@@ -1249,6 +1292,67 @@
         setTimeout(function(){ warn.remove(); }, 800);
       });
 
+      // 스킬 상세
+      window.socket.on('skill_data', (skills) => {
+        var el = document.getElementById('skills-body');
+        if (!el) return;
+        var typeNames = {active:'액티브',passive:'패시브',ultimate:'궁극기'};
+        var typeColors = {active:'#44aaff',passive:'#44ff44',ultimate:'#ffd700'};
+        var html = '';
+        skills.forEach(function(s) {
+          var tc = typeColors[s.type] || '#ccc';
+          var locked = !s.unlocked;
+          html += '<div class="panel-item" style="border-left:3px solid '+tc+';opacity:'+(locked?'0.4':'1')+'">';
+          html += '<div><b style="color:'+tc+'">'+s.name+'</b> <small style="color:#888">['+(typeNames[s.type]||s.type)+']</small>';
+          if (locked) html += ' <span style="color:#f44;font-size:9px">Lv.'+s.level+' 필요</span>';
+          html += '</div>';
+          html += '<div style="font-size:10px;color:#aaa;margin-top:2px">';
+          if (s.dmgMulti) html += '데미지 x'+s.dmgMulti+' ';
+          if (s.cooldown) html += '쿨타임 '+s.cooldown+'초 ';
+          if (s.mpCost) html += 'MP '+s.mpCost+' ';
+          if (s.range) html += '사거리 '+s.range+' ';
+          if (s.aoe) html += '[광역] ';
+          html += '</div>';
+          html += '<div style="font-size:10px;color:#ddd;margin-top:2px">'+s.desc+'</div>';
+          if (s.cooldownLeft > 0) html += '<div style="font-size:9px;color:#ff8800">쿨타임: '+s.cooldownLeft+'초 남음</div>';
+          html += '</div>';
+        });
+        el.innerHTML = html;
+      });
+
+      // 장비 비교
+      window.socket.on('equip_compare', (d) => {
+        var gradeColors = {normal:'#ccc',uncommon:'#4c4',rare:'#48f',epic:'#a4f',legendary:'#f80'};
+        var diffColor = function(v) { return v > 0 ? '#44ff44' : v < 0 ? '#ff4444' : '#888'; };
+        var diffStr = function(v) { return v > 0 ? '▲+'+v : v < 0 ? '▼'+v : '='; };
+        var html = '<div style="display:flex;gap:10px;justify-content:center">';
+        // 현재 장비
+        html += '<div style="flex:1;padding:10px;background:rgba(255,0,0,0.05);border:1px solid #333;border-radius:8px;text-align:center">';
+        html += '<div style="color:#888;font-size:10px;margin-bottom:4px">현재 장착</div>';
+        if (d.current) {
+          html += '<div style="color:'+(gradeColors[d.current.grade]||'#ccc')+';font-weight:bold">'+d.current.name+' +'+d.current.enchant+'</div>';
+          html += '<div style="font-size:11px;color:#ccc">ATK +'+d.current.atk+' / DEF +'+d.current.def+'</div>';
+        } else { html += '<div style="color:#555">없음</div>'; }
+        html += '</div>';
+        // 화살표
+        html += '<div style="display:flex;align-items:center;font-size:20px;color:#ffd700">→</div>';
+        // 새 장비
+        html += '<div style="flex:1;padding:10px;background:rgba(0,255,0,0.05);border:1px solid #333;border-radius:8px;text-align:center">';
+        html += '<div style="color:#888;font-size:10px;margin-bottom:4px">새 아이템</div>';
+        html += '<div style="color:'+(gradeColors[d.new.grade]||'#ccc')+';font-weight:bold">'+d.new.name+' +'+d.new.enchant+'</div>';
+        html += '<div style="font-size:11px;color:#ccc">ATK +'+d.new.atk+' / DEF +'+d.new.def+'</div>';
+        html += '</div></div>';
+        // 차이
+        html += '<div style="text-align:center;margin-top:10px;font-size:13px">';
+        html += 'ATK <span style="color:'+diffColor(d.atkDiff)+'">'+diffStr(d.atkDiff)+'</span> | ';
+        html += 'DEF <span style="color:'+diffColor(d.defDiff)+'">'+diffStr(d.defDiff)+'</span>';
+        html += '</div>';
+        showModal('장비 비교', html, [
+          {label:'장착', action:"window.socket.emit('equip_item','"+d.new?.name+"');closeModal();"},
+          {label:'취소', type:'cancel', action:'closeModal()'}
+        ]);
+      });
+
       // 도감
       window.socket.on('bestiary_data', (d) => {
         var el = document.getElementById('bestiary-body');
@@ -1500,6 +1604,7 @@
           html += boundTag+' <b style="color:#888">x'+inv[k]+'</b></span>';
           if (isEquip && !isWorn) {
             html += '<button onclick="equipItem(\''+k+'\')" style="background:#2a4a2a">착용</button>';
+            html += '<button onclick="window.socket.emit(\'compare_equip\',\''+k+'\')" style="background:#1a3a4a;margin-left:2px;font-size:9px">비교</button>';
           }
           if (isEquip) html += '<button onclick="enchantItem(\''+k+'\')" style="background:#4a3a1a;margin-left:3px">강화</button>';
           html += '<button onclick="sellItem(\''+k+'\')" style="margin-left:3px">판매</button></div>';
@@ -2072,6 +2177,7 @@
         {label:'유닛 관리', action:()=>togglePanel('units'), sub:'get_units'},
         {label:'변신', action:()=>togglePanel('morph')},
         {label:'스탯 배분', action:()=>togglePanel('stats')},
+        {label:'스킬 보기', action:()=>{togglePanel('skills');window.socket.emit('get_skills');}},
         {label:'펫 & 탈것', action:()=>togglePanel('petmount')},
         {label:'NPC 힐러', action:()=>window.socket.emit('interact_npc','힐러')},
         {label:'NPC 대장장이', action:()=>window.socket.emit('interact_npc','대장장이')},
@@ -2107,6 +2213,7 @@
         {label:'옵션 리롤', action:()=>{showModal('옵션 리롤','<p style="color:#ffd700">장착 중인 장비의 랜덤 옵션을 다시 뽑습니다 (100D)</p><input id="reroll-id" placeholder="장비 ID" style="width:100%;padding:8px;background:#222;color:#fff;border:1px solid #555;border-radius:4px;margin-top:8px">',[{label:'리롤!',action:"window.socket.emit('reroll_options',getModalInput('reroll-id'));closeModal();"},{label:'취소',type:'cancel',action:'closeModal()'}]);}},
         {label:'일괄 판매', action:()=>{showModal('일괄 판매','<p style="color:#ff8800">선택한 등급 이하의 모든 미장착 장비를 판매합니다 (60% 가격)</p>',[{label:'일반 이하',action:"window.socket.emit('bulk_sell','normal');closeModal();"},{label:'고급 이하',action:"window.socket.emit('bulk_sell','uncommon');closeModal();"},{label:'희귀 이하',action:"window.socket.emit('bulk_sell','rare');closeModal();"},{label:'취소',type:'cancel',action:'closeModal()'}]);}},
         {label:'웨이포인트', action:()=>window.socket.emit('get_waypoints')},
+        {label:'설정', action:()=>togglePanel('settings')},
         {label:'일일 보상', action:()=>claimDaily()},
       ],
     };
