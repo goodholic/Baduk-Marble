@@ -215,6 +215,12 @@ async function savePlayer(player) {
         dungeonClears: player.dungeonClears || 0,
         bestiary: player.bestiary || {},
         waypoints: player.waypoints || ['aden'],
+        faction: player.faction || null,
+        factionRep: player.factionRep || 0,
+        prestigeLevel: player.prestigeLevel || 0,
+        legacyPerks: player.legacyPerks || [],
+        itemRunes: player.itemRunes || {},
+        _riftDepth: player._riftDepth || 0,
         maxArmy: player.maxArmy || 30,
         autoPotion: player.autoPotion || false,
         questProgress: player.questProgress || {},
@@ -1372,6 +1378,65 @@ let friendRequests = {}; // {targetId: [{fromId, fromName, time}]}
 let fieldBossActive = false;
 let lastFieldBossHour = -1;
 let goldFeverZone = null;
+
+// ══════════════════════════════════════
+// 5대 신규 시스템
+// ══════════════════════════════════════
+
+// ── 1. 시즌 균열 (2주 주기 로테이션) ──
+const RIFT_THEMES = [
+    { id:'frozen', name:'얼어붙은 심연', modifiers:{ atkMulti:1.0, defMulti:0.8, critGlobal:1.3, element:'water' }, color:'#88ccff' },
+    { id:'burning', name:'불타는 사막', modifiers:{ atkMulti:1.2, defMulti:1.0, spdMulti:0.8, element:'fire' }, color:'#ff6600' },
+    { id:'void', name:'공허의 폭풍', modifiers:{ atkMulti:0.9, defMulti:0.9, expMulti:2.0, element:'wind' }, color:'#aa44ff' },
+    { id:'earth', name:'대지의 진동', modifiers:{ atkMulti:1.1, defMulti:1.3, goldMulti:1.5, element:'earth' }, color:'#88aa44' },
+];
+let currentSeason = { theme: RIFT_THEMES[0], depth: 0, startTime: Date.now(), leaderboard: {} };
+
+// ── 2. 룬 시스템 ──
+const RUNES = {
+    'ㄱ':{name:'기',stat:'atk',value:3}, 'ㄴ':{name:'나',stat:'def',value:3},
+    'ㄷ':{name:'다',stat:'hp',value:15}, 'ㄹ':{name:'라',stat:'spd',value:1},
+    'ㅁ':{name:'마',stat:'mp',value:10}, 'ㅂ':{name:'바',stat:'crit',value:0.02},
+    'ㅅ':{name:'사',stat:'dodge',value:0.01}, 'ㅇ':{name:'아',stat:'exp',value:0.03},
+    'ㅈ':{name:'자',stat:'gold',value:0.03}, 'ㅊ':{name:'차',stat:'atk',value:5},
+    'ㅋ':{name:'카',stat:'def',value:5}, 'ㅌ':{name:'타',stat:'hp',value:25},
+    'ㅍ':{name:'파',stat:'crit',value:0.03}, 'ㅎ':{name:'하',stat:'all',value:2},
+};
+const RUNE_WORDS = {
+    'ㄱㅂㅊ': { name:'용의 숨결', effect:'fireAoe', desc:'공격 시 10% 확률 화염 광역', bonus:{atk:20} },
+    'ㄴㅋㅌ': { name:'철벽',     effect:'shield',  desc:'피격 시 15% 확률 1초 무적', bonus:{def:30} },
+    'ㄹㅅㅍ': { name:'질풍',     effect:'haste',   desc:'킬 시 3초간 속도 2배', bonus:{spd:5} },
+    'ㅁㅇㅎ': { name:'지혜의 빛', effect:'expUp',   desc:'EXP +25% 상시', bonus:{exp:0.25} },
+    'ㄱㄴㄷ': { name:'초심',     effect:'regen',   desc:'HP 리젠 +3%', bonus:{hpRegen:0.03} },
+    'ㅊㅋㅌ': { name:'파괴자',   effect:'execute', desc:'HP 20%↓ 적에게 데미지 x2', bonus:{atk:15} },
+    'ㅂㅅㅍ': { name:'행운',     effect:'luck',    desc:'드롭률 +30%', bonus:{dropRate:0.3} },
+};
+
+// ── 3. 진영 시스템 ──
+const FACTIONS = {
+    sun:  { name:'태양 기사단', color:'#ffd700', bonus:'atk', bonusValue:0.05 },
+    moon: { name:'달빛 마법단', color:'#aaccff', bonus:'exp', bonusValue:0.08 },
+    star: { name:'별의 수호자', color:'#ffaacc', bonus:'def', bonusValue:0.05 },
+};
+let factionState = { sun:{zones:{},kills:0}, moon:{zones:{},kills:0}, star:{zones:{},kills:0} };
+
+// ── 4. 프레스티지 (환생) ──
+const LEGACY_PERKS = [
+    { name:'골드 마스터', desc:'기본 골드 +10%', stat:'goldBonus', value:0.10 },
+    { name:'전투 본능', desc:'기본 ATK +5', stat:'atk', value:5 },
+    { name:'강철 체력', desc:'기본 HP +50', stat:'hp', value:50 },
+    { name:'행운의 별', desc:'크리티컬 +3%', stat:'crit', value:0.03 },
+    { name:'빠른 발', desc:'이동속도 +2', stat:'spd', value:2 },
+    { name:'현자의 지혜', desc:'EXP +15%', stat:'expBonus', value:0.15 },
+    { name:'수호의 기운', desc:'DEF +5', stat:'def', value:5 },
+    { name:'도적의 손길', desc:'드롭률 +10%', stat:'dropRate', value:0.10 },
+    { name:'용사의 혼', desc:'전체 스탯 +3%', stat:'allMulti', value:0.03 },
+    { name:'불멸의 의지', desc:'사망 시 HP 10% 부활 (10분 CD)', stat:'autoRevive', value:0.1 },
+];
+
+// ── 5. 의뢰 게시판 (플레이어 생성 퀘스트) ──
+let contractBoard = []; // { id, creatorId, creatorName, type, target, reward, status, acceptedBy, expiresAt }
+let contractIdCounter = 0;
 let goldFeverEnd = 0;
 
 // ── 드롭 아이템 생성 ──
@@ -1525,6 +1590,11 @@ io.on('connection', (socket) => {
                         dungeonClears: ext.dungeonClears || 0,
                         bestiary: ext.bestiary || {},
                         waypoints: ext.waypoints || ['aden'],
+                        faction: ext.faction || null,
+                        factionRep: ext.factionRep || 0,
+                        prestigeLevel: ext.prestigeLevel || 0,
+                        legacyPerks: ext.legacyPerks || [],
+                        itemRunes: ext.itemRunes || {},
                         maxArmy: ext.maxArmy || 30,
                         autoPotion: ext.autoPotion || false,
                         questProgress: ext.questProgress || {},
@@ -3357,6 +3427,193 @@ io.on('connection', (socket) => {
         savePlayer(p);
         socket.emit('reroll_result', { msg: `옵션 리롤 완료! (-100D)`, oldOpts, newOpts: p.equipOptions[itemId] });
         io.emit('player_update', p);
+    });
+
+    // ══════════════════════════════════════
+    // 5대 신규 시스템 소켓 핸들러
+    // ══════════════════════════════════════
+
+    // ── 1. 시즌 균열 입장 ──
+    socket.on('rift_enter', () => {
+        const p = players[playerId];
+        if (!p || !p.isAlive || p.level < 20) { socket.emit('rift_result', { msg: 'Lv.20 이상 필요' }); return; }
+        const theme = currentSeason.theme;
+        if (!p._riftDepth) p._riftDepth = 0;
+        p._riftDepth++;
+        const depth = p._riftDepth;
+        const monsterHp = 500 + depth * 200;
+        const monsterAtk = 20 + depth * 10;
+        const reward = { gold: 200 + depth * 100, exp: 500 + depth * 200, diamonds: depth % 5 === 0 ? depth * 2 : 0 };
+
+        socket.emit('rift_floor', { depth, theme: theme.name, color: theme.color, monsterHp, monsterAtk, reward });
+        // 균열 리더보드 갱신
+        currentSeason.leaderboard[playerId] = Math.max(currentSeason.leaderboard[playerId] || 0, depth);
+        if (depth % 10 === 0) {
+            io.emit('server_msg', { msg: `[균열] ${p.displayName}이(가) ${theme.name} ${depth}층 돌파!`, type: 'rare' });
+        }
+    });
+
+    // ── 1b. 균열 몬스터 클리어 ──
+    socket.on('rift_clear', () => {
+        const p = players[playerId];
+        if (!p || !p._riftDepth) return;
+        const depth = p._riftDepth;
+        const reward = { gold: 200 + depth * 100, exp: 500 + depth * 200, diamonds: depth % 5 === 0 ? depth * 2 : 0 };
+        p.gold += reward.gold;
+        if (reward.diamonds) p.diamonds = (p.diamonds||0) + reward.diamonds;
+        giveExp(p, reward.exp);
+        capResources(p);
+        savePlayer(p);
+        io.emit('player_update', p);
+        socket.emit('rift_result', { msg: `균열 ${depth}층 클리어! +${reward.gold}G +${reward.exp}EXP${reward.diamonds ? ' +'+reward.diamonds+'D' : ''}` });
+    });
+
+    // ── 1c. 균열 리더보드 ──
+    socket.on('get_rift_ranking', () => {
+        const sorted = Object.entries(currentSeason.leaderboard)
+            .sort((a,b) => b[1] - a[1]).slice(0, 20)
+            .map(([pid, depth], i) => ({ rank: i+1, name: players[pid]?.displayName || '?', depth }));
+        socket.emit('rift_ranking', { theme: currentSeason.theme.name, rankings: sorted });
+    });
+
+    // ── 2. 룬 장착 ──
+    socket.on('inscribe_rune', (data) => {
+        const p = players[playerId];
+        if (!p) return;
+        const { itemId, runeId } = data;
+        if (!p.equipped || !Object.values(p.equipped).includes(itemId)) {
+            socket.emit('rune_result', { msg: '장착 중인 장비만 룬 장착 가능' }); return;
+        }
+        if (!p.inventory?.[runeId] || p.inventory[runeId] <= 0) {
+            socket.emit('rune_result', { msg: '룬 없음' }); return;
+        }
+        if (!RUNES[runeId]) { socket.emit('rune_result', { msg: '유효하지 않은 룬' }); return; }
+
+        // 장비당 최대 3룬
+        if (!p.itemRunes) p.itemRunes = {};
+        if (!p.itemRunes[itemId]) p.itemRunes[itemId] = [];
+        if (p.itemRunes[itemId].length >= 3) { socket.emit('rune_result', { msg: '슬롯 가득 (최대 3개)' }); return; }
+
+        p.inventory[runeId]--;
+        if (p.inventory[runeId] <= 0) delete p.inventory[runeId];
+        p.itemRunes[itemId].push(runeId);
+
+        // 룬 워드 체크
+        const runes = p.itemRunes[itemId].sort().join('');
+        const runeWord = RUNE_WORDS[runes];
+        if (runeWord) {
+            socket.emit('rune_result', { msg: `룬 워드 발동! "${runeWord.name}" — ${runeWord.desc}` });
+            io.emit('server_msg', { msg: `[룬 워드] ${p.displayName}: "${runeWord.name}" 발동!`, type: 'rare' });
+        } else {
+            socket.emit('rune_result', { msg: `룬 ${runeId} 장착 완료 (${p.itemRunes[itemId].length}/3)` });
+        }
+        recalcStats(p);
+        savePlayer(p);
+        io.emit('player_update', p);
+    });
+
+    // ── 3. 진영 가입 ──
+    socket.on('faction_join', (factionId) => {
+        const p = players[playerId];
+        if (!p || p.level < 20) { socket.emit('faction_result', { msg: 'Lv.20 이상 필요' }); return; }
+        if (p.faction) { socket.emit('faction_result', { msg: '이미 진영 가입 중: ' + FACTIONS[p.faction]?.name }); return; }
+        if (!FACTIONS[factionId]) { socket.emit('faction_result', { msg: '유효하지 않은 진영' }); return; }
+        p.faction = factionId;
+        p.factionRep = 0;
+        savePlayer(p);
+        socket.emit('faction_result', { msg: `${FACTIONS[factionId].name}에 가입! 진영전에서 활약하세요.` });
+        io.emit('server_msg', { msg: `${p.displayName}이(가) ${FACTIONS[factionId].name}에 합류!`, type: 'normal' });
+    });
+
+    // ── 3b. 진영 정보 ──
+    socket.on('get_faction_info', () => {
+        const p = players[playerId];
+        const info = {};
+        for (const [fId, f] of Object.entries(FACTIONS)) {
+            const zoneCount = Object.keys(factionState[fId]?.zones || {}).length;
+            info[fId] = { name: f.name, color: f.color, zones: zoneCount, kills: factionState[fId]?.kills || 0 };
+        }
+        socket.emit('faction_info', { factions: info, myFaction: p?.faction || null, myRep: p?.factionRep || 0 });
+    });
+
+    // ── 4. 프레스티지 (환생) ──
+    socket.on('prestige', () => {
+        const p = players[playerId];
+        if (!p || p.level < 50) { socket.emit('prestige_result', { msg: 'Lv.50 이상 필요' }); return; }
+        if (!p.prestigeLevel) p.prestigeLevel = 0;
+        if (p.prestigeLevel >= 10) { socket.emit('prestige_result', { msg: '최대 환생 (10회)' }); return; }
+        p.prestigeLevel++;
+        const perkIdx = p.prestigeLevel - 1;
+        const perk = LEGACY_PERKS[perkIdx];
+        if (!p.legacyPerks) p.legacyPerks = [];
+        p.legacyPerks.push(perk);
+
+        // 레벨 리셋 (장비/인벤은 유지)
+        p.level = 1; p.exp = 0;
+        p.statPoints = 0; p.bonusStr = 0; p.bonusDex = 0; p.bonusInt = 0; p.bonusCon = 0;
+        recalcStats(p);
+        p.hp = p.maxHp;
+
+        savePlayer(p);
+        io.emit('server_msg', { msg: `[환생] ${p.displayName} ${p.prestigeLevel}차 환생! "${perk.name}" 획득!`, type: 'boss' });
+        socket.emit('prestige_result', { msg: `${p.prestigeLevel}차 환생! "${perk.name}" — ${perk.desc}. 다시 Lv.1부터!`, perk });
+        io.emit('player_update', p);
+    });
+
+    // ── 5. 의뢰 게시판 ──
+    socket.on('contract_create', (data) => {
+        const p = players[playerId];
+        if (!p || p.level < 10) { socket.emit('contract_result', { msg: 'Lv.10 이상 필요' }); return; }
+        const { type, target, reward } = data;
+        if (!type || !reward || reward <= 0) return;
+        const cost = Math.floor(reward * 1.1); // 10% 수수료
+        if (p.gold < cost) { socket.emit('contract_result', { msg: `골드 부족 (${cost}G 필요 — 수수료 10%)` }); return; }
+        p.gold -= cost;
+        contractIdCounter++;
+        const contract = {
+            id: contractIdCounter, creatorId: playerId, creatorName: p.displayName,
+            type, target: target || '', reward: Math.floor(reward),
+            status: 'open', acceptedBy: null, expiresAt: Date.now() + 3600000, // 1시간
+        };
+        contractBoard.push(contract);
+        savePlayer(p);
+        socket.emit('contract_result', { msg: `의뢰 등록! "${type}" — ${reward}G 보상` });
+        io.emit('server_msg', { msg: `[의뢰] ${p.displayName}의 새 의뢰: "${type}" (${reward}G)`, type: 'normal' });
+    });
+
+    socket.on('contract_accept', (contractId) => {
+        const p = players[playerId];
+        if (!p) return;
+        const c = contractBoard.find(x => x.id === contractId && x.status === 'open');
+        if (!c) { socket.emit('contract_result', { msg: '의뢰 없음 또는 마감' }); return; }
+        if (c.creatorId === playerId) { socket.emit('contract_result', { msg: '자기 의뢰 수락 불가' }); return; }
+        c.status = 'accepted';
+        c.acceptedBy = playerId;
+        socket.emit('contract_result', { msg: `의뢰 수락! "${c.type}" — 1시간 내 완료하세요.` });
+        io.to(c.creatorId).emit('contract_result', { msg: `${p.displayName}이(가) 당신의 의뢰를 수락!` });
+    });
+
+    socket.on('contract_complete', (contractId) => {
+        const p = players[playerId];
+        if (!p) return;
+        const c = contractBoard.find(x => x.id === contractId && x.acceptedBy === playerId && x.status === 'accepted');
+        if (!c) { socket.emit('contract_result', { msg: '완료 불가' }); return; }
+        c.status = 'completed';
+        p.gold += c.reward;
+        capResources(p);
+        savePlayer(p);
+        socket.emit('contract_result', { msg: `의뢰 완료! +${c.reward}G` });
+        io.to(c.creatorId).emit('contract_result', { msg: `의뢰 "${c.type}" 완료됨!` });
+        io.emit('player_update', p);
+    });
+
+    socket.on('get_contracts', () => {
+        const now = Date.now();
+        contractBoard = contractBoard.filter(c => now < c.expiresAt && c.status !== 'completed');
+        socket.emit('contract_list', contractBoard.map(c => ({
+            id: c.id, creator: c.creatorName, type: c.type, target: c.target,
+            reward: c.reward, status: c.status, timeLeft: Math.floor((c.expiresAt - now)/60000),
+        })));
     });
 
     // ── 아레나: 참가 신청 ──
@@ -5347,6 +5604,32 @@ function handleCollisions() {
                     // 존 정복 영주 보너스
                     if (mob.zoneId && zoneConquest[mob.zoneId]?.lordClan === realOwner.clanName) {
                         goldMulti += 0.15; expMulti += 0.15;
+                    }
+
+                    // 진영 킬 카운트
+                    if (realOwner.faction && mob.zoneId) {
+                        if (factionState[realOwner.faction]) {
+                            factionState[realOwner.faction].kills++;
+                            if (!factionState[realOwner.faction].zones[mob.zoneId]) factionState[realOwner.faction].zones[mob.zoneId] = 0;
+                            factionState[realOwner.faction].zones[mob.zoneId]++;
+                            realOwner.factionRep = (realOwner.factionRep || 0) + 1;
+                        }
+                        // 진영 보너스
+                        const fb = FACTIONS[realOwner.faction];
+                        if (fb) {
+                            if (fb.bonus === 'atk') goldMulti += 0; // ATK은 recalcStats에서
+                            if (fb.bonus === 'exp') expMulti += fb.bonusValue;
+                            if (fb.bonus === 'def') goldMulti += 0;
+                        }
+                    }
+
+                    // 룬 드롭 (5% 확률)
+                    if (Math.random() < 0.05) {
+                        const runeKeys = Object.keys(RUNES);
+                        const droppedRune = runeKeys[Math.floor(Math.random() * runeKeys.length)];
+                        if (!realOwner.inventory) realOwner.inventory = {};
+                        realOwner.inventory[droppedRune] = (realOwner.inventory[droppedRune]||0) + 1;
+                        io.to(realOwner.id).emit('combat_log', { msg: `룬 [${droppedRune}] 획득!` });
                     }
 
                     // 유성우 존 보너스 (x2)

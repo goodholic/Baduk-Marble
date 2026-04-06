@@ -635,6 +635,33 @@
     </div>
   </div>
 
+    <!-- 진영 패널 -->
+    <div class="panel" id="panel-faction">
+      <div class="panel-header"><h2>진영</h2><button class="panel-close" onclick="closePanel('faction')">X</button></div>
+      <div class="panel-body" id="faction-body"><div class="loading-text"><span class="spinner"></span> 로딩 중...</div></div>
+    </div>
+
+    <!-- 의뢰 게시판 패널 -->
+    <div class="panel" id="panel-contracts">
+      <div class="panel-header"><h2>의뢰 게시판</h2><button class="panel-close" onclick="closePanel('contracts')">X</button></div>
+      <div class="panel-body" id="contract-body"><div class="loading-text"><span class="spinner"></span> 로딩 중...</div></div>
+    </div>
+
+    <!-- 균열 패널 -->
+    <div class="panel" id="panel-rift">
+      <div class="panel-header"><h2>시즌 균열</h2><button class="panel-close" onclick="closePanel('rift')">X</button></div>
+      <div class="panel-body" style="text-align:center">
+        <p class="text-gold" style="font-size:var(--fs-md)">차원의 균열에 도전하세요 (Lv.20+)</p>
+        <p class="text-muted text-sm">층이 깊어질수록 강해지는 적, 2주마다 테마 변경</p>
+        <div style="margin:var(--sp-lg) 0">
+          <button onclick="window.socket.emit('rift_enter')" class="btn btn-primary">균열 입장</button>
+          <button onclick="window.socket.emit('get_rift_ranking')" class="btn" style="margin-left:5px">랭킹</button>
+        </div>
+        <div id="rift-info"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- 채팅 (Unity 밖) -->
   <div id="chat-box" style="position:fixed;top:230px;left:10px;width:240px;z-index:20;display:none">
     <div id="chat-log" style="height:100px;overflow-y:auto;background:rgba(8,8,18,0.9);border:1px solid rgba(255,215,0,0.1);border-radius:8px 8px 0 0;padding:8px;font-size:11px;color:#ccc;font-family:'Noto Sans KR',sans-serif">
@@ -1330,6 +1357,56 @@
         warn.textContent = d.type === 'charge' ? '⚠ 돌진!' : d.type === 'breath' ? '⚠ 브레스!' : '⚠ 공격!';
         document.body.appendChild(warn);
         setTimeout(function(){ warn.remove(); }, 800);
+      });
+
+      // ── 5대 시스템 이벤트 ──
+      // 균열
+      window.socket.on('rift_floor', (d) => { showToast(`[균열] ${d.theme} ${d.depth}층 — HP:${d.monsterHp} ATK:${d.monsterAtk}`); playSFX('boss'); });
+      window.socket.on('rift_result', (d) => { showToast(d.msg); playSFX('gold'); });
+      window.socket.on('rift_ranking', (d) => {
+        var html = '<p class="text-gold">' + d.theme + ' 랭킹</p>';
+        d.rankings.forEach(function(r) { html += '<div class="panel-item"><span class="text-sm">#'+r.rank+' '+r.name+'</span><span class="text-gold text-sm">'+r.depth+'층</span></div>'; });
+        document.getElementById('rift-info').innerHTML = html;
+      });
+      // 룬
+      window.socket.on('rune_result', (d) => { showToast(d.msg); playSFX(d.msg.includes('발동') ? 'boss' : 'buff'); });
+      // 진영
+      window.socket.on('faction_result', (d) => showToast(d.msg));
+      window.socket.on('faction_info', (d) => {
+        var el = document.getElementById('faction-body');
+        if (!el) return;
+        var html = '<p class="text-muted text-sm" style="margin-bottom:8px">Lv.20 이상 가입 가능. 진영전에서 존을 점령하세요!</p>';
+        for (var fId in d.factions) {
+          var f = d.factions[fId];
+          var isMine = d.myFaction === fId;
+          html += '<div class="card" style="margin-bottom:6px;border-left:3px solid '+f.color+'">';
+          html += '<b style="color:'+f.color+'">'+f.name+'</b>' + (isMine ? ' <span class="text-gold text-xs">[내 진영]</span>' : '');
+          html += '<div class="text-sm text-muted">점령 '+f.zones+'존 | 총 '+f.kills+'킬</div>';
+          if (!d.myFaction && !isMine) html += '<button class="btn btn-sm" onclick="window.socket.emit(\'faction_join\',\''+fId+'\')">가입</button>';
+          html += '</div>';
+        }
+        if (d.myFaction) html += '<p class="text-sm" style="margin-top:8px">내 기여도: <b class="text-gold">'+d.myRep+'</b></p>';
+        el.innerHTML = html;
+      });
+      // 프레스티지
+      window.socket.on('prestige_result', (d) => {
+        showToast(d.msg); playSFX('boss'); playSFX('levelup');
+        if (d.perk) { var ol = document.getElementById('levelup-overlay'); ol.querySelector('.lvl-text').textContent = '환생!'; ol.querySelector('.lvl-sub').innerHTML = d.perk.name+' — '+d.perk.desc; ol.classList.add('show'); setTimeout(function(){ ol.classList.remove('show'); }, 3000); }
+      });
+      // 의뢰
+      window.socket.on('contract_result', (d) => showToast(d.msg));
+      window.socket.on('contract_list', (list) => {
+        var el = document.getElementById('contract-body');
+        if (!el) return;
+        if (!list.length) { el.innerHTML = '<p class="text-muted text-sm">의뢰가 없습니다</p>'; return; }
+        var html = '';
+        list.forEach(function(c) {
+          html += '<div class="panel-item"><span class="name text-sm">'+c.type+' <span class="text-muted">by '+c.creator+'</span> | <b class="text-gold">'+c.reward+'G</b> | '+c.timeLeft+'분</span>';
+          if (c.status === 'open') html += '<button class="btn btn-sm" onclick="window.socket.emit(\'contract_accept\','+c.id+')">수락</button>';
+          else html += '<span class="text-muted text-xs">수락됨</span>';
+          html += '</div>';
+        });
+        el.innerHTML = html;
       });
 
       // 스킬 상세
@@ -2253,6 +2330,10 @@
         {label:'일괄 판매', action:()=>{showModal('일괄 판매','<p style="color:#ff8800">선택한 등급 이하의 모든 미장착 장비를 판매합니다 (60% 가격)</p>',[{label:'일반 이하',action:"window.socket.emit('bulk_sell','normal');closeModal();"},{label:'고급 이하',action:"window.socket.emit('bulk_sell','uncommon');closeModal();"},{label:'희귀 이하',action:"window.socket.emit('bulk_sell','rare');closeModal();"},{label:'취소',type:'cancel',action:'closeModal()'}]);}},
         {label:'웨이포인트', action:()=>window.socket.emit('get_waypoints')},
         {label:'설정', action:()=>togglePanel('settings')},
+        {label:'시즌 균열', action:()=>togglePanel('rift')},
+        {label:'환생', action:()=>{showModal('환생 (프레스티지)','<p class="text-gold">Lv.50 달성 시 레벨을 1로 리셋하고 영구 보너스를 획득합니다.</p><p class="text-muted text-sm">장비/인벤/다이아는 유지. 최대 10회.</p>',[{label:'환생!',action:"window.socket.emit('prestige');closeModal();"},{label:'취소',type:'cancel',action:'closeModal()'}]);}},
+        {label:'의뢰', action:()=>{togglePanel('contracts');window.socket.emit('get_contracts');}},
+        {label:'진영', action:()=>{togglePanel('faction');window.socket.emit('get_faction_info');}},
         {label:'일일 보상', action:()=>claimDaily()},
       ],
     };
