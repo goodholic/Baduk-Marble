@@ -41,72 +41,77 @@
       pointer-events: auto !important;
     }
 
-    /* ═══ 하단 메뉴바 ═══ */
-    #bottom-bar { position:absolute; bottom:0; left:50%; transform:translateX(-50%); width:auto; max-width:600px; height:50px; background:linear-gradient(180deg,rgba(15,15,28,0.97),rgba(8,8,18,0.99)); display:none; z-index:15; border-top:2px solid rgba(255,215,0,0.15); border-radius:12px 12px 0 0; padding:0 8px; }
-    #bottom-bar .tab { flex:none; width:100px; height:44px; margin:2px 3px; border:none; border-radius:10px; background:url('ui/btn_gray.png') center/100% 100% no-repeat; font-size:12px; font-weight:700; cursor:pointer; transition:all 0.15s; letter-spacing:1px; }
-    #bottom-bar .tab:hover { filter:brightness(1.3); transform:scale(1.03); }
-    #bottom-bar .tab:active { filter:brightness(0.8); transform:scale(0.97); }
-    #bottom-bar.show { display:flex; }
+    /* ═══ 하단 메뉴바 — 모던 ═══ */
+    #bottom-bar { position:absolute; bottom:0; left:50%; transform:translateX(-50%); width:auto; max-width:600px; height:48px; background:linear-gradient(180deg,rgba(15,15,28,0.95),rgba(8,8,18,0.98)); backdrop-filter:blur(10px); display:none; z-index:15; border-top:1px solid rgba(255,215,0,0.12); border-radius:14px 14px 0 0; padding:0 6px; gap:2px; }
+    #bottom-bar .tab { flex:none; width:90px; height:40px; margin:3px 2px; border:none; border-radius:8px; background:linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02)); color:#ccc; font-size:12px; font-weight:700; cursor:pointer; transition:all 0.15s; letter-spacing:0.5px; border:1px solid rgba(255,255,255,0.06); }
+    #bottom-bar .tab:hover { background:linear-gradient(180deg,rgba(255,215,0,0.15),rgba(255,215,0,0.05)); color:#ffd700; border-color:rgba(255,215,0,0.2); transform:translateY(-2px); }
+    #bottom-bar .tab:active { transform:scale(0.96); }
+    #bottom-bar.show { display:flex; align-items:center; }
 
-    /* ═══ 상태바 (HUD) ═══ */
-    #status-bar { position:absolute; top:0; left:0; width:100%; z-index:15; display:none; background:linear-gradient(180deg,rgba(8,8,18,0.92),rgba(8,8,18,0.6),transparent); padding:8px 15px 12px; }
-    #status-bar.show { display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
-    #status-bar .stat { font-size:12px; color:#999; }
-    #status-bar .stat b { font-size:13px; }
-    .diamond-val { color:#55ccff !important; text-shadow:0 0 6px rgba(85,204,255,0.3); }
-    .gold-val { color:#ffd700 !important; text-shadow:0 0 6px rgba(255,215,0,0.3); }
-    .zone-val { color:#88ff88 !important; }
-    .level-val { color:#fff !important; font-size:15px !important; font-weight:900 !important; }
-    .hp-val { color:#88ff88 !important; font-size:11px !important; }
-    .team-val { font-size:12px !important; }
+    /* ═══ 상태바 (HUD) — 글래스모피즘 ═══ */
+    #status-bar { position:absolute; top:0; left:0; width:100%; z-index:15; display:none; background:linear-gradient(180deg,rgba(10,10,20,0.88),rgba(10,10,20,0.5),transparent); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); padding:6px 12px 10px; border-bottom:1px solid rgba(255,215,0,0.08); }
+    #status-bar.show { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    #status-bar .stat { font-size:11px; color:#999; display:flex; align-items:center; gap:3px; }
+    #status-bar .stat b { font-size:12px; }
+    .diamond-val { color:#55ccff !important; text-shadow:0 0 8px rgba(85,204,255,0.4); font-variant-numeric:tabular-nums; }
+    .gold-val { color:#ffd700 !important; text-shadow:0 0 8px rgba(255,215,0,0.4); font-variant-numeric:tabular-nums; }
+    .zone-val { color:#88ff88 !important; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .level-val { color:#fff !important; font-size:14px !important; font-weight:900 !important; background:linear-gradient(135deg,#ffd700,#ff8800); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+    .hp-val { color:#88ff88 !important; font-size:10px !important; font-variant-numeric:tabular-nums; }
+    .team-val { font-size:11px !important; }
 
-    /* ═══ 채팅 ═══ */
-    #chat-box { position:fixed; bottom:60px; left:10px; width:240px; z-index:9999; display:none; }
+    /* ═══ 채팅 — 컴팩트 ═══ */
+    #chat-box { position:fixed; bottom:56px; left:8px; width:260px; z-index:9999; display:none; }
     #chat-box.show { display:block; }
-    #chat-log { height:130px; overflow-y:auto; background:rgba(8,8,18,0.88); border:1px solid rgba(255,255,255,0.08); border-radius:8px 8px 0 0; padding:8px 10px; font-size:12px; color:#ccc; }
-    #chat-log div { padding:2px 0; }
+    #chat-log { height:120px; overflow-y:auto; background:rgba(8,8,18,0.85); backdrop-filter:blur(6px); border:1px solid rgba(255,255,255,0.06); border-radius:10px 10px 0 0; padding:8px 10px; font-size:11px; color:#bbb; scrollbar-width:thin; scrollbar-color:#333 transparent; }
+    #chat-log::-webkit-scrollbar { width:4px; }
+    #chat-log::-webkit-scrollbar-thumb { background:#444; border-radius:2px; }
+    #chat-log div { padding:2px 0; line-height:1.4; }
     .chat-king { color:#ffd700; font-weight:bold; }
     .chat-chaotic { color:#ff4444; }
     #chat-input-wrap { display:flex; }
-    #chat-input { flex:1; padding:8px 12px; border:1px solid rgba(255,255,255,0.08); border-top:none; border-radius:0 0 0 8px; background:rgba(8,8,18,0.95); color:#fff; font-size:12px; outline:none; }
-    #chat-input::placeholder { color:#444; }
-    #chat-send { padding:8px 14px; border:1px solid rgba(255,215,0,0.2); border-top:none; border-radius:0 0 8px 0; background:linear-gradient(180deg,rgba(255,215,0,0.15),rgba(255,215,0,0.05)); color:#ffd700; cursor:pointer; font-size:12px; font-weight:700; }
-    #chat-send:hover { background:linear-gradient(180deg,#ffd700,#cc9900); color:#000; }
+    #chat-input { flex:1; padding:8px 12px; border:1px solid rgba(255,255,255,0.06); border-top:none; border-radius:0 0 0 10px; background:rgba(8,8,18,0.92); color:#fff; font-size:12px; outline:none; }
+    #chat-input::placeholder { color:#555; }
+    #chat-input:focus { border-color:rgba(255,215,0,0.3); }
+    #chat-send { padding:8px 14px; border:1px solid rgba(255,215,0,0.15); border-top:none; border-radius:0 0 10px 0; background:linear-gradient(180deg,rgba(255,215,0,0.12),rgba(255,215,0,0.04)); color:#ffd700; cursor:pointer; font-size:12px; font-weight:700; transition:all 0.15s; }
+    #chat-send:hover { background:linear-gradient(180deg,rgba(255,215,0,0.3),rgba(255,215,0,0.1)); }
 
-    /* ═══ 전투 로그 ═══ */
-    #combat-log { position:absolute; bottom:100px; right:10px; width:280px; max-height:140px; overflow-y:auto; z-index:15; display:none; font-size:11px; color:#999; background:rgba(8,8,18,0.75); border:1px solid rgba(255,255,255,0.05); border-radius:8px; padding:8px; }
+    /* ═══ 전투 로그 — 컴팩트 반투명 ═══ */
+    #combat-log { position:absolute; bottom:56px; right:8px; width:260px; max-height:130px; overflow-y:auto; z-index:15; display:none; font-size:10px; color:#888; background:rgba(8,8,18,0.6); backdrop-filter:blur(4px); border:1px solid rgba(255,255,255,0.04); border-radius:8px; padding:6px 8px; scrollbar-width:thin; scrollbar-color:#333 transparent; }
+    #combat-log::-webkit-scrollbar { width:3px; }
+    #combat-log::-webkit-scrollbar-thumb { background:#444; border-radius:2px; }
     #combat-log.show { display:block; }
-    #combat-log div { padding:1px 0; }
-    .log-crit { color:#ff4444; font-weight:bold; }
+    #combat-log div { padding:1px 0; line-height:1.3; border-bottom:1px solid rgba(255,255,255,0.02); }
+    .log-crit { color:#ff6666; font-weight:bold; }
     .log-gold { color:#ffd700; }
     .log-lvl { color:#44ff44; font-weight:bold; }
-    .log-morph { color:#aa44ff; font-weight:bold; }
+    .log-morph { color:#cc88ff; font-weight:bold; }
 
-    /* ═══ 서버 공지 ═══ */
-    #server-msg { position:absolute; top:45px; left:50%; transform:translateX(-50%); z-index:30; display:none; padding:14px 35px; border-radius:6px; font-size:16px; font-weight:700; text-shadow:0 2px 4px rgba(0,0,0,0.8); animation:msgPulse 0.4s ease; letter-spacing:1px; }
-    #server-msg.boss { background:linear-gradient(135deg,rgba(150,0,0,0.95),rgba(80,0,0,0.95)); color:#ffd700; border:1px solid #ffd700; box-shadow:0 0 30px rgba(255,215,0,0.2); }
-    #server-msg.morph { background:linear-gradient(135deg,rgba(80,0,150,0.95),rgba(40,0,80,0.95)); color:#dda0ff; border:1px solid #aa44ff; }
-    #server-msg.rare { background:linear-gradient(135deg,rgba(0,80,150,0.95),rgba(0,40,80,0.95)); color:#88ccff; border:1px solid #44aaff; }
-    #server-msg.danger { background:linear-gradient(135deg,rgba(150,0,0,0.95),rgba(80,0,0,0.95)); color:#ff8888; border:1px solid #ff4444; }
-    #server-msg.normal { background:rgba(15,15,25,0.95); color:#aaa; border:1px solid #333; }
+    /* ═══ 서버 공지 — 프리미엄 ═══ */
+    #server-msg { position:absolute; top:42px; left:50%; transform:translateX(-50%); z-index:30; display:none; padding:12px 30px; border-radius:8px; font-size:14px; font-weight:700; text-shadow:0 2px 4px rgba(0,0,0,0.8); animation:msgPulse 0.4s ease; letter-spacing:0.5px; max-width:90%; text-align:center; }
+    #server-msg.boss { background:linear-gradient(135deg,rgba(150,0,0,0.92),rgba(80,0,0,0.92)); color:#ffd700; border:1px solid rgba(255,215,0,0.4); box-shadow:0 0 40px rgba(255,0,0,0.2),inset 0 0 20px rgba(255,0,0,0.1); }
+    #server-msg.morph { background:linear-gradient(135deg,rgba(80,0,150,0.92),rgba(40,0,80,0.92)); color:#dda0ff; border:1px solid rgba(170,68,255,0.4); box-shadow:0 0 30px rgba(170,68,255,0.15); }
+    #server-msg.rare { background:linear-gradient(135deg,rgba(0,60,120,0.92),rgba(0,30,60,0.92)); color:#88ddff; border:1px solid rgba(68,170,255,0.4); box-shadow:0 0 30px rgba(68,170,255,0.15); }
+    #server-msg.danger { background:linear-gradient(135deg,rgba(150,0,0,0.92),rgba(80,0,0,0.92)); color:#ff8888; border:1px solid rgba(255,68,68,0.4); box-shadow:0 0 30px rgba(255,0,0,0.15); }
+    #server-msg.normal { background:rgba(15,15,25,0.92); color:#aaa; border:1px solid rgba(255,255,255,0.1); }
     #server-msg.show { display:block; }
     @keyframes msgPulse { 0%{transform:translateX(-50%) scale(0.9);opacity:0} 50%{transform:translateX(-50%) scale(1.02)} 100%{transform:translateX(-50%) scale(1);opacity:1} }
 
     /* ═══ 옵션 버튼 ═══ */
-    .top-btn { position:absolute; left:10px; z-index:17; background:rgba(15,15,25,0.8); border:1px solid rgba(255,255,255,0.1); color:#888; padding:3px 8px; border-radius:4px; cursor:pointer; font-size:10px; }
-    .top-btn:hover { background:rgba(255,215,0,0.15); color:#ffd700; border-color:rgba(255,215,0,0.3); }
+    .top-btn { position:absolute; left:10px; z-index:17; background:rgba(15,15,25,0.7); backdrop-filter:blur(4px); border:1px solid rgba(255,255,255,0.08); color:#777; padding:4px 10px; border-radius:6px; cursor:pointer; font-size:10px; transition:all 0.15s; }
+    .top-btn:hover { background:rgba(255,215,0,0.12); color:#ffd700; border-color:rgba(255,215,0,0.25); transform:scale(1.05); }
 
-    /* ═══ 서브메뉴 ═══ */
-    #sub-menu { position:absolute; bottom:50px; left:50%; transform:translateX(-50%); width:auto; max-width:500px; display:none; z-index:17; background:linear-gradient(180deg,rgba(12,12,22,0.97),rgba(8,8,18,0.99)); border-top:1px solid rgba(255,215,0,0.1); border-radius:10px 10px 0 0; padding:4px 8px; }
-    #sub-menu.show { display:flex; flex-wrap:wrap; justify-content:center; }
-    #sub-menu button { flex:none; width:110px; padding:10px 8px; margin:3px 4px; border:none; border-radius:10px; background:url('ui/btn_gray.png') center/100% 100% no-repeat; color:#fff; font-size:13px; font-weight:700; cursor:pointer; transition:all 0.15s; text-shadow:0 1px 2px rgba(0,0,0,0.5); }
-    #sub-menu button:hover { filter:brightness(1.3); transform:scale(1.03); }
+    /* ═══ 서브메뉴 — 모던 그리드 ═══ */
+    #sub-menu { position:absolute; bottom:50px; left:50%; transform:translateX(-50%); width:auto; max-width:520px; display:none; z-index:17; background:rgba(10,10,20,0.95); backdrop-filter:blur(12px); border:1px solid rgba(255,215,0,0.1); border-radius:12px; padding:8px 10px; box-shadow:0 -4px 20px rgba(0,0,0,0.5); }
+    #sub-menu.show { display:flex; flex-wrap:wrap; justify-content:center; gap:4px; }
+    #sub-menu button { flex:none; width:100px; padding:10px 6px; border:1px solid rgba(255,255,255,0.08); border-radius:8px; background:linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.01)); color:#ddd; font-size:12px; font-weight:700; cursor:pointer; transition:all 0.15s; text-shadow:0 1px 2px rgba(0,0,0,0.5); }
+    #sub-menu button:hover { background:linear-gradient(180deg,rgba(255,215,0,0.15),rgba(255,215,0,0.05)); color:#ffd700; border-color:rgba(255,215,0,0.25); transform:translateY(-2px); box-shadow:0 4px 12px rgba(255,215,0,0.1); }
 
-    /* ═══ 미니맵 ═══ */
-    #minimap-container { position:absolute; top:50px; left:8px; z-index:15; display:none; }
+    /* ═══ 미니맵 — 라운드 ═══ */
+    #minimap-container { position:absolute; top:46px; left:8px; z-index:15; display:none; }
     #minimap-container.show { display:block; }
-    #minimap { border:2px solid rgba(255,215,0,0.2); border-radius:8px; background:rgba(8,8,18,0.9); cursor:pointer; box-shadow:0 4px 15px rgba(0,0,0,0.5); }
-    #minimap-zone { color:#ffd700; font-size:11px; text-align:center; margin-top:3px; text-shadow:0 1px 3px #000; font-weight:700; }
+    #minimap { border:2px solid rgba(255,215,0,0.15); border-radius:12px; background:rgba(8,8,18,0.88); cursor:pointer; box-shadow:0 4px 20px rgba(0,0,0,0.6); }
+    #minimap-zone { color:#ffd700; font-size:10px; text-align:center; margin-top:2px; text-shadow:0 1px 3px #000; font-weight:700; }
 
     /* 레벨업 축하 */
     #levelup-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:60; pointer-events:none; }
@@ -145,15 +150,15 @@
     .shake { animation:screenShake 0.3s ease-out; }
 
     /* DPS 미터 + 세션 스탯 + 전투 상태 + 다음 목표 */
-    #dps-meter { position:fixed; bottom:160px; right:10px; z-index:16; color:#ffd700; font-size:13px; font-weight:bold; text-shadow:0 1px 3px #000; pointer-events:none; font-family:monospace; }
-    #session-stats { position:fixed; top:4px; right:10px; z-index:16; color:#aaa; font-size:11px; text-shadow:0 1px 2px #000; pointer-events:none; display:flex; gap:10px; }
-    #session-stats span { color:#ddd; }
-    #combat-status { position:fixed; bottom:140px; right:10px; z-index:16; color:#88ccff; font-size:11px; text-shadow:0 1px 3px #000; pointer-events:none; max-width:200px; text-align:right; }
-    #next-milestone { position:fixed; bottom:120px; right:10px; z-index:16; font-size:11px; text-shadow:0 1px 3px #000; pointer-events:none; }
-    #next-milestone .bar { width:140px; height:5px; background:#333; border-radius:3px; overflow:hidden; margin-top:2px; }
-    #next-milestone .fill { height:100%; background:linear-gradient(90deg,#ffd700,#ff8800); border-radius:3px; transition:width 0.5s; }
-    #loot-log { position:fixed; bottom:180px; left:10px; z-index:16; pointer-events:none; max-width:200px; }
-    .loot-entry { padding:2px 6px; margin-bottom:2px; border-radius:4px; font-size:11px; color:#fff; animation:lootSlide 0.3s ease-out; }
+    #dps-meter { position:fixed; bottom:195px; right:10px; z-index:16; color:#ffd700; font-size:12px; font-weight:bold; text-shadow:0 1px 4px #000; pointer-events:none; font-family:'Courier New',monospace; background:rgba(0,0,0,0.3); padding:2px 8px; border-radius:4px; }
+    #session-stats { position:fixed; top:3px; right:8px; z-index:16; color:#999; font-size:10px; text-shadow:0 1px 2px #000; pointer-events:none; display:flex; gap:8px; background:rgba(0,0,0,0.2); padding:2px 8px; border-radius:4px; }
+    #session-stats span { color:#ccc; font-variant-numeric:tabular-nums; }
+    #combat-status { position:fixed; bottom:210px; right:10px; z-index:16; color:#88ccff; font-size:10px; text-shadow:0 1px 3px #000; pointer-events:none; max-width:180px; text-align:right; background:rgba(0,0,0,0.2); padding:2px 8px; border-radius:4px; }
+    #next-milestone { position:fixed; bottom:230px; right:10px; z-index:16; font-size:10px; text-shadow:0 1px 3px #000; pointer-events:none; }
+    #next-milestone .bar { width:120px; height:4px; background:#222; border-radius:2px; overflow:hidden; margin-top:2px; }
+    #next-milestone .fill { height:100%; background:linear-gradient(90deg,#ffd700,#ff8800); border-radius:2px; transition:width 0.5s; }
+    #loot-log { position:fixed; bottom:60px; left:270px; z-index:16; pointer-events:none; max-width:180px; }
+    .loot-entry { padding:2px 6px; margin-bottom:2px; border-radius:4px; font-size:10px; color:#eee; animation:lootSlide 0.3s ease-out; border-left:2px solid rgba(255,215,0,0.3); }
     @keyframes lootSlide { 0%{transform:translateX(-20px);opacity:0} 100%{transform:translateX(0);opacity:1} }
     @keyframes expPulse { 0%{box-shadow:0 0 0 rgba(170,68,255,0)} 50%{box-shadow:0 0 8px rgba(170,68,255,0.6)} 100%{box-shadow:0 0 0 rgba(170,68,255,0)} }
     .exp-pulse { animation:expPulse 0.4s ease-out; }
@@ -165,10 +170,12 @@
     @keyframes critBorder { 0%{opacity:0.8} 100%{opacity:0} }
     #minimap-coords { color:#888; font-size:9px; text-align:center; margin-top:1px; }
 
-    /* ═══ 패널 ═══ */
-    .panel { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:440px; max-height:65vh; background:linear-gradient(180deg,rgba(12,12,22,0.98),rgba(8,8,18,0.99)); border:1px solid rgba(255,215,0,0.12); border-radius:12px; color:#ccc; z-index:25; display:none; overflow-y:auto; box-shadow:0 12px 40px rgba(0,0,0,0.7),0 0 20px rgba(255,215,0,0.03); }
-    .panel.show { display:block; animation:panelIn 0.2s ease; }
-    @keyframes panelIn { from{opacity:0;transform:translate(-50%,-50%) scale(0.93)} to{opacity:1;transform:translate(-50%,-50%) scale(1)} }
+    /* ═══ 패널 — 글래스모피즘 ═══ */
+    .panel { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:420px; max-height:65vh; background:rgba(10,10,20,0.94); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:1px solid rgba(255,215,0,0.1); border-radius:14px; color:#ccc; z-index:25; display:none; overflow-y:auto; box-shadow:0 16px 48px rgba(0,0,0,0.6),0 0 1px rgba(255,215,0,0.1); scrollbar-width:thin; scrollbar-color:#333 transparent; }
+    .panel::-webkit-scrollbar { width:4px; }
+    .panel::-webkit-scrollbar-thumb { background:#444; border-radius:2px; }
+    .panel.show { display:block; animation:panelIn 0.25s ease; }
+    @keyframes panelIn { from{opacity:0;transform:translate(-50%,-50%) scale(0.92)} to{opacity:1;transform:translate(-50%,-50%) scale(1)} }
     .panel-header { display:flex; justify-content:space-between; align-items:center; padding:12px 18px; border-bottom:1px solid rgba(255,215,0,0.1); background:linear-gradient(90deg,rgba(255,215,0,0.06),transparent); }
     .panel-header h2 { font-size:16px; color:#ffd700; font-weight:700; letter-spacing:1px; }
     .panel-close { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#666; font-size:14px; cursor:pointer; width:28px; height:28px; border-radius:6px; line-height:26px; text-align:center; transition:all 0.15s; }
@@ -182,7 +189,8 @@
     .panel-item small { color:#666; }
 
     /* ═══ 알림 ═══ */
-    #toast { position:absolute; top:75px; left:50%; transform:translateX(-50%); background:linear-gradient(135deg,rgba(15,15,25,0.95),rgba(10,10,20,0.95)); color:#ffd700; padding:12px 28px; border-radius:8px; z-index:30; display:none; font-size:14px; font-weight:700; border:1px solid rgba(255,215,0,0.3); box-shadow:0 4px 20px rgba(0,0,0,0.5); letter-spacing:0.5px; }
+    #toast { position:absolute; top:70px; left:50%; transform:translateX(-50%); background:rgba(12,12,24,0.92); backdrop-filter:blur(12px); color:#ffd700; padding:10px 24px; border-radius:10px; z-index:30; display:none; font-size:13px; font-weight:700; border:1px solid rgba(255,215,0,0.2); box-shadow:0 4px 24px rgba(0,0,0,0.5),0 0 1px rgba(255,215,0,0.15); letter-spacing:0.5px; max-width:90%; text-align:center; animation:toastIn 0.3s ease; }
+    @keyframes toastIn { 0%{opacity:0;transform:translateX(-50%) translateY(-10px)} 100%{opacity:1;transform:translateX(-50%) translateY(0)} }
     #toast.show { display:block; animation:msgPulse 0.3s ease; }
   </style>
 </head>
@@ -286,10 +294,10 @@
     <button class="top-btn" style="top:52px" onclick="toggleAutoPotion()" id="btn-potion">AutoPot OFF</button>
 
     <!-- 범용 게임 모달 -->
-    <div id="game-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:100;justify-content:center;align-items:center">
-      <div style="background:linear-gradient(180deg,#1a1a2e,#0d0d1a);border:1px solid rgba(255,215,0,0.2);border-radius:12px;padding:20px;max-width:360px;width:90%;max-height:70vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.8)">
-        <h3 id="modal-title" style="color:#ffd700;margin:0 0 12px;font-size:16px;text-align:center"></h3>
-        <div id="modal-body" style="color:#ddd;font-size:13px;margin-bottom:15px"></div>
+    <div id="game-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:100;justify-content:center;align-items:center">
+      <div style="background:rgba(12,12,24,0.96);backdrop-filter:blur(20px);border:1px solid rgba(255,215,0,0.15);border-radius:16px;padding:24px;max-width:380px;width:90%;max-height:70vh;overflow-y:auto;box-shadow:0 12px 48px rgba(0,0,0,0.7),0 0 1px rgba(255,215,0,0.2)">
+        <h3 id="modal-title" style="color:#ffd700;margin:0 0 14px;font-size:16px;text-align:center;font-weight:800"></h3>
+        <div id="modal-body" style="color:#ddd;font-size:13px;margin-bottom:16px;line-height:1.5"></div>
         <div id="modal-buttons" style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap"></div>
       </div>
     </div>
