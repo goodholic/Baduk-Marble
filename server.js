@@ -25,6 +25,7 @@ const io = socketIo(server, {
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 const PORT = process.env.PORT || 3000;
+const serverStartTime = Date.now();
 
 // 토스페이먼츠 테스트 키
 const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY || 'test_sk_zXLkKEypNArWmo50nX3lmeaxYG5R';
@@ -3191,6 +3192,21 @@ io.on('connection', (socket) => {
             points: myRank.points, wins: myRank.wins, losses: myRank.losses,
             seasonRemain, allTiers: ARENA_TIERS,
         });
+    });
+
+    // ── 맵 핑 (파티원에게) ──
+    socket.on('map_ping', (data) => {
+        const p = players[playerId];
+        if (!p || !p.partyId || !parties[p.partyId]) return;
+        parties[p.partyId].members.forEach(mid => {
+            io.to(mid).emit('map_ping', { name: p.displayName, x: Math.round(data.x), y: Math.round(data.y) });
+        });
+    });
+
+    // ── 자동 분해 설정 ──
+    socket.on('set_auto_dismantle', (val) => {
+        const p = players[playerId];
+        if (p) p.autoDismantle = !!val;
     });
 
     // ── 길드 채팅 ──
@@ -6705,9 +6721,15 @@ function handleCollisions() {
                     for (const d of drops) {
                         const effectiveRate = d.rate * (1 + (realOwner.dropRateBonus || 0));
                         if (Math.random() < effectiveRate) {
-                            realOwner.inventory[d.id] = (realOwner.inventory[d.id]||0) + 1;
-                            // 랜덤 옵션 생성 (등급에 따라)
                             const eqInfo = EQUIP_STATS[d.id];
+                            // 자동 분해 (일반 등급)
+                            if (realOwner.autoDismantle && eqInfo && eqInfo.grade === 'normal') {
+                                const dGold = Math.floor((eqInfo.atk + eqInfo.def) * 5 + 50);
+                                realOwner.gold += dGold;
+                                io.to(realOwner.id).emit('combat_log', { msg: (eqInfo.name||d.id) + ' 자동 분해! +' + dGold + 'G' });
+                                break;
+                            }
+                            realOwner.inventory[d.id] = (realOwner.inventory[d.id]||0) + 1;
                             if (eqInfo) {
                                 const gradeInfo = GRADE_INFO[eqInfo.grade] || GRADE_INFO.normal;
                                 if (gradeInfo.randomOpts > 0) {
@@ -7163,7 +7185,9 @@ function syncGameState() {
         const zone = getZone(p.x, p.y);
         const myZoneId = zone?.id || 'plains';
 
-        const syncData = { players: {}, monsters: monsterDelta, isNight, weather: currentWeather.id, worldTime };
+        const playerCount = Object.values(players).filter(p => !p.isBot && p.isAlive).length;
+        const uptime = Math.floor((Date.now() - serverStartTime) / 1000);
+        const syncData = { players: {}, monsters: monsterDelta, isNight, weather: currentWeather.id, worldTime, playerCount, uptime };
 
         // 가시 범위 내 플레이어만 (거리 150 이내)
         for (const opId in players) {

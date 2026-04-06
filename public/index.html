@@ -395,7 +395,7 @@
     <div id="skill-cooldown-bar" style="position:fixed;bottom:52px;left:50%;transform:translateX(-50%);z-index:16;display:flex;gap:4px;pointer-events:none"></div>
 
     <!-- 도파민 UI 요소들 -->
-    <div id="session-stats"><span id="ss-time">⏱ 0:00</span><span id="ss-kills">💀 0</span><span id="ss-gold">💰 +0G</span><span id="ss-deaths">☠ 0</span></div>
+    <div id="session-stats"><span id="ss-time">⏱ 0:00</span><span id="ss-kills">💀 0</span><span id="ss-gold">💰 +0G</span><span id="ss-deaths">☠ 0</span><span id="ss-online" style="color:#88ff88">👥 0</span></div>
     <div id="dps-meter">DPS: 0</div>
     <div id="combat-status"></div>
     <div id="next-milestone"><span id="nm-text" style="color:#ffd700"></span><div class="bar"><div class="fill" id="nm-fill" style="width:0%"></div></div></div>
@@ -701,7 +701,7 @@
         <label style="display:flex;align-items:center;gap:6px;color:#ccc;font-size:11px;margin-bottom:10px"><input type="checkbox" checked id="set-dmgnum" onchange="window._dmgNumEnabled=this.checked">데미지 숫자</label>
         <h4 style="color:#ffd700;margin:0 0 8px;font-size:12px">자동화</h4>
         <label style="display:flex;align-items:center;gap:6px;color:#ccc;font-size:11px;margin-bottom:5px"><input type="checkbox" id="set-autoequip" onchange="window._autoEquip=this.checked">더 강한 장비 자동 장착</label>
-        <label style="display:flex;align-items:center;gap:6px;color:#ccc;font-size:11px"><input type="checkbox" id="set-autodismantle" onchange="window._autoDismantle=this.checked">일반 등급 자동 분해</label>
+        <label style="display:flex;align-items:center;gap:6px;color:#ccc;font-size:11px"><input type="checkbox" id="set-autodismantle" onchange="window._autoDismantle=this.checked;if(window.socket)window.socket.emit('set_auto_dismantle',this.checked)">일반 등급 자동 분해</label>
       </div>
     </div>
   </div>
@@ -860,6 +860,33 @@
       window.socket.emit('init_request', JSON.stringify({ className, deviceId }));
     }
 
+    // ── 키보드 단축키 ──
+    window.addEventListener('keydown', function(e) {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (!gameStarted) return;
+      switch(e.code) {
+        case 'KeyB': e.preventDefault(); window.socket.emit('active_tap'); break;
+        case 'Tab': e.preventDefault(); togglePanel('inventory'); window.socket.emit('get_inventory','{}'); break;
+        case 'KeyQ': e.preventDefault(); togglePanel('quests'); window.socket.emit('get_quests','{}'); break;
+        case 'KeyC': e.preventDefault(); togglePanel('profile'); window.socket.emit('get_profile'); break;
+        case 'KeyM': e.preventDefault(); minimapContainer.classList.toggle('show'); break;
+        case 'Digit1': window.socket.emit('emote','taunt'); break;
+        case 'Digit2': window.socket.emit('emote','cheer'); break;
+        case 'Digit3': window.socket.emit('emote','greet'); break;
+        case 'Digit4': window.socket.emit('emote','gg'); break;
+        case 'Escape': document.querySelectorAll('.panel.show').forEach(function(p){p.classList.remove('show');}); closeModal(); break;
+      }
+    });
+
+    // ── 맵 핑 (미니맵 클릭) ──
+    document.getElementById('minimap').addEventListener('click', function(e) {
+      var rect = this.getBoundingClientRect();
+      var mx = e.clientX - rect.left, my = e.clientY - rect.top;
+      var worldX = (mx / MAP_SIZE) * (MAP_MAX - MAP_MIN) + MAP_MIN;
+      var worldY = ((MAP_SIZE - my) / MAP_SIZE) * (MAP_MAX - MAP_MIN) + MAP_MIN;
+      if (window.socket) window.socket.emit('map_ping', { x: worldX, y: worldY });
+    });
+
     // 글로벌 에러 핸들러 (크래시 방지)
     window.onerror = function(msg, url, line) { console.warn('[Error]', msg, 'at', line); return true; };
 
@@ -938,6 +965,7 @@
             lastKills = me.killCount;
           }
         }
+        if (data.playerCount !== undefined) window._lastPlayerCount = data.playerCount;
         // 미니맵 업데이트
         updateMinimapData(data);
         // 존 표시 업데이트
@@ -1793,6 +1821,12 @@
         addChatMsg(titleTag + lvTag + prefix + d.sender + ': ' + d.msg, cls);
       });
 
+      // 맵 핑 수신
+      window.socket.on('map_ping', (d) => {
+        addCombatLog('[핑] ' + d.name + ': 여기로 모여! (' + Math.floor(d.x) + ',' + Math.floor(d.y) + ')', 'log-morph');
+        playSFX('buy');
+      });
+
       // 환영 메시지
       window.socket.on('welcome_back', (d) => {
         showToast('다시 오셨군요! Lv.' + d.level + (d.prestige>0?' ★'+d.prestige:'') + ' | ' + d.kills + '킬 | ' + d.gold + 'G');
@@ -2364,25 +2398,42 @@
       }
     }
 
+    // 존별 BGM 프로필
+    var ZONE_BGM = {
+      map_village:{notes:[261,329,392,440,523,440],type:'sine',tempo:1200,vol:0.025},
+      map_forest: {notes:[261,293,329,392,440,392],type:'sine',tempo:1000,vol:0.03},
+      map_plains: {notes:[329,392,440,523,440,392],type:'sine',tempo:900,vol:0.03},
+      map_dungeon:{notes:[196,220,261,293,261,220],type:'triangle',tempo:1400,vol:0.025},
+      map_dragon: {notes:[196,261,329,196,220,293],type:'sawtooth',tempo:700,vol:0.04},
+      map_chaos:  {notes:[146,174,196,220,196,174],type:'square',tempo:600,vol:0.035},
+    };
+    var ZONE_BG_MAP = {};
+    // 존→배경 매핑 (zones 객체에서 추출 불가하므로 간단 매핑)
+    ['aden','harbor','oasis','mountain','frontier','shrine','bazaar','port_east','fishing'].forEach(function(z){ZONE_BG_MAP[z]='map_village';});
+    ['forest','meadow','darkforest','ancient','toxic_marsh','mushroom','world_tree'].forEach(function(z){ZONE_BG_MAP[z]='map_forest';});
+    ['plains','desert','coral','riverbank','sandstorm','tundra','training'].forEach(function(z){ZONE_BG_MAP[z]='map_plains';});
+    ['cave','ruins','graveyard','glacier','crystal_mine','haunted','sky_ruins','frozen_deep','castle','colosseum','fortress','sunken'].forEach(function(z){ZONE_BG_MAP[z]='map_dungeon';});
+    ['volcano','dragon','magma_core','celestial'].forEach(function(z){ZONE_BG_MAP[z]='map_dragon';});
+    ['abyss','hell','chaos','warzone','shadow','void_rift','demon','blood_arena','lawless'].forEach(function(z){ZONE_BG_MAP[z]='map_chaos';});
+
     function playBGM() {
       if (!soundEnabled || !audioCtx) return;
       bgmPlaying = true;
-      // 간단한 앰비언트 BGM 생성
       function playNote() {
         if (!bgmPlaying || !soundEnabled) return;
+        var bgType = ZONE_BG_MAP[myCurrentZone] || 'map_plains';
+        var profile = ZONE_BGM[bgType] || ZONE_BGM.map_plains;
         var osc = audioCtx.createOscillator();
         var gain = audioCtx.createGain();
-        var notes = [261, 329, 392, 523, 392, 329]; // C E G C5 G E
-        var note = notes[Math.floor(Math.random() * notes.length)];
-        osc.type = 'sine';
+        var note = profile.notes[Math.floor(Math.random() * profile.notes.length)];
+        osc.type = profile.type;
         osc.frequency.value = note * (0.5 + Math.random() * 0.02);
-        gain.gain.setValueAtTime(0.03, audioCtx.currentTime);
+        var vol = profile.vol * (window._bgmVol !== undefined ? window._bgmVol : 1);
+        gain.gain.setValueAtTime(vol, audioCtx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 2);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 2);
-        setTimeout(playNote, 800 + Math.random() * 1200);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + 2);
+        setTimeout(playNote, profile.tempo + Math.random() * (profile.tempo * 0.5));
       }
       playNote();
     }
@@ -2559,6 +2610,8 @@
       var goldDelta = lastGold - sessionStartGold;
       document.getElementById('ss-gold').textContent = '💰 ' + (goldDelta >= 0 ? '+' : '') + goldDelta + 'G';
       document.getElementById('ss-deaths').textContent = '☠ ' + sessionDeaths;
+      // 접속자 수 (sync에서)
+      if (window._lastPlayerCount !== undefined) document.getElementById('ss-online').textContent = '👥 ' + window._lastPlayerCount;
       // 킬 스트릭 개인 기록
       if (killStreak > (personalBests.maxStreak || 0)) {
         personalBests.maxStreak = killStreak;
