@@ -1839,6 +1839,7 @@
       });
 
       window.socket.on('inventory_data', renderInventory);
+      window.socket.on('inventory_update', (d) => { if(d.inventory) showToast('인벤토리 업데이트!'); });
       window.socket.on('market_data', renderMarket);
       window.socket.on('market_update', renderMarket);
       window.socket.on('quest_data', renderQuests);

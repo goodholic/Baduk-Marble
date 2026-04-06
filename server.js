@@ -2291,6 +2291,8 @@ io.on('connection', (socket) => {
 
         savePlayer(p);
         socket.emit('shop_result', { success: true, msg, diamonds: p.diamonds || 0, gold: p.gold });
+        // 인벤토리 갱신 (장비 구매 시)
+        socket.emit('inventory_update', { inventory: p.inventory });
         io.emit('player_update', p);
     });
 
@@ -3714,15 +3716,13 @@ io.on('connection', (socket) => {
         if (p._fishing) return;
         p._fishing = true;
         socket.emit('fish_cast', { msg: '낚싯대를 던졌습니다... 기다리세요...' });
-        // 3~8초 후 물고기 입질
         const biteTime = 3000 + Math.random() * 5000;
-        setTimeout(() => {
+        p._fishTimer1 = setTimeout(() => {
             if (!players[playerId] || !p._fishing) return;
             p._fishBite = Date.now();
             socket.emit('fish_bite', { msg: '입질이다! 빨리 낚아올려요!' });
-            // 1.5초 안에 hook_fish 안 보내면 실패
-            setTimeout(() => {
-                if (p._fishBite) {
+            p._fishTimer2 = setTimeout(() => {
+                if (players[playerId] && p._fishBite) {
                     p._fishing = false; p._fishBite = null;
                     socket.emit('fish_result', { msg: '놓쳤다... 다시 시도하세요.' });
                 }
@@ -3956,6 +3956,7 @@ io.on('connection', (socket) => {
         if (c.creatorId === playerId) { socket.emit('contract_result', { msg: '자기 의뢰 수락 불가' }); return; }
         c.status = 'accepted';
         c.acceptedBy = playerId;
+        c._acceptedAt = Date.now();
         socket.emit('contract_result', { msg: `의뢰 수락! "${c.type}" — 1시간 내 완료하세요.` });
         io.to(c.creatorId).emit('contract_result', { msg: `${p.displayName}이(가) 당신의 의뢰를 수락!` });
     });
@@ -3965,6 +3966,10 @@ io.on('connection', (socket) => {
         if (!p) return;
         const c = contractBoard.find(x => x.id === contractId && x.acceptedBy === playerId && x.status === 'accepted');
         if (!c) { socket.emit('contract_result', { msg: '완료 불가' }); return; }
+        // 악용 방지: 수락 후 최소 5분 경과 필요
+        if (Date.now() - (c._acceptedAt || 0) < 300000) {
+            socket.emit('contract_result', { msg: `최소 5분 후 완료 가능 (${Math.ceil((300000-(Date.now()-(c._acceptedAt||0)))/60000)}분 남음)` }); return;
+        }
         c.status = 'completed';
         p.gold += c.reward;
         capResources(p);
@@ -4595,6 +4600,9 @@ io.on('connection', (socket) => {
                 inst.players = inst.players.filter(pid => pid !== playerId);
                 if (inst.players.length === 0) delete activeDungeons[p.inDungeon];
             }
+            // 낚시 타이머 정리
+            if (p._fishTimer1) clearTimeout(p._fishTimer1);
+            if (p._fishTimer2) clearTimeout(p._fishTimer2);
             // 무한의 탑 정리
             if (towerProgress[playerId]) delete towerProgress[playerId];
             // 아레나 큐 정리
@@ -4799,7 +4807,9 @@ setInterval(() => {
                         if (nearestDist < 3 && now - (m.lastSpecialAttack||0) > 3000) {
                             m.lastSpecialAttack = now;
                             // 돌진 데미지 + 넉백
-                            const chargeDmg = Math.floor(m.atk * 1.5);
+                            if (nearestPlayer.activeBuffs?.divine_shield) break;
+                            let { damage: chargeDmg } = calcDamage(m.atk, getBuffedStat(nearestPlayer,'def'), 1.5, 0.1, m.element, nearestPlayer.element);
+                            if (nearestPlayer.activeBuffs?.iron_wall) chargeDmg = Math.floor(chargeDmg * 0.3);
                             nearestPlayer.hp -= chargeDmg;
                             // 넉백 (플레이어를 밀어냄)
                             if (mag > 0.1) {
@@ -4876,12 +4886,15 @@ setInterval(() => {
                             m.x += (dx / mag) * 0.4;
                             m.y += (dy / mag) * 0.4;
                         }
-                        // 근접 시 기본 공격 (2초마다)
+                        // 근접 시 기본 공격 (2초마다) — calcDamage 통일
                         if (nearestDist < 2 && now - (m.lastSpecialAttack||0) > 2000) {
                             m.lastSpecialAttack = now;
-                            const mDmg = Math.max(1, m.atk - (nearestPlayer.def || 0) * 0.3);
+                            // 무적/철벽 체크
+                            if (nearestPlayer.activeBuffs?.divine_shield) continue;
+                            let { damage: mDmg, isCrit: mCrit } = calcDamage(m.atk, getBuffedStat(nearestPlayer, 'def'), 1.0, 0.05, m.element, nearestPlayer.element);
+                            if (nearestPlayer.activeBuffs?.iron_wall) mDmg = Math.floor(mDmg * 0.3);
                             nearestPlayer.hp -= mDmg;
-                            io.emit('player_hit', { id: nearestPlayer.id, hp: nearestPlayer.hp, damage: Math.floor(mDmg), isCrit: false });
+                            io.emit('player_hit', { id: nearestPlayer.id, hp: nearestPlayer.hp, damage: mDmg, isCrit: mCrit });
                             if (nearestPlayer.hp <= 0 && nearestPlayer.isAlive) handlePlayerDeath(nearestPlayer, nearestPlayer.id, m, mId);
                         }
                 }
