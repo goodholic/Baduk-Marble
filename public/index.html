@@ -46,6 +46,44 @@
     @media (min-aspect-ratio:16/9) { #unity-container { width:calc(100vh*(16/9)); height:100vh; } }
     #unity-canvas { width:100%; height:100%; display:block; outline:none; position:relative; z-index:1; }
 
+    /* ═══ 모바일 반응형 ═══ */
+    @media (max-width:768px) {
+      #status-bar { padding:4px 8px 6px; gap:6px; font-size:10px; }
+      #status-bar .stat { font-size:10px; }
+      #bottom-bar { max-width:100%; }
+      #bottom-bar .tab { width:70px; height:42px; font-size:10px; min-height:44px; }
+      #sub-menu { max-width:100%; }
+      #sub-menu button { width:80px; padding:10px 4px; font-size:10px; min-height:44px; }
+      .panel { width:95vw; max-width:none; max-height:75vh; }
+      #chat-box { width:200px; }
+      #chat-log { height:80px; font-size:10px; }
+      #combat-log { width:180px; font-size:9px; max-height:100px; }
+      #minimap-container { transform:scale(0.8); transform-origin:top left; }
+      #attack-btn { width:70px; height:70px; font-size:13px; right:10px; bottom:180px; }
+      #tame-btn { right:10px; bottom:110px; font-size:11px; }
+      #action-buttons { gap:2px; }
+      #action-buttons .btn { padding:6px 10px; font-size:10px; }
+      #dps-meter, #combat-status, #next-milestone { font-size:9px; right:5px; }
+      #session-stats { font-size:9px; right:5px; }
+      #loot-log { bottom:50px; left:210px; max-width:150px; }
+      #skill-cooldown-bar { bottom:48px; }
+      .class-btn { width:90vw !important; }
+      #game-modal > div { max-width:95vw; padding:16px; }
+      #zone-announce .zone-name { font-size:22px; }
+      #levelup-overlay .lvl-text { font-size:32px; }
+    }
+    @media (max-width:480px) {
+      #bottom-bar .tab { width:60px; font-size:9px; }
+      #sub-menu button { width:70px; font-size:9px; }
+      #chat-box { width:160px; }
+      #minimap-container { transform:scale(0.65); }
+      #combat-log { display:none; } /* 매우 작은 화면에서 전투 로그 숨김 */
+      #loot-log { display:none; }
+    }
+
+    /* 연결 상태 표시 */
+    #connection-status { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:200; display:none; background:rgba(0,0,0,0.9); color:#ff4444; padding:20px 40px; border-radius:var(--r-lg); font-size:16px; font-weight:bold; text-align:center; border:1px solid var(--c-red); }
+
     /* ═══ 로딩 ═══ */
     #loading-screen { position:absolute; left:0; top:0; width:100%; height:100%; background:radial-gradient(ellipse at center,#1a1a2e,#0a0a12); display:flex; flex-direction:column; justify-content:center; align-items:center; color:#fff; z-index:10; }
     #loading-text { font-size:28px; margin-bottom:25px; font-weight:900; color:#ffd700; text-shadow:0 0 20px rgba(255,215,0,0.3); letter-spacing:3px; }
@@ -404,6 +442,7 @@
 
     <!-- 알림 -->
     <div id="toast"></div>
+    <div id="connection-status">연결 끊김<br><small style="color:#888;font-size:12px">재접속 시도 중...</small></div>
 
     <!-- 상점 패널 -->
     <div class="panel" id="panel-shop">
@@ -740,9 +779,34 @@
       if (window.socket && window.socket.connected) {
         classSelect.style.display = "flex";
         setupSocketListeners();
+        setupConnectionHandling();
       } else {
         setTimeout(waitForSocket, 500);
       }
+    }
+
+    function setupConnectionHandling() {
+      var connEl = document.getElementById('connection-status');
+      window.socket.on('disconnect', function(reason) {
+        console.log('[Socket] 연결 끊김:', reason);
+        connEl.style.display = 'block';
+      });
+      window.socket.on('connect', function() {
+        console.log('[Socket] 재연결 성공');
+        connEl.style.display = 'none';
+        showToast('서버에 재연결되었습니다!');
+        // 상태 복구 시도
+        if (gameStarted && myPlayerId) {
+          window.socket.emit('init_request', JSON.stringify({ className: 'Warrior', deviceId: window._deviceId || myPlayerId }));
+        }
+      });
+      window.socket.on('connect_error', function() {
+        connEl.style.display = 'block';
+      });
+      window.socket.on('server_full', function() {
+        connEl.innerHTML = '서버가 가득 찼습니다<br><small style="color:#888">잠시 후 다시 시도하세요</small>';
+        connEl.style.display = 'block';
+      });
     }
 
     function selectClass(className) {
@@ -765,9 +829,12 @@
       window.socket.emit('init_request', JSON.stringify({ className, deviceId }));
     }
 
+    // 글로벌 에러 핸들러 (크래시 방지)
+    window.onerror = function(msg, url, line) { console.warn('[Error]', msg, 'at', line); return true; };
+
     function setupSocketListeners() {
       window.socket.on('init', (data) => {
-        myPlayerId = data.id;
+        try { myPlayerId = data.id; } catch(e) { console.warn('[init error]', e); }
       });
 
       var lastGold = 0, lastDiamonds = 0, lastZone = '', lastKills = 0;
@@ -1665,6 +1732,13 @@
         sorted.forEach(function(e) { html += '<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:11px;border-bottom:1px solid #222"><span style="color:#eee">'+e[0]+'</span><span style="color:#ffd700">x'+e[1]+'</span></div>'; });
         el.innerHTML = html;
       });
+
+      // 누락 핸들러 보완
+      window.socket.on('pk_alert', (d) => { addCombatLog('[PK] '+d.killerName+' PK! 카르마:'+d.karma, 'log-crit'); });
+      window.socket.on('chaotic_death_penalty', (d) => { addCombatLog('[카오틱] 골드/EXP 손실!', 'log-crit'); });
+      window.socket.on('player_respawn', (d) => { if(d.id===myPlayerId) { document.getElementById('respawn-screen').style.display='none'; showToast('부활!'); } });
+      window.socket.on('dungeon_update', (d) => { addCombatLog('남은 몬스터: '+d.monstersLeft, 'normal'); });
+      window.socket.on('recipe_list', (d) => { /* 제작 레시피는 craft 패널에서 처리 */ });
 
       // 자동 물약 상태
       // 채팅
