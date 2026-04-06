@@ -1944,6 +1944,38 @@ const LEGACY_PERKS = [
 let contractBoard = []; // { id, creatorId, creatorName, type, target, reward, status, acceptedBy, expiresAt }
 let contractIdCounter = 0;
 
+// ── 일일 챌린지 (매일 다른 특수 조건) ──
+const DAILY_CHALLENGES = [
+    { name:'화산 사냥꾼', desc:'불꽃산에서 몬스터 15마리 처치', zone:'volcano', target:'kill_monster', goal:15, reward:{gold:2000,diamonds:20} },
+    { name:'얼음 생존자', desc:'얼음 협곡에서 5분 생존', zone:'glacier', target:'survive_time', goal:300, reward:{gold:1500,diamonds:15} },
+    { name:'용의 도전', desc:'보스 등급 몬스터 3마리 처치', zone:null, target:'kill_boss', goal:3, reward:{gold:3000,diamonds:30} },
+    { name:'PK 존 탐험', desc:'PK 존에서 골드 500 획득', zone:null, target:'earn_gold_pk', goal:500, reward:{gold:2500,diamonds:25} },
+    { name:'엘리트 사냥', desc:'엘리트 몬스터 20마리 처치', zone:null, target:'kill_elite', goal:20, reward:{gold:2000,diamonds:20} },
+    { name:'동굴 탐험가', desc:'수정 동굴에서 몬스터 10마리', zone:'cave', target:'kill_monster', goal:10, reward:{gold:1500,diamonds:15} },
+    { name:'밤의 사냥꾼', desc:'밤에 몬스터 25마리 처치', zone:null, target:'kill_night', goal:25, reward:{gold:2500,diamonds:25} },
+    { name:'스트릭 마스터', desc:'10킬 스트릭 달성', zone:null, target:'kill_streak', goal:10, reward:{gold:3000,diamonds:30} },
+    { name:'교역왕', desc:'교역 5회 완료', zone:null, target:'trade_count', goal:5, reward:{gold:2000,diamonds:15} },
+    { name:'낚시의 달인', desc:'물고기 10마리 낚기', zone:'fishing', target:'fish_catch', goal:10, reward:{gold:1500,diamonds:15} },
+];
+function getTodaysChallenge() {
+    const dayNum = Math.floor(Date.now() / 86400000);
+    return DAILY_CHALLENGES[dayNum % DAILY_CHALLENGES.length];
+}
+
+// ── 존 미니보스 ──
+const ZONE_MINI_BOSSES = {
+    forest:    { name:'숲의 수호자', hp:3000, atk:40, def:15, reward:{gold:500,exp:800} },
+    swamp:     { name:'늪의 군주', hp:5000, atk:60, def:20, reward:{gold:800,exp:1200} },
+    desert:    { name:'사막의 왕', hp:5000, atk:65, def:18, reward:{gold:800,exp:1200} },
+    cave:      { name:'동굴의 감시자', hp:8000, atk:80, def:30, reward:{gold:1200,exp:2000} },
+    volcano:   { name:'화염의 군주', hp:12000, atk:100, def:40, reward:{gold:2000,exp:3000} },
+    darkforest:{ name:'그림자의 왕', hp:15000, atk:120, def:45, reward:{gold:2500,exp:4000} },
+    dragon:    { name:'고룡', hp:25000, atk:150, def:60, reward:{gold:5000,exp:8000} },
+    abyss:     { name:'심연의 눈', hp:30000, atk:180, def:70, reward:{gold:8000,exp:12000} },
+    celestial: { name:'천상의 수호자', hp:40000, atk:200, def:80, reward:{gold:10000,exp:15000} },
+};
+let zoneBossTimers = {};
+
 // ── PvP 시즌/티어 ──
 const ARENA_TIERS = [
     { name:'브론즈', min:0,    color:'#cd7f32' },
@@ -3211,6 +3243,82 @@ io.on('connection', (socket) => {
             points: myRank.points, wins: myRank.wins, losses: myRank.losses,
             seasonRemain, allTiers: ARENA_TIERS,
         });
+    });
+
+    // ── 일일 챌린지 조회 ──
+    socket.on('get_daily_challenge', () => {
+        const p = players[playerId];
+        if (!p) return;
+        const challenge = getTodaysChallenge();
+        const progress = p._dailyChallengeProgress || 0;
+        const completed = p._dailyChallengeCompleted || false;
+        socket.emit('daily_challenge', {
+            name: challenge.name, desc: challenge.desc, zone: challenge.zone,
+            goal: challenge.goal, progress: Math.min(progress, challenge.goal),
+            completed, reward: challenge.reward,
+        });
+    });
+
+    // ── 일일 챌린지 보상 수령 ──
+    socket.on('claim_daily_challenge', () => {
+        const p = players[playerId];
+        if (!p || !p._dailyChallengeCompleted) { socket.emit('challenge_result', { msg: '미완료' }); return; }
+        const challenge = getTodaysChallenge();
+        p.gold += challenge.reward.gold;
+        if (challenge.reward.diamonds) p.diamonds = (p.diamonds||0) + challenge.reward.diamonds;
+        capResources(p);
+        p._dailyChallengeCompleted = false;
+        p._dailyChallengeProgress = 0;
+        p._dailyChallengeClaimed = true;
+        savePlayer(p);
+        socket.emit('challenge_result', { msg: `${challenge.name} 완료! +${challenge.reward.gold}G${challenge.reward.diamonds ? ' +'+challenge.reward.diamonds+'D' : ''}` });
+        io.emit('player_update', p);
+    });
+
+    // ── 1:1 결투 요청 ──
+    socket.on('duel_request', (targetId) => {
+        const p = players[playerId];
+        if (!p || !p.isAlive) return;
+        const target = players[targetId];
+        if (!target || target.isBot || !target.isAlive) { socket.emit('duel_result', { msg: '상대를 찾을 수 없음' }); return; }
+        if (p.level < 10) { socket.emit('duel_result', { msg: 'Lv.10 이상 필요' }); return; }
+        // 결투 요청 전송
+        io.to(targetId).emit('duel_incoming', { fromId: playerId, fromName: p.displayName, fromLevel: p.level, fromClass: p.advancedClass || p.className });
+        socket.emit('duel_result', { msg: `${target.displayName}에게 결투 요청!` });
+    });
+
+    // ── 결투 수락 ──
+    socket.on('duel_accept', (fromId) => {
+        const p = players[playerId];
+        const challenger = players[fromId];
+        if (!p || !challenger || !p.isAlive || !challenger.isAlive) return;
+
+        // 아레나 시스템 재사용
+        arenaMatchIdCounter++;
+        const matchId = 'duel_' + arenaMatchIdCounter;
+        const arenaZone = ZONES.arena;
+        p.x = arenaZone.x + arenaZone.w - 10; p.y = arenaZone.y + arenaZone.h / 2;
+        challenger.x = arenaZone.x + 10; challenger.y = arenaZone.y + arenaZone.h / 2;
+        p.hp = p.maxHp; challenger.hp = challenger.maxHp;
+
+        arenaMatches[matchId] = { player1: fromId, player2: playerId, startTime: Date.now(), isDuel: true };
+        p.arenaMatchId = matchId; challenger.arenaMatchId = matchId;
+
+        io.to(playerId).emit('arena_start', { matchId, opponent: challenger.displayName, opponentClass: challenger.className });
+        io.to(fromId).emit('arena_start', { matchId, opponent: p.displayName, opponentClass: p.className });
+        io.emit('server_msg', { msg: `[결투] ${challenger.displayName} vs ${p.displayName} 결투 시작!`, type: 'rare' });
+        logWorldEvent(`결투: ${challenger.displayName} vs ${p.displayName}`, 'rare');
+
+        // 3분 타임아웃 (아레나와 동일)
+        setTimeout(() => {
+            const match = arenaMatches[matchId];
+            if (!match) return;
+            const hp1 = players[match.player1]?.hp / (players[match.player1]?.maxHp||1) || 0;
+            const hp2 = players[match.player2]?.hp / (players[match.player2]?.maxHp||1) || 0;
+            const winnerId = hp1 >= hp2 ? match.player1 : match.player2;
+            const loserId = winnerId === match.player1 ? match.player2 : match.player1;
+            endArenaMatch(matchId, winnerId, loserId, '시간 초과 (HP 판정)');
+        }, 180000);
     });
 
     // ── 맵 핑 (파티원에게) ──
@@ -5567,6 +5675,34 @@ setInterval(() => {
         arenaSeasonStart = Date.now();
         io.emit('server_msg', { msg: '[아레나] 새 시즌 시작! 포인트가 리셋되었습니다.', type: 'boss' });
         logWorldEvent('아레나 시즌 리셋', 'boss');
+    }
+
+    // ── 존 미니보스 스폰 (30분마다) ──
+    if (tickCounter % (30 * 1800) === 0 && tickCounter > 0) {
+        for (const [zId, boss] of Object.entries(ZONE_MINI_BOSSES)) {
+            if (zoneBossTimers[zId]) continue; // 이미 살아있음
+            const zone = ZONES[zId];
+            if (!zone) continue;
+            entityIdCounter++;
+            const bId = 'miniboss_' + zId + '_' + entityIdCounter;
+            monsters[bId] = {
+                id: bId, tier: 'boss', name: boss.name,
+                x: zone.x + zone.w/2, y: zone.y + zone.h/2,
+                hp: boss.hp, maxHp: boss.hp, atk: boss.atk, def: boss.def,
+                color: '#ff2200', isAlive: true, zoneId: zId, aiType: 'breath',
+                element: ELEMENTS[Math.floor(Math.random() * ELEMENTS.length)],
+                isMiniBoss: true, expReward: boss.reward.exp, goldReward: boss.reward.gold,
+                lastSpecialAttack: 0,
+            };
+            zoneBossTimers[zId] = bId;
+            io.emit('server_msg', { msg: `[미니보스] ${boss.name}이(가) ${zone.name}에 출현!`, type: 'boss' });
+            logWorldEvent(`미니보스 ${boss.name} — ${zone.name}`, 'boss');
+            io.emit('rare_spawn', { id: bId, name: boss.name, tier: 'miniboss', zoneId: zId, zoneName: zone.name });
+        }
+    }
+    // 미니보스 사망 체크
+    for (const [zId, bId] of Object.entries(zoneBossTimers)) {
+        if (!monsters[bId] || !monsters[bId].isAlive) { delete zoneBossTimers[zId]; }
     }
 
     // ── 날씨 변경 ──

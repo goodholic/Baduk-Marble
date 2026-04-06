@@ -1825,6 +1825,30 @@
         addChatMsg(titleTag + lvTag + prefix + d.sender + ': ' + d.msg, cls);
       });
 
+      // 일일 챌린지
+      window.socket.on('daily_challenge', (d) => {
+        var pct = d.goal > 0 ? Math.floor(d.progress / d.goal * 100) : 0;
+        var html = '<div style="text-align:center"><b class="text-gold" style="font-size:16px">🏅 ' + d.name + '</b>';
+        html += '<p class="text-muted" style="margin:6px 0">' + d.desc + '</p>';
+        html += '<div style="width:100%;height:12px;background:#222;border-radius:6px;margin:8px 0;overflow:hidden"><div style="width:'+pct+'%;height:100%;background:linear-gradient(90deg,var(--c-gold),var(--c-orange));border-radius:6px;transition:width 0.5s"></div></div>';
+        html += '<p style="font-size:13px;color:#ddd">' + d.progress + ' / ' + d.goal + ' (' + pct + '%)</p>';
+        html += '<p class="text-gold text-sm" style="margin-top:6px">보상: ' + d.reward.gold + 'G' + (d.reward.diamonds ? ' + ' + d.reward.diamonds + 'D' : '') + '</p></div>';
+        var btns = d.completed && !d.claimed ? [{label:'보상 수령!', action:"window.socket.emit('claim_daily_challenge');closeModal();"}] : [];
+        btns.push({label:'닫기', type:'cancel', action:'closeModal()'});
+        showModal('일일 챌린지', html, btns);
+      });
+      window.socket.on('challenge_result', (d) => { showToast(d.msg); playSFX('levelup'); });
+
+      // 결투
+      window.socket.on('duel_result', (d) => showToast(d.msg));
+      window.socket.on('duel_incoming', (d) => {
+        showModal('결투 요청!', '<p style="text-align:center"><b class="text-gold" style="font-size:16px">⚔ 결투 요청!</b></p><p style="text-align:center;margin:8px 0"><span style="color:var(--c-red)">' + d.fromName + '</span> <span class="text-muted">Lv.' + d.fromLevel + ' ' + d.fromClass + '</span></p><p class="text-muted text-sm" style="text-align:center">수락하면 아레나에서 1:1 대결!</p>', [
+          {label:'수락!', action:"window.socket.emit('duel_accept','"+d.fromId+"');closeModal();"},
+          {label:'거절', type:'cancel', action:'closeModal()'}
+        ]);
+        playSFX('pvp');
+      });
+
       // 레어 드롭 축하
       window.socket.on('rare_drop_celebration', (d) => {
         celebrateRareDrop(d.grade);
@@ -2903,6 +2927,8 @@
           {label:'공허 (Lv.5, 5명)', action:"window.socket.emit('clan_raid_start','raid_void');closeModal();"},
           {label:'취소',type:'cancel',action:'closeModal()'}]);}},
         {label:'PvP 시즌', action:()=>window.socket.emit('get_arena_season')},
+        {label:'일일 챌린지', action:()=>window.socket.emit('get_daily_challenge')},
+        {label:'결투', action:()=>{showModal('결투 신청','<p class="text-muted text-sm">결투할 플레이어 이름을 입력하세요</p><input id="duel-target" placeholder="플레이어 이름" style="width:100%;padding:8px;background:#222;color:#fff;border:1px solid #555;border-radius:4px;margin-top:8px">',[{label:'결투!',action:"var names=getModalInput('duel-target');for(var pid in (window._syncPlayers||{})){if(window._syncPlayers[pid]&&players&&players[pid]?.displayName===names){window.socket.emit('duel_request',pid);break;}}closeModal();"},{label:'취소',type:'cancel',action:'closeModal()'}]);}},
         {label:'이벤트', action:()=>{togglePanel('events');window.socket.emit('get_world_events');}},
         {label:'이모트', action:()=>{showModal('이모트','<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">' +
           Object.entries({taunt:'😤 도발',cheer:'🎉 환호',greet:'👋 인사',laugh:'😂 ㅋㅋ',cry:'😢 ㅠㅠ',gg:'🤝 GG',help:'🆘 도움',thanks:'❤ 감사'}).map(function(e) {
