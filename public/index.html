@@ -1216,9 +1216,38 @@
         if (d.tie) playSFX('hit'); else playSFX(d.winner ? 'gold' : 'die');
       });
 
-      // 합성/리롤
+      // 합성/리롤/일괄판매/분해/웨이포인트/액티브/크리루트/버프연장/몬스터경고
       window.socket.on('fuse_result', (d) => { showToast(d.msg); playSFX(d.msg.includes('성공') ? 'levelup' : 'die'); });
       window.socket.on('reroll_result', (d) => { showToast(d.msg); playSFX('buff'); });
+      window.socket.on('bulk_sell_result', (d) => { showToast(d.msg); if (d.count > 0) playSFX('gold'); });
+      window.socket.on('dismantle_result', (d) => { showToast(d.msg); playSFX('hit'); });
+      window.socket.on('waypoint_result', (d) => { showToast(d.msg); });
+      window.socket.on('waypoint_list', (list) => {
+        showModal('웨이포인트 이동', '<p style="color:#888;font-size:12px;margin-bottom:8px">방문한 마을로 무료 이동 (60초 쿨타임)</p>',
+          list.map(function(w) { return { label: w.name, action: "window.socket.emit('waypoint_teleport','"+w.id+"');closeModal();" }; })
+          .concat([{label:'닫기',type:'cancel',action:'closeModal()'}]));
+      });
+      window.socket.on('active_bonus', (d) => {
+        showFloatingDamage('BOOST! x1.3', true, null);
+        playSFX('buff');
+      });
+      window.socket.on('critical_loot', (d) => {
+        // 크리티컬 루트 3초 제한 버튼
+        showModal('반짝이 드롭!', '<p style="color:#ffd700;font-size:16px;text-align:center;animation:lvlPop 0.3s">✨ CRITICAL LOOT! ✨</p><p style="color:#888;font-size:12px;text-align:center">3초 내에 수집하세요!</p>',
+          [{label:'수집!', action:"window.socket.emit('claim_critical_loot','"+d.dropId+"');closeModal();"}]);
+        playSFX('boss'); playSFX('gold');
+        setTimeout(closeModal, 3200);
+      });
+      window.socket.on('loot_result', (d) => { showToast(d.msg); playSFX('levelup'); });
+      window.socket.on('buff_result', (d) => showToast(d.msg));
+      window.socket.on('monster_telegraph', (d) => {
+        // 몬스터 공격 경고: 화면에 빨간 경고 표시
+        var warn = document.createElement('div');
+        warn.style.cssText = 'position:fixed;top:45%;left:50%;transform:translate(-50%,-50%);color:#ff4444;font-size:24px;font-weight:900;text-shadow:0 0 20px #f00;pointer-events:none;z-index:30;animation:lvlPop 0.3s';
+        warn.textContent = d.type === 'charge' ? '⚠ 돌진!' : d.type === 'breath' ? '⚠ 브레스!' : '⚠ 공격!';
+        document.body.appendChild(warn);
+        setTimeout(function(){ warn.remove(); }, 800);
+      });
 
       // 도감
       window.socket.on('bestiary_data', (d) => {
@@ -2047,6 +2076,7 @@
         {label:'NPC 힐러', action:()=>window.socket.emit('interact_npc','힐러')},
         {label:'NPC 대장장이', action:()=>window.socket.emit('interact_npc','대장장이')},
         {label:'NPC 항해사', action:()=>window.socket.emit('interact_npc','항해사')},
+        {label:'부스트!', action:()=>window.socket.emit('active_tap')},
       ],
       items: [
         {label:'인벤토리', action:()=>{togglePanel('inventory');}, sub:'get_inventory'},
@@ -2074,7 +2104,9 @@
         {label:'상자 오픈', action:()=>window.socket.emit('open_rare_box')},
         {label:'스탯 리셋', action:()=>{showModal('스탯 초기화','<p style="color:#ff8800">모든 스탯 포인트가 반환됩니다.</p><p style="color:#888;font-size:11px">비용: 500G + 레벨×100G</p>',[{label:'초기화',action:"closeModal();window.socket.emit('reset_stats')"},{label:'취소',type:'cancel',action:'closeModal()'}]);}},
         {label:'장비 합성', action:()=>{showModal('장비 합성','<p style="color:#ffd700">같은 등급 장비 3개 → 상위 등급 1개</p><p style="color:#888;font-size:11px">일반:500G / 고급:2000G / 희귀:5000G / 영웅:15000G</p><input id="fuse1" placeholder="장비ID 1" style="width:100%;padding:6px;background:#222;color:#fff;border:1px solid #555;border-radius:4px;margin:3px 0"><input id="fuse2" placeholder="장비ID 2" style="width:100%;padding:6px;background:#222;color:#fff;border:1px solid #555;border-radius:4px;margin:3px 0"><input id="fuse3" placeholder="장비ID 3" style="width:100%;padding:6px;background:#222;color:#fff;border:1px solid #555;border-radius:4px;margin:3px 0">',[{label:'합성!',action:"window.socket.emit('fuse_equipment',{item1:getModalInput('fuse1'),item2:getModalInput('fuse2'),item3:getModalInput('fuse3')});closeModal();"},{label:'취소',type:'cancel',action:'closeModal()'}]);}},
-        {label:'옵션 리롤', action:()=>{var id=prompt('리롤할 장착 장비 ID (100D):');if(id)window.socket.emit('reroll_options',id);}},
+        {label:'옵션 리롤', action:()=>{showModal('옵션 리롤','<p style="color:#ffd700">장착 중인 장비의 랜덤 옵션을 다시 뽑습니다 (100D)</p><input id="reroll-id" placeholder="장비 ID" style="width:100%;padding:8px;background:#222;color:#fff;border:1px solid #555;border-radius:4px;margin-top:8px">',[{label:'리롤!',action:"window.socket.emit('reroll_options',getModalInput('reroll-id'));closeModal();"},{label:'취소',type:'cancel',action:'closeModal()'}]);}},
+        {label:'일괄 판매', action:()=>{showModal('일괄 판매','<p style="color:#ff8800">선택한 등급 이하의 모든 미장착 장비를 판매합니다 (60% 가격)</p>',[{label:'일반 이하',action:"window.socket.emit('bulk_sell','normal');closeModal();"},{label:'고급 이하',action:"window.socket.emit('bulk_sell','uncommon');closeModal();"},{label:'희귀 이하',action:"window.socket.emit('bulk_sell','rare');closeModal();"},{label:'취소',type:'cancel',action:'closeModal()'}]);}},
+        {label:'웨이포인트', action:()=>window.socket.emit('get_waypoints')},
         {label:'일일 보상', action:()=>claimDaily()},
       ],
     };

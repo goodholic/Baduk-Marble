@@ -214,6 +214,7 @@ async function savePlayer(player) {
         totalCrafts: player.totalCrafts || 0,
         dungeonClears: player.dungeonClears || 0,
         bestiary: player.bestiary || {},
+        waypoints: player.waypoints || ['aden'],
         maxArmy: player.maxArmy || 30,
         autoPotion: player.autoPotion || false,
         questProgress: player.questProgress || {},
@@ -1523,6 +1524,7 @@ io.on('connection', (socket) => {
                         totalCrafts: ext.totalCrafts || 0,
                         dungeonClears: ext.dungeonClears || 0,
                         bestiary: ext.bestiary || {},
+                        waypoints: ext.waypoints || ['aden'],
                         maxArmy: ext.maxArmy || 30,
                         autoPotion: ext.autoPotion || false,
                         questProgress: ext.questProgress || {},
@@ -1711,6 +1713,15 @@ io.on('connection', (socket) => {
                     p._lastZoneId = curZone.id;
                     if (p.level < zLvl[0]) {
                         socket.emit('server_msg', { msg: `경고: ${ZONES[curZone.id].name}은(는) Lv.${zLvl[0]}+ 추천 구역입니다! (현재 Lv.${p.level})`, type: 'danger' });
+                    }
+                    // 마을 첫 방문 시 웨이포인트 자동 등록
+                    if (ZONES[curZone.id].safe) {
+                        if (!p.waypoints) p.waypoints = ['aden'];
+                        if (!p.waypoints.includes(curZone.id)) {
+                            p.waypoints.push(curZone.id);
+                            socket.emit('server_msg', { msg: `[웨이포인트] ${ZONES[curZone.id].name} 등록! 이제 어디서든 이동 가능`, type: 'normal' });
+                            giveExp(p, 10);
+                        }
                     }
                 }
             }
@@ -2234,6 +2245,141 @@ io.on('connection', (socket) => {
         savePlayer(p);
         socket.emit('equip_result', { success: true, msg: `장비 해제!`, equipped: p.equipped });
         io.emit('player_update', p);
+    });
+
+    // ── 일괄 판매 (등급 이하 모두 판매) ──
+    socket.on('bulk_sell', (maxGrade) => {
+        const p = players[playerId];
+        if (!p || !p.inventory) return;
+        const gradeOrder = ['normal','uncommon','rare','epic','legendary'];
+        const maxIdx = gradeOrder.indexOf(maxGrade);
+        if (maxIdx < 0) return;
+        let totalGold = 0, soldCount = 0;
+        for (const [itemId, qty] of Object.entries({ ...p.inventory })) {
+            const eq = EQUIP_STATS[itemId];
+            if (!eq) continue;
+            const idx = gradeOrder.indexOf(eq.grade);
+            if (idx >= 0 && idx <= maxIdx) {
+                // 장착 중인 아이템 제외
+                if (p.equipped && Object.values(p.equipped).includes(itemId)) continue;
+                const price = Math.floor((TRADEABLE_ITEMS[itemId]?.basePrice || 50) * qty * 0.6);
+                totalGold += price;
+                soldCount += qty;
+                delete p.inventory[itemId];
+            }
+        }
+        if (soldCount > 0) {
+            p.gold += totalGold;
+            capResources(p);
+            savePlayer(p);
+            socket.emit('bulk_sell_result', { msg: `${soldCount}개 장비 일괄 판매! +${totalGold}G`, count: soldCount, gold: totalGold });
+            io.emit('player_update', p);
+        } else {
+            socket.emit('bulk_sell_result', { msg: '판매할 장비가 없습니다' });
+        }
+    });
+
+    // ── 장비 분해 (장비 → 재료) ──
+    socket.on('dismantle_item', (itemId) => {
+        const p = players[playerId];
+        if (!p || !p.inventory || !p.inventory[itemId]) return;
+        const eq = EQUIP_STATS[itemId];
+        if (!eq) return;
+        if (p.equipped && Object.values(p.equipped).includes(itemId)) {
+            socket.emit('dismantle_result', { msg: '장착 중인 장비는 분해 불가' }); return;
+        }
+        p.inventory[itemId]--;
+        if (p.inventory[itemId] <= 0) delete p.inventory[itemId];
+        // 등급별 재료 반환
+        if (!p.inventory) p.inventory = {};
+        const matRewards = { normal: {mat_iron:2}, uncommon: {mat_iron:5,mat_magic:1}, rare: {mat_magic:3,mat_soul:1}, epic: {mat_soul:3,mat_dragon:1}, legendary: {mat_dragon:3,mat_soul:5} };
+        const mats = matRewards[eq.grade] || {mat_iron:1};
+        let matMsg = [];
+        for (const [mat, qty] of Object.entries(mats)) {
+            p.inventory[mat] = (p.inventory[mat]||0) + qty;
+            matMsg.push(mat.replace('mat_','') + ' x' + qty);
+        }
+        savePlayer(p);
+        socket.emit('dismantle_result', { msg: `${eq.name} 분해! → ${matMsg.join(', ')}` });
+        io.emit('player_update', p);
+    });
+
+    // ── 웨이포인트 텔레포트 (방문한 마을로 무료 이동) ──
+    socket.on('waypoint_teleport', (zoneId) => {
+        const p = players[playerId];
+        if (!p || !p.isAlive) return;
+        if (!p.waypoints) p.waypoints = ['aden']; // 기본 시작 마을
+        if (!p.waypoints.includes(zoneId)) { socket.emit('waypoint_result', { msg: '미방문 지역' }); return; }
+        const zone = ZONES[zoneId];
+        if (!zone || !zone.safe) { socket.emit('waypoint_result', { msg: '마을만 이동 가능' }); return; }
+        // 쿨타임 60초
+        const now = Date.now();
+        if (p._lastWaypoint && now - p._lastWaypoint < 60000) {
+            socket.emit('waypoint_result', { msg: `쿨타임 ${Math.ceil((60000-(now-p._lastWaypoint))/1000)}초` }); return;
+        }
+        p._lastWaypoint = now;
+        p.x = zone.x + zone.w/2;
+        p.y = zone.y + zone.h/2;
+        savePlayer(p);
+        io.emit('player_update', p);
+        socket.emit('waypoint_result', { msg: `${zone.name}(으)로 이동!` });
+    });
+
+    // ── 웨이포인트 목록 ──
+    socket.on('get_waypoints', () => {
+        const p = players[playerId];
+        if (!p) return;
+        if (!p.waypoints) p.waypoints = ['aden'];
+        const list = p.waypoints.map(zId => ({ id: zId, name: ZONES[zId]?.name || zId }));
+        socket.emit('waypoint_list', list);
+    });
+
+    // ── 액티브 플레이 보너스 (탭/클릭 시 보너스) ──
+    socket.on('active_tap', () => {
+        const p = players[playerId];
+        if (!p || !p.isAlive || p.isBot) return;
+        const now = Date.now();
+        if (p._lastActiveTap && now - p._lastActiveTap < 3000) return; // 3초 쿨타임
+        p._lastActiveTap = now;
+        // 액티브 보너스: 다음 5초간 데미지 +30%
+        if (!p._activeBonus) p._activeBonus = 0;
+        p._activeBonus = now + 5000;
+        socket.emit('active_bonus', { duration: 5, multi: 1.3 });
+    });
+
+    // ── 크리티컬 루트 수집 ──
+    socket.on('claim_critical_loot', (dropId) => {
+        const p = players[playerId];
+        if (!p || !p.isAlive) return;
+        const drop = drops[dropId];
+        if (!drop || drop.type !== 'critical_loot') return;
+        if (Math.hypot(p.x - drop.x, p.y - drop.y) > 5) { socket.emit('loot_result', { msg: '너무 멀어요' }); return; }
+        // 5배 희귀도 보상
+        if (!p.inventory) p.inventory = {};
+        const rareItems = Object.entries(EQUIP_STATS).filter(([id,eq]) => eq.grade === 'rare' || eq.grade === 'epic');
+        if (rareItems.length > 0) {
+            const [itemId, eq] = rareItems[Math.floor(Math.random() * rareItems.length)];
+            p.inventory[itemId] = (p.inventory[itemId]||0) + 1;
+            socket.emit('loot_result', { msg: `크리티컬 루트! ${eq.name} (${GRADE_INFO[eq.grade].name}) 획득!` });
+            io.emit('server_msg', { msg: `${p.displayName}이(가) 크리티컬 루트로 ${eq.name} 획득!`, type: 'rare' });
+        } else {
+            p.gold += 1000;
+            socket.emit('loot_result', { msg: '크리티컬 루트! +1000G!' });
+        }
+        io.emit('drop_destroy', dropId);
+        delete drops[dropId];
+        savePlayer(p);
+        io.emit('player_update', p);
+    });
+
+    // ── 버프 탭 연장 (50 MP로 +2초) ──
+    socket.on('extend_buff', (buffId) => {
+        const p = players[playerId];
+        if (!p || !p.activeBuffs || !p.activeBuffs[buffId]) return;
+        if ((p.mp || 0) < 50) { socket.emit('buff_result', { msg: 'MP 부족 (50 필요)' }); return; }
+        p.mp -= 50;
+        p.activeBuffs[buffId].endTime += 2000;
+        socket.emit('buff_result', { msg: p.activeBuffs[buffId].name + ' +2초 연장! (-50MP)' });
     });
 
     // ── 랭킹 조회 ──
@@ -3821,7 +3967,10 @@ function executeThrow(pId) {
             }
         }, cls.projLife);
     } else {
-        const { damage, isCrit } = calcDamage(cls.atk, 0, player.dmgMulti, player.critRate);
+        // 액티브 플레이 보너스 적용
+        let activeDmgMulti = player.dmgMulti;
+        if (player._activeBonus && Date.now() < player._activeBonus) activeDmgMulti *= 1.3;
+        const { damage, isCrit } = calcDamage(cls.atk, 0, activeDmgMulti, player.critRate);
         axes[currentObjId] = {
             id: currentObjId, ownerId: pId,
             x: player.x + finalDirX * 0.5,
@@ -3961,6 +4110,10 @@ setInterval(() => {
                             const spd = 0.8; // 일반보다 빠름
                             m.x += (dx / mag) * spd;
                             m.y += (dy / mag) * spd;
+                        }
+                        // 돌진 준비 경고 (0.5초 전)
+                        if (nearestDist < 4 && now - (m.lastSpecialAttack||0) > 2500 && now - (m.lastSpecialAttack||0) < 3000) {
+                            io.emit('monster_telegraph', { id: mId, type: 'charge', x: m.x, y: m.y, targetX: nearestPlayer.x, targetY: nearestPlayer.y });
                         }
                         if (nearestDist < 3 && now - (m.lastSpecialAttack||0) > 3000) {
                             m.lastSpecialAttack = now;
@@ -5245,6 +5398,19 @@ function handleCollisions() {
 
                     // 골드 드롭
                     spawnDrop(mob.x, mob.y, Math.floor(mobGoldReward * 0.5), mId);
+
+                    // 크리티컬 루트 (5% 확률 — 반짝이 드롭)
+                    if (Math.random() < 0.05) {
+                        const critDropId = 'crit_loot_' + (++entityIdCounter);
+                        drops[critDropId] = {
+                            id: critDropId, x: mob.x, y: mob.y, gold: 0,
+                            type: 'critical_loot', spawnTime: Date.now(), pickupRadius: 5.0,
+                        };
+                        io.emit('drop_spawn', { ...drops[critDropId], isCritical: true });
+                        io.to(realOwner.id).emit('critical_loot', { dropId: critDropId, x: mob.x, y: mob.y });
+                        // 3초 후 소멸
+                        setTimeout(() => { if (drops[critDropId]) { io.emit('drop_destroy', critDropId); delete drops[critDropId]; } }, 3000);
+                    }
 
                     const goldEarned = Math.floor(mobGoldReward * goldMulti);
                     const expEarned = Math.floor(mobExpReward * expMulti);
