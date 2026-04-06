@@ -5198,7 +5198,10 @@ function handleCollisions() {
                     // 골드 드롭
                     spawnDrop(mob.x, mob.y, Math.floor(mobGoldReward * 0.5), mId);
 
-                    io.emit('monster_die', { id: mId, tier: mob.tier, killer: realOwner.id, zone: mob.zoneId });
+                    const goldEarned = Math.floor(mobGoldReward * goldMulti);
+                    const expEarned = Math.floor(mobExpReward * expMulti);
+                    const expPct = Math.floor((realOwner.exp / getExpRequired(realOwner.level)) * 100);
+                    io.emit('monster_die', { id: mId, tier: mob.tier, killer: realOwner.id, zone: mob.zoneId, name: mob.name, goldEarned, expEarned, expPct });
                     io.emit('player_update', realOwner);
 
                     delete monsters[mId];
@@ -5229,7 +5232,10 @@ function handleCollisions() {
             if (ownerZone && ZONES[ownerZone.id]?.safe) continue;
 
             // 회피 판정
-            if (Math.random() < (target.dodgeRate || 0)) continue;
+            if (Math.random() < (target.dodgeRate || 0)) {
+                io.to(targetId).emit('dodge_event', { attackerName: owner.displayName || '적' });
+                continue;
+            }
 
             const dx = axe.x - target.x, dy = axe.y - target.y;
             if (dx * dx + dy * dy < 0.6 * 0.6) {

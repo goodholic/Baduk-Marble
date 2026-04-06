@@ -143,6 +143,26 @@
     /* 화면 흔들림 */
     @keyframes screenShake { 0%{transform:translate(0)} 25%{transform:translate(-3px,2px)} 50%{transform:translate(3px,-2px)} 75%{transform:translate(-2px,3px)} 100%{transform:translate(0)} }
     .shake { animation:screenShake 0.3s ease-out; }
+
+    /* DPS 미터 + 세션 스탯 + 전투 상태 + 다음 목표 */
+    #dps-meter { position:fixed; bottom:160px; right:10px; z-index:16; color:#ffd700; font-size:13px; font-weight:bold; text-shadow:0 1px 3px #000; pointer-events:none; font-family:monospace; }
+    #session-stats { position:fixed; top:4px; right:10px; z-index:16; color:#aaa; font-size:11px; text-shadow:0 1px 2px #000; pointer-events:none; display:flex; gap:10px; }
+    #session-stats span { color:#ddd; }
+    #combat-status { position:fixed; bottom:140px; right:10px; z-index:16; color:#88ccff; font-size:11px; text-shadow:0 1px 3px #000; pointer-events:none; max-width:200px; text-align:right; }
+    #next-milestone { position:fixed; bottom:120px; right:10px; z-index:16; font-size:11px; text-shadow:0 1px 3px #000; pointer-events:none; }
+    #next-milestone .bar { width:140px; height:5px; background:#333; border-radius:3px; overflow:hidden; margin-top:2px; }
+    #next-milestone .fill { height:100%; background:linear-gradient(90deg,#ffd700,#ff8800); border-radius:3px; transition:width 0.5s; }
+    #loot-log { position:fixed; bottom:180px; left:10px; z-index:16; pointer-events:none; max-width:200px; }
+    .loot-entry { padding:2px 6px; margin-bottom:2px; border-radius:4px; font-size:11px; color:#fff; animation:lootSlide 0.3s ease-out; }
+    @keyframes lootSlide { 0%{transform:translateX(-20px);opacity:0} 100%{transform:translateX(0);opacity:1} }
+    @keyframes expPulse { 0%{box-shadow:0 0 0 rgba(170,68,255,0)} 50%{box-shadow:0 0 8px rgba(170,68,255,0.6)} 100%{box-shadow:0 0 0 rgba(170,68,255,0)} }
+    .exp-pulse { animation:expPulse 0.4s ease-out; }
+    /* 회피 팝업 */
+    .dodge-popup { position:fixed; font-size:16px; font-weight:bold; color:#44ffff; text-shadow:0 0 8px #0088ff; pointer-events:none; z-index:30; animation:dodgePop 0.8s ease-out forwards; }
+    @keyframes dodgePop { 0%{opacity:1;transform:translateY(0) scale(1.3)} 100%{opacity:0;transform:translateY(-30px) scale(0.8)} }
+    /* 크리티컬 강화 */
+    .crit-flash { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:25; border:3px solid #ffd700; opacity:0; animation:critBorder 0.3s ease-out; }
+    @keyframes critBorder { 0%{opacity:0.8} 100%{opacity:0} }
     #minimap-coords { color:#888; font-size:9px; text-align:center; margin-top:1px; }
 
     /* ═══ 패널 ═══ */
@@ -253,6 +273,13 @@
 
     <!-- 버프/디버프 아이콘 바 -->
     <div id="buff-bar" style="position:absolute;top:36px;left:15px;z-index:15;display:flex;gap:3px;flex-wrap:wrap;max-width:400px"></div>
+
+    <!-- 도파민 UI 요소들 -->
+    <div id="session-stats"><span id="ss-time">⏱ 0:00</span><span id="ss-kills">💀 0</span><span id="ss-gold">💰 +0G</span></div>
+    <div id="dps-meter">DPS: 0</div>
+    <div id="combat-status"></div>
+    <div id="next-milestone"><span id="nm-text" style="color:#ffd700"></span><div class="bar"><div class="fill" id="nm-fill" style="width:0%"></div></div></div>
+    <div id="loot-log"></div>
 
     <!-- 옵션 버튼 -->
     <button class="top-btn" style="top:32px" onclick="toggleSound()" id="btn-sound">Sound ON</button>
@@ -597,6 +624,9 @@
       document.getElementById('status-bar').classList.add("show");
       minimapContainer.classList.add("show");
       document.getElementById('combat-log').classList.add("show");
+      // 세션 시작 기록
+      sessionStartTime = Date.now();
+      sessionStartGold = 0; // init 시점에서 갱신됨
       document.getElementById('tame-btn').style.display = 'block';
       document.getElementById('attack-btn').style.display = 'block';
       document.getElementById('action-buttons').style.display = 'flex';
@@ -623,6 +653,7 @@
           if (me.gold !== undefined) {
             var goldDelta = me.gold - lastGold;
             if (lastGold > 0 && goldDelta !== 0) showCurrencyPop('gold-val', goldDelta, goldDelta > 0 ? '#ffd700' : '#ff4444');
+            if (sessionStartGold === 0) sessionStartGold = me.gold;
             lastGold = me.gold;
             document.getElementById('gold-val').textContent = me.gold;
           }
@@ -741,11 +772,20 @@
       window.socket.on('player_hit', (d) => {
         playSFX(d.isCrit ? 'crit' : 'hit');
         if (d.skillName) addCombatLog(d.skillName + '! ' + d.damage + ' 데미지', 'log-crit');
-        // 데미지 숫자 플로팅
         showFloatingDamage(d.damage, d.isCrit, d.skillName);
+        // DPS 샘플 기록
+        dpsSamples.push({ time: Date.now(), damage: d.damage || 0 });
+        // 크리 화면 플래시
+        if (d.isCrit) showCritFlash();
       });
       window.socket.on('monster_hit', (d) => {
         showFloatingDamage(d.damage, false, null);
+        dpsSamples.push({ time: Date.now(), damage: d.damage || 0 });
+      });
+      // 회피 이벤트
+      window.socket.on('dodge_event', (d) => {
+        showDodgePopup();
+        playSFX('buff');
       });
       window.socket.on('skill_effect', (d) => {
         const skillMsgs = {
@@ -987,29 +1027,43 @@
       window.socket.on('combat_log', (d) => { addCombatLog(d.msg, 'normal'); });
       window.socket.on('monster_die', (d) => {
         if (typeof d === 'object' && d.killer === myPlayerId) {
-          var tierNames = {normal:'슬라임',elite:'오크 전사',rare:'다크 나이트',boss:'드래곤',legendary:'고대 드래곤',mythic:'태초의 존재',worldboss:'월드 보스'};
-          var name = tierNames[d.tier] || d.tier;
+          var name = d.name || d.tier;
           gameStats.kills++;
           // 킬 스트릭 (5초 이내 연속 킬)
           var now = Date.now();
           if (now - lastKillTime < 5000) { killStreak++; } else { killStreak = 1; }
           lastKillTime = now;
           showKillStreak(killStreak);
+          // 골드/EXP 플로팅 숫자
+          if (d.goldEarned) showFloatingDamage('+' + d.goldEarned + 'G', false, null);
+          if (d.expEarned) {
+            var expEl = document.getElementById('exp-bar-fill');
+            if (expEl) { expEl.parentElement.classList.add('exp-pulse'); setTimeout(function(){ expEl.parentElement.classList.remove('exp-pulse'); }, 400); }
+          }
+          // 전투 상태 + 루트 로그
+          var zName = zones[d.zone] ? zones[d.zone].name : '';
+          updateCombatStatus(zName, d.tier);
+          var tierColors = {normal:'rgba(136,204,136,0.3)',elite:'rgba(204,170,68,0.4)',rare:'rgba(170,68,204,0.4)',boss:'rgba(255,68,68,0.5)',legendary:'rgba(255,136,0,0.5)',mythic:'rgba(255,0,255,0.5)',treasure:'rgba(255,215,0,0.5)'};
+          addLootEntry(name + ' +'+(d.goldEarned||0)+'G +'+(d.expEarned||0)+'EXP', tierColors[d.tier] || 'rgba(100,100,100,0.3)');
           addCombatLog(name + ' 처치!' + (killStreak >= 3 ? ' ('+killStreak+'x)' : ''), 'log-gold');
           // 보스급 처치 시 화면 효과
-          if (d.tier === 'boss' || d.tier === 'legendary' || d.tier === 'mythic') {
+          if (d.tier === 'boss' || d.tier === 'legendary' || d.tier === 'mythic' || d.tier === 'treasure') {
             playSFX('boss');
             document.getElementById('unity-container').classList.add('shake');
             setTimeout(function(){ document.getElementById('unity-container').classList.remove('shake'); }, 500);
           }
-          // 마일스톤
-          if (gameStats.kills % 100 === 0) {
+          // 마일스톤 (50/100/500/1000)
+          var milestones = [50,100,250,500,1000,2500,5000];
+          if (milestones.includes(gameStats.kills)) {
             showToast(gameStats.kills + '마리 처치 달성!');
             playSFX('levelup');
+            if (gameStats.kills > (personalBests.maxKills || 0)) {
+              personalBests.maxKills = gameStats.kills;
+              localStorage.setItem('ab_records', JSON.stringify(personalBests));
+            }
           }
         } else if (typeof d === 'object') {
-          var name2 = {normal:'슬라임',elite:'오크',rare:'다크나이트',boss:'드래곤',legendary:'고대드래곤',mythic:'태초존재'}[d.tier] || d.tier;
-          addCombatLog(name2 + ' 처치됨', 'normal');
+          addCombatLog((d.name||d.tier) + ' 처치됨', 'normal');
         }
       });
 
@@ -1781,6 +1835,93 @@
     function respawnAs(className) {
       window.socket.emit('respawn', JSON.stringify({className}));
       document.getElementById('respawn-screen').style.display = 'none';
+    }
+
+    // ── 도파민 루프 시스템 ──
+    var dpsSamples = []; // [{time, damage}]
+    var sessionStartGold = 0;
+    var sessionStartTime = Date.now();
+    var recentLoots = [];
+    var personalBests = JSON.parse(localStorage.getItem('ab_records') || '{}');
+
+    // DPS 계산 (1초마다)
+    setInterval(function() {
+      var now = Date.now();
+      dpsSamples = dpsSamples.filter(function(s) { return now - s.time < 10000; });
+      var totalDmg = dpsSamples.reduce(function(sum, s) { return sum + s.damage; }, 0);
+      var dps = Math.floor(totalDmg / 10);
+      var el = document.getElementById('dps-meter');
+      if (el) {
+        el.textContent = 'DPS: ' + dps;
+        el.style.color = dps > 500 ? '#ff4444' : dps > 200 ? '#ff8800' : dps > 50 ? '#ffd700' : '#aaa';
+      }
+      // DPS 개인 기록
+      if (dps > (personalBests.maxDps || 0)) {
+        personalBests.maxDps = dps;
+        localStorage.setItem('ab_records', JSON.stringify(personalBests));
+        if (dps > 100) showToast('NEW RECORD! 최고 DPS: ' + dps);
+      }
+    }, 1000);
+
+    // 세션 스탯 업데이트 (1초마다)
+    setInterval(function() {
+      var elapsed = Math.floor((Date.now() - sessionStartTime) / 1000);
+      var min = Math.floor(elapsed / 60), sec = elapsed % 60;
+      var timeStr = min + ':' + (sec < 10 ? '0' : '') + sec;
+      document.getElementById('ss-time').textContent = '⏱ ' + timeStr;
+      document.getElementById('ss-kills').textContent = '💀 ' + (gameStats.kills || 0);
+      var goldDelta = lastGold - sessionStartGold;
+      document.getElementById('ss-gold').textContent = '💰 ' + (goldDelta >= 0 ? '+' : '') + goldDelta + 'G';
+      // 킬 스트릭 개인 기록
+      if (killStreak > (personalBests.maxStreak || 0)) {
+        personalBests.maxStreak = killStreak;
+        localStorage.setItem('ab_records', JSON.stringify(personalBests));
+      }
+    }, 1000);
+
+    // 루트 로그 추가
+    function addLootEntry(text, color) {
+      var log = document.getElementById('loot-log');
+      if (!log) return;
+      var el = document.createElement('div');
+      el.className = 'loot-entry';
+      el.style.background = color || 'rgba(100,100,100,0.5)';
+      el.textContent = text;
+      log.appendChild(el);
+      recentLoots.push({ el: el, time: Date.now() });
+      // 최대 5개 유지
+      while (recentLoots.length > 5) { var old = recentLoots.shift(); if (old.el.parentNode) old.el.remove(); }
+      // 30초 후 제거
+      setTimeout(function() { el.style.opacity = '0'; el.style.transition = 'opacity 0.5s'; setTimeout(function() { el.remove(); }, 500); }, 15000);
+    }
+
+    // 회피 팝업
+    function showDodgePopup() {
+      var el = document.createElement('div');
+      el.className = 'dodge-popup';
+      el.textContent = '회피!';
+      el.style.left = (40 + Math.random() * 20) + '%';
+      el.style.top = (35 + Math.random() * 15) + '%';
+      document.body.appendChild(el);
+      setTimeout(function() { el.remove(); }, 800);
+    }
+
+    // 크리티컬 화면 플래시
+    function showCritFlash() {
+      var el = document.createElement('div');
+      el.className = 'crit-flash';
+      document.body.appendChild(el);
+      setTimeout(function() { el.remove(); }, 300);
+    }
+
+    // 전투 상태 텍스트
+    function updateCombatStatus(zoneName, tier) {
+      var el = document.getElementById('combat-status');
+      if (!el) return;
+      var tierNames = {normal:'슬라임',elite:'엘리트',rare:'레어',boss:'보스',legendary:'전설',mythic:'신화',treasure:'보물 도깨비'};
+      var action = tier ? (tierNames[tier] || tier) + ' 전투 중!' : '사냥 중...';
+      el.textContent = (zoneName || '') + ' — ' + action;
+      el.style.color = tier === 'boss' ? '#ff4444' : tier === 'legendary' ? '#ff8800' : tier === 'rare' ? '#aa44ff' : '#88ccff';
     }
 
     // ── 데미지 숫자 플로팅 ──
