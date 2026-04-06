@@ -223,6 +223,9 @@ async function savePlayer(player) {
         itemRunes: player.itemRunes || {},
         _riftDepth: player._riftDepth || 0,
         advanceBonus: player.advanceBonus || null,
+        _dailyChallengeProgress: player._dailyChallengeProgress || 0,
+        _dailyChallengeCompleted: player._dailyChallengeCompleted || false,
+        _dailyChallengeClaimed: player._dailyChallengeClaimed || false,
         discoveredZones: player.discoveredZones || [],
         fishingLevel: player.fishingLevel || 1,
         _fishCount: player._fishCount || 0,
@@ -1747,19 +1750,20 @@ function endArenaMatch(matchId, winnerId, loserId, reason) {
     if (!match) return;
     const winner = players[winnerId], loser = players[loserId];
 
-    // 포인트 계산
-    if (!arenaRankings[winnerId]) arenaRankings[winnerId] = { wins:0, losses:0, points:1000 };
-    if (!arenaRankings[loserId]) arenaRankings[loserId] = { wins:0, losses:0, points:1000 };
-    arenaRankings[winnerId].wins++;
-    arenaRankings[loserId].losses++;
-    const prevWinTier = getArenaTier(arenaRankings[winnerId].points);
-    arenaRankings[winnerId].points += 25;
-    arenaRankings[loserId].points = Math.max(0, arenaRankings[loserId].points - 15);
-    const newWinTier = getArenaTier(arenaRankings[winnerId].points);
-    // 티어 승급 알림
-    if (newWinTier.min > prevWinTier.min) {
-        io.to(winnerId).emit('tier_promotion', { tier: newWinTier.name, color: newWinTier.color });
-        io.emit('server_msg', { msg: `[아레나] ${winner?.displayName}이(가) ${newWinTier.name} 티어 승급!`, type: 'rare' });
+    // 포인트 계산 (결투는 랭킹에 영향 안 줌)
+    if (!match.isDuel) {
+        if (!arenaRankings[winnerId]) arenaRankings[winnerId] = { wins:0, losses:0, points:1000 };
+        if (!arenaRankings[loserId]) arenaRankings[loserId] = { wins:0, losses:0, points:1000 };
+        arenaRankings[winnerId].wins++;
+        arenaRankings[loserId].losses++;
+        const prevWinTier = getArenaTier(arenaRankings[winnerId].points);
+        arenaRankings[winnerId].points += 25;
+        arenaRankings[loserId].points = Math.max(0, arenaRankings[loserId].points - 15);
+        const newWinTier = getArenaTier(arenaRankings[winnerId].points);
+        if (newWinTier.min > prevWinTier.min) {
+            io.to(winnerId).emit('tier_promotion', { tier: newWinTier.name, color: newWinTier.color });
+            io.emit('server_msg', { msg: `[아레나] ${winner?.displayName}이(가) ${newWinTier.name} 티어 승급!`, type: 'rare' });
+        }
     }
 
     // 보상
@@ -2208,6 +2212,9 @@ io.on('connection', (socket) => {
                         legacyPerks: ext.legacyPerks || [],
                         itemRunes: ext.itemRunes || {},
                         advanceBonus: ext.advanceBonus || null,
+                        _dailyChallengeProgress: ext._dailyChallengeProgress || 0,
+                        _dailyChallengeCompleted: ext._dailyChallengeCompleted || false,
+                        _dailyChallengeClaimed: ext._dailyChallengeClaimed || false,
                         discoveredZones: ext.discoveredZones || [],
                         fishingLevel: ext.fishingLevel || 1,
                         _fishCount: ext._fishCount || 0,
@@ -2312,6 +2319,10 @@ io.on('connection', (socket) => {
                 pInfo.inventory['rare_box'] = (pInfo.inventory['rare_box'] || 0) + 1;
             }
             pInfo.lastLoginDate = today;
+            // 일일 챌린지 리셋
+            pInfo._dailyChallengeProgress = 0;
+            pInfo._dailyChallengeCompleted = false;
+            pInfo._dailyChallengeClaimed = false;
             // 아레나 일일 횟수 초기화
             pInfo.arenaCountToday = 0;
         }
@@ -5173,7 +5184,7 @@ io.on('connection', (socket) => {
         const newDef = Math.floor(newEq.def * (newGrade?.defMulti||1) * (1+getEnchantBonus(newEnchant)));
 
         socket.emit('equip_compare', {
-            slot: newEq.slot,
+            slot: newEq.slot, itemId,
             current: curEq ? { name: curEq.name, grade: curEq.grade, enchant: curEnchant, atk: curAtk, def: curDef } : null,
             new: { name: newEq.name, grade: newEq.grade, enchant: newEnchant, atk: newAtk, def: newDef },
             atkDiff: newAtk - curAtk, defDiff: newDef - curDef,
@@ -6829,6 +6840,29 @@ function handleCollisions() {
                                     }
                                     break;
                                 }
+                            }
+                        }
+                    }
+
+                    // 일일 챌린지 진행도 업데이트
+                    if (!realOwner.isBot && !realOwner._dailyChallengeClaimed) {
+                        const challenge = getTodaysChallenge();
+                        if (!realOwner._dailyChallengeProgress) realOwner._dailyChallengeProgress = 0;
+                        let shouldIncrement = false;
+                        if (challenge.target === 'kill_monster') {
+                            shouldIncrement = !challenge.zone || mob.zoneId === challenge.zone;
+                        } else if (challenge.target === 'kill_boss' && (mob.tier === 'boss' || mob.tier === 'legendary' || mob.tier === 'mythic')) {
+                            shouldIncrement = true;
+                        } else if (challenge.target === 'kill_elite' && (mob.tier === 'elite' || mob.tier === 'rare' || mob.tier === 'boss')) {
+                            shouldIncrement = true;
+                        } else if (challenge.target === 'kill_night' && isNight) {
+                            shouldIncrement = true;
+                        }
+                        if (shouldIncrement) {
+                            realOwner._dailyChallengeProgress++;
+                            if (realOwner._dailyChallengeProgress >= challenge.goal && !realOwner._dailyChallengeCompleted) {
+                                realOwner._dailyChallengeCompleted = true;
+                                io.to(realOwner.id).emit('server_msg', { msg: `[일일 챌린지] "${challenge.name}" 완료! 보상을 수령하세요!`, type: 'rare' });
                             }
                         }
                     }

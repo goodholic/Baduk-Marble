@@ -1790,7 +1790,7 @@
         html += 'DEF <span style="color:'+diffColor(d.defDiff)+'">'+diffStr(d.defDiff)+'</span>';
         html += '</div>';
         showModal('장비 비교', html, [
-          {label:'장착', action:"window.socket.emit('equip_item','"+d.new?.name+"');closeModal();"},
+          {label:'장착', action:"window.socket.emit('equip_item','"+(d.itemId||'')+"');closeModal();"},
           {label:'취소', type:'cancel', action:'closeModal()'}
         ]);
       });
