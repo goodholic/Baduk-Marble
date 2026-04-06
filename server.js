@@ -1610,8 +1610,15 @@ function endArenaMatch(matchId, winnerId, loserId, reason) {
     if (!arenaRankings[loserId]) arenaRankings[loserId] = { wins:0, losses:0, points:1000 };
     arenaRankings[winnerId].wins++;
     arenaRankings[loserId].losses++;
+    const prevWinTier = getArenaTier(arenaRankings[winnerId].points);
     arenaRankings[winnerId].points += 25;
     arenaRankings[loserId].points = Math.max(0, arenaRankings[loserId].points - 15);
+    const newWinTier = getArenaTier(arenaRankings[winnerId].points);
+    // 티어 승급 알림
+    if (newWinTier.min > prevWinTier.min) {
+        io.to(winnerId).emit('tier_promotion', { tier: newWinTier.name, color: newWinTier.color });
+        io.emit('server_msg', { msg: `[아레나] ${winner?.displayName}이(가) ${newWinTier.name} 티어 승급!`, type: 'rare' });
+    }
 
     // 보상
     if (winner) {
@@ -1788,6 +1795,42 @@ const LEGACY_PERKS = [
 // ── 5. 의뢰 게시판 (플레이어 생성 퀘스트) ──
 let contractBoard = []; // { id, creatorId, creatorName, type, target, reward, status, acceptedBy, expiresAt }
 let contractIdCounter = 0;
+
+// ── PvP 시즌/티어 ──
+const ARENA_TIERS = [
+    { name:'브론즈', min:0,    color:'#cd7f32' },
+    { name:'실버',  min:1100, color:'#c0c0c0' },
+    { name:'골드',  min:1300, color:'#ffd700' },
+    { name:'플래티넘', min:1500, color:'#44ddff' },
+    { name:'다이아몬드', min:1800, color:'#44aaff' },
+    { name:'마스터',  min:2200, color:'#ff4444' },
+];
+function getArenaTier(points) {
+    let tier = ARENA_TIERS[0];
+    for (const t of ARENA_TIERS) { if (points >= t.min) tier = t; }
+    return tier;
+}
+let arenaSeasonStart = Date.now();
+
+// ── 존 위험 요소 ──
+const ZONE_HAZARDS = {
+    swamp:      { type:'poison',  dps:3,  interval:3000, msg:'독안개에 중독되고 있다!', color:'#44cc44' },
+    toxic_marsh:{ type:'poison',  dps:5,  interval:2500, msg:'맹독 안개! 빨리 벗어나자!', color:'#22aa22' },
+    volcano:    { type:'fire',    dps:8,  interval:2000, msg:'발밑이 뜨겁다! 화상!', color:'#ff4400' },
+    magma_core: { type:'fire',    dps:12, interval:2000, msg:'용암에 타고 있다!', color:'#ff2200' },
+    glacier:    { type:'freeze',  dps:4,  interval:3000, msg:'얼어붙고 있다... 속도 감소!', color:'#88ccff', slow:0.3 },
+    frozen_deep:{ type:'freeze',  dps:6,  interval:2500, msg:'극한의 추위! 이동 불가 직전!', color:'#4488ff', slow:0.5 },
+    void_rift:  { type:'void',    dps:15, interval:1500, msg:'공허의 힘이 생명을 빨아들인다!', color:'#aa44ff', manaDrain:20 },
+    abyss:      { type:'void',    dps:10, interval:2000, msg:'심연의 기운이 정신을 갉아먹는다.', color:'#6622aa', manaDrain:10 },
+    hell:       { type:'fire',    dps:10, interval:2000, msg:'지옥불이 타오른다!', color:'#ff0000' },
+};
+
+// ── 길드 레이드 ──
+const CLAN_RAIDS = {
+    raid_cave:  { name:'혈맹 동굴 레이드', clanLevel:2, minMembers:3, waves:5, bossHp:10000, bossAtk:40, reward:{gold:3000,exp:5000,diamonds:30} },
+    raid_dragon:{ name:'혈맹 드래곤 레이드', clanLevel:3, minMembers:4, waves:7, bossHp:30000, bossAtk:80, reward:{gold:8000,exp:15000,diamonds:80} },
+    raid_void:  { name:'혈맹 공허 레이드', clanLevel:5, minMembers:5, waves:10, bossHp:80000, bossAtk:150, reward:{gold:20000,exp:40000,diamonds:200} },
+};
 
 // ── 낚시 시스템 ──
 const FISH_TABLE = [
@@ -2940,6 +2983,54 @@ io.on('connection', (socket) => {
             return { name: s.name, cooldown: s.cooldown, remaining, mpCost: s.mpCost || 0, ready: remaining === 0 };
         });
         socket.emit('skill_cooldowns', cds);
+    });
+
+    // ── 길드 레이드 ──
+    socket.on('clan_raid_start', (raidId) => {
+        const p = players[playerId];
+        if (!p || !p.clanName || !clans[p.clanName]) { socket.emit('raid_result', { msg: '혈맹 필요' }); return; }
+        const clan = clans[p.clanName];
+        if (clan.leader !== playerId) { socket.emit('raid_result', { msg: '혈맹장만 시작 가능' }); return; }
+        const raid = CLAN_RAIDS[raidId];
+        if (!raid) { socket.emit('raid_result', { msg: '유효하지 않은 레이드' }); return; }
+        if (clan.level < raid.clanLevel) { socket.emit('raid_result', { msg: `혈맹 Lv.${raid.clanLevel} 필요` }); return; }
+        if (clan.dungeonCooldown && Date.now() < clan.dungeonCooldown) {
+            const remain = Math.ceil((clan.dungeonCooldown - Date.now()) / 3600000);
+            socket.emit('raid_result', { msg: `쿨타임 ${remain}시간 남음` }); return;
+        }
+        // 온라인 멤버 수 체크
+        const online = clan.members.filter(mid => players[mid]?.isAlive && !players[mid]?.isBot);
+        if (online.length < raid.minMembers) { socket.emit('raid_result', { msg: `최소 ${raid.minMembers}명 온라인 필요 (현재 ${online.length}명)` }); return; }
+
+        clan.dungeonCooldown = Date.now() + 604800000; // 7일 쿨타임
+        // 레이드 시작 — 보상 직접 지급 (간소화)
+        for (const mid of online) {
+            const member = players[mid];
+            if (!member) continue;
+            member.gold += raid.reward.gold;
+            member.diamonds = (member.diamonds||0) + raid.reward.diamonds;
+            giveExp(member, raid.reward.exp);
+            capResources(member);
+            io.to(mid).emit('raid_result', { msg: `${raid.name} 완료! +${raid.reward.gold}G +${raid.reward.exp}EXP +${raid.reward.diamonds}D` });
+            io.emit('player_update', member);
+        }
+        clan.exp += 100;
+        io.emit('server_msg', { msg: `[길드 레이드] ${p.clanName} 혈맹이 ${raid.name} 클리어!`, type: 'boss' });
+        logWorldEvent(`${p.clanName} — ${raid.name} 클리어`, 'boss');
+    });
+
+    // ── PvP 시즌 정보 ──
+    socket.on('get_arena_season', () => {
+        const p = players[playerId];
+        const myRank = arenaRankings[playerId] || { wins:0, losses:0, points:1000 };
+        const myTier = getArenaTier(myRank.points);
+        const seasonDays = Math.floor((Date.now() - arenaSeasonStart) / 86400000);
+        const seasonRemain = Math.max(0, 28 - seasonDays);
+        socket.emit('arena_season', {
+            tier: myTier.name, tierColor: myTier.color,
+            points: myRank.points, wins: myRank.wins, losses: myRank.losses,
+            seasonRemain, allTiers: ARENA_TIERS,
+        });
     });
 
     // ── 길드 채팅 ──
@@ -5187,6 +5278,25 @@ setInterval(() => {
             }
             m.x = Math.max(-1020, Math.min(1020, m.x));
             m.y = Math.max(-1020, Math.min(1020, m.y));
+        }
+    }
+
+    // 존 위험 요소 데미지 (해당 존에 있는 플레이어에게 주기적 DoT)
+    if (tickCounter % 60 === 0) { // 2초마다 체크
+        for (const pId in players) {
+            const p = players[pId];
+            if (p.isBot || !p.isAlive) continue;
+            const zone = getZone(p.x, p.y);
+            const hazard = zone && ZONE_HAZARDS[zone.id];
+            if (hazard) {
+                if (!p._lastHazardTick || Date.now() - p._lastHazardTick >= hazard.interval) {
+                    p._lastHazardTick = Date.now();
+                    p.hp -= hazard.dps;
+                    if (hazard.manaDrain && p.mp !== undefined) p.mp = Math.max(0, p.mp - hazard.manaDrain);
+                    io.to(pId).emit('hazard_damage', { dps: hazard.dps, type: hazard.type, msg: hazard.msg, color: hazard.color });
+                    if (p.hp <= 0 && p.isAlive) { p.isAlive = false; io.emit('player_die', { victimId: pId, attackerId: 'hazard', killerName: hazard.msg }); }
+                }
+            }
         }
     }
 

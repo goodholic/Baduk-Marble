@@ -1755,6 +1755,39 @@
         addChatMsg(titleTag + lvTag + prefix + d.sender + ': ' + d.msg, cls);
       });
 
+      // 존 위험 요소 데미지
+      window.socket.on('hazard_damage', (d) => {
+        showFloatingDamage('-'+d.dps+' '+d.type, false, null);
+        addCombatLog(d.msg, 'log-crit');
+      });
+
+      // 길드 레이드
+      window.socket.on('raid_result', (d) => { showToast(d.msg); playSFX(d.msg.includes('완료') ? 'boss' : 'hit'); });
+
+      // PvP 시즌
+      window.socket.on('arena_season', (d) => {
+        showModal('PvP 시즌', '<div style="text-align:center">' +
+          '<div style="font-size:20px;font-weight:900;color:'+d.tierColor+'">'+d.tier+'</div>' +
+          '<div class="text-gold" style="font-size:14px;margin:8px 0">'+d.points+' 포인트</div>' +
+          '<div class="text-sm text-muted">'+d.wins+'승 '+d.losses+'패</div>' +
+          '<div style="margin-top:10px">' + d.allTiers.map(function(t) {
+            var active = d.points >= t.min ? 'opacity:1' : 'opacity:0.3';
+            return '<span style="color:'+t.color+';font-size:10px;margin:0 4px;'+active+'">'+t.name+'('+t.min+')</span>';
+          }).join(' → ') + '</div>' +
+          '<div class="text-muted text-sm" style="margin-top:8px">시즌 종료까지 '+d.seasonRemain+'일</div></div>',
+          [{label:'닫기', type:'cancel', action:'closeModal()'}]);
+      });
+
+      // 티어 승급
+      window.socket.on('tier_promotion', (d) => {
+        var ol = document.getElementById('levelup-overlay');
+        ol.querySelector('.lvl-text').innerHTML = '🏆 TIER UP!';
+        ol.querySelector('.lvl-sub').innerHTML = '<span style="color:'+d.color+';font-size:24px">'+d.tier+'</span>';
+        ol.classList.add('show');
+        playSFX('boss'); playSFX('levelup');
+        setTimeout(function(){ ol.classList.remove('show'); }, 3000);
+      });
+
       // 존 분위기 텍스트
       window.socket.on('zone_ambient', (d) => {
         var el = document.createElement('div');
@@ -2651,6 +2684,12 @@
         {label:'출석 캘��더', action:()=>window.socket.emit('get_attendance_calendar')},
         {label:'탐험도', action:()=>window.socket.emit('get_exploration')},
         {label:'길드멤버', action:()=>window.socket.emit('get_guild_members')},
+        {label:'길드 레이드', action:()=>{showModal('길드 레이드','<p class="text-muted text-sm">혈맹장만 시작 가능. 주 1회. 온라인 멤버 필요.</p>',[
+          {label:'동굴 (Lv.2, 3명)', action:"window.socket.emit('clan_raid_start','raid_cave');closeModal();"},
+          {label:'드래곤 (Lv.3, 4명)', action:"window.socket.emit('clan_raid_start','raid_dragon');closeModal();"},
+          {label:'공허 (Lv.5, 5명)', action:"window.socket.emit('clan_raid_start','raid_void');closeModal();"},
+          {label:'취소',type:'cancel',action:'closeModal()'}]);}},
+        {label:'PvP 시즌', action:()=>window.socket.emit('get_arena_season')},
         {label:'이벤트', action:()=>{togglePanel('events');window.socket.emit('get_world_events');}},
         {label:'이모트', action:()=>{showModal('이모트','<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">' +
           Object.entries({taunt:'😤 도발',cheer:'🎉 환호',greet:'👋 인사',laugh:'😂 ㅋㅋ',cry:'😢 ㅠㅠ',gg:'🤝 GG',help:'🆘 도움',thanks:'❤ 감사'}).map(function(e) {
