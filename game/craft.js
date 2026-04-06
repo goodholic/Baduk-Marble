@@ -41,6 +41,12 @@ const RECIPES = {
   cook_dragon_feast:{ name:'용의 만찬',  need:{mat_dragon:1, goods_spice:5, goods_wine:2}, result:'food_all', gold:500, successRate:0.7 },
   cook_warrior_meal:{ name:'전사의 식사', need:{goods_fish:2, goods_herb:2},      result:'food_def',   gold:60,  successRate:1.0 },
   cook_speed_tea:  { name:'쾌속 차',     need:{goods_herb:3, goods_salt:1},      result:'food_spd',   gold:40,  successRate:1.0 },
+  cook_crit_pie:   { name:'행운의 파이', need:{goods_fish:2, goods_spice:2, goods_herb:1}, result:'food_crit',  gold:100, successRate:1.0 },
+  cook_mana_brew:  { name:'마나 양조', need:{goods_herb:5, goods_wine:1},      result:'food_mp',    gold:70,  successRate:1.0 },
+  cook_fire_soup:  { name:'화염 수프', need:{goods_spice:3, goods_salt:2},      result:'food_fire',  gold:90,  successRate:1.0 },
+  cook_ice_cream:  { name:'빙하 빙수', need:{goods_fish:1, goods_salt:3},       result:'food_ice',   gold:60,  successRate:1.0 },
+  cook_kings_feast:{ name:'왕의 연회', need:{mat_dragon:2, goods_wine:3, goods_spice:5, goods_fish:5}, result:'food_king', gold:1000, successRate:0.5 },
+  cook_exp_tea:    { name:'깨달음의 차', need:{goods_herb:5, mat_magic:2},      result:'food_exp',   gold:150, successRate:0.8 },
   // ── 망토/벨트 제작 ──
   craft_cape_1:  { name:'여행자 망토 제작', need:{goods_leather:8, goods_wood:3}, result:'equip_cape_1', gold:150, successRate:1.0 },
   craft_cape_2:  { name:'기사 망토 제작',   need:{goods_leather:15, mat_magic:5}, result:'equip_cape_2', gold:600, successRate:0.8 },
