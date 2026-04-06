@@ -221,6 +221,9 @@ async function savePlayer(player) {
         legacyPerks: player.legacyPerks || [],
         itemRunes: player.itemRunes || {},
         _riftDepth: player._riftDepth || 0,
+        discoveredZones: player.discoveredZones || [],
+        fishingLevel: player.fishingLevel || 1,
+        _fishCount: player._fishCount || 0,
         maxArmy: player.maxArmy || 30,
         autoPotion: player.autoPotion || false,
         questProgress: player.questProgress || {},
@@ -1437,6 +1440,38 @@ const LEGACY_PERKS = [
 // ── 5. 의뢰 게시판 (플레이어 생성 퀘스트) ──
 let contractBoard = []; // { id, creatorId, creatorName, type, target, reward, status, acceptedBy, expiresAt }
 let contractIdCounter = 0;
+
+// ── 낚시 시스템 ──
+const FISH_TABLE = [
+    { name:'잡어',     grade:'common', sell:5,   weight:50, minLevel:1 },
+    { name:'붕어',     grade:'common', sell:10,  weight:30, minLevel:1 },
+    { name:'잉어',     grade:'uncommon', sell:30, weight:20, minLevel:3 },
+    { name:'송어',     grade:'uncommon', sell:50, weight:15, minLevel:5 },
+    { name:'연어',     grade:'rare',   sell:100, weight:8,  minLevel:8 },
+    { name:'참치',     grade:'rare',   sell:200, weight:5,  minLevel:12 },
+    { name:'황금 잉어', grade:'epic',   sell:500, weight:2,  minLevel:15 },
+    { name:'용왕의 물고기', grade:'legendary', sell:2000, weight:0.5, minLevel:25 },
+];
+
+// ── 이모트 ──
+const EMOTES = {
+    taunt:'도발!', cheer:'환호!', greet:'안녕!', laugh:'ㅋㅋㅋ',
+    cry:'ㅠㅠ', gg:'GG', help:'도와줘!', thanks:'고마워!',
+};
+
+// ── 출석 캘린더 보상 ──
+const ATTENDANCE_REWARDS = [
+    {day:1, reward:'100G'},  {day:2, reward:'200G'},  {day:3, reward:'300G + 10D'},
+    {day:4, reward:'400G'},  {day:5, reward:'500G + 15D'}, {day:6, reward:'600G'},
+    {day:7, reward:'희귀 상자'},  {day:8, reward:'800G'},  {day:9, reward:'900G'},
+    {day:10, reward:'1000G + 30D'}, {day:11, reward:'1100G'}, {day:12, reward:'1200G'},
+    {day:13, reward:'1300G + 20D'}, {day:14, reward:'전설 재료 x3'},
+    {day:15, reward:'1500G'}, {day:16, reward:'1600G'}, {day:17, reward:'1700G + 30D'},
+    {day:18, reward:'1800G'}, {day:19, reward:'1900G'}, {day:20, reward:'2000G + 50D'},
+    {day:21, reward:'영웅 장비 상자'}, {day:22, reward:'2200G'}, {day:23, reward:'2300G'},
+    {day:24, reward:'2400G + 40D'}, {day:25, reward:'2500G'}, {day:26, reward:'2600G'},
+    {day:27, reward:'2700G + 50D'}, {day:28, reward:'전설 장비 상자 + 칭호'},
+];
 let goldFeverEnd = 0;
 
 // ── 드롭 아이템 생성 ──
@@ -1595,6 +1630,9 @@ io.on('connection', (socket) => {
                         prestigeLevel: ext.prestigeLevel || 0,
                         legacyPerks: ext.legacyPerks || [],
                         itemRunes: ext.itemRunes || {},
+                        discoveredZones: ext.discoveredZones || [],
+                        fishingLevel: ext.fishingLevel || 1,
+                        _fishCount: ext._fishCount || 0,
                         maxArmy: ext.maxArmy || 30,
                         autoPotion: ext.autoPotion || false,
                         questProgress: ext.questProgress || {},
@@ -1792,6 +1830,19 @@ io.on('connection', (socket) => {
                             socket.emit('server_msg', { msg: `[웨이포인트] ${ZONES[curZone.id].name} 등록! 이제 어디서든 이동 가능`, type: 'normal' });
                             giveExp(p, 10);
                         }
+                    }
+                    // 탐험도 자동 등록
+                    if (!p.discoveredZones) p.discoveredZones = [];
+                    if (!p.discoveredZones.includes(curZone.id)) {
+                        p.discoveredZones.push(curZone.id);
+                        const total = Object.keys(ZONES).length;
+                        const pct = Math.floor(p.discoveredZones.length / total * 100);
+                        socket.emit('zone_discovered', { zone: ZONES[curZone.id].name, discovered: p.discoveredZones.length, total, pct });
+                        giveExp(p, 5);
+                        if (pct === 25) { p.gold += 1000; socket.emit('server_msg', { msg: '[탐험] 25% 달성! +1000G', type: 'rare' }); }
+                        if (pct === 50) { p.diamonds = (p.diamonds||0) + 50; socket.emit('server_msg', { msg: '[탐험] 50% 달성! +50D', type: 'rare' }); }
+                        if (pct === 75) { p.diamonds = (p.diamonds||0) + 100; socket.emit('server_msg', { msg: '[탐험] 75% 달성! +100D', type: 'rare' }); }
+                        if (pct >= 100) { io.emit('server_msg', { msg: `[탐험] ${p.displayName}이(가) 전 지역 탐험 완료!`, type: 'boss' }); }
                     }
                 }
             }
@@ -3430,6 +3481,102 @@ io.on('connection', (socket) => {
     });
 
     // ══════════════════════════════════════
+    // ══════════════════════════════════════
+    // 낚시/이모트/출석캘린더/탐험도
+    // ══════════════════════════════════════
+
+    // ── 낚시 시작 ──
+    socket.on('start_fishing', () => {
+        const p = players[playerId];
+        if (!p || !p.isAlive) return;
+        const zone = getZone(p.x, p.y);
+        if (!zone || zone.id !== 'fishing') { socket.emit('fish_result', { msg: '낚시 만에서만 가능!' }); return; }
+        if (p._fishing) return;
+        p._fishing = true;
+        socket.emit('fish_cast', { msg: '낚싯대를 던졌습니다... 기다리세요...' });
+        // 3~8초 후 물고기 입질
+        const biteTime = 3000 + Math.random() * 5000;
+        setTimeout(() => {
+            if (!players[playerId] || !p._fishing) return;
+            p._fishBite = Date.now();
+            socket.emit('fish_bite', { msg: '입질이다! 빨리 낚아올려요!' });
+            // 1.5초 안에 hook_fish 안 보내면 실패
+            setTimeout(() => {
+                if (p._fishBite) {
+                    p._fishing = false; p._fishBite = null;
+                    socket.emit('fish_result', { msg: '놓쳤다... 다시 시도하세요.' });
+                }
+            }, 1500);
+        }, biteTime);
+    });
+
+    // ── 낚시 낚아올리기 ──
+    socket.on('hook_fish', () => {
+        const p = players[playerId];
+        if (!p || !p._fishBite) return;
+        p._fishing = false; p._fishBite = null;
+        if (!p.fishingLevel) p.fishingLevel = 1;
+        // 물고기 뽑기
+        const eligible = FISH_TABLE.filter(f => p.fishingLevel >= f.minLevel);
+        const totalWeight = eligible.reduce((s, f) => s + f.weight, 0);
+        let roll = Math.random() * totalWeight;
+        let caught = eligible[0];
+        for (const f of eligible) {
+            roll -= f.weight;
+            if (roll <= 0) { caught = f; break; }
+        }
+        // 낚시 레벨업 (20마리마다)
+        p._fishCount = (p._fishCount || 0) + 1;
+        if (p._fishCount % 20 === 0 && p.fishingLevel < 50) {
+            p.fishingLevel++;
+            socket.emit('fish_result', { msg: `낚시 레벨 UP! Lv.${p.fishingLevel}` });
+        }
+        // 보상
+        if (!p.inventory) p.inventory = {};
+        p.inventory['goods_fish'] = (p.inventory['goods_fish'] || 0) + 1;
+        p.gold += caught.sell;
+        capResources(p);
+        const gradeColors = {common:'#ccc',uncommon:'#4c4',rare:'#48f',epic:'#a4f',legendary:'#f80'};
+        socket.emit('fish_result', { msg: `${caught.name} 낚음! (+${caught.sell}G)`, name: caught.name, grade: caught.grade, color: gradeColors[caught.grade] });
+        if (caught.grade === 'epic' || caught.grade === 'legendary') {
+            io.emit('server_msg', { msg: `[낚시] ${p.displayName}이(가) ${caught.name}을(를) 낚았다!`, type: 'rare' });
+        }
+        savePlayer(p);
+        io.emit('player_update', p);
+    });
+
+    // ── 이모트 ──
+    socket.on('emote', (emoteId) => {
+        const p = players[playerId];
+        if (!p || !p.isAlive) return;
+        const text = EMOTES[emoteId];
+        if (!text) return;
+        // 같은 존의 모든 플레이어에게 브로드캐스트
+        io.emit('emote_show', { playerId, playerName: p.displayName, emote: text, x: p.x, y: p.y });
+    });
+
+    // ── 출석 캘린더 ──
+    socket.on('get_attendance_calendar', () => {
+        const p = players[playerId];
+        if (!p) return;
+        const streak = p.attendance?.streak || 0;
+        const calendar = ATTENDANCE_REWARDS.map((r, i) => ({
+            day: r.day, reward: r.reward,
+            claimed: i < streak,
+            today: i === streak,
+        }));
+        socket.emit('attendance_calendar', { calendar, streak });
+    });
+
+    // ── 탐험도 조회 ──
+    socket.on('get_exploration', () => {
+        const p = players[playerId];
+        if (!p) return;
+        const discovered = p.discoveredZones || [];
+        const total = Object.keys(ZONES).length;
+        socket.emit('exploration_data', { discovered, total, pct: Math.floor(discovered.length / total * 100) });
+    });
+
     // 5대 신규 시스템 소켓 핸들러
     // ══════════════════════════════════════
 

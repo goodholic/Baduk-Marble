@@ -1409,6 +1409,53 @@
         el.innerHTML = html;
       });
 
+      // ── 낚시 ──
+      window.socket.on('fish_cast', (d) => { showToast(d.msg); addCombatLog('🎣 ' + d.msg, 'normal'); });
+      window.socket.on('fish_bite', (d) => {
+        showModal('입질!', '<p style="text-align:center;font-size:20px;animation:lvlPop 0.3s">🐟 입질이다!</p><p class="text-muted text-sm" style="text-align:center">1.5초 안에 버튼을 누르세요!</p>',
+          [{label:'낚아올려!', action:"window.socket.emit('hook_fish');closeModal();"}]);
+        playSFX('boss');
+      });
+      window.socket.on('fish_result', (d) => {
+        closeModal();
+        showToast(d.msg);
+        if (d.grade) addLootEntry('🐟 '+d.name+' (+'+d.msg.match(/\d+G/)?.[0]+')', d.color ? 'rgba(0,100,200,0.3)' : 'rgba(100,100,100,0.3)');
+        playSFX(d.grade === 'legendary' || d.grade === 'epic' ? 'levelup' : 'gold');
+      });
+
+      // ── 이모트 ──
+      window.socket.on('emote_show', (d) => {
+        addCombatLog(d.playerName + ': ' + d.emote, 'log-morph');
+        showFloatingDamage(d.emote, false, null);
+      });
+
+      // ── 출석 캘린더 ──
+      window.socket.on('attendance_calendar', (d) => {
+        var html = '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">';
+        d.calendar.forEach(function(day) {
+          var bg = day.claimed ? 'rgba(68,255,68,0.15)' : day.today ? 'rgba(255,215,0,0.2)' : 'rgba(255,255,255,0.03)';
+          var border = day.today ? '2px solid var(--c-gold)' : '1px solid var(--c-border)';
+          var check = day.claimed ? '✅' : day.today ? '📦' : '';
+          html += '<div style="background:'+bg+';border:'+border+';border-radius:var(--r-sm);padding:4px;text-align:center;font-size:9px">';
+          html += '<div class="text-muted">'+day.day+'일</div>';
+          html += '<div style="font-size:8px;color:#ddd;margin-top:2px">'+day.reward+'</div>';
+          if (check) html += '<div>'+check+'</div>';
+          html += '</div>';
+        });
+        html += '</div>';
+        html += '<p class="text-gold text-sm" style="text-align:center;margin-top:8px">연속 출석: '+d.streak+'일</p>';
+        showModal('출석 캘린더', html, [{label:'확인',action:'closeModal()'}]);
+      });
+
+      // ── 탐험도 ──
+      window.socket.on('zone_discovered', (d) => {
+        showToast('[탐험] ' + d.zone + ' 발견! (' + d.discovered + '/' + d.total + ' — ' + d.pct + '%)');
+        playSFX('buff');
+      });
+      window.socket.on('exploration_data', (d) => {
+        showModal('탐험도', '<p class="text-gold" style="font-size:14px;text-align:center">'+d.discovered+' / '+d.total+' 지역 ('+d.pct+'%)</p><div style="width:100%;height:10px;background:#222;border-radius:5px;margin:8px 0;overflow:hidden"><div style="width:'+d.pct+'%;height:100%;background:linear-gradient(90deg,var(--c-blue),var(--c-gold));border-radius:5px;transition:width 0.5s"></div></div><p class="text-muted text-sm">새로운 지역을 방문하면 자동 등록됩니다. +5 EXP/지역</p>', [{label:'확인',action:'closeModal()'}]);
+      });
+
       // 스킬 상세
       window.socket.on('skill_data', (skills) => {
         var el = document.getElementById('skills-body');
@@ -2334,6 +2381,13 @@
         {label:'환생', action:()=>{showModal('환생 (프레스티지)','<p class="text-gold">Lv.50 달성 시 레벨을 1로 리셋하고 영구 보너스를 획득합니다.</p><p class="text-muted text-sm">장비/인벤/다이아는 유지. 최대 10회.</p>',[{label:'환생!',action:"window.socket.emit('prestige');closeModal();"},{label:'취소',type:'cancel',action:'closeModal()'}]);}},
         {label:'의뢰', action:()=>{togglePanel('contracts');window.socket.emit('get_contracts');}},
         {label:'진영', action:()=>{togglePanel('faction');window.socket.emit('get_faction_info');}},
+        {label:'낚시', action:()=>window.socket.emit('start_fishing')},
+        {label:'출석 캘��더', action:()=>window.socket.emit('get_attendance_calendar')},
+        {label:'탐험도', action:()=>window.socket.emit('get_exploration')},
+        {label:'이모트', action:()=>{showModal('이모트','<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">' +
+          Object.entries({taunt:'😤 도발',cheer:'🎉 환호',greet:'👋 인사',laugh:'😂 ㅋㅋ',cry:'😢 ㅠㅠ',gg:'🤝 GG',help:'🆘 도움',thanks:'❤ 감사'}).map(function(e) {
+            return '<button class="btn btn-sm" onclick="window.socket.emit(\'emote\',\''+e[0]+'\');closeModal();">'+e[1]+'</button>';
+          }).join('') + '</div>', [{label:'닫기',type:'cancel',action:'closeModal()'}]);}},
         {label:'일일 보상', action:()=>claimDaily()},
       ],
     };
