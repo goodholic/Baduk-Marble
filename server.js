@@ -1652,6 +1652,39 @@ io.on('connection', (socket) => {
         });
 
         socket.broadcast.emit('player_join', players[playerId]);
+
+        // ── 신규 플레이어 온보딩 가이드 ──
+        if (pInfo.level <= 1 && !pInfo.questProgress?.main_hunt1) {
+            setTimeout(() => {
+                socket.emit('guide_msg', { step: 1, msg: '환영합니다! 마을 밖 이슬숲에서 슬라임을 사냥해보세요.', target: 'forest' });
+                setTimeout(() => {
+                    socket.emit('guide_msg', { step: 2, msg: '자동 전투 중입니다. 몬스터 근처로 이동하면 자동 공격합니다.' });
+                }, 8000);
+                setTimeout(() => {
+                    socket.emit('guide_msg', { step: 3, msg: '하단 메뉴에서 장비/스킬/퀘스트를 확인할 수 있습니다.' });
+                }, 16000);
+            }, 2000);
+        } else if (pInfo.level <= 5) {
+            setTimeout(() => {
+                const zone = getZone(pInfo.x, pInfo.y);
+                const safeZone = zone && ZONES[zone.id]?.safe;
+                if (safeZone) socket.emit('guide_msg', { msg: `Lv.${pInfo.level} — 마을 밖으로 나가서 사냥을 시작하세요!` });
+            }, 3000);
+        }
+        // 접속 시 현재 퀘스트 진행도 알림
+        if (pInfo.questProgress) {
+            for (const [qId, q] of Object.entries(QUESTS)) {
+                if (q.type === 'daily' && !(pInfo.questCompleted?.[qId])) {
+                    const prog = pInfo.questProgress[qId] || 0;
+                    if (prog > 0 && prog < q.goal) {
+                        setTimeout(() => {
+                            socket.emit('quest_progress', { name: q.name, current: prog, goal: q.goal, remaining: q.goal - prog });
+                        }, 4000);
+                        break;
+                    }
+                }
+            }
+        }
     });
 
     socket.on('move', (data) => {
@@ -5132,6 +5165,21 @@ function handleCollisions() {
                     if (mob.tier === 'elite' || mob.tier === 'rare' || mob.tier === 'boss' || mob.tier === 'legendary') trackQuest(realOwner, 'kill_elite', 1);
                     if (mob.tier === 'boss' || mob.tier === 'legendary') trackQuest(realOwner, 'kill_boss', 1);
                     trackQuest(realOwner, 'earn_gold', mobGoldReward);
+                    // 실시간 퀘스트 진행도 알림 (가장 가까운 미완료 퀘스트)
+                    if (!realOwner.isBot && realOwner.questProgress) {
+                        for (const [qId, q] of Object.entries(QUESTS)) {
+                            if ((q.type === 'daily' || q.type === 'main') && !(realOwner.questCompleted?.[qId])) {
+                                const prog = realOwner.questProgress[qId] || 0;
+                                if (prog > 0 && prog <= q.goal) {
+                                    io.to(realOwner.id).emit('quest_progress', { name: q.name, current: Math.min(prog, q.goal), goal: q.goal, remaining: Math.max(0, q.goal - prog) });
+                                    if (prog >= q.goal) {
+                                        io.to(realOwner.id).emit('server_msg', { msg: `[퀘스트] "${q.name}" 완료! 보상을 수령하세요!`, type: 'rare' });
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                    }
 
                     // 재료 드롭 (인벤토리에 직접 추가)
                     if (!realOwner.inventory) realOwner.inventory = {};

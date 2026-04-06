@@ -205,28 +205,34 @@
 
     <!-- 클래스 선택 -->
     <div id="class-select">
-      <h1>AutoBattle.io</h1>
-      <p class="subtitle" style="color:#666;font-size:13px;margin-bottom:20px">거상 × 리니지 × 포켓몬 × 알비온 — 당신만의 모험을 시작하세요</p>
-      <button class="class-btn" onclick="selectClass('Assassin')">
-        <div class="name">Assassin [어쌔신]</div>
-        <div class="stats">HP:120 / ATK:45 / SPD:22 / CRIT:25%</div>
-        <div class="desc">빠른 속도와 높은 크리티컬로 적을 암살하는 암살자</div>
+      <h1 style="background:linear-gradient(135deg,#ffd700,#ff8800);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:36px">AutoBattle.io</h1>
+      <p class="subtitle" style="color:#888;font-size:12px;margin-bottom:20px">거상 × 리니지 × 포켓몬 × 알비온 — 클래스를 선택하세요</p>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;max-width:700px">
+      <button class="class-btn" onclick="selectClass('Assassin')" style="width:320px;text-align:left;padding:14px">
+        <div class="name" style="color:#ff6b6b;font-size:16px">Assassin [어쌔신]</div>
+        <div class="stats" style="color:#ccc;font-size:11px;margin:4px 0">HP:130 ATK:35 SPD:20 CRIT:20% 회피:15%</div>
+        <div class="desc" style="color:#888;font-size:10px">빠른 속도와 크리티컬 — 은신 후 일격 암살</div>
+        <div style="margin-top:6px;font-size:9px;color:#ff6b6b;border-top:1px solid #333;padding-top:4px">스킬: 그림자 일격 / 독 바르기 / 은신 / 연속 베기 / 암살(궁극)</div>
       </button>
-      <button class="class-btn" onclick="selectClass('Warrior')">
-        <div class="name">Warrior [워리어]</div>
-        <div class="stats">HP:180 / ATK:30 / DEF:15 / SPD:12</div>
-        <div class="desc">균형 잡힌 공방으로 안정적인 전투를 하는 전사</div>
+      <button class="class-btn" onclick="selectClass('Warrior')" style="width:320px;text-align:left;padding:14px">
+        <div class="name" style="color:#ffa500;font-size:16px">Warrior [워리어]</div>
+        <div class="stats" style="color:#ccc;font-size:11px;margin:4px 0">HP:200 ATK:28 DEF:16 SPD:12 CRIT:10%</div>
+        <div class="desc" style="color:#888;font-size:10px">균형 잡힌 전사 — 전투 함성으로 아군 버프</div>
+        <div style="margin-top:6px;font-size:9px;color:#ffa500;border-top:1px solid #333;padding-top:4px">스킬: 파워 스트라이크 / 전투 함성 / 분노 / 회전 베기 / 버서커(궁극)</div>
       </button>
-      <button class="class-btn" onclick="selectClass('Knight')">
-        <div class="name">Knight [나이트]</div>
-        <div class="stats">HP:300 / ATK:15 / DEF:30 / SPD:10</div>
-        <div class="desc">철벽 방어로 아군을 지키는 탱커</div>
+      <button class="class-btn" onclick="selectClass('Knight')" style="width:320px;text-align:left;padding:14px">
+        <div class="name" style="color:#44aaff;font-size:16px">Knight [나이트]</div>
+        <div class="stats" style="color:#ccc;font-size:11px;margin:4px 0">HP:350 ATK:18 DEF:28 SPD:10 회피:2%</div>
+        <div class="desc" style="color:#888;font-size:10px">철벽 탱커 — 도발로 몬스터를 끌고 아군 보호</div>
+        <div style="margin-top:6px;font-size:9px;color:#44aaff;border-top:1px solid #333;padding-top:4px">스킬: 방패 강타 / 수호 오라 / 도발 / 철벽 방어 / 신성 방벽(궁극)</div>
       </button>
-      <button class="class-btn" onclick="selectClass('Mage')">
-        <div class="name">Mage [메이지]</div>
-        <div class="stats">HP:90 / ATK:10 / DEF:5 / SPD:9</div>
-        <div class="desc">강력한 광역 마법으로 전장을 지배하는 마법사</div>
+      <button class="class-btn" onclick="selectClass('Mage')" style="width:320px;text-align:left;padding:14px">
+        <div class="name" style="color:#aa44ff;font-size:16px">Mage [메이지]</div>
+        <div class="stats" style="color:#ccc;font-size:11px;margin:4px 0">HP:110 ATK:18 DEF:6 SPD:9 CRIT:15% AoE</div>
+        <div class="desc" style="color:#888;font-size:10px">광역 마법사 — 메테오로 전장을 초토화</div>
+        <div style="margin-top:6px;font-size:9px;color:#aa44ff;border-top:1px solid #333;padding-top:4px">스킬: 파이어볼 / 아이스 볼트 / 마나 재생 / 체인 라이트닝 / 메테오(궁극)</div>
       </button>
+      </div>
     </div>
 
     <!-- 하단 메뉴바 (5탭) -->
@@ -245,24 +251,25 @@
     <div id="status-bar">
       <span class="stat"><b class="level-val" id="level-display" style="font-size:15px">Lv.1 워리어</b></span>
       <span class="stat" style="display:flex;align-items:center;gap:4px">
-        <span style="color:#ff4444;font-size:11px">HP</span>
-        <span style="width:100px;height:10px;background:#333;border-radius:5px;overflow:hidden;display:inline-block">
-          <span id="hp-bar-fill" style="display:block;width:100%;height:100%;background:linear-gradient(90deg,#ff4444,#44ff44);border-radius:5px;transition:width 0.3s"></span>
-        </span>
-        <b class="hp-val" id="hp-display" style="font-size:11px">-/-</b>
-      </span>
-      <span class="stat" style="display:flex;align-items:center;gap:4px">
-        <span style="color:#4488ff;font-size:11px">MP</span>
-        <span style="width:60px;height:8px;background:#222;border-radius:4px;overflow:hidden;display:inline-block">
-          <span id="mp-bar-fill" style="display:block;width:100%;height:100%;background:linear-gradient(90deg,#2244aa,#4488ff);border-radius:4px;transition:width 0.3s"></span>
+        <span style="color:#ff4444;font-size:10px;font-weight:bold">HP</span>
+        <span id="hp-bar-bg" style="width:150px;height:14px;background:#2a0a0a;border-radius:7px;overflow:hidden;display:inline-block;border:1px solid rgba(255,68,68,0.2);position:relative">
+          <span id="hp-bar-fill" style="display:block;width:100%;height:100%;background:linear-gradient(90deg,#cc2222,#44cc44);border-radius:7px;transition:width 0.3s"></span>
+          <span id="hp-text" style="position:absolute;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff;font-weight:bold;text-shadow:0 1px 2px #000">-/-</span>
         </span>
       </span>
       <span class="stat" style="display:flex;align-items:center;gap:4px">
-        <span style="color:#aa44ff;font-size:11px">EXP</span>
-        <span style="width:80px;height:8px;background:#222;border-radius:4px;overflow:hidden;display:inline-block">
-          <span id="exp-bar-fill" style="display:block;width:0%;height:100%;background:linear-gradient(90deg,#6622aa,#aa44ff);border-radius:4px;transition:width 0.5s"></span>
+        <span style="color:#4488ff;font-size:10px;font-weight:bold">MP</span>
+        <span style="width:80px;height:10px;background:#0a0a2a;border-radius:5px;overflow:hidden;display:inline-block;border:1px solid rgba(68,136,255,0.2);position:relative">
+          <span id="mp-bar-fill" style="display:block;width:100%;height:100%;background:linear-gradient(90deg,#2244aa,#4488ff);border-radius:5px;transition:width 0.3s"></span>
+          <span id="mp-text" style="position:absolute;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:8px;color:#aaccff;font-weight:bold;text-shadow:0 1px 2px #000"></span>
         </span>
-        <b id="exp-display" style="font-size:10px;color:#aa44ff">0%</b>
+      </span>
+      <span class="stat" style="display:flex;align-items:center;gap:4px">
+        <span style="color:#aa44ff;font-size:10px;font-weight:bold">EXP</span>
+        <span style="width:100px;height:10px;background:#1a0a2a;border-radius:5px;overflow:hidden;display:inline-block;border:1px solid rgba(170,68,255,0.2);position:relative">
+          <span id="exp-bar-fill" style="display:block;width:0%;height:100%;background:linear-gradient(90deg,#6622aa,#cc66ff);border-radius:5px;transition:width 0.5s"></span>
+          <span id="exp-text" style="position:absolute;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:8px;color:#ddaaff;font-weight:bold;text-shadow:0 1px 2px #000"></span>
+        </span>
       </span>
       <span class="stat"><b class="team-val" id="team-display" style="color:#88ff88;font-size:12px">평화 모드</b></span>
       <span style="flex:1"></span>
@@ -672,24 +679,37 @@
             document.getElementById('diamond-val').textContent = me.diamonds;
           }
 
-          // HP 바
+          // HP 바 (내부 텍스트 + 피격 플래시)
           if (me.hp !== undefined && me.maxHp) {
             var hpPct = Math.max(0, Math.min(100, me.hp / me.maxHp * 100));
-            document.getElementById('hp-bar-fill').style.width = hpPct + '%';
-            document.getElementById('hp-display').textContent = Math.ceil(me.hp) + '/' + me.maxHp;
+            var hpFill = document.getElementById('hp-bar-fill');
+            hpFill.style.width = hpPct + '%';
+            // HP 색상 그라데이션
+            if (hpPct > 60) hpFill.style.background = 'linear-gradient(90deg,#22aa22,#44cc44)';
+            else if (hpPct > 30) hpFill.style.background = 'linear-gradient(90deg,#ccaa00,#ffdd00)';
+            else hpFill.style.background = 'linear-gradient(90deg,#cc2222,#ff4444)';
+            document.getElementById('hp-text').textContent = Math.ceil(me.hp) + ' / ' + me.maxHp;
+            // 피격 플래시 (HP 감소 시)
+            if (me.hp < (window._lastHp || me.maxHp)) {
+              var hpBg = document.getElementById('hp-bar-bg');
+              hpBg.style.boxShadow = '0 0 12px rgba(255,0,0,0.6)';
+              setTimeout(function(){ hpBg.style.boxShadow = ''; }, 300);
+            }
+            window._lastHp = me.hp;
           }
 
           // MP 바
           if (me.mp !== undefined && me.maxMp) {
             var mpPct = Math.max(0, Math.min(100, me.mp / me.maxMp * 100));
             document.getElementById('mp-bar-fill').style.width = mpPct + '%';
+            document.getElementById('mp-text').textContent = Math.ceil(me.mp) + '/' + Math.ceil(me.maxMp);
           }
 
-          // EXP 바
+          // EXP 바 (상세 — 바 내부에 수치)
           if (me.exp !== undefined && me.maxExp) {
             var expPct = Math.max(0, Math.min(100, me.exp / me.maxExp * 100));
             document.getElementById('exp-bar-fill').style.width = expPct + '%';
-            document.getElementById('exp-display').textContent = Math.floor(expPct) + '%';
+            document.getElementById('exp-text').textContent = Math.floor(me.exp) + ' / ' + me.maxExp;
           }
 
           // 레벨 표시 업데이트
@@ -794,6 +814,20 @@
       window.socket.on('dodge_event', (d) => {
         showDodgePopup();
         playSFX('buff');
+      });
+      // 가이드 메시지 (온보딩)
+      window.socket.on('guide_msg', (d) => {
+        showModal('가이드', '<p style="color:#88ccff;font-size:14px;line-height:1.6">' + d.msg + '</p>' +
+          (d.target ? '<p style="color:#ffd700;font-size:12px;margin-top:8px">미니맵에서 <b>' + d.target + '</b>을 찾아보세요!</p>' : ''),
+          [{label:'알겠습니다!', action:'closeModal()'}]);
+        playSFX('buff');
+      });
+      // 퀘스트 진행도 알림
+      window.socket.on('quest_progress', (d) => {
+        var nmText = document.getElementById('nm-text');
+        var nmFill = document.getElementById('nm-fill');
+        if (nmText) nmText.textContent = d.name + ': ' + d.current + '/' + d.goal + ' (' + d.remaining + '남음)';
+        if (nmFill) nmFill.style.width = Math.floor(d.current / d.goal * 100) + '%';
       });
       window.socket.on('skill_effect', (d) => {
         const skillMsgs = {
