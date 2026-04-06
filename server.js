@@ -537,9 +537,20 @@ function isOnRoad(x, y) {
 // 지형 장벽 충돌 체크
 function isBlocked(x, y) {
     for (const b of TERRAIN_BARRIERS) {
-        if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) return b;
+        if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) {
+            // 숲/늪은 통과 가��하지만 속도 감소 (차단 아님)
+            if (b.type === 'forest_wall' || b.type === 'swamp_wall') return null;
+            return b;
+        }
     }
     return null;
+}
+function isSlowTerrain(x, y) {
+    for (const b of TERRAIN_BARRIERS) {
+        if ((b.type === 'forest_wall' || b.type === 'swamp_wall') &&
+            x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) return 0.5; // 50% 속도
+    }
+    return 1;
 }
 
 // 존별 몬스터 배합 + 보너스
@@ -1509,20 +1520,22 @@ function getWeekNumber() {
     return d.getFullYear() + '-W' + Math.ceil(((d - start) / 86400000 + start.getDay() + 1) / 7);
 }
 
-function calcDamage(atk, def, dmgMulti, critRate, attackerElement, defenderElement) {
+function calcDamage(atk, def, dmgMulti, critRate, attackerElement, defenderElement, attacker) {
+    // 날씨 ATK/DEF 보정
+    const we = currentWeather.effect || {};
+    if (we.atkUp) atk = Math.floor(atk * (1 + we.atkUp));
+    if (we.defDown) def = Math.floor(def * (1 - we.defDown));
+    // 액티브 부스트
+    if (attacker?._activeBonus && Date.now() < attacker._activeBonus) dmgMulti *= 1.3;
+
     let isCrit = Math.random() < critRate;
     let baseDmg = Math.max(1, atk * dmgMulti - def * 0.3);
     if (isCrit) baseDmg *= 2.0;
-    // 속성 상성 보너스 (fire>wind>earth>water>fire) + 날씨 영향
-    if (attackerElement && defenderElement && ELEMENT_BONUS[attackerElement] === defenderElement) {
-        baseDmg *= 1.25;
-    } else if (defenderElement && attackerElement && ELEMENT_BONUS[defenderElement] === attackerElement) {
-        baseDmg *= 0.8;
-    }
-    // 날씨 속성 보너스 (날씨 속성과 같으면 +15%)
-    if (currentWeather.effect?.element && attackerElement === currentWeather.effect.element) {
-        baseDmg *= 1.15;
-    }
+    // 속성 상성
+    if (attackerElement && defenderElement && ELEMENT_BONUS[attackerElement] === defenderElement) baseDmg *= 1.25;
+    else if (defenderElement && attackerElement && ELEMENT_BONUS[defenderElement] === attackerElement) baseDmg *= 0.8;
+    // 날씨 속성 보너스
+    if (we.element && attackerElement === we.element) baseDmg *= 1.15;
     return { damage: Math.floor(baseDmg), isCrit };
 }
 
@@ -1701,6 +1714,7 @@ function spawnWorldBoss() {
     worldBoss = { id: bossId, name: bossType.name, isAlive: true, spawnTime: Date.now() };
     io.emit('server_msg', { msg: `[월드 보스] ${bossType.name}이(가) 용의 요람에 출현했습니다! 모든 전사여 모여라!`, type: 'boss' });
     io.emit('world_boss_spawn', { id: bossId, name: bossType.name, hp: bossType.hp, maxHp: bossType.hp, x: monsters[bossId].x, y: monsters[bossId].y });
+    logWorldEvent(`월드 보스 ${bossType.name} 출현`, 'boss');
 }
 
 // ── 던전 시스템 ──
@@ -2257,7 +2271,11 @@ io.on('connection', (socket) => {
             if (!isFinite(nx) || !isFinite(ny)) return;
             // 이동 거리 검증 (텔레포트 핵 방지 + 도로 보너스)
             const onRoad = isOnRoad(p.x, p.y);
-            const maxDist = onRoad ? 3.6 : 3; // 도로 위 +20% 속도
+            let maxDist = onRoad ? 3.6 : 3;
+            // 날씨 속도 보정
+            if (currentWeather.effect?.spdDown) maxDist *= (1 - currentWeather.effect.spdDown);
+            // 슬로우 지형 (숲/늪)
+            maxDist *= isSlowTerrain(nx, ny);
             const dist = Math.hypot(nx - p.x, ny - p.y);
             if (dist > maxDist) return;
             // 지형 장벽 충돌 체크
@@ -5347,7 +5365,9 @@ setInterval(() => {
             if (hazard) {
                 if (!p._lastHazardTick || Date.now() - p._lastHazardTick >= hazard.interval) {
                     p._lastHazardTick = Date.now();
-                    p.hp -= hazard.dps;
+                    // DEF로 위험 데미지 감소 (DEF의 10% 만큼 감소)
+                    const hazardDmg = Math.max(1, hazard.dps - Math.floor((p.def || 0) * 0.1));
+                    p.hp -= hazardDmg;
                     if (hazard.manaDrain && p.mp !== undefined) p.mp = Math.max(0, p.mp - hazard.manaDrain);
                     io.to(pId).emit('hazard_damage', { dps: hazard.dps, type: hazard.type, msg: hazard.msg, color: hazard.color });
                     if (p.hp <= 0 && p.isAlive) { p.isAlive = false; io.emit('player_die', { victimId: pId, attackerId: 'hazard', killerName: hazard.msg }); }
@@ -5404,6 +5424,29 @@ setInterval(() => {
     // ══════════════════════════════════════
 
     const now = Date.now();
+
+    // ── 아레나 시즌 리셋 (28일) ──
+    if (Date.now() - arenaSeasonStart > 28 * 86400000) {
+        // 시즌 보상 지급
+        const sorted = Object.entries(arenaRankings).sort((a,b) => b[1].points - a[1].points);
+        for (let i = 0; i < Math.min(10, sorted.length); i++) {
+            const [pid, r] = sorted[i];
+            const p = players[pid];
+            if (!p) continue;
+            const tier = getArenaTier(r.points);
+            const reward = Math.floor(3000 / (i + 1));
+            p.gold += reward;
+            p.diamonds = (p.diamonds||0) + Math.floor(50 / (i + 1));
+            io.to(pid).emit('server_msg', { msg: `[아레나 시즌 종료] ${i+1}위 (${tier.name})! +${reward}G`, type: 'rare' });
+        }
+        // 전체 리셋
+        for (const id in arenaRankings) {
+            arenaRankings[id].points = Math.max(1000, arenaRankings[id].points - 200); // 소프트 리셋
+        }
+        arenaSeasonStart = Date.now();
+        io.emit('server_msg', { msg: '[아레나] 새 시즌 시작! 포인트가 리셋되었습니다.', type: 'boss' });
+        logWorldEvent('아레나 시즌 리셋', 'boss');
+    }
 
     // ── 날씨 변경 ──
     if (Date.now() > nextWeatherChange) {
@@ -5515,6 +5558,7 @@ setInterval(() => {
         const [mzId, mZone] = huntZones[Math.floor(Math.random() * huntZones.length)];
         meteorShower = { zoneId: mzId, endTime: now + 120000 };
         io.emit('server_msg', { msg: `[유성우] ${mZone.name}에 유성우 발생! 2분간 파편 수집 + EXP/골드 x2!`, type: 'boss' });
+        logWorldEvent(`유성우 — ${mZone.name}`, 'boss');
         io.emit('meteor_shower', { zoneId: mzId, zoneName: mZone.name, duration: 120 });
         nextMeteorTime = now + 1200000 + Math.random() * 1200000;
     }
@@ -5612,6 +5656,7 @@ setInterval(() => {
         goldFeverEnd = Date.now() + 180000; // 3분
         io.emit('gold_fever', { zoneId: feverZone, zoneName, duration: 180 });
         io.emit('server_msg', { msg: `[골드 피버!] ${zoneName}에서 3분간 골드/EXP x3! 위험을 감수하라!`, type: 'boss' });
+        logWorldEvent(`골드 피버 — ${zoneName}`, 'boss');
     }
 
     // 월드 보스 스폰 (5분마다)
