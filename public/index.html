@@ -388,6 +388,7 @@
       <span class="stat zone-val" id="zone-display" style="font-size:12px">-</span>
       <span class="stat" id="siege-display" style="display:none;color:#ff4444;font-weight:bold"></span>
       <span class="stat" id="world-event-display" style="display:none;font-size:11px;font-weight:bold;padding:2px 6px;border-radius:4px;background:rgba(255,215,0,0.15);border:1px solid rgba(255,215,0,0.4)"></span>
+      <span class="stat" id="world-clock" style="display:none;font-size:11px;font-weight:bold;padding:2px 6px;border-radius:4px;background:rgba(255,255,255,0.05)"></span>
     </div>
 
     <!-- 레벨업 축하 오버레이 -->
@@ -1250,6 +1251,21 @@
         // 낮/밤 적용
         if (data.isNight !== undefined) {
           document.getElementById('unity-container').style.filter = data.isNight ? 'brightness(0.6) saturate(0.7)' : 'none';
+        }
+        // 월드 시간 표시 (day/night clock)
+        if (data.worldTime !== undefined) {
+          var clockEl = document.getElementById('world-clock');
+          if (clockEl) {
+            var DAY_CYCLE = 600; // 10분 = 1일
+            var pct = (data.worldTime % DAY_CYCLE) / DAY_CYCLE;
+            var icon = data.isNight ? '🌙' : (pct < 0.25 ? '🌅' : pct < 0.5 ? '☀️' : '🌇');
+            var phaseLabel = data.isNight ? '밤' : '낮';
+            var remainSec = data.isNight ? Math.floor((DAY_CYCLE - data.worldTime % DAY_CYCLE)) : Math.floor(DAY_CYCLE/2 - data.worldTime % (DAY_CYCLE/2));
+            if (remainSec < 0) remainSec = 0;
+            clockEl.innerHTML = icon + ' ' + phaseLabel + ' <span style="color:#888;font-size:9px">(' + Math.floor(remainSec/60) + ':' + (remainSec%60 < 10 ? '0':'') + (remainSec%60) + ')</span>';
+            clockEl.style.color = data.isNight ? '#88aaff' : '#ffd700';
+            clockEl.style.display = 'inline-flex';
+          }
         }
       });
 
