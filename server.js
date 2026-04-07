@@ -157,6 +157,10 @@ const pool = mysql.createPool({
 
 async function initDB() {
     try {
+        // 연결 ping 테스트
+        const [pingRows] = await pool.query('SELECT 1 AS ok');
+        console.log(`[DB] ping OK (${pingRows[0]?.ok})`);
+
         await pool.query(`
             CREATE TABLE IF NOT EXISTS players_save (
                 device_id VARCHAR(255) PRIMARY KEY,
