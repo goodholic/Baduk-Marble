@@ -1631,6 +1631,8 @@ let meteorShower = null; // { zoneId, endTime }
 let nextMeteorTime = Date.now() + 1200000 + Math.random() * 1200000;
 let goldenRain = null; // { zoneId, endTime } — 황금 비: 해당 존 골드 x3, EXP x1.5, 5분
 let nextGoldenTime = Date.now() + 900000 + Math.random() * 900000;
+let starShower = null; // { zoneId, endTime } — 별똥별 소나기: 1분마다 무작위 위치에 골드 드롭, 5분
+let nextStarTime = Date.now() + 1500000 + Math.random() * 900000;
 let rogueMerchant = null; // { townId, deals:[], expiresAt }
 let nextRogueTime = Date.now() + 480000 + Math.random() * 420000;
 
@@ -6165,6 +6167,31 @@ setInterval(() => {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    // ── 6.7 별똥별 소나기 (25~40분마다, 5분 지속, 매 5초마다 골드 드롭) ──
+    if (!starShower && now > nextStarTime) {
+        const huntZones = Object.entries(ZONES).filter(([id, z]) => !z.safe && !z.isCastle && !z.isArena);
+        const [szId, sZone] = huntZones[Math.floor(Math.random() * huntZones.length)];
+        starShower = { zoneId: szId, endTime: now + 300000 };
+        io.emit('server_msg', { msg: `[별똥별 소나기] ${sZone.name}에 별똥별이 떨어집니다! 5분간 무작위 골드 드롭!`, type: 'rare' });
+        logWorldEvent(`별똥별 소나기 — ${sZone.name}`, 'rare');
+        io.emit('star_shower', { zoneId: szId, zoneName: sZone.name, duration: 300 });
+        nextStarTime = now + 1500000 + Math.random() * 900000;
+    }
+    if (starShower) {
+        if (now > starShower.endTime) {
+            io.emit('server_msg', { msg: '[별똥별 소나기] 별똥별이 멎었습니다.', type: 'normal' });
+            starShower = null;
+        } else if (tickCounter % 150 === 0) { // 5초마다
+            const sz = ZONES[starShower.zoneId];
+            if (sz) {
+                const sx = sz.x + Math.random() * sz.w;
+                const sy = sz.y + Math.random() * sz.h;
+                const starGold = 100 + Math.floor(Math.random() * 400);
+                spawnDrop(sx, sy, starGold, 'star_loot');
             }
         }
     }

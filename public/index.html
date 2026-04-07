@@ -1688,6 +1688,13 @@
         pushWorldEvent('💰 황금 비 ' + d.zoneName, '#ffd700', d.duration);
       });
 
+      // 별똥별 소나기
+      window.socket.on('star_shower', (d) => {
+        showToast('[별똥별 소나기] '+d.zoneName+' — '+d.duration+'초간! 골드 드롭!');
+        playSFX('levelup');
+        pushWorldEvent('⭐ 별똥별 ' + d.zoneName, '#88ccff', d.duration);
+      });
+
       // 주사위
       window.socket.on('dice_result', (d) => {
         showToast(d.msg);
