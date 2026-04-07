@@ -940,6 +940,38 @@
         '🐛 워리어 분노/나이트 수호 오라가 인간 플레이어에 적용 안 되던 버그',
       ]},
     ];
+    window.showNotifications = function() {
+      var log = window._notifLog || [];
+      // 읽음 처리
+      window._notifUnread = 0;
+      var badge = document.getElementById('notif-badge');
+      if (badge) badge.style.display = 'none';
+      var typeColors = { boss:'#ff4444', rare:'#aa44ff', danger:'#ff8800', normal:'#aaa', morph:'#44ff44' };
+      var typeIcons = { boss:'⚔', rare:'✨', danger:'⚠', normal:'📢', morph:'🐉' };
+      if (log.length === 0) {
+        showModal('🔔 알림 센터', '<p style="text-align:center;color:#666">아직 알림이 없습니다</p>',
+          [{label:'닫기', type:'cancel', action:'closeModal()'}]);
+        return;
+      }
+      var html = '<div style="max-height:60vh;overflow-y:auto;padding:0 4px">';
+      for (var i = 0; i < log.length; i++) {
+        var n = log[i];
+        var ago = Math.floor((Date.now() - n.time) / 1000);
+        var agoStr = ago < 60 ? ago + '초 전' : ago < 3600 ? Math.floor(ago/60) + '분 전' : Math.floor(ago/3600) + '시간 전';
+        var color = typeColors[n.type] || '#aaa';
+        var icon = typeIcons[n.type] || '📢';
+        html += '<div style="display:flex;gap:8px;padding:6px 8px;border-left:3px solid ' + color + ';margin:4px 0;background:rgba(255,255,255,0.02);font-size:12px">' +
+          '<span style="font-size:14px">' + icon + '</span>' +
+          '<div style="flex:1"><div style="color:#ddd">' + n.msg + '</div>' +
+          '<div style="color:#666;font-size:10px;margin-top:2px">' + agoStr + '</div></div></div>';
+      }
+      html += '</div><p class="text-muted text-sm" style="text-align:center;margin-top:8px">최대 100건 보관</p>';
+      showModal('🔔 알림 센터 (' + log.length + ')', html, [
+        {label:'전체 삭제', action:"window._notifLog=[];closeModal();"},
+        {label:'닫기', type:'cancel', action:'closeModal()'}
+      ]);
+    };
+
     window.showPersonalRecords = function() {
       var pb = personalBests || {};
       var s = window._lastSelf || {};
@@ -1579,6 +1611,17 @@
       // 서버 공지
       window.socket.on('server_msg', (d) => {
         showServerMsg(d.msg, d.type);
+        // 알림 센터에 저장
+        if (!window._notifLog) window._notifLog = [];
+        window._notifLog.unshift({ msg: d.msg, type: d.type || 'normal', time: Date.now() });
+        if (window._notifLog.length > 100) window._notifLog.length = 100;
+        // 알림 뱃지
+        var badge = document.getElementById('notif-badge');
+        if (badge) {
+          window._notifUnread = (window._notifUnread || 0) + 1;
+          badge.textContent = window._notifUnread;
+          badge.style.display = 'inline-block';
+        }
         // 공성전 상태 표시
         if (d.msg.includes('공성전') || d.msg.includes('공성')) {
           var siegeEl = document.getElementById('siege-display');
@@ -3391,6 +3434,7 @@
         {label:'❓ 도움말', action:()=>window.showWelcomeGuide()},
         {label:'📜 패치 노트', action:()=>window.showPatchNotes()},
         {label:'🏆 개인 기록', action:()=>window.showPersonalRecords()},
+        {label:'🔔 알림 센터', action:()=>window.showNotifications()},
         {label:'시즌 균열', action:()=>togglePanel('rift')},
         {label:'환생', action:()=>{showModal('환생 (프레스티지)','<p class="text-gold">Lv.50 달성 시 레벨을 1로 리셋하고 영구 보너스를 획득합니다.</p><p class="text-muted text-sm">장비/인벤/다이아는 유지. 최대 10회.</p>',[{label:'환생!',action:"window.socket.emit('prestige');closeModal();"},{label:'취소',type:'cancel',action:'closeModal()'}]);}},
         {label:'의뢰', action:()=>{togglePanel('contracts');window.socket.emit('get_contracts');}},
