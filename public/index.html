@@ -2928,11 +2928,29 @@
         ctx.textAlign = 'left';
       });
 
-      // 몬스터 (작은 점)
+      // 몬스터 (작은 점, 등급별 색상)
+      var tierColors = { normal:'#ff4444', elite:'#ffaa44', rare:'#aa44ff', boss:'#ff0044', legendary:'#ff8800', mythic:'#ff00ff', worldboss:'#ff0000' };
       Object.values(lastSyncMonsters).forEach(m => {
         var p = mapToMinimap(m.x, m.y);
-        ctx.fillStyle = '#ff4444';
-        ctx.fillRect(p.mx - 1, p.my - 1, 2, 2);
+        var c = tierColors[m.tier] || '#ff4444';
+        // 일반 몬스터 작게, 보스급 크게
+        if (m.tier === 'boss' || m.tier === 'legendary' || m.tier === 'mythic' || m.tier === 'worldboss') {
+          // 펄스 효과 (시간 기반)
+          var pulse = Math.sin(Date.now() / 200) * 0.3 + 0.7;
+          ctx.fillStyle = c;
+          ctx.beginPath();
+          ctx.arc(p.mx, p.my, 4 * pulse, 0, Math.PI * 2);
+          ctx.fill();
+          // 외곽 링
+          ctx.strokeStyle = c;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(p.mx, p.my, 6, 0, Math.PI * 2);
+          ctx.stroke();
+        } else {
+          ctx.fillStyle = c;
+          ctx.fillRect(p.mx - 1, p.my - 1, 2, 2);
+        }
       });
 
       // 플레이어
