@@ -1045,6 +1045,17 @@ const QUESTS = {
     ach_set_bonus:   { name:'세트 수집가', desc:'세트 보너스 2개 이상', target:'set_bonus', goal:2, reward:{gold:5000,diamonds:80}, type:'achievement' },
     ach_weather_all: { name:'기상 관측자', desc:'5가지 날씨 모두 경험', target:'weather_count', goal:5, reward:{gold:1000}, type:'achievement' },
     ach_faction:     { name:'진영 전사', desc:'진영 기여도 500', target:'faction_rep', goal:500, reward:{gold:5000,diamonds:100}, type:'achievement' },
+    // ── 신규 업적 10종 (v1.7) ──
+    ach_healer:      { name:'치유의 손길', desc:'클레릭으로 레벨 20 도달', target:'reach_level', goal:20, reward:{gold:3000,diamonds:50}, type:'achievement' },
+    ach_speed_run:   { name:'스피드러너', desc:'레벨 30 2시간 내 달성', target:'reach_level', goal:30, reward:{gold:5000,diamonds:100}, type:'achievement' },
+    ach_collector:   { name:'수집가', desc:'펫 5종 보유', target:'pet_count', goal:5, reward:{gold:5000,diamonds:100}, type:'achievement' },
+    ach_evolve:      { name:'진화의 증인', desc:'펫 진화 1회', target:'pet_evolve', goal:1, reward:{gold:3000,diamonds:50}, type:'achievement' },
+    ach_world_boss:  { name:'월드 보스 처단자', desc:'월드 보스 10회 처치', target:'worldboss_kill', goal:10, reward:{gold:15000,diamonds:200}, type:'achievement' },
+    ach_mvp:         { name:'MVP', desc:'월드 보스 MVP 5회', target:'worldboss_mvp', goal:5, reward:{gold:20000,diamonds:300}, type:'achievement' },
+    ach_golden_rain: { name:'행운의 아이', desc:'황금 비 이벤트 중 100킬', target:'golden_rain_kills', goal:100, reward:{gold:5000,diamonds:80}, type:'achievement' },
+    ach_marathon:    { name:'마라톤', desc:'누적 100시간 플레이', target:'playtime', goal:360000, reward:{gold:10000,diamonds:200}, type:'achievement' },
+    ach_lucky:       { name:'행운의 손', desc:'행운의 룰렛 30회', target:'lucky_spin', goal:30, reward:{gold:3000,diamonds:50}, type:'achievement' },
+    ach_weekly_all:  { name:'주간 챔피언', desc:'모든 주간 챌린지 완료', target:'weekly_all', goal:5, reward:{gold:20000,diamonds:300}, type:'achievement' },
 };
 
 // ==========================================
