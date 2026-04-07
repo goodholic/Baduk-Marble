@@ -2457,19 +2457,45 @@
       var quests = data.quests || {};
       var progress = data.progress || {};
       var completed = data.completed || {};
-      var html = '';
+      // 카테고리 분류
+      var groups = { daily: [], weekly: [], achievement: [], story: [] };
       Object.entries(quests).forEach(([qId, q]) => {
-        var prog = progress[qId] || 0;
-        var done = !!completed[qId];
-        var canClaim = prog >= q.goal && !done;
-        var statusColor = done ? '#44ff44' : (canClaim ? '#ffd700' : '#aaa');
-        var pct = Math.min(100, Math.floor(prog / q.goal * 100));
-        html += '<div class="panel-item" style="flex-wrap:wrap"><span class="name" style="width:100%">'+q.name+' <span style="color:'+statusColor+'">'+(done?'[완료]':prog+'/'+q.goal)+'</span><br><small style="color:#888">'+q.desc+'</small></span>';
-        if (!done) html += '<div style="width:100%;height:6px;background:#1a1a3a;border-radius:3px;margin-top:4px"><div style="width:'+pct+'%;height:100%;background:'+statusColor+';border-radius:3px;transition:width 0.3s"></div></div>';
-        if (canClaim) html += '<button onclick="window.socket.emit(\'quest_claim\',\''+qId+'\');" style="margin-top:6px;width:100%">보상 수령</button>';
-        html += '</div>';
+        var key = q.type || 'story';
+        if (!groups[key]) groups[key] = [];
+        groups[key].push([qId, q]);
       });
-      body.innerHTML = html;
+      var groupLabels = { daily:'📅 일일', weekly:'📆 주간', achievement:'🏆 업적', story:'📖 스토리' };
+      var groupColors = { daily:'#88ccff', weekly:'#aa44ff', achievement:'#ffd700', story:'#44ff44' };
+      var html = '';
+      var summary = { total:0, done:0, claimable:0 };
+      for (var key in groups) {
+        if (groups[key].length === 0) continue;
+        summary.total += groups[key].length;
+        var doneCount = groups[key].filter(([qId,q]) => completed[qId]).length;
+        var claimableCount = groups[key].filter(([qId,q]) => !completed[qId] && (progress[qId]||0) >= q.goal).length;
+        summary.done += doneCount;
+        summary.claimable += claimableCount;
+        html += '<h3 style="color:'+groupColors[key]+';margin:10px 0 6px;font-size:13px">'+groupLabels[key]+' <span style="color:#888;font-size:11px">('+doneCount+'/'+groups[key].length+')</span>';
+        if (claimableCount > 0) html += ' <span style="color:#ffd700;font-size:11px">🎁 '+claimableCount+'건 수령가능</span>';
+        html += '</h3>';
+        groups[key].forEach(([qId, q]) => {
+          var prog = progress[qId] || 0;
+          var done = !!completed[qId];
+          var canClaim = prog >= q.goal && !done;
+          var statusColor = done ? '#44ff44' : (canClaim ? '#ffd700' : '#aaa');
+          var pct = Math.min(100, Math.floor(prog / q.goal * 100));
+          html += '<div class="panel-item" style="flex-wrap:wrap"><span class="name" style="width:100%">'+q.name+' <span style="color:'+statusColor+'">'+(done?'[완료]':prog+'/'+q.goal)+'</span><br><small style="color:#888">'+q.desc+'</small></span>';
+          if (!done) html += '<div style="width:100%;height:6px;background:#1a1a3a;border-radius:3px;margin-top:4px"><div style="width:'+pct+'%;height:100%;background:'+statusColor+';border-radius:3px;transition:width 0.3s"></div></div>';
+          if (canClaim) html += '<button onclick="window.socket.emit(\'quest_claim\',\''+qId+'\');" style="margin-top:6px;width:100%">보상 수령</button>';
+          html += '</div>';
+        });
+      }
+      // 상단 요약
+      var summaryHtml = '<div style="background:rgba(255,215,0,0.05);border-left:3px solid #ffd700;padding:8px 10px;margin-bottom:10px;font-size:12px;color:#ddd">' +
+        '📊 총 진행도: <b style="color:#ffd700">'+summary.done+'/'+summary.total+'</b>' +
+        (summary.claimable > 0 ? ' · <span style="color:#ffd700">🎁 '+summary.claimable+'건 수령 가능!</span>' : '') +
+        '</div>';
+      body.innerHTML = summaryHtml + html;
     }
 
     function renderRanking(data) {
