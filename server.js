@@ -1332,7 +1332,7 @@ function recalcStats(p) {
     p.atk = Math.floor((cls.atk + bonusAtk + setAtkBonus + runeAtk + legacyAtk + advAtk + str * 2) * petAtkMulti * setAtkMulti * factionAtkMulti * legacyAllMulti * (1 + titleAtk));
     p.def = Math.floor((cls.def + bonusDef + setDefBonus + runeDef + legacyDef + advDef) * setDefMulti * factionDefMulti * legacyAllMulti);
     p.equipBonusHp = bonusHp + con * 10 + setHpBonus + runeHp + legacyHp + advHp;
-    p.maxHp = cls.hp + (p.level - 1) * 20 + p.equipBonusHp;
+    p.maxHp = (cls.maxHp || cls.hp || 100) + (p.level - 1) * 20 + p.equipBonusHp;
     p.dmgMulti = 1.0 + (p.level - 1) * 0.08 + int_ * 0.02;
     p.critRate = (cls.critRate || 0.1) + bonusCrit + runeCrit + legacyCrit + advCrit + dex * 0.005;
     p.dodgeRate = (cls.dodgeRate || 0) + bonusDodge + runeDodge + advDodge + dex * 0.003;
@@ -5593,11 +5593,11 @@ function executeThrow(pId) {
     } else {
         // 액티브 플레이 보너스 적용
         // 버프 아이템 반영 (atk_boost, food_atk 등) + 패시브 (워리어 분노)
-        let buffedAtk = getBuffedStat(player, 'atk');
+        let buffedAtk = getBuffedStat(player, 'atk') || player.atk || 10;
         if (player.passiveAtkBonus) buffedAtk = Math.floor(buffedAtk * (1 + player.passiveAtkBonus));
-        let activeDmgMulti = player.dmgMulti;
+        let activeDmgMulti = player.dmgMulti || 1;
         if (player._activeBonus && Date.now() < player._activeBonus) activeDmgMulti *= 1.3;
-        const { damage, isCrit } = calcDamage(buffedAtk, 0, activeDmgMulti, player.critRate, undefined, undefined, player);
+        const { damage, isCrit } = calcDamage(buffedAtk, 0, activeDmgMulti, player.critRate || 0.1);
         axes[currentObjId] = {
             id: currentObjId, ownerId: pId,
             x: player.x + finalDirX * 0.5,
@@ -6970,9 +6970,12 @@ function handleCollisions() {
 
             const dx = axe.x - mob.x, dy = axe.y - mob.y;
             if (dx * dx + dy * dy < 1.0) {
-                let ownerAtk = getBuffedStat(owner, 'atk') || owner.atk || 10;
-                if (owner.passiveAtkBonus) ownerAtk = Math.floor(ownerAtk * (1 + owner.passiveAtkBonus));
-                const { damage } = calcDamage(ownerAtk, mob.def, owner.dmgMulti, owner.critRate || 0.1, owner.element, mob.element, owner);
+                // axe.dmg를 우선 사용 (executeThrow에서 계산된 값) — fallback으로 재계산
+                let damage = axe.dmg;
+                if (!Number.isFinite(damage) || damage <= 0) {
+                    const calc = calcDamage(owner.atk || 10, mob.def, owner.dmgMulti || 1, owner.critRate || 0.1, owner.element, mob.element);
+                    damage = calc.damage;
+                }
                 mob.hp -= damage;
 
                 // 월드보스 기여도 추적
