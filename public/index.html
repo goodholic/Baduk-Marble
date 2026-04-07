@@ -2150,16 +2150,48 @@
 
       // PvP 시즌
       window.socket.on('arena_season', (d) => {
-        showModal('PvP 시즌', '<div style="text-align:center">' +
-          '<div style="font-size:20px;font-weight:900;color:'+d.tierColor+'">'+d.tier+'</div>' +
-          '<div class="text-gold" style="font-size:14px;margin:8px 0">'+d.points+' 포인트</div>' +
-          '<div class="text-sm text-muted">'+d.wins+'승 '+d.losses+'패</div>' +
-          '<div style="margin-top:10px">' + d.allTiers.map(function(t) {
-            var active = d.points >= t.min ? 'opacity:1' : 'opacity:0.3';
-            return '<span style="color:'+t.color+';font-size:10px;margin:0 4px;'+active+'">'+t.name+'('+t.min+')</span>';
-          }).join(' → ') + '</div>' +
-          '<div class="text-muted text-sm" style="margin-top:8px">시즌 종료까지 '+d.seasonRemain+'일</div></div>',
-          [{label:'닫기', type:'cancel', action:'closeModal()'}]);
+        // 다음 티어 찾기
+        var currentTier = null, nextTier = null;
+        for (var i = 0; i < d.allTiers.length; i++) {
+          if (d.points >= d.allTiers[i].min) currentTier = d.allTiers[i];
+          else { nextTier = d.allTiers[i]; break; }
+        }
+        var pct = 0, progressLabel = 'MAX 티어';
+        if (nextTier && currentTier) {
+          var range = nextTier.min - currentTier.min;
+          pct = Math.min(100, Math.floor((d.points - currentTier.min) / range * 100));
+          progressLabel = (d.points - currentTier.min) + ' / ' + range + ' (다음: ' + nextTier.name + ')';
+        }
+        var totalGames = d.wins + d.losses;
+        var winRate = totalGames > 0 ? Math.floor(d.wins / totalGames * 100) : 0;
+
+        var html = '<div style="text-align:center">' +
+          '<div style="font-size:32px;font-weight:900;color:'+d.tierColor+';text-shadow:0 0 12px '+d.tierColor+'66;margin:8px 0">⚔ '+d.tier+'</div>' +
+          '<div class="text-gold" style="font-size:18px;font-weight:bold;margin:6px 0">'+d.points+' 포인트</div>' +
+          // 진행도 바
+          '<div style="width:90%;height:14px;background:#222;border-radius:7px;margin:10px auto;overflow:hidden;border:1px solid '+d.tierColor+'44">' +
+            '<div style="width:'+pct+'%;height:100%;background:linear-gradient(90deg,'+d.tierColor+','+d.tierColor+'aa);border-radius:7px;transition:width 0.5s"></div>' +
+          '</div>' +
+          '<div class="text-muted text-sm">'+progressLabel+'</div>' +
+          // 통계
+          '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:14px 8px">' +
+            '<div style="background:rgba(68,255,68,0.05);border-left:3px solid #44ff44;padding:6px"><div style="color:#888;font-size:10px">승</div><div style="color:#44ff44;font-size:16px;font-weight:bold">'+d.wins+'</div></div>' +
+            '<div style="background:rgba(255,68,68,0.05);border-left:3px solid #ff4444;padding:6px"><div style="color:#888;font-size:10px">패</div><div style="color:#ff4444;font-size:16px;font-weight:bold">'+d.losses+'</div></div>' +
+            '<div style="background:rgba(255,215,0,0.05);border-left:3px solid #ffd700;padding:6px"><div style="color:#888;font-size:10px">승률</div><div style="color:#ffd700;font-size:16px;font-weight:bold">'+winRate+'%</div></div>' +
+          '</div>' +
+          // 티어 바
+          '<div style="margin-top:14px;padding:8px;background:rgba(255,255,255,0.03);border-radius:6px">' +
+            '<div style="font-size:10px;color:#888;margin-bottom:4px">시즌 티어</div>' +
+            d.allTiers.map(function(t) {
+              var active = d.points >= t.min;
+              var isCurrent = currentTier && t.name === currentTier.name;
+              return '<div style="display:flex;justify-content:space-between;padding:3px 6px;font-size:11px;color:'+t.color+';opacity:'+(active?1:0.4)+';' + (isCurrent?'background:'+t.color+'22;border-radius:4px;font-weight:bold':'') + '">' +
+                '<span>'+t.name+'</span><span>'+t.min+'pt</span></div>';
+            }).join('') +
+          '</div>' +
+          '<div class="text-muted text-sm" style="margin-top:10px">⏳ 시즌 종료까지 '+d.seasonRemain+'일</div>' +
+        '</div>';
+        showModal('🏆 PvP 시즌', html, [{label:'닫기', type:'cancel', action:'closeModal()'}]);
       });
 
       // 티어 승급
