@@ -3202,6 +3202,13 @@
         {label:'웨이포인트', action:()=>window.socket.emit('get_waypoints')},
         {label:'설정', action:()=>togglePanel('settings')},
         {label:'🔊 사운드', action:()=>window.openAudioSettings()},
+        {label:'🐾 펫 진화', action:()=>{showModal('🐾 펫 진화','<p class="text-gold">기본 펫을 상위 진화체로 업그레이드합니다.</p><p class="text-muted text-sm">비용: 드래곤 비늘 x10 + 영혼석 x20 + 50,000G</p><div style="margin-top:10px">' +
+          '<button class="btn" style="width:100%;margin:3px 0" onclick="window.socket.emit(\'evolve_pet\',\'pet_slime\');closeModal();">미니 슬라임 → 슬라임 킹 (HP+8%)</button>' +
+          '<button class="btn" style="width:100%;margin:3px 0" onclick="window.socket.emit(\'evolve_pet\',\'pet_wolf\');closeModal();">아기 늑대 → 다이어 울프 (ATK+18%)</button>' +
+          '<button class="btn" style="width:100%;margin:3px 0" onclick="window.socket.emit(\'evolve_pet\',\'pet_fairy\');closeModal();">요정 → 대요정 (EXP+30%)</button>' +
+          '<button class="btn" style="width:100%;margin:3px 0" onclick="window.socket.emit(\'evolve_pet\',\'pet_dragon\');closeModal();">미니 드래곤 → 고대 드래곤 (ATK+30%)</button>' +
+          '<button class="btn" style="width:100%;margin:3px 0" onclick="window.socket.emit(\'evolve_pet\',\'pet_angel\');closeModal();">천사 → 세라핌 (자동 부활 강화)</button>' +
+          '</div>',[{label:'닫기',type:'cancel',action:'closeModal()'}]);}},
         {label:'❓ 도움말', action:()=>window.showWelcomeGuide()},
         {label:'📜 패치 노트', action:()=>window.showPatchNotes()},
         {label:'🏆 개인 기록', action:()=>window.showPersonalRecords()},

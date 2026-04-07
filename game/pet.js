@@ -1,11 +1,48 @@
 // 펫 & 탈것 시스템
 const PETS = {
-  pet_slime:   { name:'미니 슬라임', effect:'hpRegen',  value:0.03, source:'슬라임 100마리 처치', need:{morphKills:{slime:100}} },
-  pet_wolf:    { name:'아기 늑대',   effect:'atkBonus',  value:0.08, source:'오크 50마리 처치',   need:{morphKills:{orc:50}} },
-  pet_fairy:   { name:'요정',       effect:'expBonus',  value:0.15, source:'다이아 300개',       need:{diamonds:300} },
-  pet_dragon:  { name:'미니 드래곤', effect:'atkBonus',  value:0.15, source:'드래곤 20마리 처치', need:{morphKills:{dragon:20}} },
-  pet_angel:   { name:'천사',       effect:'autoRevive',value:1,    source:'다이아 1000개',      need:{diamonds:1000} },
+  pet_slime:   { name:'미니 슬라임', effect:'hpRegen',  value:0.03, source:'슬라임 100마리 처치', need:{morphKills:{slime:100}}, evolveTo:'pet_slime_king' },
+  pet_wolf:    { name:'아기 늑대',   effect:'atkBonus',  value:0.08, source:'오크 50마리 처치',   need:{morphKills:{orc:50}},     evolveTo:'pet_dire_wolf' },
+  pet_fairy:   { name:'요정',       effect:'expBonus',  value:0.15, source:'다이아 300개',       need:{diamonds:300},            evolveTo:'pet_archfairy' },
+  pet_dragon:  { name:'미니 드래곤', effect:'atkBonus',  value:0.15, source:'드래곤 20마리 처치', need:{morphKills:{dragon:20}}, evolveTo:'pet_elder_dragon' },
+  pet_angel:   { name:'천사',       effect:'autoRevive',value:1,    source:'다이아 1000개',      need:{diamonds:1000},           evolveTo:'pet_seraph' },
+  // ── 진화형 (상위) ──
+  pet_slime_king:    { name:'슬라임 킹',   effect:'hpRegen',   value:0.08, source:'슬라임 진화', evolved:true },
+  pet_dire_wolf:     { name:'다이어 울프', effect:'atkBonus',  value:0.18, source:'늑대 진화',  evolved:true },
+  pet_archfairy:     { name:'대요정',      effect:'expBonus',  value:0.30, source:'요정 진화',  evolved:true },
+  pet_elder_dragon:  { name:'고대 드래곤', effect:'atkBonus',  value:0.30, source:'드래곤 진화', evolved:true },
+  pet_seraph:        { name:'세라핌',      effect:'autoRevive',value:1,   source:'천사 진화',  evolved:true, reviveBonus:0.3 },
 };
+
+// 진화 비용
+const PET_EVOLVE_COST = { mat_dragon: 10, mat_soul: 20, gold: 50000 };
+
+function handleEvolvePet(player, basePetId) {
+  const base = PETS[basePetId];
+  if (!base || !base.evolveTo) return { success:false, msg:'진화 불가한 펫' };
+  if (!player.pets || !player.pets.includes(basePetId)) return { success:false, msg:'해당 펫을 보유하지 않음' };
+  if (player.pets.includes(base.evolveTo)) return { success:false, msg:'이미 진화된 펫을 보유 중' };
+  // 비용 체크
+  if (!player.inventory) player.inventory = {};
+  for (const [mat, qty] of Object.entries(PET_EVOLVE_COST)) {
+    if (mat === 'gold') {
+      if (player.gold < qty) return { success:false, msg:`골드 부족 (${qty}G 필요)` };
+    } else {
+      if ((player.inventory[mat] || 0) < qty) return { success:false, msg:`재료 부족: ${mat} ${qty}개 필요` };
+    }
+  }
+  // 차감
+  for (const [mat, qty] of Object.entries(PET_EVOLVE_COST)) {
+    if (mat === 'gold') player.gold -= qty;
+    else {
+      player.inventory[mat] -= qty;
+      if (player.inventory[mat] <= 0) delete player.inventory[mat];
+    }
+  }
+  // 진화 펫 추가 (기본 펫은 유지)
+  if (!player.pets.includes(base.evolveTo)) player.pets.push(base.evolveTo);
+  player.activePet = base.evolveTo;
+  return { success:true, msg:`${base.name} → ${PETS[base.evolveTo].name} 진화 성공!`, newPet: base.evolveTo };
+}
 
 const MOUNTS = {
   mount_horse:   { name:'말',       speedBonus:0.3, source:'상점 1000G',  cost:{gold:1000} },
@@ -66,4 +103,4 @@ function getMountSpeed(player) {
   return MOUNTS[player.activeMount].speedBonus;
 }
 
-module.exports = { PETS, MOUNTS, handleBuyPet, handleBuyMount, getPetEffect, getMountSpeed };
+module.exports = { PETS, MOUNTS, handleBuyPet, handleBuyMount, getPetEffect, getMountSpeed, handleEvolvePet, PET_EVOLVE_COST };

@@ -11,7 +11,7 @@ const mysql = require('mysql2/promise');
 
 // 게임 모듈
 const { RECIPES, handleCraft } = require('./game/craft');
-const { PETS, MOUNTS, handleBuyPet, handleBuyMount, getPetEffect, getMountSpeed } = require('./game/pet');
+const { PETS, MOUNTS, handleBuyPet, handleBuyMount, getPetEffect, getMountSpeed, handleEvolvePet, PET_EVOLVE_COST } = require('./game/pet');
 const { BUFF_TYPES, applyBuff, removeBuff, updateBuffs, getBuffedStat, isStunned, TITLES, checkTitles, getTitleBonus } = require('./game/buff');
 
 const app = express();
@@ -5535,6 +5535,19 @@ io.on('connection', (socket) => {
         if (!p) return;
         const result = handleBuyPet(p, petId);
         if (result.success) savePlayer(p);
+        socket.emit('pet_result', result);
+    });
+
+    // ── 펫 진화 ──
+    socket.on('evolve_pet', (petId) => {
+        const p = players[playerId];
+        if (!p) return;
+        const result = handleEvolvePet(p, petId);
+        if (result.success) {
+            savePlayer(p);
+            io.emit('player_update', p);
+            io.emit('server_msg', { msg: `${p.displayName}이(가) 펫을 진화시켰습니다: ${result.msg}`, type: 'rare' });
+        }
         socket.emit('pet_result', result);
     });
 
