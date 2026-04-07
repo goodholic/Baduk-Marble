@@ -3360,6 +3360,71 @@ io.on('connection', (socket) => {
         io.emit('player_update', p);
     });
 
+    // ── 장비 자동 최적화 (인벤토리에서 슬롯별 최고 등급 장비 자동 장착) ──
+    socket.on('auto_equip_best', () => {
+        const p = players[playerId];
+        if (!p) return;
+        if (!p.inventory) p.inventory = {};
+        if (!p.equipped) p.equipped = {};
+
+        // 등급 점수 (높을수록 좋음)
+        const gradeScore = { normal:1, uncommon:2, rare:3, epic:4, legendary:5 };
+
+        // 슬롯별 후보 수집 (장착 중 + 인벤토리)
+        const bestPerSlot = {}; // { slot: { itemId, score } }
+
+        const evaluateItem = (itemId) => {
+            const eq = EQUIP_STATS[itemId];
+            if (!eq || !eq.slot) return;
+            // 레벨 제한 체크
+            const gradeReq = GRADE_INFO[eq.grade]?.levelReq || 1;
+            if (p.level < gradeReq) return;
+            // 점수: 등급 * 100 + 강화레벨 + atk + def
+            const enchant = (p.enchantLevels && p.enchantLevels[itemId]) || 0;
+            const score = (gradeScore[eq.grade] || 1) * 1000 + enchant * 10 + (eq.atk || 0) + (eq.def || 0);
+            const cur = bestPerSlot[eq.slot];
+            if (!cur || score > cur.score) {
+                bestPerSlot[eq.slot] = { itemId, score };
+            }
+        };
+
+        // 1) 인벤토리 평가
+        for (const itemId of Object.keys(p.inventory)) {
+            if (p.inventory[itemId] > 0) evaluateItem(itemId);
+        }
+        // 2) 장착 중도 평가 (이미 장착중이면 후보 풀에 추가)
+        for (const slot in p.equipped) {
+            const eqId = p.equipped[slot];
+            if (eqId) evaluateItem(eqId);
+        }
+
+        // 3) 슬롯별로 최고 장비로 교체
+        let changed = 0;
+        for (const slot in bestPerSlot) {
+            const best = bestPerSlot[slot].itemId;
+            if (p.equipped[slot] === best) continue; // 이미 장착중
+            // 기존 장비 해제 → 인벤토리
+            if (p.equipped[slot]) {
+                const old = p.equipped[slot];
+                p.inventory[old] = (p.inventory[old] || 0) + 1;
+            }
+            // 새 장비 인벤토리에서 차감 (없으면 이미 장착 중이었던 케이스)
+            if (p.inventory[best] && p.inventory[best] > 0) {
+                p.inventory[best]--;
+                if (p.inventory[best] <= 0) delete p.inventory[best];
+            }
+            p.equipped[slot] = best;
+            changed++;
+        }
+
+        if (changed > 0) {
+            recalcStats(p);
+            savePlayer(p);
+            io.emit('player_update', p);
+        }
+        socket.emit('equip_result', { success: true, msg: `최적 장비 자동 장착! (${changed}개 슬롯 교체)`, equipped: p.equipped });
+    });
+
     // ── 장비 해제 ──
     socket.on('unequip_item', (slot) => {
         const p = players[playerId];
