@@ -1670,6 +1670,9 @@ let goldenRain = null; // { zoneId, endTime } — 황금 비: 해당 존 골드 
 let nextGoldenTime = Date.now() + 900000 + Math.random() * 900000;
 let starShower = null; // { zoneId, endTime } — 별똥별 소나기: 1분마다 무작위 위치에 골드 드롭, 5분
 let nextStarTime = Date.now() + 1500000 + Math.random() * 900000;
+// 오프라인 우편함 (메모리, 서버 재시작 시 초기화)
+// 키: displayName, 값: [{from, item, count, gold, timestamp}, ...]
+const pendingMails = {};
 let rogueMerchant = null; // { townId, deals:[], expiresAt }
 let nextRogueTime = Date.now() + 480000 + Math.random() * 420000;
 
@@ -2435,6 +2438,28 @@ io.on('connection', (socket) => {
         pInfo.hp = pInfo.maxHp;
 
         players[playerId] = pInfo;
+
+        // ── 오프라인 우편함 배달 ──
+        if (pendingMails[pInfo.displayName] && pendingMails[pInfo.displayName].length > 0) {
+            const mails = pendingMails[pInfo.displayName];
+            let totalGold = 0, itemSummary = [];
+            if (!pInfo.inventory) pInfo.inventory = {};
+            for (const m of mails) {
+                if (m.gold > 0) { pInfo.gold += m.gold; totalGold += m.gold; }
+                if (m.itemId && m.itemCount > 0) {
+                    pInfo.inventory[m.itemId] = (pInfo.inventory[m.itemId] || 0) + m.itemCount;
+                    itemSummary.push(`${m.itemId} x${m.itemCount}`);
+                }
+            }
+            delete pendingMails[pInfo.displayName];
+            capResources(pInfo);
+            socket.emit('mail_delivered', {
+                count: mails.length,
+                gold: totalGold,
+                items: itemSummary,
+                msg: `📬 우편함 ${mails.length}건 배달됨!${totalGold ? ' +'+totalGold+'G' : ''}${itemSummary.length ? ' / '+itemSummary.join(', ') : ''}`
+            });
+        }
 
         // ── 출석 체크 & 일일/주간 퀘스트 초기화 ──
         const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
@@ -4162,20 +4187,54 @@ io.on('connection', (socket) => {
         if (!validItemCount && !validGold) { socket.emit('mail_result', { msg: '잘못된 입력' }); return; }
         if (validGold && gold > MAX_GOLD) { socket.emit('mail_result', { msg: '골드 초과' }); return; }
 
-        // 수신자 찾기
+        // 수신자 찾기 (온라인 우선)
         let targetId = null;
         for (const [pid, pl] of Object.entries(players)) {
             if (!pl.isBot && pl.displayName === targetName) { targetId = pid; break; }
         }
-        if (!targetId) { socket.emit('mail_result', { msg: '존재하지 않는 플레이어' }); return; }
-        if (targetId === playerId) { socket.emit('mail_result', { msg: '자신에게 보낼 수 없음' }); return; }
-        const target = players[targetId];
-        if (!target) { socket.emit('mail_result', { msg: '상대 오프라인' }); return; }
+        if (targetName === p.displayName) { socket.emit('mail_result', { msg: '자신에게 보낼 수 없음' }); return; }
+        const target = targetId ? players[targetId] : null;
+        const isOffline = !target;
 
         // 우편 비용 50G
-        const mailCost = 50 + (gold > 0 ? Math.floor(gold * 0.01) : 0); // 골드 전송 시 1% 수수료
+        const mailCost = 50 + (gold > 0 ? Math.floor(gold * 0.01) : 0);
         if (p.gold < mailCost) { socket.emit('mail_result', { msg: `우편 비용 ${mailCost}G 부족` }); return; }
         p.gold -= mailCost;
+
+        // 오프라인이면 pendingMails에 보관
+        if (isOffline) {
+            // 발신자 자원/아이템 차감
+            if (itemId && validItemCount) {
+                if (!p.inventory || !p.inventory[itemId] || p.inventory[itemId] < itemCount) {
+                    p.gold += mailCost; // 환불
+                    socket.emit('mail_result', { msg: '아이템 부족' }); return;
+                }
+                const eq = EQUIP_STATS[itemId];
+                if (eq && eq.bound) { p.gold += mailCost; socket.emit('mail_result', { msg: '귀속 아이템 거래 불가' }); return; }
+                p.inventory[itemId] -= itemCount;
+                if (p.inventory[itemId] <= 0) delete p.inventory[itemId];
+            }
+            if (validGold) {
+                if (p.gold < gold) { p.gold += mailCost; socket.emit('mail_result', { msg: '골드 부족' }); return; }
+                p.gold -= gold;
+            }
+            if (!pendingMails[targetName]) pendingMails[targetName] = [];
+            pendingMails[targetName].push({
+                from: p.displayName,
+                itemId: validItemCount ? itemId : null,
+                itemCount: validItemCount ? itemCount : 0,
+                gold: validGold ? gold : 0,
+                timestamp: Date.now(),
+            });
+            // 오프라인 우편함 한도 (수신자당 50개)
+            if (pendingMails[targetName].length > 50) pendingMails[targetName].shift();
+            savePlayer(p);
+            io.emit('player_update', p);
+            socket.emit('mail_result', { msg: `📬 ${targetName} 오프라인 — 우편함에 보관됨` });
+            return;
+        }
+
+        if (targetId === playerId) { socket.emit('mail_result', { msg: '자신에게 보낼 수 없음' }); return; }
 
         // 아이템 전송
         if (itemId && validItemCount) {

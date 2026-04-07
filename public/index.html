@@ -1183,6 +1183,17 @@
         showModal('👥 온라인 플레이어', html, [{label:'닫기', type:'cancel', action:'closeModal()'}]);
       });
 
+      window.socket.on('mail_delivered', (d) => {
+        showToast(d.msg);
+        playSFX('gold');
+        if (typeof showModal === 'function' && d.count > 0) {
+          var html = '<p class="text-gold" style="text-align:center;font-size:14px">📬 ' + d.count + '건의 우편이 배달되었습니다!</p>';
+          if (d.gold > 0) html += '<p style="text-align:center;color:#ffd700;margin:8px 0">💰 +' + d.gold + 'G</p>';
+          if (d.items && d.items.length > 0) html += '<p style="text-align:center;color:#88ccff">📦 ' + d.items.join(', ') + '</p>';
+          showModal('우편 도착', html, [{label:'확인', action:'closeModal()'}]);
+        }
+      });
+
       window.socket.on('lucky_spin_result', (d) => {
         if (!d.success) { showToast(d.msg); return; }
         showToast('🎰 ' + d.msg);
