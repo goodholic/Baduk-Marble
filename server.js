@@ -866,6 +866,10 @@ const SHOP_ITEMS = {
     // ── 신규 골드 아이템 ──
     'mp_potion':     { name:'MP 물약 x10',       price:200, currency:'gold', effect:'mp_potion', value:50, count:10, desc:'MP 50 회복 (스킬 충전)' },
     'speed_scroll':  { name:'질주 주문서',       price:400, currency:'gold', effect:'speed_boost', value:1.5, duration:120, desc:'2분간 이동속도 50% 증가' },
+    // ── 인벤토리 보관용 물약 (자동물약 시스템용) ──
+    'pot_s_pack':    { name:'하급 HP 물약 x10 (자동용)', price:150, currency:'gold', effect:'mat_grant', value:'pot_hp_s', count:10, desc:'인벤토리에 보관, 자동물약 작동' },
+    'pot_m_pack':    { name:'중급 HP 물약 x10 (자동용)', price:500, currency:'gold', effect:'mat_grant', value:'pot_hp_m', count:10, desc:'인벤토리에 보관, 자동물약 작동' },
+    'pot_l_pack':    { name:'상급 HP 물약 x10 (자동용)', price:30,  currency:'diamond', effect:'mat_grant', value:'pot_hp_l', count:10, desc:'인벤토리에 보관, 자동물약 작동' },
 };
 
 // 다이아몬드 무료 획득 방법

@@ -68,6 +68,7 @@ const RECIPES = {
   craft_mat_upgrade: { name:'고급 재료 정제', need:{mat_magic:10, mat_soul:5}, result:'mat_dragon', gold:3000, successRate:0.4 },
   // 물약
   craft_hp_pot:  { name:'HP 물약 제작',  need:{goods_herb:3, goods_potion:1}, result:'pot_hp_m', gold:30, successRate:1.0 },
+  craft_hp_pot_l:{ name:'상급 HP 물약 제작', need:{goods_herb:8, goods_potion:3, goods_gem:1}, result:'pot_hp_l', gold:200, successRate:0.9 },
   craft_atk_pot: { name:'공격 물약 제작', need:{goods_herb:5, goods_spice:2}, result:'pot_atk', gold:80, successRate:0.9 },
 };
 
