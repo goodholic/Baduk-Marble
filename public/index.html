@@ -2295,35 +2295,52 @@
 
     // 상점 아이템
     var shopItems = [
-      // 소모품
-      {id:'hp_potion_s', name:'하급 HP물약 x10', price:'100 Gold', cmd:'shop_buy'},
-      {id:'hp_potion_m', name:'중급 HP물약 x10', price:'300 Gold', cmd:'shop_buy'},
-      {id:'atk_boost', name:'공격 부스터 (1분)', price:'500 Gold', cmd:'shop_buy'},
-      {id:'def_boost', name:'방어 부스터 (1분)', price:'500 Gold', cmd:'shop_buy'},
-      {id:'town_scroll', name:'귀환 주문서', price:'200 Gold', cmd:'shop_buy'},
-      // NPC 장비 (골드)
-      {id:'shop_sword_1', name:'철제 검 (일반)', price:'200 Gold', cmd:'shop_buy', color:'#ccc'},
-      {id:'shop_sword_2', name:'강철 검 (고급)', price:'800 Gold', cmd:'shop_buy', color:'#4c4'},
-      {id:'shop_armor_1', name:'가죽 갑옷 (일반)', price:'150 Gold', cmd:'shop_buy', color:'#ccc'},
-      {id:'shop_armor_2', name:'철판 갑옷 (고급)', price:'700 Gold', cmd:'shop_buy', color:'#4c4'},
-      {id:'shop_helm_1', name:'가죽 투구', price:'100 Gold', cmd:'shop_buy', color:'#ccc'},
-      {id:'shop_glove_1', name:'가죽 장갑', price:'80 Gold', cmd:'shop_buy', color:'#ccc'},
-      {id:'shop_boots_1', name:'가죽 장화', price:'80 Gold', cmd:'shop_buy', color:'#ccc'},
-      {id:'shop_ring_1', name:'힘의 반지 (고급)', price:'500 Gold', cmd:'shop_buy', color:'#4c4'},
-      {id:'shop_neck_1', name:'지혜의 목걸이', price:'400 Gold', cmd:'shop_buy', color:'#4c4'},
-      // 다이아 아이템
-      {id:'exp_boost', name:'EXP 2배 (5분)', price:'50 Diamond', cmd:'shop_buy'},
-      {id:'gold_boost', name:'골드 2배 (5분)', price:'50 Diamond', cmd:'shop_buy'},
-      {id:'hp_potion_big', name:'상급 HP물약 x10', price:'30 Diamond', cmd:'shop_buy'},
-      {id:'protect_scroll', name:'보호 주문서', price:'100 Diamond', cmd:'shop_buy'},
-      {id:'shop_sword_3', name:'미스릴 검 (희귀)', price:'300 Diamond', cmd:'shop_buy', color:'#48f'},
-      {id:'shop_armor_3', name:'미스릴 갑옷 (희귀)', price:'250 Diamond', cmd:'shop_buy', color:'#48f'},
-      // 코스메틱
-      {id:'skin_golden', name:'황금 오라 스킨', price:'300 Diamond', cmd:'shop_buy'},
-      {id:'skin_shadow', name:'그림자 스킨', price:'300 Diamond', cmd:'shop_buy'},
-      {id:'skin_flame', name:'화염 스킨', price:'500 Diamond', cmd:'shop_buy'},
-      {id:'inventory_expand', name:'용병 슬롯 +5', price:'200 Diamond', cmd:'shop_buy'},
+      // ── 소모품 ──
+      {cat:'소모품', id:'hp_potion_s', name:'하급 HP물약 x10', price:'100 Gold'},
+      {cat:'소모품', id:'hp_potion_m', name:'중급 HP물약 x10', price:'300 Gold'},
+      {cat:'소모품', id:'hp_potion_big', name:'상급 HP물약 x10', price:'30 Diamond'},
+      {cat:'소모품', id:'pot_s_pack', name:'하급 HP x10 (자동용)', price:'150 Gold'},
+      {cat:'소모품', id:'pot_m_pack', name:'중급 HP x10 (자동용)', price:'500 Gold'},
+      {cat:'소모품', id:'pot_l_pack', name:'상급 HP x10 (자동용)', price:'30 Diamond'},
+      {cat:'소모품', id:'mp_potion', name:'MP 물약 x10', price:'200 Gold'},
+      {cat:'소모품', id:'town_scroll', name:'귀환 주문서', price:'200 Gold'},
+      {cat:'소모품', id:'protect_scroll', name:'보호 주문서', price:'100 Diamond'},
+      {cat:'소모품', id:'revive_scroll', name:'부활 주문서 x3', price:'80 Diamond'},
+      // ── 부스터 ──
+      {cat:'부스터', id:'atk_boost', name:'공격 부스터 (1분)', price:'500 Gold'},
+      {cat:'부스터', id:'def_boost', name:'방어 부스터 (1분)', price:'500 Gold'},
+      {cat:'부스터', id:'speed_scroll', name:'질주 주문서 (2분)', price:'400 Gold'},
+      {cat:'부스터', id:'exp_boost', name:'EXP 2배 (5분)', price:'50 Diamond'},
+      {cat:'부스터', id:'gold_boost', name:'골드 2배 (5분)', price:'50 Diamond'},
+      {cat:'부스터', id:'mega_exp', name:'메가 EXP (10분 x3)', price:'120 Diamond'},
+      {cat:'부스터', id:'mega_gold', name:'메가 골드 (10분 x3)', price:'120 Diamond'},
+      {cat:'부스터', id:'all_in_one', name:'올인원 (30분 x2)', price:'250 Diamond'},
+      // ── 장비 (NPC) ──
+      {cat:'장비', id:'shop_sword_1', name:'철제 검 (일반)', price:'200 Gold', color:'#ccc'},
+      {cat:'장비', id:'shop_sword_2', name:'강철 검 (고급)', price:'800 Gold', color:'#4c4'},
+      {cat:'장비', id:'shop_sword_3', name:'미스릴 검 (희귀)', price:'300 Diamond', color:'#48f'},
+      {cat:'장비', id:'shop_armor_1', name:'가죽 갑옷 (일반)', price:'150 Gold', color:'#ccc'},
+      {cat:'장비', id:'shop_armor_2', name:'철판 갑옷 (고급)', price:'700 Gold', color:'#4c4'},
+      {cat:'장비', id:'shop_armor_3', name:'미스릴 갑옷 (희귀)', price:'250 Diamond', color:'#48f'},
+      {cat:'장비', id:'shop_helm_1', name:'가죽 투구', price:'100 Gold', color:'#ccc'},
+      {cat:'장비', id:'shop_glove_1', name:'가죽 장갑', price:'80 Gold', color:'#ccc'},
+      {cat:'장비', id:'shop_boots_1', name:'가죽 장화', price:'80 Gold', color:'#ccc'},
+      {cat:'장비', id:'shop_ring_1', name:'힘의 반지 (고급)', price:'500 Gold', color:'#4c4'},
+      {cat:'장비', id:'shop_neck_1', name:'지혜의 목걸이', price:'400 Gold', color:'#4c4'},
+      // ── 코스메틱 ──
+      {cat:'코스메틱', id:'skin_golden', name:'황금 오라 스킨', price:'300 Diamond'},
+      {cat:'코스메틱', id:'skin_shadow', name:'그림자 스킨', price:'300 Diamond'},
+      {cat:'코스메틱', id:'skin_flame', name:'화염 스킨', price:'500 Diamond'},
+      {cat:'코스메틱', id:'skin_aurora', name:'오로라 스킨 ✨', price:'600 Diamond'},
+      {cat:'코스메틱', id:'skin_void', name:'공허 스킨 ✨', price:'800 Diamond'},
+      {cat:'코스메틱', id:'skin_celestial', name:'천상 스킨 ✨', price:'1000 Diamond'},
+      // ── 편의 ──
+      {cat:'편의', id:'inventory_expand', name:'용병 슬롯 +5 (영구)', price:'200 Diamond'},
+      {cat:'편의', id:'rare_box_buy', name:'희귀 상자', price:'80 Diamond'},
+      {cat:'편의', id:'mat_dragon_5', name:'드래곤 비늘 x5', price:'200 Diamond'},
+      {cat:'편의', id:'mat_soul_10', name:'영혼석 x10', price:'150 Diamond'},
     ];
+    var currentShopCat = '소모품';
 
     function togglePanel(name) {
       var panel = document.getElementById('panel-' + name);
@@ -2345,8 +2362,15 @@
     function claimDaily() { window.socket.emit('daily_reward','{}'); }
 
     function renderShop() {
-      var html = '';
-      shopItems.forEach(item => {
+      var cats = ['소모품','부스터','장비','코스메틱','편의'];
+      var tabHtml = '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">';
+      cats.forEach(c => {
+        var active = c === currentShopCat;
+        tabHtml += '<button class="btn btn-sm" style="' + (active ? 'background:var(--c-gold-dim);color:var(--c-gold);border-color:var(--c-border-gold)' : '') + '" onclick="currentShopCat=\''+c+'\';renderShop();">'+c+'</button>';
+      });
+      tabHtml += '</div>';
+      var html = tabHtml;
+      shopItems.filter(item => item.cat === currentShopCat).forEach(item => {
         var nameStyle = item.color ? 'color:'+item.color : '';
         html += '<div class="panel-item"' + (item.color ? ' style="border-left:3px solid '+item.color+'"' : '') + '><span class="name" style="'+nameStyle+'">'+item.name+'</span><button onclick="window.socket.emit(\'shop_buy\',\''+item.id+'\')">'+item.price+'</button></div>';
       });
