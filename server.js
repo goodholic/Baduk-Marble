@@ -2737,7 +2737,7 @@ io.on('connection', (socket) => {
             entityIdCounter++;
             const botId = 'bot_manual_' + entityIdCounter;
 
-            const classNames = ['Assassin', 'Warrior', 'Knight', 'Mage'];
+            const classNames = ['Assassin', 'Warrior', 'Knight', 'Mage', 'Cleric'];
             const randomClass = classNames[Math.floor(Math.random() * classNames.length)];
             const botCls = CLASSES[randomClass];
 
@@ -5721,7 +5721,7 @@ function createAutoArmy(ownerId) {
 
     entityIdCounter++;
     const botId = 'bot_auto_' + entityIdCounter;
-    const classNames = ['Assassin', 'Warrior', 'Knight', 'Mage'];
+    const classNames = ['Assassin', 'Warrior', 'Knight', 'Mage', 'Cleric'];
     const randomClass = classNames[Math.floor(Math.random() * classNames.length)];
     const cls = CLASSES[randomClass];
 
