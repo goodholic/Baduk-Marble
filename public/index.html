@@ -3595,6 +3595,7 @@
         {label:'웨이포인트', action:()=>window.socket.emit('get_waypoints')},
         {label:'설정', action:()=>togglePanel('settings')},
         {label:'🔊 사운드', action:()=>window.openAudioSettings()},
+        {label:'⚔️ 자동 스킬 토글', action:()=>window.socket.emit('toggle_auto_skill')},
         {label:'⚔️ 자동 장착', action:()=>{showModal('⚔️ 장비 자동 최적화','<p class="text-gold">인벤토리에서 슬롯별 최고 등급 장비를 자동으로 장착합니다.</p><p class="text-muted text-sm">기준: 등급 → 강화 레벨 → ATK+DEF 합계</p><p class="text-muted text-sm">레벨 제한을 만족하는 장비만 후보로 선정됩니다.</p>',[{label:'자동 장착!',action:"window.socket.emit('auto_equip_best');closeModal();"},{label:'취소',type:'cancel',action:'closeModal()'}]);}},
         {label:'🐾 펫 진화', action:()=>{showModal('🐾 펫 진화','<p class="text-gold">기본 펫을 상위 진화체로 업그레이드합니다.</p><p class="text-muted text-sm">비용: 드래곤 비늘 x10 + 영혼석 x20 + 50,000G</p><div style="margin-top:10px">' +
           '<button class="btn" style="width:100%;margin:3px 0" onclick="window.socket.emit(\'evolve_pet\',\'pet_slime\');closeModal();">미니 슬라임 → 슬라임 킹 (HP+8%)</button>' +

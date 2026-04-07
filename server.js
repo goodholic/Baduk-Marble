@@ -4065,6 +4065,15 @@ io.on('connection', (socket) => {
         io.emit('player_update', p);
     });
 
+    // ── 자동 스킬 토글 ──
+    socket.on('toggle_auto_skill', () => {
+        const p = players[playerId];
+        if (!p) return;
+        p.autoSkill = !p.autoSkill;
+        socket.emit('auto_skill_status', { enabled: p.autoSkill });
+        socket.emit('combat_log', { msg: '자동 스킬 ' + (p.autoSkill ? 'ON ⚔' : 'OFF') });
+    });
+
     // ── 자동 물약 토글 ──
     socket.on('toggle_auto_potion', () => {
         const p = players[playerId];
@@ -7025,6 +7034,9 @@ setInterval(() => {
     // 패시브 스킬 (워리어 분노/나이트 수호 오라 등) — 모든 플레이어 대상, 4틱당 1회
     if (tickCounter % 4 === 0) updatePassives();
 
+    // 인간 플레이어 자동 스킬 (autoSkill 토글 시) — 6틱당 1회
+    if (tickCounter % 6 === 0) updatePlayerAutoSkills();
+
     // 경매 만료 처리 (30초마다 cron — 아무도 browse 안 해도 자동 정산)
     if (tickCounter % (30 * 30) === 0) expireMarketListings();
 
@@ -7133,6 +7145,70 @@ function updatePassives() {
                         io.to(aid).emit('combat_log', { msg: `클레릭의 치유 +${healAmt} HP` });
                     }
                 }
+            }
+        }
+    }
+}
+
+// 인간 플레이어 자동 스킬 시전 (autoSkill 토글 시)
+function updatePlayerAutoSkills() {
+    const now = Date.now();
+    for (const id in players) {
+        const p = players[id];
+        if (p.isBot || !p.isAlive || !p.autoSkill) continue;
+        if (!p.skillCooldowns) p.skillCooldowns = {};
+        const baseClassName = p.baseClassName || p.className;
+        const classSkills = SKILLS[baseClassName];
+        if (!classSkills) continue;
+
+        // 가장 가까운 적/몬스터 찾기
+        let target = null, minDist = 9999;
+        for (const mId in monsters) {
+            const m = monsters[mId];
+            if (!m.isAlive) continue;
+            const d = Math.hypot(m.x - p.x, m.y - p.y);
+            if (d < minDist && d < 8) { minDist = d; target = m; }
+        }
+        if (!target) continue;
+
+        // 스킬 자동 시전 (액티브만)
+        for (const skill of classSkills) {
+            if (skill.type === 'passive') continue;
+            if (p.level < skill.level) continue;
+            if (skill.mpCost && (p.mp || 0) < skill.mpCost) continue;
+            const lastUsed = p.skillCooldowns[skill.name] || 0;
+            if (now - lastUsed < skill.cooldown * 1000) continue;
+            // 사거리 검사
+            if (skill.range && minDist > skill.range) continue;
+
+            p.skillCooldowns[skill.name] = now;
+            if (skill.mpCost) p.mp = Math.max(0, (p.mp || 0) - skill.mpCost);
+
+            // 데미지 스킬
+            if (skill.dmgMulti) {
+                const buffedAtk = (typeof getBuffedStat === 'function' ? getBuffedStat(p, 'atk') : p.atk) || p.atk || 10;
+                const skillDmg = Math.floor(buffedAtk * skill.dmgMulti * (p.dmgMulti || 1));
+                target.hp -= skillDmg;
+                io.emit('skill_effect', { casterId: id, skillName: skill.name, type: 'cast', targetX: target.x, targetY: target.y });
+                io.emit('monster_hit', { id: target.id, hp: target.hp, damage: skillDmg, isCrit: false, skillName: skill.name, maxHp: target.maxHp });
+                io.to(id).emit('combat_log', { msg: `${skill.name} → ${skillDmg}` });
+                if (target.hp <= 0) {
+                    target.isAlive = false;
+                    delete monsters[target.id];
+                    spawnMonster();
+                }
+                break; // 한 번에 한 스킬만
+            }
+            // 버프 스킬
+            if (skill.buff) {
+                if (!p.activeBuffs) p.activeBuffs = {};
+                p.activeBuffs['skill_'+skill.name] = {
+                    name: skill.name, stat: skill.allyAtkMulti ? 'atk' : 'def',
+                    multi: skill.allyAtkMulti || skill.dmgReduce || 1.2,
+                    startTime: now, endTime: now + (skill.duration || 10) * 1000, icon: 'skill',
+                };
+                io.to(id).emit('combat_log', { msg: `${skill.name} 발동!` });
+                break;
             }
         }
     }
