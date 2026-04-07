@@ -999,6 +999,13 @@ const SKILLS = {
         { name:'체인 라이트닝', type:'active', dmgMulti:2.5, cooldown:8, range:6, level:15, mpCost:35, chainCount:3, chainRange:4 },
         { name:'메테오', type:'ultimate', dmgMulti:10.0, cooldown:90, range:8, aoe:true, level:25, mpCost:150, aoeRadius:4 },
     ],
+    Cleric: [
+        { name:'홀리 라이트', type:'active', dmgMulti:2.0, cooldown:4, range:5, aoe:false, level:1, mpCost:15 },
+        { name:'치유의 손길', type:'passive', level:1, healAuraTick:8, auraRange:5 }, // 매 틱(약 4초)마다 주변 아군 +8 HP
+        { name:'축복', type:'active', cooldown:25, duration:15, range:6, level:5, mpCost:25, buff:true, allyAtkMulti:1.2 },
+        { name:'정화', type:'active', cooldown:15, range:5, level:10, mpCost:20, cleanseDebuff:true },
+        { name:'대천사의 강림', type:'ultimate', cooldown:120, range:8, level:25, mpCost:150, healAllPct:0.5, buff:true },
+    ],
 };
 
 // ==========================================
@@ -1172,6 +1179,10 @@ const CLASS_ADVANCE = {
     Mage: [
         { name: 'Archmage',   displayName: '아크메이지', desc: '순수 마법 — 극한 데미지', bonusAtk: 30, bonusCrit: 0.15 },
         { name: 'Elementalist', displayName: '엘리멘탈리스트', desc: '속성 마스터 — 광역+상태이상', bonusAtk: 15, bonusDef: 10, bonusHp: 50, bonusCrit: 0.05 },
+    ],
+    Cleric: [
+        { name: 'Saint',      displayName: '세인트', desc: '신성 치유의 대가 — 힐 효율 +50%', bonusDef: 10, bonusHp: 150, bonusAtk: 8 },
+        { name: 'Templar',    displayName: '템플러', desc: '전투형 사제 — 공격+힐 균형', bonusAtk: 18, bonusDef: 12, bonusHp: 80 },
     ],
 };
 
@@ -1525,6 +1536,14 @@ const CLASSES = {
         aoe: false, projSpeed: 22, projLife: 800,
         desc: '고정 방어탑, 영역 수호',
         autoSkill: 'none'
+    },
+    'Cleric': {
+        displayName: '클레릭',
+        maxHp: 170, atk: 22, def: 14, speed: 11,
+        critRate: 0.08, dodgeRate: 0.05,
+        aoe: false, projSpeed: 22, projLife: 700,
+        desc: '신성한 빛으로 공격하며 주변 아군을 자동 치유',
+        autoSkill: 'holyLight'
     }
 };
 
@@ -6588,6 +6607,27 @@ function updatePassives() {
                     if (auraDist <= skill.auraRange) {
                         // 가장 강한 오라가 적용되도록 max
                         ally.auraDefMulti = Math.max(ally.auraDefMulti || 1, skill.allyDefMulti);
+                    }
+                }
+            }
+            // 클레릭 - 치유의 손길: 주변 아군 + 자기 자신 HP 회복 (updatePassives 호출당 1회)
+            if (skill.healAuraTick && skill.auraRange) {
+                const healAmt = skill.healAuraTick;
+                // 자기 자신 회복
+                if (p.hp < p.maxHp) {
+                    p.hp = Math.min(p.maxHp, p.hp + healAmt);
+                }
+                for (const aid in players) {
+                    if (aid === id) continue;
+                    const ally = players[aid];
+                    if (!ally.isAlive || ally.hp >= ally.maxHp) continue;
+                    const sameTeam = ally.team === p.team;
+                    const sameOwner = ally.ownerId === p.ownerId || ally.ownerId === id || aid === p.ownerId;
+                    if (!sameTeam && !sameOwner) continue;
+                    const auraDist = Math.hypot(ally.x - p.x, ally.y - p.y);
+                    if (auraDist <= skill.auraRange) {
+                        ally.hp = Math.min(ally.maxHp, ally.hp + healAmt);
+                        io.to(aid).emit('combat_log', { msg: `클레릭의 치유 +${healAmt} HP` });
                     }
                 }
             }
