@@ -860,7 +860,39 @@
       addCombatLog(className + ' 클래스로 게임 시작!', 'log-lvl');
       // Unity에 init_request 전송
       window.socket.emit('init_request', JSON.stringify({ className, deviceId }));
+      // 첫 접속이면 환영 가이드 표시 (1회)
+      try {
+        if (!localStorage.getItem('ab_welcomed')) {
+          setTimeout(showWelcomeGuide, 2500);
+          localStorage.setItem('ab_welcomed', '1');
+        }
+      } catch(e) {}
     }
+
+    // ── 첫 접속 환영 가이드 ──
+    function showWelcomeGuide() {
+      if (typeof showModal !== 'function') return;
+      var html = '<div style="max-height:60vh;overflow-y:auto;padding:0 4px">' +
+        '<p class="text-gold" style="text-align:center;font-size:15px;margin-bottom:10px">⚔ AutoBattle.io에 오신 것을 환영합니다!</p>' +
+        '<div style="background:rgba(255,215,0,0.05);border-left:3px solid #ffd700;padding:8px 10px;margin:8px 0;font-size:12px;color:#ddd">' +
+        '<b>🎯 기본 조작</b><br>화면을 드래그해 이동, 공격 버튼으로 자동 공격</div>' +
+        '<div style="background:rgba(68,136,255,0.05);border-left:3px solid #4488ff;padding:8px 10px;margin:8px 0;font-size:12px;color:#ddd">' +
+        '<b>🏘 마을(안전지대)에서</b><br>상점·대장장이·NPC 이용 가능. PK 불가.</div>' +
+        '<div style="background:rgba(170,68,255,0.05);border-left:3px solid #aa44ff;padding:8px 10px;margin:8px 0;font-size:12px;color:#ddd">' +
+        '<b>⚔ 사냥터에서</b><br>몬스터 처치로 EXP·골드·아이템 획득</div>' +
+        '<div style="background:rgba(255,136,0,0.05);border-left:3px solid #ff8800;padding:8px 10px;margin:8px 0;font-size:12px;color:#ddd">' +
+        '<b>💀 죽으면?</b><br>3초 후 마을에서 자동 부활. 골드/EXP 일부 손실</div>' +
+        '<div style="background:rgba(68,255,68,0.05);border-left:3px solid #44ff44;padding:8px 10px;margin:8px 0;font-size:12px;color:#ddd">' +
+        '<b>📈 성장</b><br>Lv.20 전직, Lv.50 환생. 장비·룬·펫·탈것 수집</div>' +
+        '<div style="background:rgba(255,68,68,0.05);border-left:3px solid #ff4444;padding:8px 10px;margin:8px 0;font-size:12px;color:#ddd">' +
+        '<b>🌟 월드 이벤트</b><br>황금 비·별똥별·메테오·월드 보스 — 발생 시 상단에 표시</div>' +
+        '<div style="background:rgba(255,255,255,0.04);border-left:3px solid #888;padding:8px 10px;margin:8px 0;font-size:12px;color:#ddd">' +
+        '<b>💾 자동 저장</b><br>60초마다 자동. 다음 접속 시 모든 데이터 복원</div>' +
+        '<p class="text-muted text-sm" style="text-align:center;margin-top:10px">행운을 빕니다! 거래 메뉴에서 🎰 행운의 룰렛도 잊지 마세요</p>' +
+        '</div>';
+      showModal('환영합니다!', html, [{label:'시작!', action:'closeModal()'}]);
+    }
+    window.showWelcomeGuide = showWelcomeGuide; // 메뉴에서도 다시 볼 수 있게
 
     // ── 키보드 단축키 ──
     window.addEventListener('keydown', function(e) {
@@ -3062,6 +3094,7 @@
         {label:'웨이포인트', action:()=>window.socket.emit('get_waypoints')},
         {label:'설정', action:()=>togglePanel('settings')},
         {label:'🔊 사운드', action:()=>window.openAudioSettings()},
+        {label:'❓ 도움말', action:()=>window.showWelcomeGuide()},
         {label:'시즌 균열', action:()=>togglePanel('rift')},
         {label:'환생', action:()=>{showModal('환생 (프레스티지)','<p class="text-gold">Lv.50 달성 시 레벨을 1로 리셋하고 영구 보너스를 획득합니다.</p><p class="text-muted text-sm">장비/인벤/다이아는 유지. 최대 10회.</p>',[{label:'환생!',action:"window.socket.emit('prestige');closeModal();"},{label:'취소',type:'cancel',action:'closeModal()'}]);}},
         {label:'의뢰', action:()=>{togglePanel('contracts');window.socket.emit('get_contracts');}},
