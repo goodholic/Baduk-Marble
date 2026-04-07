@@ -119,15 +119,40 @@ server.listen(PORT, () => {
 // ==========================================
 // Database
 // ==========================================
+// Railway는 보통 MYSQL_URL 또는 개별 MYSQLHOST/USER/PASSWORD/DATABASE/PORT 환경변수를 제공.
+// 둘 다 지원하도록 fallback 구성.
+function buildDbConfig() {
+    const url = process.env.MYSQL_URL || process.env.DATABASE_URL;
+    if (url) {
+        try {
+            const u = new URL(url);
+            return {
+                host: u.hostname,
+                user: decodeURIComponent(u.username),
+                password: decodeURIComponent(u.password),
+                database: u.pathname.replace(/^\//, '') || 'railway',
+                port: u.port ? parseInt(u.port) : 3306,
+            };
+        } catch (e) {
+            console.error('[DB] MYSQL_URL 파싱 실패:', e.message);
+        }
+    }
+    return {
+        host: process.env.MYSQLHOST || 'localhost',
+        user: process.env.MYSQLUSER || 'root',
+        password: process.env.MYSQLPASSWORD || '',
+        database: process.env.MYSQLDATABASE || 'railway',
+        port: parseInt(process.env.MYSQLPORT || 3306),
+    };
+}
+const _dbCfg = buildDbConfig();
+console.log(`[DB] connecting host=${_dbCfg.host} port=${_dbCfg.port} db=${_dbCfg.database} user=${_dbCfg.user}`);
 const pool = mysql.createPool({
-    host: process.env.MYSQLHOST || 'localhost',
-    user: process.env.MYSQLUSER || 'root',
-    password: process.env.MYSQLPASSWORD || '',
-    database: process.env.MYSQLDATABASE || 'railway',
-    port: process.env.MYSQLPORT || 3306,
+    ..._dbCfg,
     waitForConnections: true,
     connectionLimit: 10,
-    queueLimit: 0
+    queueLimit: 0,
+    connectTimeout: 10000,
 });
 
 async function initDB() {
@@ -7744,6 +7769,25 @@ function handlePlayerDeath(target, targetId, owner, attackerId) {
         victimLevel: target.level || 0,
         goldLost: Math.floor((target._deathGoldLost || 0)),
     });
+
+    // ── 3초 후 자동 마을 리스폰 (실제 플레이어만) ──
+    if (!target.isBot) {
+        setTimeout(() => {
+            const p = players[targetId];
+            if (!p || p.isAlive) return; // 이미 부활했거나 접속 종료
+            recalcStats(p);
+            p.hp = p.maxHp;
+            p.isAlive = true;
+            // 시작 마을(아덴)로 이동
+            const startZone = ZONES.aden;
+            p.x = startZone.x + startZone.w / 2 + (Math.random() * 10 - 5);
+            p.y = startZone.y + startZone.h / 2 + (Math.random() * 10 - 5);
+            p.team = 'peace';
+            savePlayer(p);
+            io.emit('player_respawn', p);
+            io.to(targetId).emit('combat_log', { msg: '마을에서 부활했습니다.' });
+        }, 3000);
+    }
 }
 
 function destroyAxe(axeId) {

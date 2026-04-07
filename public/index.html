@@ -1896,9 +1896,7 @@
       window.socket.on('chat_msg', (d) => {
         var cls = d.isKing ? 'chat-king' : (d.karma >= 200 ? 'chat-chaotic' : '');
         var prefix = d.isKing ? '[King] ' : (d.karma >= 200 ? '[PK] ' : '');
-        var titleTag = d.title ? '<span style="color:'+d.titleColor+';font-size:9px">['+d.title+']</span> ' : '';
-        var lvTag = d.level ? '<span style="color:#888;font-size:9px">Lv.'+d.level+'</span> ' : '';
-        addChatMsg(titleTag + lvTag + prefix + d.sender + ': ' + d.msg, cls);
+        addChatMsg(prefix + d.sender + ': ' + d.msg, cls);
       });
 
       // 일일 챌린지
