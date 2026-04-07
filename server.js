@@ -39,6 +39,39 @@ const DIAMOND_PRODUCTS = {
 
 app.get('/health', (req, res) => res.send('AutoBattle.io Server Running'));
 
+// 서버 상태 JSON 엔드포인트 (모니터링/대시보드)
+app.get('/status', (req, res) => {
+    try {
+        const uptimeSec = Math.floor((Date.now() - serverStartTime) / 1000);
+        const onlineCount = Object.values(players).filter(p => !p.isBot && p.isAlive).length;
+        const botCount = Object.values(players).filter(p => p.isBot && p.isAlive).length;
+        const monsterCount = Object.keys(monsters).length;
+        res.json({
+            status: 'ok',
+            uptime: uptimeSec,
+            uptimeFormatted: `${Math.floor(uptimeSec/3600)}h ${Math.floor((uptimeSec%3600)/60)}m ${uptimeSec%60}s`,
+            players: {
+                online: onlineCount,
+                bots: botCount,
+                max: MAX_PLAYERS,
+            },
+            monsters: monsterCount,
+            world: {
+                worldBoss: worldBoss ? worldBoss.name : null,
+                meteorShower: meteorShower ? meteorShower.zoneId : null,
+                goldenRain: goldenRain ? goldenRain.zoneId : null,
+                starShower: starShower ? starShower.zoneId : null,
+                isNight,
+                weather: currentWeather?.id || null,
+            },
+            db: 'connected', // initDB가 실패하면 catch에서 로그
+            timestamp: new Date().toISOString(),
+        });
+    } catch (e) {
+        res.status(500).json({ status: 'error', message: e.message });
+    }
+});
+
 // 결제 성공 페이지
 app.get('/payment/success', async (req, res) => {
     const { paymentKey, orderId, amount } = req.query;
