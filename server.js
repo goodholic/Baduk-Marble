@@ -6149,6 +6149,55 @@ setInterval(() => {
                         }
                         break;
 
+                    case 'summon': // 신규: 미니언 소환 (8초마다 일반 몹 2~3마리)
+                        if (mag > 4) {
+                            m.x += (dx / mag) * 0.3;
+                            m.y += (dy / mag) * 0.3;
+                        }
+                        if (now - (m.lastSpecialAttack||0) > 8000) {
+                            m.lastSpecialAttack = now;
+                            const summonCount = 2 + Math.floor(Math.random() * 2);
+                            for (let i = 0; i < summonCount; i++) {
+                                entityIdCounter++;
+                                const minionId = 'monster_' + entityIdCounter;
+                                monsters[minionId] = {
+                                    id: minionId, tier: 'normal',
+                                    name: '소환된 ' + (m.name || '미니언'),
+                                    x: m.x + (Math.random() * 4 - 2),
+                                    y: m.y + (Math.random() * 4 - 2),
+                                    hp: 80, maxHp: 80,
+                                    atk: Math.floor(m.atk * 0.4),
+                                    def: Math.floor(m.def * 0.3),
+                                    color: m.color, isAlive: true,
+                                    element: m.element, zoneId: m.zoneId,
+                                    aiType: 'wander',
+                                    expReward: 10, goldReward: 5,
+                                    lastSpecialAttack: 0, isSummoned: true,
+                                };
+                                io.emit('monster_spawn', monsters[minionId]);
+                            }
+                            io.emit('skill_effect', { casterId: mId, skillName: '소환', type: 'summon', targetX: m.x, targetY: m.y });
+                        }
+                        break;
+
+                    case 'teleport': // 신규: 텔레포트 (4초마다 플레이어 근처로 순간이동 + 공격)
+                        if (now - (m.lastSpecialAttack||0) > 4000) {
+                            m.lastSpecialAttack = now;
+                            // 플레이어 주변 3~5 거리로 텔레포트
+                            const angle = Math.random() * Math.PI * 2;
+                            const dist = 3 + Math.random() * 2;
+                            m.x = nearestPlayer.x + Math.cos(angle) * dist;
+                            m.y = nearestPlayer.y + Math.sin(angle) * dist;
+                            io.emit('skill_effect', { casterId: mId, skillName: '텔레포트', type: 'flash', targetX: m.x, targetY: m.y });
+                            // 텔레포트 직후 강한 일격
+                            if (nearestPlayer.activeBuffs?.divine_shield) break;
+                            const tpDmg = Math.floor(m.atk * 1.5);
+                            nearestPlayer.hp -= tpDmg;
+                            io.emit('player_hit', { id: nearestPlayer.id, hp: nearestPlayer.hp, damage: tpDmg, isCrit: true, skillName: '암습' });
+                            if (nearestPlayer.hp <= 0 && nearestPlayer.isAlive) handlePlayerDeath(nearestPlayer, nearestPlayer.id, m, mId);
+                        }
+                        break;
+
                     default: // wander: 느린 추적
                         if (mag > 2) {
                             m.x += (dx / mag) * 0.4;

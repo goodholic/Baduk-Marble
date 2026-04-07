@@ -1528,7 +1528,12 @@
       });
 
       // 전투 로그
-      window.socket.on('combat_log', (d) => { addCombatLog(d.msg, 'normal'); });
+      window.socket.on('combat_log', (d) => {
+        // 메시지 종류별 SFX
+        if (d.msg && d.msg.indexOf('치유') !== -1) playSFX('heal');
+        else if (d.msg && d.msg.indexOf('획득') !== -1) playSFX('gold');
+        addCombatLog(d.msg, 'normal');
+      });
       window.socket.on('monster_die', (d) => {
         if (typeof d === 'object' && d.killer === myPlayerId) {
           var name = d.name || d.tier;
