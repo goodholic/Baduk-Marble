@@ -2522,17 +2522,46 @@
     var audioCtx = null;
     var soundEnabled = true;
     var bgmPlaying = false;
+    // 볼륨 설정 (localStorage 영속화)
+    try {
+      var _savedAudio = JSON.parse(localStorage.getItem('ab_audio') || '{}');
+      window._bgmVol = typeof _savedAudio.bgm === 'number' ? _savedAudio.bgm : 1;
+      window._sfxVol = typeof _savedAudio.sfx === 'number' ? _savedAudio.sfx : 1;
+      if (_savedAudio.muted === true) soundEnabled = false;
+    } catch(e) { window._bgmVol = 1; window._sfxVol = 1; }
+
+    function saveAudioPrefs() {
+      try {
+        localStorage.setItem('ab_audio', JSON.stringify({
+          bgm: window._bgmVol, sfx: window._sfxVol, muted: !soundEnabled
+        }));
+      } catch(e) {}
+    }
 
     function toggleSound() {
       soundEnabled = !soundEnabled;
-      document.getElementById('btn-sound').textContent = 'Sound ' + (soundEnabled ? 'ON' : 'OFF');
+      var btn = document.getElementById('btn-sound');
+      if (btn) btn.textContent = 'Sound ' + (soundEnabled ? 'ON' : 'OFF');
       if (soundEnabled) {
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         if (!bgmPlaying) playBGM();
       } else {
         bgmPlaying = false;
       }
+      saveAudioPrefs();
     }
+
+    // 사운드 설정 모달 열기 (설정 메뉴에서 호출)
+    window.openAudioSettings = function() {
+      var html = '<div style="display:flex;flex-direction:column;gap:14px;padding:8px">' +
+        '<div><label style="color:#ddd;font-size:13px">🎵 BGM 볼륨: <span id="bgm-vol-label">' + Math.round(window._bgmVol*100) + '%</span></label>' +
+        '<input id="bgm-vol-slider" type="range" min="0" max="100" value="' + Math.round(window._bgmVol*100) + '" style="width:100%" oninput="window._bgmVol=this.value/100;document.getElementById(\'bgm-vol-label\').textContent=this.value+\'%\';saveAudioPrefs();"></div>' +
+        '<div><label style="color:#ddd;font-size:13px">🔊 효과음 볼륨: <span id="sfx-vol-label">' + Math.round(window._sfxVol*100) + '%</span></label>' +
+        '<input id="sfx-vol-slider" type="range" min="0" max="100" value="' + Math.round(window._sfxVol*100) + '" style="width:100%" oninput="window._sfxVol=this.value/100;document.getElementById(\'sfx-vol-label\').textContent=this.value+\'%\';saveAudioPrefs();"></div>' +
+        '<div style="text-align:center"><button class="btn" onclick="toggleSound();this.textContent=\'사운드 \'+(soundEnabled?\'ON\':\'OFF\');">사운드 ' + (soundEnabled ? 'ON' : 'OFF') + '</button></div>' +
+        '<p class="text-muted text-sm" style="text-align:center">설정은 자동 저장됩니다</p></div>';
+      showModal('🔊 사운드 설정', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+    };
 
     // 존별 BGM 프로필
     var ZONE_BGM = {
@@ -2576,10 +2605,15 @@
 
     function playSFX(type) {
       if (!soundEnabled || !audioCtx) return;
+      var sfxVol = (typeof window._sfxVol === 'number') ? window._sfxVol : 1;
+      if (sfxVol <= 0) return;
       var osc = audioCtx.createOscillator();
       var gain = audioCtx.createGain();
+      var master = audioCtx.createGain();
+      master.gain.value = sfxVol;
       osc.connect(gain);
-      gain.connect(audioCtx.destination);
+      gain.connect(master);
+      master.connect(audioCtx.destination);
 
       switch(type) {
         case 'hit':
@@ -3020,6 +3054,7 @@
         {label:'일괄 판매', action:()=>{showModal('일괄 판매','<p style="color:#ff8800">선택한 등급 이하의 모든 미장착 장비를 판매합니다 (60% 가격)</p>',[{label:'일반 이하',action:"window.socket.emit('bulk_sell','normal');closeModal();"},{label:'고급 이하',action:"window.socket.emit('bulk_sell','uncommon');closeModal();"},{label:'희귀 이하',action:"window.socket.emit('bulk_sell','rare');closeModal();"},{label:'취소',type:'cancel',action:'closeModal()'}]);}},
         {label:'웨이포인트', action:()=>window.socket.emit('get_waypoints')},
         {label:'설정', action:()=>togglePanel('settings')},
+        {label:'🔊 사운드', action:()=>window.openAudioSettings()},
         {label:'시즌 균열', action:()=>togglePanel('rift')},
         {label:'환생', action:()=>{showModal('환생 (프레스티지)','<p class="text-gold">Lv.50 달성 시 레벨을 1로 리셋하고 영구 보너스를 획득합니다.</p><p class="text-muted text-sm">장비/인벤/다이아는 유지. 최대 10회.</p>',[{label:'환생!',action:"window.socket.emit('prestige');closeModal();"},{label:'취소',type:'cancel',action:'closeModal()'}]);}},
         {label:'의뢰', action:()=>{togglePanel('contracts');window.socket.emit('get_contracts');}},
