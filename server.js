@@ -2052,6 +2052,12 @@ const DAILY_CHALLENGES = [
     { name:'스트릭 마스터', desc:'10킬 스트릭 달성', zone:null, target:'kill_streak', goal:10, reward:{gold:3000,diamonds:30} },
     { name:'교역왕', desc:'교역 5회 완료', zone:null, target:'trade_count', goal:5, reward:{gold:2000,diamonds:15} },
     { name:'낚시의 달인', desc:'물고기 10마리 낚기', zone:'fishing', target:'fish_catch', goal:10, reward:{gold:1500,diamonds:15} },
+    // ── 신규 5종 ──
+    { name:'드래곤 사냥꾼', desc:'드래곤 둥지에서 5마리 처치', zone:'dragon', target:'kill_monster', goal:5, reward:{gold:4000,diamonds:35} },
+    { name:'그림자 추적', desc:'어둠의 숲에서 엘리트 8마리', zone:'darkforest', target:'kill_elite', goal:8, reward:{gold:2200,diamonds:22} },
+    { name:'심연의 부름', desc:'심연 존에서 몬스터 12마리', zone:'abyss', target:'kill_monster', goal:12, reward:{gold:3500,diamonds:30} },
+    { name:'완벽한 일격', desc:'크리티컬 50회 발생', zone:null, target:'crit_count', goal:50, reward:{gold:2500,diamonds:25} },
+    { name:'백전백승', desc:'PvP 5승', zone:null, target:'pvp_win_daily', goal:5, reward:{gold:3500,diamonds:30} },
 ];
 function getTodaysChallenge() {
     const dayNum = Math.floor(Date.now() / 86400000);
@@ -2119,6 +2125,8 @@ const CLAN_RAIDS = {
     raid_cave:  { name:'혈맹 동굴 레이드', clanLevel:2, minMembers:3, waves:5, bossHp:10000, bossAtk:40, reward:{gold:3000,exp:5000,diamonds:30} },
     raid_dragon:{ name:'혈맹 드래곤 레이드', clanLevel:3, minMembers:4, waves:7, bossHp:30000, bossAtk:80, reward:{gold:8000,exp:15000,diamonds:80} },
     raid_void:  { name:'혈맹 공허 레이드', clanLevel:5, minMembers:5, waves:10, bossHp:80000, bossAtk:150, reward:{gold:20000,exp:40000,diamonds:200} },
+    raid_titan: { name:'혈맹 거인 레이드', clanLevel:4, minMembers:6, waves:8, bossHp:60000, bossAtk:120, reward:{gold:15000,exp:30000,diamonds:150,item:'mat_dragon',itemQty:5} },
+    raid_celestial:{ name:'혈맹 천상 레이드', clanLevel:5, minMembers:8, waves:12, bossHp:120000, bossAtk:200, reward:{gold:30000,exp:60000,diamonds:300,item:'equip_mythic_armor',itemQty:1} },
 };
 
 // ── 낚시 시스템 ──
