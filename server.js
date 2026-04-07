@@ -6261,7 +6261,7 @@ setInterval(() => {
                         }
                         if (now - (m.lastSpecialAttack||0) > 4000) {
                             m.lastSpecialAttack = now;
-                            // 주변 3범위 광역 데미지
+                            // 주변 3범위 광역 데미지 + 출혈
                             const aoeDmg = Math.floor(m.atk * 1.2);
                             for (const pId in players) {
                                 const p = players[pId];
@@ -6272,7 +6272,8 @@ setInterval(() => {
                                     let dmg = aoeDmg;
                                     if (p.activeBuffs?.iron_wall) dmg = Math.floor(dmg * 0.3);
                                     p.hp -= dmg;
-                                    io.emit('player_hit', { id: pId, hp: p.hp, damage: dmg, isCrit: false, skillName: '광역 충격파' });
+                                    applyBuff(p, 'bleed'); // 출혈 디버프
+                                    io.emit('player_hit', { id: pId, hp: p.hp, damage: dmg, isCrit: false, skillName: '광역 충격파 (출혈)' });
                                     if (p.hp <= 0 && p.isAlive) handlePlayerDeath(p, pId, m, mId);
                                 }
                             }
@@ -6303,6 +6304,8 @@ setInterval(() => {
                                         if (p.activeBuffs?.iron_wall) dmg = Math.floor(dmg * 0.3);
                                         p.hp -= dmg;
                                         applyBuff(p, 'burn'); // 화상 디버프
+                                        // 보스 등급 이상이면 공포도 추가
+                                        if (m.tier === 'boss' || m.tier === 'legendary' || m.tier === 'mythic') applyBuff(p, 'fear');
                                         io.emit('player_hit', { id: pId, hp: p.hp, damage: dmg, isCrit: false, skillName: '브레스' });
                                         if (p.hp <= 0 && p.isAlive) handlePlayerDeath(p, pId, m, mId);
                                     }
@@ -6352,11 +6355,12 @@ setInterval(() => {
                             m.x = nearestPlayer.x + Math.cos(angle) * dist;
                             m.y = nearestPlayer.y + Math.sin(angle) * dist;
                             io.emit('skill_effect', { casterId: mId, skillName: '텔레포트', type: 'flash', targetX: m.x, targetY: m.y });
-                            // 텔레포트 직후 강한 일격
+                            // 텔레포트 직후 강한 일격 + 약화 디버프
                             if (nearestPlayer.activeBuffs?.divine_shield) break;
                             const tpDmg = Math.floor(m.atk * 1.5);
                             nearestPlayer.hp -= tpDmg;
-                            io.emit('player_hit', { id: nearestPlayer.id, hp: nearestPlayer.hp, damage: tpDmg, isCrit: true, skillName: '암습' });
+                            applyBuff(nearestPlayer, 'weak'); // 약화 디버프 적용
+                            io.emit('player_hit', { id: nearestPlayer.id, hp: nearestPlayer.hp, damage: tpDmg, isCrit: true, skillName: '암습 (약화)' });
                             if (nearestPlayer.hp <= 0 && nearestPlayer.isAlive) handlePlayerDeath(nearestPlayer, nearestPlayer.id, m, mId);
                         }
                         break;
