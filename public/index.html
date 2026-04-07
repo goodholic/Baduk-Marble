@@ -873,6 +873,10 @@
           localStorage.setItem('ab_welcomed', '1');
         }
       } catch(e) {}
+      // 친구 목록 자동 로드 (미니맵 표시용)
+      setTimeout(function() { window.socket?.emit('get_friends'); }, 1500);
+      // 60초마다 친구 목록 갱신
+      setInterval(function() { if (window.socket && window._friendIds !== undefined) window.socket.emit('get_friends'); }, 60000);
     }
 
     // ── 첫 접속 환영 가이드 ──
@@ -1590,6 +1594,8 @@
         playSFX('buff');
       });
       window.socket.on('friend_list', (d) => {
+        // 미니맵 친구 표시용 ID 세트 갱신
+        window._friendIds = new Set((d.friends || []).map(function(f) { return f.id; }));
         var el = document.getElementById('friend-list');
         if (!el) return;
         var html = '';
@@ -2975,9 +2981,23 @@
           ctx.stroke();
           myZone = pl.zone || '';
         } else {
-          // 다른 플레이어: 흰 점
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(p.mx - 2, p.my - 2, 4, 4);
+          // 친구 우선 — 노란 별, 그 외 흰 점
+          var isFriend = window._friendIds && window._friendIds.has(pid);
+          if (isFriend) {
+            ctx.fillStyle = '#ffd700';
+            ctx.beginPath();
+            ctx.arc(p.mx, p.my, 3, 0, Math.PI * 2);
+            ctx.fill();
+            // 외곽 링
+            ctx.strokeStyle = '#ffd700';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(p.mx, p.my, 5, 0, Math.PI * 2);
+            ctx.stroke();
+          } else {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(p.mx - 2, p.my - 2, 4, 4);
+          }
         }
       });
 
