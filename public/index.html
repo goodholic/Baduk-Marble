@@ -925,6 +925,31 @@
         '🐛 워리어 분노/나이트 수호 오라가 인간 플레이어에 적용 안 되던 버그',
       ]},
     ];
+    window.showPersonalRecords = function() {
+      var pb = personalBests || {};
+      var s = window._lastSelf || {};
+      var html = '<div style="max-height:60vh;overflow-y:auto;padding:0 6px">' +
+        '<p class="text-gold" style="text-align:center;font-size:14px;margin-bottom:12px">🏆 개인 최고 기록</p>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">' +
+        recordCard('🔥 최고 킬 스트릭', (pb.maxStreak || 0) + 'x', '#ff6644') +
+        recordCard('💀 세션 최고 킬', (pb.maxKills || 0), '#aa44ff') +
+        recordCard('⚡ 최고 DPS', Math.floor(pb.maxDps || 0), '#88ccff') +
+        recordCard('💀 누적 처치', (s.killCount || 0), '#ff8800') +
+        recordCard('🏰 PvP 승', (s.pvpWins || 0), '#ff4444') +
+        recordCard('🐉 보스 처치', ((s.morphKills && s.morphKills.dragon) || 0), '#ffd700') +
+        recordCard('💰 누적 골드', (s.gold || 0).toLocaleString() + 'G', '#ffd700') +
+        recordCard('💎 다이아', (s.diamonds || 0), '#88ddff') +
+        recordCard('📈 레벨', (s.level || 1), '#44ff44') +
+        recordCard('🏗 무한탑 최고', (s.towerHighest || 0) + '층', '#aa44ff') +
+        '</div></div>';
+      showModal('🏆 개인 기록', html, [{label:'닫기', type:'cancel', action:'closeModal()'}]);
+    };
+    function recordCard(label, value, color) {
+      return '<div style="background:rgba(255,255,255,0.04);border-left:3px solid ' + color + ';padding:8px 10px;border-radius:4px">' +
+        '<div style="color:#888;font-size:10px;margin-bottom:2px">' + label + '</div>' +
+        '<div style="color:' + color + ';font-size:15px;font-weight:bold">' + value + '</div></div>';
+    }
+
     window.showPatchNotes = function() {
       var html = '<div style="max-height:60vh;overflow-y:auto;padding:0 6px">';
       for (var p of PATCH_NOTES) {
@@ -987,6 +1012,7 @@
       window.socket.on('sync', (data) => {
         if (myPlayerId && data.players && data.players[myPlayerId]) {
           var me = data.players[myPlayerId];
+          window._lastSelf = me; // 개인 기록/도움말 패널에서 사용
 
           // 골드 변동 팝업
           if (me.gold !== undefined) {
@@ -3155,6 +3181,7 @@
         {label:'🔊 사운드', action:()=>window.openAudioSettings()},
         {label:'❓ 도움말', action:()=>window.showWelcomeGuide()},
         {label:'📜 패치 노트', action:()=>window.showPatchNotes()},
+        {label:'🏆 개인 기록', action:()=>window.showPersonalRecords()},
         {label:'시즌 균열', action:()=>togglePanel('rift')},
         {label:'환생', action:()=>{showModal('환생 (프레스티지)','<p class="text-gold">Lv.50 달성 시 레벨을 1로 리셋하고 영구 보너스를 획득합니다.</p><p class="text-muted text-sm">장비/인벤/다이아는 유지. 최대 10회.</p>',[{label:'환생!',action:"window.socket.emit('prestige');closeModal();"},{label:'취소',type:'cancel',action:'closeModal()'}]);}},
         {label:'의뢰', action:()=>{togglePanel('contracts');window.socket.emit('get_contracts');}},
