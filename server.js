@@ -4040,6 +4040,31 @@ io.on('connection', (socket) => {
         io.emit('player_update', p);
     });
 
+    // ── 포션 단축키 사용 (인벤토리 즉시 소모 + HP/MP 회복) ──
+    socket.on('use_potion', (potId) => {
+        const p = players[playerId];
+        if (!p || !p.isAlive || !p.inventory) return;
+        const HEAL_MAP = {
+            'pot_hp_s': { stat:'hp', amount:100, name:'하급 HP' },
+            'pot_hp_m': { stat:'hp', amount:300, name:'중급 HP' },
+            'pot_hp_l': { stat:'hp', amount:800, name:'상급 HP' },
+            'mp_potion':{ stat:'mp', amount:50,  name:'MP' },
+        };
+        const info = HEAL_MAP[potId];
+        if (!info) { socket.emit('potion_result', { success:false, msg:'알 수 없는 물약' }); return; }
+        if (!p.inventory[potId] || p.inventory[potId] <= 0) { socket.emit('potion_result', { success:false, msg:`${info.name} 물약 없음` }); return; }
+        // 쿨다운 (1초)
+        const now = Date.now();
+        if (p._lastPotionUse && now - p._lastPotionUse < 1000) return;
+        p._lastPotionUse = now;
+        p.inventory[potId]--;
+        if (p.inventory[potId] <= 0) delete p.inventory[potId];
+        if (info.stat === 'hp') p.hp = Math.min(p.maxHp, p.hp + info.amount);
+        else if (info.stat === 'mp') p.mp = Math.min(p.maxMp || 100, (p.mp || 0) + info.amount);
+        socket.emit('potion_result', { success:true, msg:`${info.name} +${info.amount}`, hp:p.hp, mp:p.mp });
+        io.emit('player_update', p);
+    });
+
     // ── 자동 물약 토글 ──
     socket.on('toggle_auto_potion', () => {
         const p = players[playerId];

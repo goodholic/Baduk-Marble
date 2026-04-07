@@ -881,7 +881,8 @@
       var html = '<div style="max-height:60vh;overflow-y:auto;padding:0 4px">' +
         '<p class="text-gold" style="text-align:center;font-size:15px;margin-bottom:10px">⚔ AutoBattle.io에 오신 것을 환영합니다!</p>' +
         '<div style="background:rgba(255,215,0,0.05);border-left:3px solid #ffd700;padding:8px 10px;margin:8px 0;font-size:12px;color:#ddd">' +
-        '<b>🎯 기본 조작</b><br>화면을 드래그해 이동, 공격 버튼으로 자동 공격</div>' +
+        '<b>🎯 기본 조작</b><br>화면을 드래그해 이동, 공격 버튼으로 자동 공격<br>' +
+        '<small style="color:#888">단축키: Space=공격 / 1=하급HP / 2=중급HP / 3=상급HP / 4=MP</small></div>' +
         '<div style="background:rgba(68,136,255,0.05);border-left:3px solid #4488ff;padding:8px 10px;margin:8px 0;font-size:12px;color:#ddd">' +
         '<b>🏘 마을(안전지대)에서</b><br>상점·대장장이·NPC 이용 가능. PK 불가.</div>' +
         '<div style="background:rgba(170,68,255,0.05);border-left:3px solid #aa44ff;padding:8px 10px;margin:8px 0;font-size:12px;color:#ddd">' +
@@ -1300,6 +1301,12 @@
           if (d.items && d.items.length > 0) html += '<p style="text-align:center;color:#88ccff">📦 ' + d.items.join(', ') + '</p>';
           showModal('우편 도착', html, [{label:'확인', action:'closeModal()'}]);
         }
+      });
+
+      window.socket.on('potion_result', (d) => {
+        if (!d.success) { showToast(d.msg); return; }
+        showToast('💊 ' + d.msg);
+        playSFX('heal');
       });
 
       window.socket.on('lucky_spin_result', (d) => {
@@ -3626,12 +3633,23 @@
     function partyInvite() { window.socket.emit('party_invite_nearby','{}'); }
 
     // Space키 → 마우스 방향 공격 (브라우저 스크롤 차단)
+    // 1/2/3/4 → 포션 단축키 (HP 하/중/상, MP)
     window.addEventListener('keydown', function(e) {
-      if (e.code === 'Space' && e.target.tagName !== 'INPUT') {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.code === 'Space') {
         e.preventDefault();
         doAttackTowardMouse();
-      }
+      } else if (e.key === '1') { window.socket?.emit('use_potion','pot_hp_s'); }
+      else if (e.key === '2') { window.socket?.emit('use_potion','pot_hp_m'); }
+      else if (e.key === '3') { window.socket?.emit('use_potion','pot_hp_l'); }
+      else if (e.key === '4') { window.socket?.emit('use_potion','mp_potion'); }
     });
+
+    // 포션 결과 토스트
+    if (window.socket) {
+      // (setupSocketListeners 시점에 등록)
+    }
+    window.usePotionHotkey = function(id) { window.socket?.emit('use_potion', id); };
 
     // 마우스 위치 추적
     var lastMouseX = window.innerWidth / 2, lastMouseY = window.innerHeight / 2;
