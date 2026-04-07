@@ -4586,6 +4586,34 @@ io.on('connection', (socket) => {
         socket.emit('clan_result', { success: true, msg: `${gold}G 기부 완료! (혈맹 EXP +${Math.floor(gold/10)})` });
     });
 
+    // ── 혈맹 창고 조회 ──
+    socket.on('get_clan_storage', () => {
+        const p = players[playerId];
+        if (!p || !p.clanName || !clans[p.clanName]) {
+            socket.emit('clan_storage_data', { success:false, msg:'혈맹 가입 필요' });
+            return;
+        }
+        const storage = clans[p.clanName].storage || {};
+        // 아이템 메타 정보 합치기
+        const items = {};
+        for (const [itemId, count] of Object.entries(storage)) {
+            const eq = EQUIP_STATS[itemId];
+            const tradeable = TRADEABLE_ITEMS[itemId];
+            items[itemId] = {
+                count,
+                name: eq?.name || tradeable?.name || itemId,
+                grade: eq?.grade || null,
+                category: tradeable?.category || (eq ? '장비' : '기타'),
+            };
+        }
+        socket.emit('clan_storage_data', {
+            success: true,
+            clanName: p.clanName,
+            items,
+            myInventory: p.inventory || {},
+        });
+    });
+
     // ── 혈맹 창고 (아이템 넣기/빼기) ──
     socket.on('clan_storage_deposit', (data) => {
         const p = players[playerId];

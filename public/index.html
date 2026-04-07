@@ -1303,6 +1303,38 @@
         }
       });
 
+      window.socket.on('clan_storage_data', (d) => {
+        if (!d.success) { showToast(d.msg); return; }
+        var gradeColors = {normal:'#ccc',uncommon:'#44cc44',rare:'#4488ff',epic:'#aa44ff',legendary:'#ff8800'};
+        var html = '<p class="text-gold" style="text-align:center">📦 ' + d.clanName + ' 창고</p>';
+        var items = d.items || {};
+        var keys = Object.keys(items);
+        if (keys.length === 0) {
+          html += '<p style="text-align:center;color:#666;margin:20px 0">창고가 비어있습니다</p>';
+        } else {
+          html += '<div style="max-height:40vh;overflow-y:auto;margin:8px 0">';
+          keys.forEach(function(k) {
+            var it = items[k];
+            var color = gradeColors[it.grade] || '#ccc';
+            html += '<div class="panel-item" style="border-left:3px solid '+color+'">' +
+              '<span class="name" style="color:'+color+'">'+it.name+' <b style="color:#888">x'+it.count+'</b></span>' +
+              '<button onclick="window.socket.emit(\'clan_storage_withdraw\',{itemId:\''+k+'\',count:1});setTimeout(function(){window.socket.emit(\'get_clan_storage\');},200)" style="background:#2a4a2a;font-size:10px">꺼내기</button>' +
+              '</div>';
+          });
+          html += '</div>';
+        }
+        html += '<div style="border-top:1px solid #444;padding-top:8px;margin-top:8px">' +
+          '<p class="text-muted text-sm" style="text-align:center">내 인벤토리에서 보관</p>' +
+          '<input id="clan-deposit-id" placeholder="아이템 ID (예: mat_dragon)" style="width:100%;padding:6px;background:#222;color:#fff;border:1px solid #555;border-radius:4px;margin:4px 0;font-size:11px">' +
+          '<input id="clan-deposit-cnt" type="number" value="1" min="1" placeholder="수량" style="width:100%;padding:6px;background:#222;color:#fff;border:1px solid #555;border-radius:4px;margin:4px 0;font-size:11px">' +
+          '</div>';
+        showModal('🏛️ 혈맹 창고', html, [
+          {label:'보관!', action:"window.socket.emit('clan_storage_deposit',{itemId:getModalInput('clan-deposit-id'),count:parseInt(getModalInput('clan-deposit-cnt'))||1});setTimeout(function(){window.socket.emit('get_clan_storage');},200);"},
+          {label:'새로고침', action:"window.socket.emit('get_clan_storage');closeModal();"},
+          {label:'닫기', type:'cancel', action:'closeModal()'}
+        ]);
+      });
+
       window.socket.on('potion_result', (d) => {
         if (!d.success) { showToast(d.msg); return; }
         showToast('💊 ' + d.msg);
@@ -3528,6 +3560,7 @@
         {label:'출석 캘��더', action:()=>window.socket.emit('get_attendance_calendar')},
         {label:'탐험도', action:()=>window.socket.emit('get_exploration')},
         {label:'길드멤버', action:()=>window.socket.emit('get_guild_members')},
+        {label:'🏛️ 혈맹 창고', action:()=>window.socket.emit('get_clan_storage')},
         {label:'길드 레이드', action:()=>{showModal('길드 레이드','<p class="text-muted text-sm">혈맹장만 시작 가능. 주 1회. 온라인 멤버 필요.</p>',[
           {label:'동굴 (Lv.2, 3명) - 30k 보상', action:"window.socket.emit('clan_raid_start','raid_cave');closeModal();"},
           {label:'드래곤 (Lv.3, 4명) - 80k 보상', action:"window.socket.emit('clan_raid_start','raid_dragon');closeModal();"},
