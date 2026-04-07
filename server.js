@@ -2085,22 +2085,30 @@ io.on('connection', (socket) => {
     }
 
     // ── 소켓 레이트 리밋 (DoS 방어) ──
-    // 1초당 60개 메시지 초과 시 강제 종료. move/update_dir는 정상 흐름에서도 빈번하므로 여유 있게.
+    // move/update_dir 같은 고빈도 이벤트는 카운트에서 제외.
+    // 일반 이벤트는 1초당 200개까지 허용 (정상 게임플레이는 훨씬 적음).
     const _rateBucket = { count: 0, windowStart: Date.now(), strikes: 0 };
+    const _highFreqEvents = new Set(['move', 'update_dir', 'throw', 'active_tap']);
     socket.use((packet, next) => {
+        // 패킷 형식: [eventName, ...args]
+        const eventName = Array.isArray(packet) ? packet[0] : null;
+        if (_highFreqEvents.has(eventName)) { next(); return; }
+
         const now = Date.now();
         if (now - _rateBucket.windowStart > 1000) {
+            // 윈도우 초기화 + 정상 윈도우에서는 strike도 자연 회복
+            if (_rateBucket.count <= 200 && _rateBucket.strikes > 0) _rateBucket.strikes--;
             _rateBucket.count = 0;
             _rateBucket.windowStart = now;
         }
         _rateBucket.count++;
-        if (_rateBucket.count > 60) {
+        if (_rateBucket.count > 200) {
             _rateBucket.strikes++;
-            if (_rateBucket.strikes >= 3) {
+            if (_rateBucket.strikes >= 5) {
                 console.warn(`[rate-limit] socket ${socket.id} disconnect — ${_rateBucket.count}/s`);
                 socket.disconnect(true);
             }
-            return; // 패킷 드롭 (next 호출 안 함)
+            return; // 패킷 드롭
         }
         next();
     });
