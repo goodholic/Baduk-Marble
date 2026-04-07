@@ -40,6 +40,7 @@
     /* 로딩 스피너 */
     .spinner { display:inline-block; width:16px; height:16px; border:2px solid var(--c-text-dim); border-top-color:var(--c-gold); border-radius:50%; animation:spin 0.6s linear infinite; }
     @keyframes spin { to { transform:rotate(360deg); } }
+    @keyframes hpDangerPulse { 0%,100% { filter:brightness(1); box-shadow:0 0 0 rgba(255,0,0,0); } 50% { filter:brightness(1.4); box-shadow:0 0 8px rgba(255,0,0,0.7); } }
     .loading-text { color:var(--c-text-muted); font-size:var(--fs-sm); display:flex; align-items:center; gap:var(--sp-md); justify-content:center; padding:var(--sp-xl); }
     body { overflow:hidden; background:var(--c-bg); display:flex; justify-content:center; align-items:center; height:100vh; width:100vw; font-family:'Noto Sans KR','Segoe UI',sans-serif; touch-action:none; }
     #unity-container { position:relative; width:100vw; max-height:100vh; aspect-ratio:16/9; }
@@ -380,6 +381,7 @@
       <span class="stat" style="font-size:13px">💰<b class="gold-val" id="gold-val">0</b></span>
       <span class="stat zone-val" id="zone-display" style="font-size:12px">-</span>
       <span class="stat" id="siege-display" style="display:none;color:#ff4444;font-weight:bold"></span>
+      <span class="stat" id="world-event-display" style="display:none;font-size:11px;font-weight:bold;padding:2px 6px;border-radius:4px;background:rgba(255,215,0,0.15);border:1px solid rgba(255,215,0,0.4)"></span>
     </div>
 
     <!-- 레벨업 축하 오버레이 -->
@@ -900,9 +902,10 @@
         } catch(e) { console.warn('[init error]', e); }
       });
 
-      var lastGold = 0, lastDiamonds = 0, lastZone = '', lastKills = 0;
-      var gameStats = { kills:0, startTime:Date.now() };
-      var killStreak = 0, lastKillTime = 0;
+      // 외부 스코프 변수 초기화 (선언은 setupSocketListeners 밖, line 2778 근처)
+      lastGold = 0; lastDiamonds = 0; lastZone = ''; lastKills = 0;
+      gameStats = { kills:0, startTime:Date.now() };
+      killStreak = 0; lastKillTime = 0;
 
       window.socket.on('sync', (data) => {
         if (myPlayerId && data.players && data.players[myPlayerId]) {
@@ -1026,7 +1029,16 @@
             var hpEl = document.getElementById('hp-text');
             if (hpEl) hpEl.textContent = Math.ceil(d.hp)+' / '+Math.ceil(d.maxHp);
             var pct = Math.max(0, Math.min(100, (d.hp/d.maxHp)*100));
-            document.getElementById('hp-bar-fill').style.width = pct+'%';
+            var hpFillEl = document.getElementById('hp-bar-fill');
+            hpFillEl.style.width = pct+'%';
+            // 위험 시 빨간 펄스 (HP < 30%)
+            if (pct < 30) {
+              hpFillEl.style.animation = 'hpDangerPulse 0.6s ease-in-out infinite';
+              hpFillEl.style.background = 'linear-gradient(90deg,#ff0000,#ff6644)';
+            } else {
+              hpFillEl.style.animation = '';
+              hpFillEl.style.background = 'linear-gradient(90deg,#cc2222,#44cc44)';
+            }
           }
           if (d.team) {
             var teamEl = document.getElementById('team-display');
@@ -1040,6 +1052,38 @@
       window.socket.on('shop_result', (d) => { showToast(d.msg); playSFX('buy'); });
       window.socket.on('market_result', (d) => { showToast(d.msg); playSFX('buy'); });
       window.socket.on('daily_result', (d) => { showToast(d.msg); playSFX('gold'); if(d.diamonds) document.getElementById('diamond-val').textContent=d.diamonds; });
+      window.socket.on('lucky_spin_result', (d) => {
+        if (!d.success) { showToast(d.msg); return; }
+        showToast('🎰 ' + d.msg);
+        playSFX(d.tier === 'legend' || d.tier === 'epic' ? 'levelup' : 'gold');
+      });
+      window.spinLuckyRoulette = function() { window.socket.emit('lucky_spin'); };
+
+      // 도박 도전 수신 (라운드8 신규: offer/accept 패턴)
+      window.socket.on('dice_incoming', (d) => {
+        showToast('🎲 ' + d.fromName + '님이 ' + d.bet + 'G 도박 신청! 30초 내 수락');
+        playSFX('hit');
+        if (typeof showModal === 'function') {
+          showModal('주사위 도박 신청', '<p>'+d.fromName+'님이 '+d.bet+'G 판돈으로 도박을 신청했습니다.</p>',
+            [
+              { label:'수락', action:"window.socket.emit('dice_accept','"+d.fromId+"');closeModal();" },
+              { label:'거절', action:"closeModal();" }
+            ]);
+        }
+      });
+
+      // 용병 판매 제안 수신 (라운드4 신규)
+      window.socket.on('unit_offer', (d) => {
+        showToast('🪙 ' + d.sellerName + '님이 용병('+d.unitClass+')을 ' + d.price + 'G에 판매 제안! 60초 내 수락');
+        playSFX('buy');
+        if (typeof showModal === 'function') {
+          showModal('용병 구매 제안', '<p>'+d.sellerName+'님이 '+d.unitClass+' 용병을 '+d.price+'G에 판매합니다.</p>',
+            [
+              { label:'구매', action:"window.socket.emit('unit_buy_accept','"+d.unitId+"');closeModal();" },
+              { label:'거절', action:"closeModal();" }
+            ]);
+        }
+      });
       window.socket.on('quest_result', (d) => { showToast(d.msg); playSFX('levelup'); });
       window.socket.on('unit_result', (d) => showToast(d.msg));
       window.socket.on('equip_result', (d) => { showToast(d.msg); playSFX('buy'); });
@@ -1529,6 +1573,7 @@
       window.socket.on('gold_fever', (d) => {
         showToast('[골드 피버!] ' + d.zoneName + ' - ' + d.duration + '초간 x3 보상!');
         playSFX('boss'); playSFX('gold');
+        if (window.pushWorldEvent) pushWorldEvent('🔥 골드피버 ' + d.zoneName, '#ff8800', d.duration);
       });
 
       // 레어 몬스터 출현
@@ -1586,10 +1631,41 @@
       });
       window.socket.on('rogue_result', (d) => { showToast(d.msg); playSFX('gold'); });
 
+      // 월드 이벤트 상단 표시기
+      window.activeWorldEvents = window.activeWorldEvents || [];
+      window.pushWorldEvent = function(label, color, durationSec) {
+        window.activeWorldEvents.push({ label: label, color: color, endAt: Date.now() + durationSec * 1000 });
+        renderWorldEvent();
+      };
+      const pushWorldEvent = window.pushWorldEvent;
+      function renderWorldEvent() {
+        const el = document.getElementById('world-event-display');
+        if (!el) return;
+        const now = Date.now();
+        window.activeWorldEvents = window.activeWorldEvents.filter(e => e.endAt > now);
+        if (window.activeWorldEvents.length === 0) { el.style.display = 'none'; return; }
+        const parts = window.activeWorldEvents.map(e => {
+          const remain = Math.max(0, Math.ceil((e.endAt - now) / 1000));
+          const m = Math.floor(remain / 60), s = remain % 60;
+          return '<span style="color:'+e.color+'">'+e.label+' '+m+':'+(s<10?'0':'')+s+'</span>';
+        });
+        el.innerHTML = parts.join(' · ');
+        el.style.display = 'inline-flex';
+      }
+      setInterval(renderWorldEvent, 1000);
+
       // 유성우
       window.socket.on('meteor_shower', (d) => {
         showToast('[유성우] '+d.zoneName+' — '+d.duration+'초간! 파편 수집 + x2 보상!');
         playSFX('boss');
+        pushWorldEvent('☄️ 유성우 ' + d.zoneName, '#ff6644', d.duration);
+      });
+
+      // 황금 비
+      window.socket.on('golden_rain', (d) => {
+        showToast('[황금 비] '+d.zoneName+' — '+d.duration+'초간! 골드 x3, EXP x1.5!');
+        playSFX('gold');
+        pushWorldEvent('💰 황금 비 ' + d.zoneName, '#ffd700', d.duration);
       });
 
       // 주사위
@@ -2700,6 +2776,10 @@
 
     // ── 도파민 루프 시스템 ──
     var dpsSamples = []; // [{time, damage}]
+    // setupSocketListeners 내부 setInterval(line 2804+)에서도 접근 가능하도록 외부 스코프 선언
+    var lastGold = 0, lastDiamonds = 0, lastZone = '', lastKills = 0;
+    var gameStats = { kills:0, startTime:Date.now() };
+    var killStreak = 0, lastKillTime = 0;
     var sessionStartGold = 0;
     var sessionStartTime = Date.now();
     var sessionDeaths = 0;

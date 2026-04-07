@@ -13,7 +13,6 @@ const mysql = require('mysql2/promise');
 const { RECIPES, handleCraft } = require('./game/craft');
 const { PETS, MOUNTS, handleBuyPet, handleBuyMount, getPetEffect, getMountSpeed } = require('./game/pet');
 const { BUFF_TYPES, applyBuff, removeBuff, updateBuffs, getBuffedStat, isStunned, TITLES, checkTitles, getTitleBonus } = require('./game/buff');
-const GameConfig = require('./game/config');
 
 const app = express();
 const server = http.createServer(app);
@@ -1460,7 +1459,7 @@ let hasKing = false;
 const CLASSES = {
     'Assassin': {
         displayName: '어쌔신',
-        maxHp: 130, atk: 35, def: 8,  speed: 20,
+        maxHp: 145, atk: 35, def: 8,  speed: 20,
         critRate: 0.20, dodgeRate: 0.15,
         aoe: false, projSpeed: 40, projLife: 80,
         desc: '빠른 속도와 높은 크리티컬로 적을 암살',
@@ -1476,7 +1475,7 @@ const CLASSES = {
     },
     'Knight': {
         displayName: '나이트',
-        maxHp: 350, atk: 18, def: 28, speed: 10,
+        maxHp: 350, atk: 22, def: 28, speed: 10,
         critRate: 0.05, dodgeRate: 0.02,
         aoe: false, projSpeed: 14, projLife: 800,
         desc: '철벽 방어, 아군을 지키는 탱커',
@@ -1484,8 +1483,8 @@ const CLASSES = {
     },
     'Mage': {
         displayName: '메이지',
-        maxHp: 110, atk: 18, def: 6,  speed: 9,
-        critRate: 0.15, dodgeRate: 0.08,
+        maxHp: 110, atk: 24, def: 6,  speed: 9,
+        critRate: 0.15, dodgeRate: 0.10,
         aoe: true, projSpeed: 0, projLife: 2500,
         desc: '강력한 광역 마법으로 전장을 지배',
         autoSkill: 'meteor' // 메테오: 넓은 범위 폭발
@@ -1587,7 +1586,7 @@ const KARMA = {
 
 // ── 레벨업 테이블 ──
 function getExpRequired(level) {
-    return Math.floor(100 * Math.pow(1.10, level - 1));
+    return Math.floor(100 * Math.pow(1.12, level - 1));
 }
 
 // ── 방어력 기반 데미지 계산 ──
@@ -1601,6 +1600,8 @@ let zoneConquest = {}; // { zoneId: { clanName, kills:{} } }
 let lastConquestReset = Date.now();
 let meteorShower = null; // { zoneId, endTime }
 let nextMeteorTime = Date.now() + 1200000 + Math.random() * 1200000;
+let goldenRain = null; // { zoneId, endTime } — 황금 비: 해당 존 골드 x3, EXP x1.5, 5분
+let nextGoldenTime = Date.now() + 900000 + Math.random() * 900000;
 let rogueMerchant = null; // { townId, deals:[], expiresAt }
 let nextRogueTime = Date.now() + 480000 + Math.random() * 420000;
 
@@ -1670,7 +1671,7 @@ function pickZoneTier(zoneId) {
 function scaleMonster(tier, zoneLvl) {
     const base = MONSTER_TIERS[tier];
     if (!base) return MONSTER_TIERS.normal;
-    const scale = 1 + Math.max(0, zoneLvl - 5) * 0.06; // 존 레벨 5 이상부터 6%씩 강화
+    const scale = 1 + Math.max(0, zoneLvl - 5) * 0.08; // 존 레벨 5 이상부터 8%씩 강화
     return {
         ...base,
         hp: Math.floor(base.hp * scale),
@@ -2083,6 +2084,27 @@ io.on('connection', (socket) => {
         return;
     }
 
+    // ── 소켓 레이트 리밋 (DoS 방어) ──
+    // 1초당 60개 메시지 초과 시 강제 종료. move/update_dir는 정상 흐름에서도 빈번하므로 여유 있게.
+    const _rateBucket = { count: 0, windowStart: Date.now(), strikes: 0 };
+    socket.use((packet, next) => {
+        const now = Date.now();
+        if (now - _rateBucket.windowStart > 1000) {
+            _rateBucket.count = 0;
+            _rateBucket.windowStart = now;
+        }
+        _rateBucket.count++;
+        if (_rateBucket.count > 60) {
+            _rateBucket.strikes++;
+            if (_rateBucket.strikes >= 3) {
+                console.warn(`[rate-limit] socket ${socket.id} disconnect — ${_rateBucket.count}/s`);
+                socket.disconnect(true);
+            }
+            return; // 패킷 드롭 (next 호출 안 함)
+        }
+        next();
+    });
+
     socket.on('init_request', async (dataStr) => {
         let selectedClass = 'Warrior';
         let deviceId = playerId;
@@ -2227,7 +2249,9 @@ io.on('connection', (socket) => {
                         const adv = CLASS_ADVANCE[pInfo.baseClassName || pInfo.className];
                         if (adv) pInfo.displayName = adv.displayName;
                     }
-                } catch(e) {}
+                } catch(e) {
+                    console.error(`[ext_data parse 실패] device=${pInfo.deviceId} player=${pInfo.displayName||'?'}: ${e.message}`);
+                }
             }
 
             const baseCls = CLASSES[pInfo.baseClassName || pInfo.className] || CLASSES[pInfo.className];
@@ -2784,15 +2808,33 @@ io.on('connection', (socket) => {
             case 'teleport':
                 p.x = -20; p.y = -20; // 마을 좌표
                 break;
-            case 'atk_boost':
-                p.dmgMulti *= item.value;
-                setTimeout(() => { if (players[playerId]) players[playerId].dmgMulti /= item.value; }, item.duration * 1000);
+            case 'atk_boost': {
+                // 버프 시스템 사용 (recalcStats 충돌/영구 페널티 방지)
+                if (!p.activeBuffs) p.activeBuffs = {};
+                p.activeBuffs['shop_atk_boost'] = {
+                    name: '공격 부스트',
+                    stat: 'atk',
+                    multi: item.value,
+                    startTime: Date.now(),
+                    endTime: Date.now() + item.duration * 1000,
+                    icon: 'buff',
+                };
+                msg += ` (${item.duration}초간 ATK x${item.value})`;
                 break;
-            case 'def_boost':
-                p.def = Math.floor(p.def * item.value);
-                const origDef = p.def;
-                setTimeout(() => { if (players[playerId]) players[playerId].def = Math.floor(origDef / item.value); }, item.duration * 1000);
+            }
+            case 'def_boost': {
+                if (!p.activeBuffs) p.activeBuffs = {};
+                p.activeBuffs['shop_def_boost'] = {
+                    name: '방어 부스트',
+                    stat: 'def',
+                    multi: item.value,
+                    startTime: Date.now(),
+                    endTime: Date.now() + item.duration * 1000,
+                    icon: 'buff',
+                };
+                msg += ` (${item.duration}초간 DEF x${item.value})`;
                 break;
+            }
             case 'equip_item':
                 if (!p.inventory) p.inventory = {};
                 p.inventory[item.value] = (p.inventory[item.value] || 0) + 1;
@@ -2847,6 +2889,51 @@ io.on('connection', (socket) => {
             diamonds: p.diamonds,
             gold: p.gold
         });
+    });
+
+    // ── 행운의 룰렛 (일일 1회 무료) ──
+    socket.on('lucky_spin', () => {
+        const p = players[playerId];
+        if (!p) return;
+        const today = new Date().toDateString();
+        if (p.lastLuckySpin === today) {
+            socket.emit('lucky_spin_result', { success: false, msg: '오늘 이미 룰렛을 돌렸습니다' });
+            return;
+        }
+        // 8개 슬롯, 가중치 합 100
+        const SLOTS = [
+            { weight: 35, label: '💰 100G',     apply: (pl) => { pl.gold += 100; },                           tier:'common'  },
+            { weight: 25, label: '💰 500G',     apply: (pl) => { pl.gold += 500; },                           tier:'common'  },
+            { weight: 15, label: '💎 5',        apply: (pl) => { pl.diamonds = (pl.diamonds||0) + 5; },       tier:'rare'    },
+            { weight: 10, label: '💰 2,000G',   apply: (pl) => { pl.gold += 2000; },                          tier:'rare'    },
+            { weight:  7, label: 'EXP +5%',     apply: (pl) => { giveExp(pl, Math.floor(getExpRequired(pl.level) * 0.05)); }, tier:'rare' },
+            { weight:  5, label: '🍖 황금 수프', apply: (pl) => { if(!pl.inventory)pl.inventory={}; pl.inventory['food_atk']=(pl.inventory['food_atk']||0)+1; }, tier:'epic' },
+            { weight:  2, label: '💎 50',       apply: (pl) => { pl.diamonds = (pl.diamonds||0) + 50; },      tier:'epic'    },
+            { weight:  1, label: '🐉 드래곤 비늘', apply: (pl) => { if(!pl.inventory)pl.inventory={}; pl.inventory['mat_dragon']=(pl.inventory['mat_dragon']||0)+1; }, tier:'legend' },
+        ];
+        const total = SLOTS.reduce((s, sl) => s + sl.weight, 0);
+        let roll = Math.random() * total;
+        let pickedIdx = 0;
+        for (let i = 0; i < SLOTS.length; i++) {
+            roll -= SLOTS[i].weight;
+            if (roll <= 0) { pickedIdx = i; break; }
+        }
+        const picked = SLOTS[pickedIdx];
+        picked.apply(p);
+        p.lastLuckySpin = today;
+        capResources(p);
+        savePlayer(p);
+        socket.emit('lucky_spin_result', {
+            success: true,
+            msg: `행운의 룰렛: ${picked.label}!`,
+            slot: pickedIdx,
+            tier: picked.tier,
+            label: picked.label,
+        });
+        io.emit('player_update', p);
+        if (picked.tier === 'epic' || picked.tier === 'legend') {
+            io.emit('server_msg', { msg: `[행운] ${p.displayName}이(가) 룰렛에서 ${picked.label} 획득!`, type: 'rare' });
+        }
     });
 
     // ── 인벤토리 조회 ──
@@ -3060,6 +3147,10 @@ io.on('connection', (socket) => {
     socket.on('waypoint_teleport', (zoneId) => {
         const p = players[playerId];
         if (!p || !p.isAlive) return;
+        // 던전/아레나/탑 진행 중 도주 차단
+        if (p.inDungeon) { socket.emit('waypoint_result', { msg: '던전 내에서는 이동 불가' }); return; }
+        if (p.arenaMatchId) { socket.emit('waypoint_result', { msg: '아레나/결투 중 이동 불가' }); return; }
+        if (towerProgress[playerId]) { socket.emit('waypoint_result', { msg: '무한의 탑 도전 중 이동 불가' }); return; }
         if (!p.waypoints) p.waypoints = ['aden']; // 기본 시작 마을
         if (!p.waypoints.includes(zoneId)) { socket.emit('waypoint_result', { msg: '미방문 지역' }); return; }
         const zone = ZONES[zoneId];
@@ -3274,6 +3365,8 @@ io.on('connection', (socket) => {
     socket.on('claim_daily_challenge', () => {
         const p = players[playerId];
         if (!p || !p._dailyChallengeCompleted) { socket.emit('challenge_result', { msg: '미완료' }); return; }
+        // 이중 수령 방어 (이미 수령 시 차단)
+        if (p._dailyChallengeClaimed) { socket.emit('challenge_result', { msg: '오늘 이미 수령' }); return; }
         const challenge = getTodaysChallenge();
         p.gold += challenge.reward.gold;
         if (challenge.reward.diamonds) p.diamonds = (p.diamonds||0) + challenge.reward.diamonds;
@@ -3293,6 +3386,10 @@ io.on('connection', (socket) => {
         const target = players[targetId];
         if (!target || target.isBot || !target.isAlive) { socket.emit('duel_result', { msg: '상대를 찾을 수 없음' }); return; }
         if (p.level < 10) { socket.emit('duel_result', { msg: 'Lv.10 이상 필요' }); return; }
+        if (p.arenaMatchId || target.arenaMatchId) { socket.emit('duel_result', { msg: '이미 대전 중' }); return; }
+        // 대기 중 결투 요청 저장 (수락 시 검증)
+        if (!target._pendingDuels) target._pendingDuels = {};
+        target._pendingDuels[playerId] = Date.now() + 30000; // 30초 유효
         // 결투 요청 전송
         io.to(targetId).emit('duel_incoming', { fromId: playerId, fromName: p.displayName, fromLevel: p.level, fromClass: p.advancedClass || p.className });
         socket.emit('duel_result', { msg: `${target.displayName}에게 결투 요청!` });
@@ -3303,6 +3400,16 @@ io.on('connection', (socket) => {
         const p = players[playerId];
         const challenger = players[fromId];
         if (!p || !challenger || !p.isAlive || !challenger.isAlive) return;
+        // 유효한 결투 요청이 실제로 존재하는지 검증
+        if (!p._pendingDuels || !p._pendingDuels[fromId] || Date.now() > p._pendingDuels[fromId]) {
+            socket.emit('duel_result', { msg: '유효한 결투 요청이 없습니다' });
+            return;
+        }
+        if (p.arenaMatchId || challenger.arenaMatchId) {
+            socket.emit('duel_result', { msg: '이미 대전 중' });
+            return;
+        }
+        delete p._pendingDuels[fromId];
 
         // 아레나 시스템 재사용
         arenaMatchIdCounter++;
@@ -3554,6 +3661,10 @@ io.on('connection', (socket) => {
         if (!p || !p.inDungeon) return;
         const inst = activeDungeons[p.inDungeon];
         if (!inst) return;
+        // 스팸 쓰로틀 (최소 200ms 간격)
+        const nowMs = Date.now();
+        if (inst._lastKillAt && nowMs - inst._lastKillAt < 200) return;
+        inst._lastKillAt = nowMs;
         inst.monstersLeft--;
         if (inst.monstersLeft <= 0) {
             inst.currentStage++;
@@ -3645,6 +3756,10 @@ io.on('connection', (socket) => {
         const p = players[playerId];
         if (!p || !towerProgress[playerId]) return;
         const tp = towerProgress[playerId];
+        // 스팸 쓰로틀 (최소 200ms 간격)
+        const nowMs = Date.now();
+        if (tp._lastKillAt && nowMs - tp._lastKillAt < 200) return;
+        tp._lastKillAt = nowMs;
         tp.monstersLeft--;
 
         if (tp.monstersLeft <= 0) {
@@ -3749,6 +3864,16 @@ io.on('connection', (socket) => {
         if (friendLists[playerId].length >= 50) { socket.emit('friend_result', { msg: '친구 최대 50명' }); return; }
 
         if (!friendRequests[targetId]) friendRequests[targetId] = [];
+        // 중복 요청 방지 (스팸 차단)
+        if (friendRequests[targetId].some(r => r.fromId === playerId)) {
+            socket.emit('friend_result', { msg: '이미 요청을 보냈습니다' });
+            return;
+        }
+        // 받은 요청 한도 (스팸 차단)
+        if (friendRequests[targetId].length >= 30) {
+            socket.emit('friend_result', { msg: '상대 받은 요청 한도 초과' });
+            return;
+        }
         friendRequests[targetId].push({ fromId: playerId, fromName: p.displayName, time: Date.now() });
         io.to(targetId).emit('friend_request_received', { fromId: playerId, fromName: p.displayName });
         socket.emit('friend_result', { msg: `${players[targetId].displayName}에게 친구 요청 전송` });
@@ -3757,7 +3882,7 @@ io.on('connection', (socket) => {
     // ── 친구 요청 수락 ──
     socket.on('friend_accept', (fromId) => {
         const p = players[playerId];
-        if (!p) return;
+        if (!p || !players[fromId]) return;
         if (!friendRequests[playerId]) return;
         const reqIdx = friendRequests[playerId].findIndex(r => r.fromId === fromId);
         if (reqIdx === -1) return;
@@ -3765,6 +3890,15 @@ io.on('connection', (socket) => {
 
         if (!friendLists[playerId]) friendLists[playerId] = [];
         if (!friendLists[fromId]) friendLists[fromId] = [];
+        // 양쪽 한도 + 중복 검증
+        if (friendLists[playerId].length >= 50 || friendLists[fromId].length >= 50) {
+            socket.emit('friend_result', { msg: '친구 목록 한도 초과 (50명)' });
+            return;
+        }
+        if (friendLists[playerId].includes(fromId)) {
+            socket.emit('friend_result', { msg: '이미 친구입니다' });
+            return;
+        }
         friendLists[playerId].push(fromId);
         friendLists[fromId].push(playerId);
 
@@ -3807,7 +3941,16 @@ io.on('connection', (socket) => {
     socket.on('mail_send', (data) => {
         const p = players[playerId];
         if (!p || p.level < 15) { socket.emit('mail_result', { msg: 'Lv.15 이상 필요' }); return; }
-        const { targetName, itemId, itemCount, gold } = data;
+        if (!data) return;
+        const targetName = data.targetName;
+        const itemId = data.itemId;
+        const itemCount = Math.floor(Number(data.itemCount));
+        const gold = Math.floor(Number(data.gold));
+        // 음수/NaN/Infinity 방지 (도용 익스플로잇 차단)
+        const validItemCount = Number.isFinite(itemCount) && itemCount > 0;
+        const validGold = Number.isFinite(gold) && gold > 0;
+        if (!validItemCount && !validGold) { socket.emit('mail_result', { msg: '잘못된 입력' }); return; }
+        if (validGold && gold > MAX_GOLD) { socket.emit('mail_result', { msg: '골드 초과' }); return; }
 
         // 수신자 찾기
         let targetId = null;
@@ -3825,7 +3968,7 @@ io.on('connection', (socket) => {
         p.gold -= mailCost;
 
         // 아이템 전송
-        if (itemId && itemCount > 0) {
+        if (itemId && validItemCount) {
             if (!p.inventory || !p.inventory[itemId] || p.inventory[itemId] < itemCount) {
                 socket.emit('mail_result', { msg: '아이템 부족' }); return;
             }
@@ -3843,7 +3986,7 @@ io.on('connection', (socket) => {
         }
 
         // 골드 전송
-        if (gold && gold > 0) {
+        if (validGold) {
             if (p.gold < gold) { socket.emit('mail_result', { msg: '골드 부족' }); return; }
             p.gold -= gold;
             target.gold += gold;
@@ -3959,7 +4102,10 @@ io.on('connection', (socket) => {
     socket.on('clan_storage_deposit', (data) => {
         const p = players[playerId];
         if (!p || !p.clanName || !clans[p.clanName]) return;
-        const { itemId, count } = data;
+        if (!data || typeof data.itemId !== 'string') return;
+        const itemId = data.itemId;
+        const count = Math.floor(Number(data.count));
+        if (!Number.isFinite(count) || count <= 0) return;
         if (!p.inventory || !p.inventory[itemId] || p.inventory[itemId] < count) return;
         p.inventory[itemId] -= count;
         if (p.inventory[itemId] <= 0) delete p.inventory[itemId];
@@ -3971,7 +4117,10 @@ io.on('connection', (socket) => {
     socket.on('clan_storage_withdraw', (data) => {
         const p = players[playerId];
         if (!p || !p.clanName || !clans[p.clanName]) return;
-        const { itemId, count } = data;
+        if (!data || typeof data.itemId !== 'string') return;
+        const itemId = data.itemId;
+        const count = Math.floor(Number(data.count));
+        if (!Number.isFinite(count) || count <= 0) return;
         const storage = clans[p.clanName].storage;
         if (!storage[itemId] || storage[itemId] < count) return;
         storage[itemId] -= count;
@@ -4050,8 +4199,10 @@ io.on('connection', (socket) => {
     socket.on('market_list_item', (data) => {
         const p = players[playerId];
         if (!p) return;
-        const { itemId, price } = data;
-        if (!itemId || !price || price <= 0) { socket.emit('market_result', { msg: '잘못된 입력' }); return; }
+        if (!data || typeof data.itemId !== 'string') { socket.emit('market_result', { msg: '잘못된 입력' }); return; }
+        const itemId = data.itemId;
+        const price = Math.floor(Number(data.price));
+        if (!Number.isFinite(price) || price <= 0 || price > MAX_GOLD) { socket.emit('market_result', { msg: '잘못된 가격' }); return; }
         if (!p.inventory || !p.inventory[itemId] || p.inventory[itemId] <= 0) {
             socket.emit('market_result', { msg: '아이템 없음' }); return;
         }
@@ -4107,11 +4258,14 @@ io.on('connection', (socket) => {
     socket.on('market_bid', (data) => {
         const p = players[playerId];
         if (!p) return;
-        const { listingId, bidAmount } = data;
+        if (!data) return;
+        const listingId = data.listingId;
+        const bidAmount = Math.floor(Number(data.bidAmount));
+        if (!Number.isFinite(bidAmount) || bidAmount <= 0 || bidAmount > MAX_GOLD) { socket.emit('market_result', { msg: '잘못된 입찰액' }); return; }
         const listing = marketListings.find(l => l.id === listingId);
         if (!listing) { socket.emit('market_result', { msg: '매물 없음' }); return; }
         if (listing.sellerId === playerId) { socket.emit('market_result', { msg: '자기 매물 입찰 불가' }); return; }
-        if (bidAmount <= 0 || p.gold < bidAmount) { socket.emit('market_result', { msg: '골드 부족' }); return; }
+        if (p.gold < bidAmount) { socket.emit('market_result', { msg: '골드 부족' }); return; }
 
         const highestBid = listing.bids.length > 0 ? listing.bids[listing.bids.length - 1].amount : 0;
         if (bidAmount <= highestBid) { socket.emit('market_result', { msg: `현재 최고 입찰가(${highestBid}G)보다 높아야 함` }); return; }
@@ -4131,38 +4285,7 @@ io.on('connection', (socket) => {
 
     // ── 경매장: 목록 조회 ──
     socket.on('market_browse', (filter) => {
-        const now = Date.now();
-        // 만료된 매물 정리
-        marketListings = marketListings.filter(l => {
-            if (l.expiresAt && now > l.expiresAt) {
-                // 입찰자가 있으면 낙찰 처리
-                if (l.bids && l.bids.length > 0) {
-                    const winBid = l.bids[l.bids.length - 1];
-                    const winner = players[winBid.bidderId];
-                    if (winner) {
-                        if (!winner.inventory) winner.inventory = {};
-                        winner.inventory[l.itemId] = (winner.inventory[l.itemId] || 0) + 1;
-                        io.to(winBid.bidderId).emit('market_result', { msg: `${l.itemName} 낙찰! 경매장에서 획득` });
-                    }
-                    const seller = players[l.sellerId];
-                    if (seller) {
-                        seller.gold += Math.floor(winBid.amount * (1 - MARKET_FEE));
-                        io.to(l.sellerId).emit('market_result', { msg: `${l.itemName} 낙찰 완료! +${Math.floor(winBid.amount * (1-MARKET_FEE))}G` });
-                    }
-                } else {
-                    // 입찰 없이 만료 → 판매자에게 반환
-                    const seller = players[l.sellerId];
-                    if (seller) {
-                        if (!seller.inventory) seller.inventory = {};
-                        seller.inventory[l.itemId] = (seller.inventory[l.itemId] || 0) + 1;
-                        io.to(l.sellerId).emit('market_result', { msg: `${l.itemName} 만료 반환` });
-                    }
-                }
-                return false;
-            }
-            return true;
-        });
-
+        expireMarketListings();
         let filtered = marketListings;
         if (filter && filter.category) {
             filtered = filtered.filter(l => (TRADEABLE_ITEMS[l.itemId]?.category || '') === filter.category);
@@ -4229,21 +4352,61 @@ io.on('connection', (socket) => {
         socket.emit('bestiary_data', { bestiary, discovered, total: totalTypes });
     });
 
-    // ── 주사위 도박 ──
+    // ── 주사위 도박 (제안) ──
     socket.on('dice_challenge', (data) => {
         const p = players[playerId];
-        if (!p || !p.isAlive) return;
-        const { targetId, bet } = data;
+        if (!p || !p.isAlive || !data) return;
+        const targetId = data.targetId;
+        const bet = Math.floor(Number(data.bet));
+        // NaN/Infinity 가드 (골드 손상 방지)
+        if (!Number.isFinite(bet)) { socket.emit('dice_result', { msg: '잘못된 베팅액' }); return; }
         const target = players[targetId];
-        if (!target || target.isBot || !target.isAlive) { socket.emit('dice_result', { msg: '상대를 찾을 수 없음' }); return; }
+        if (!target || target.isBot || !target.isAlive || targetId === playerId) { socket.emit('dice_result', { msg: '상대를 찾을 수 없음' }); return; }
         const zone = getZone(p.x, p.y);
+        const tZone = getZone(target.x, target.y);
         if (!zone || !ZONES[zone.id]?.safe) { socket.emit('dice_result', { msg: '마을에서만 가능' }); return; }
-        const betAmount = Math.max(100, Math.min(10000, Math.floor(bet)));
+        if (!tZone || tZone.id !== zone.id) { socket.emit('dice_result', { msg: '같은 마을에 있어야 합니다' }); return; }
+        const betAmount = Math.max(100, Math.min(10000, bet));
         if (p.gold < betAmount || target.gold < betAmount) { socket.emit('dice_result', { msg: '골드 부족' }); return; }
         if (!p._diceCount) p._diceCount = { hour: Math.floor(Date.now()/3600000), count: 0 };
         if (p._diceCount.hour !== Math.floor(Date.now()/3600000)) { p._diceCount = { hour: Math.floor(Date.now()/3600000), count: 0 }; }
         if (p._diceCount.count >= 5) { socket.emit('dice_result', { msg: '시간당 5회 제한 초과' }); return; }
+
+        // 즉시 실행이 아닌 제안 — 대상 동의 필요 (강제 도박 익스플로잇 차단)
+        if (!target._pendingDiceOffers) target._pendingDiceOffers = {};
+        target._pendingDiceOffers[playerId] = { bet: betAmount, expiresAt: Date.now() + 30000 };
+        io.to(targetId).emit('dice_incoming', { fromId: playerId, fromName: p.displayName, bet: betAmount });
+        socket.emit('dice_result', { msg: `${target.displayName}에게 ${betAmount}G 도박 신청!` });
+    });
+
+    // ── 주사위 도박 (수락) ──
+    socket.on('dice_accept', (fromId) => {
+        const target = players[playerId];
+        if (!target || !target.isAlive || !target._pendingDiceOffers || !target._pendingDiceOffers[fromId]) {
+            socket.emit('dice_result', { msg: '유효한 도전이 없습니다' }); return;
+        }
+        const offer = target._pendingDiceOffers[fromId];
+        delete target._pendingDiceOffers[fromId];
+        if (Date.now() > offer.expiresAt) { socket.emit('dice_result', { msg: '도전이 만료되었습니다' }); return; }
+        const p = players[fromId];
+        if (!p || !p.isAlive) { socket.emit('dice_result', { msg: '상대 없음' }); return; }
+        // 거리/존 재검증
+        const zone = getZone(p.x, p.y);
+        const tZone = getZone(target.x, target.y);
+        if (!zone || !tZone || zone.id !== tZone.id || !ZONES[zone.id]?.safe) {
+            socket.emit('dice_result', { msg: '같은 마을에 있어야 합니다' }); return;
+        }
+        const betAmount = offer.bet;
+        if (p.gold < betAmount || target.gold < betAmount) { socket.emit('dice_result', { msg: '골드 부족' }); return; }
+        // 양쪽 시간당 카운트 차감
+        if (!p._diceCount) p._diceCount = { hour: Math.floor(Date.now()/3600000), count: 0 };
+        if (p._diceCount.hour !== Math.floor(Date.now()/3600000)) p._diceCount = { hour: Math.floor(Date.now()/3600000), count: 0 };
+        if (p._diceCount.count >= 5) { socket.emit('dice_result', { msg: '상대 시간당 한도 초과' }); return; }
+        if (!target._diceCount) target._diceCount = { hour: Math.floor(Date.now()/3600000), count: 0 };
+        if (target._diceCount.hour !== Math.floor(Date.now()/3600000)) target._diceCount = { hour: Math.floor(Date.now()/3600000), count: 0 };
+        if (target._diceCount.count >= 5) { socket.emit('dice_result', { msg: '시간당 5회 제한 초과' }); return; }
         p._diceCount.count++;
+        target._diceCount.count++;
 
         const roll1 = Math.floor(Math.random()*6)+1 + Math.floor(Math.random()*6)+1;
         const roll2 = Math.floor(Math.random()*6)+1 + Math.floor(Math.random()*6)+1;
@@ -4252,15 +4415,15 @@ io.on('connection', (socket) => {
         if (roll1 > roll2) { winner = p; loser = target; }
         else if (roll2 > roll1) { winner = target; loser = p; }
         else { // 동점
-            socket.emit('dice_result', { msg: `동점! (${roll1} vs ${roll2}) 무승부`, roll1, roll2, tie: true });
-            io.to(targetId).emit('dice_result', { msg: `동점! (${roll2} vs ${roll1}) 무승부`, roll1: roll2, roll2: roll1, tie: true });
+            io.to(fromId).emit('dice_result', { msg: `동점! (${roll1} vs ${roll2}) 무승부`, roll1, roll2, tie: true });
+            socket.emit('dice_result', { msg: `동점! (${roll2} vs ${roll1}) 무승부`, roll1: roll2, roll2: roll1, tie: true });
             return;
         }
         loser.gold -= betAmount;
         winner.gold += betAmount - tax;
         const result = { roll1, roll2, bet: betAmount, winner: winner.displayName, tax };
-        socket.emit('dice_result', { msg: `주사위: ${roll1} vs ${roll2} → ${winner.displayName} 승리!${winner===p ? ' +'+( betAmount-tax)+'G' : ' -'+betAmount+'G'}`, ...result });
-        io.to(targetId).emit('dice_result', { msg: `주사위: ${roll2} vs ${roll1} → ${winner.displayName} 승리!${winner===target ? ' +'+(betAmount-tax)+'G' : ' -'+betAmount+'G'}`, ...result });
+        io.to(fromId).emit('dice_result', { msg: `주사위: ${roll1} vs ${roll2} → ${winner.displayName} 승리!${winner===p ? ' +'+(betAmount-tax)+'G' : ' -'+betAmount+'G'}`, ...result });
+        socket.emit('dice_result', { msg: `주사위: ${roll2} vs ${roll1} → ${winner.displayName} 승리!${winner===target ? ' +'+(betAmount-tax)+'G' : ' -'+betAmount+'G'}`, ...result });
         if (betAmount >= 5000) io.emit('server_msg', { msg: `[도박] ${p.displayName} vs ${target.displayName} — ${betAmount}G 판돈! ${winner.displayName} 승리!`, type: 'rare' });
         io.emit('player_update', p); io.emit('player_update', target);
     });
@@ -4590,21 +4753,32 @@ io.on('connection', (socket) => {
     socket.on('contract_create', (data) => {
         const p = players[playerId];
         if (!p || p.level < 10) { socket.emit('contract_result', { msg: 'Lv.10 이상 필요' }); return; }
-        const { type, target, reward } = data;
-        if (!type || !reward || reward <= 0) return;
+        if (!data) return;
+        const reward = Math.floor(Number(data.reward));
+        // 유효 정수 + 100~1,000,000 범위
+        if (!Number.isFinite(reward) || reward < 100 || reward > 1000000) {
+            socket.emit('contract_result', { msg: '보상은 100~1,000,000G' }); return;
+        }
+        // type/target 문자열 검증 + XSS 차단
+        const safeType = (typeof data.type === 'string' ? data.type : '').slice(0, 30).replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        const safeTarget = (typeof data.target === 'string' ? data.target : '').slice(0, 30).replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        if (!safeType) return;
         const cost = Math.floor(reward * 1.1); // 10% 수수료
         if (p.gold < cost) { socket.emit('contract_result', { msg: `골드 부족 (${cost}G 필요 — 수수료 10%)` }); return; }
+        // 동시 의뢰 수 제한 (스팸 방지)
+        const myOpen = contractBoard.filter(c => c.creatorId === playerId && c.status === 'open').length;
+        if (myOpen >= 5) { socket.emit('contract_result', { msg: '동시 의뢰 5개 한도 초과' }); return; }
         p.gold -= cost;
         contractIdCounter++;
         const contract = {
             id: contractIdCounter, creatorId: playerId, creatorName: p.displayName,
-            type, target: target || '', reward: Math.floor(reward),
+            type: safeType, target: safeTarget, reward,
             status: 'open', acceptedBy: null, expiresAt: Date.now() + 3600000, // 1시간
         };
         contractBoard.push(contract);
         savePlayer(p);
-        socket.emit('contract_result', { msg: `의뢰 등록! "${type}" — ${reward}G 보상` });
-        io.emit('server_msg', { msg: `[의뢰] ${p.displayName}의 새 의뢰: "${type}" (${reward}G)`, type: 'normal' });
+        socket.emit('contract_result', { msg: `의뢰 등록! "${safeType}" — ${reward}G 보상` });
+        io.emit('server_msg', { msg: `[의뢰] ${p.displayName}의 새 의뢰: "${safeType}" (${reward}G)`, type: 'normal' });
     });
 
     socket.on('contract_accept', (contractId) => {
@@ -4974,19 +5148,24 @@ io.on('connection', (socket) => {
         const p = players[playerId];
         if (!p) return;
         try {
-            const { goodsId, town, qty } = JSON.parse(dataStr);
+            const data = JSON.parse(dataStr);
+            const goodsId = data && data.goodsId;
+            const town = data && data.town;
+            const qty = Math.floor(Number(data && data.qty));
+            // 음수/NaN 방지 (도용 익스플로잇 차단)
+            if (!Number.isFinite(qty) || qty <= 0 || qty > 9999) { socket.emit('trade_goods_result', { success:false, msg:'잘못된 수량' }); return; }
             const zone = getZone(p.x, p.y);
-            if (zone.id !== town) { socket.emit('trade_goods_result', { success:false, msg:'해당 마을에 있어야 합니다' }); return; }
+            if (!zone || zone.id !== town) { socket.emit('trade_goods_result', { success:false, msg:'해당 마을에 있어야 합니다' }); return; }
             if (!townPrices[town] || !townPrices[town][goodsId]) return;
 
-            const price = townPrices[town][goodsId].buyPrice * (qty || 1);
+            const price = townPrices[town][goodsId].buyPrice * qty;
             if (p.gold < price) { socket.emit('trade_goods_result', { success:false, msg:'골드 부족' }); return; }
 
             p.gold -= price;
             if (!p.inventory) p.inventory = {};
-            p.inventory[goodsId] = (p.inventory[goodsId] || 0) + (qty || 1);
+            p.inventory[goodsId] = (p.inventory[goodsId] || 0) + qty;
             savePlayer(p);
-            socket.emit('trade_goods_result', { success:true, msg:`${townPrices[town][goodsId].name} x${qty||1} 구매 (${price}G)` });
+            socket.emit('trade_goods_result', { success:true, msg:`${townPrices[town][goodsId].name} x${qty} 구매 (${price}G)` });
             io.emit('player_update', p);
         } catch(e) {}
     });
@@ -4995,24 +5174,29 @@ io.on('connection', (socket) => {
         const p = players[playerId];
         if (!p) return;
         try {
-            const { goodsId, town, qty } = JSON.parse(dataStr);
+            const data = JSON.parse(dataStr);
+            const goodsId = data && data.goodsId;
+            const town = data && data.town;
+            const qty = Math.floor(Number(data && data.qty));
+            // 음수/NaN 방지
+            if (!Number.isFinite(qty) || qty <= 0 || qty > 9999) { socket.emit('trade_goods_result', { success:false, msg:'잘못된 수량' }); return; }
             const zone = getZone(p.x, p.y);
-            if (zone.id !== town) { socket.emit('trade_goods_result', { success:false, msg:'해당 마을에 있어야 합니다' }); return; }
-            if (!p.inventory || !p.inventory[goodsId] || p.inventory[goodsId] < (qty||1)) {
+            if (!zone || zone.id !== town) { socket.emit('trade_goods_result', { success:false, msg:'해당 마을에 있어야 합니다' }); return; }
+            if (!p.inventory || !p.inventory[goodsId] || p.inventory[goodsId] < qty) {
                 socket.emit('trade_goods_result', { success:false, msg:'물건 부족' }); return;
             }
             if (!townPrices[town] || !townPrices[town][goodsId]) return;
 
-            const price = townPrices[town][goodsId].sellPrice * (qty || 1);
-            p.inventory[goodsId] -= (qty || 1);
+            const price = townPrices[town][goodsId].sellPrice * qty;
+            p.inventory[goodsId] -= qty;
             if (p.inventory[goodsId] <= 0) delete p.inventory[goodsId];
             p.gold += price;
             p.totalTradeProfit = (p.totalTradeProfit || 0) + price;
-            trackQuest(p, 'trade_count', qty || 1);
+            trackQuest(p, 'trade_count', qty);
             checkTitles(p);
             capResources(p);
             savePlayer(p);
-            socket.emit('trade_goods_result', { success:true, msg:`${townPrices[town][goodsId].name} x${qty||1} 판매 (+${price}G)` });
+            socket.emit('trade_goods_result', { success:true, msg:`${townPrices[town][goodsId].name} x${qty} 판매 (+${price}G)` });
             io.emit('player_update', p);
         } catch(e) {}
     });
@@ -5021,36 +5205,63 @@ io.on('connection', (socket) => {
         socket.emit('town_prices', townPrices);
     });
 
-    // ── 용병 거래 ──
+    // ── 용병 거래 (제안) ──
     socket.on('trade_unit', (dataStr) => {
         try {
-            const { unitId, targetPlayerId, price } = JSON.parse(dataStr);
+            const data = JSON.parse(dataStr);
+            const unitId = data && data.unitId;
+            const targetPlayerId = data && data.targetPlayerId;
+            const price = Math.floor(Number(data && data.price));
+            if (!Number.isFinite(price) || price < 0 || price > MAX_GOLD) return;
             const p = players[playerId];
             const t = players[targetPlayerId];
             const unit = players[unitId];
             if (!p || !t || !unit || !unit.isBot || unit.ownerId !== playerId) return;
-            if (t.isBot) return;
+            if (t.isBot || targetPlayerId === playerId) return;
             const dist = Math.hypot(p.x - t.x, p.y - t.y);
             if (dist > 10) { socket.emit('trade_result', { success:false, msg:'너무 멀어요' }); return; }
-            if (t.gold < (price || 0)) { socket.emit('trade_result', { success:false, msg:'상대 골드 부족' }); return; }
 
-            // 거래 실행
-            unit.ownerId = targetPlayerId;
-            unit.team = t.team;
-            if (price > 0) { t.gold -= price; p.gold += price; }
-            savePlayer(p); savePlayer(t);
-            socket.emit('trade_result', { success:true, msg:`용병 판매! +${price}G` });
-            io.to(targetPlayerId).emit('trade_result', { success:true, msg:`용병 구매! -${price}G` });
-            io.emit('player_update', p);
-            io.emit('player_update', t);
-            io.emit('player_update', unit);
+            // 즉시 거래가 아닌 제안 — 대상이 unit_buy_accept로 수락해야 실행
+            if (!t._pendingUnitOffers) t._pendingUnitOffers = {};
+            t._pendingUnitOffers[unitId] = { sellerId: playerId, price, expiresAt: Date.now() + 60000 };
+            io.to(targetPlayerId).emit('unit_offer', { unitId, sellerId: playerId, sellerName: p.displayName, price, unitClass: unit.className });
+            socket.emit('trade_result', { success:true, msg:`${t.displayName}에게 용병 판매 제안 (${price}G)` });
         } catch(e) {}
+    });
+
+    // ── 용병 구매 수락 ──
+    socket.on('unit_buy_accept', (unitId) => {
+        const t = players[playerId];
+        if (!t || !t._pendingUnitOffers || !t._pendingUnitOffers[unitId]) return;
+        const offer = t._pendingUnitOffers[unitId];
+        if (Date.now() > offer.expiresAt) { delete t._pendingUnitOffers[unitId]; return; }
+        const p = players[offer.sellerId];
+        const unit = players[unitId];
+        if (!p || !unit || !unit.isBot || unit.ownerId !== offer.sellerId) {
+            delete t._pendingUnitOffers[unitId];
+            socket.emit('trade_result', { success:false, msg:'제안이 유효하지 않습니다' });
+            return;
+        }
+        if (t.gold < offer.price) { socket.emit('trade_result', { success:false, msg:'골드 부족' }); return; }
+        delete t._pendingUnitOffers[unitId];
+        // 실행
+        unit.ownerId = playerId;
+        unit.team = t.team;
+        if (offer.price > 0) { t.gold -= offer.price; p.gold += offer.price; }
+        savePlayer(p); savePlayer(t);
+        io.to(offer.sellerId).emit('trade_result', { success:true, msg:`용병 판매 완료! +${offer.price}G` });
+        socket.emit('trade_result', { success:true, msg:`용병 구매 완료! -${offer.price}G` });
+        io.emit('player_update', p);
+        io.emit('player_update', t);
+        io.emit('player_update', unit);
     });
 
     // ── 공성전 ──
     socket.on('start_siege', () => {
         const p = players[playerId];
-        if (!p || !p.clanName) { socket.emit('siege_result', { msg:'혈맹 필요' }); return; }
+        if (!p || !p.clanName || !clans[p.clanName]) { socket.emit('siege_result', { msg:'혈맹 필요' }); return; }
+        // 군주만 공성 선포 가능 (clan_war_declare와 일관성)
+        if (clans[p.clanName].leader !== playerId) { socket.emit('siege_result', { msg:'군주만 선포 가능' }); return; }
         if (siegeActive) { socket.emit('siege_result', { msg:'이미 공성 중' }); return; }
         if (castleOwner === p.clanName) { socket.emit('siege_result', { msg:'이미 성 소유 중' }); return; }
 
@@ -5065,7 +5276,8 @@ io.on('connection', (socket) => {
                 const pl = players[pid];
                 if (!pl.isAlive || !pl.clanName || pl.isBot) continue;
                 const z = getZone(pl.x, pl.y);
-                if (z.isCastle) {
+                // getZone은 맵 밖에서 null 반환 가능 — 크래시 방지
+                if (z && z.isCastle) {
                     clanCounts[pl.clanName] = (clanCounts[pl.clanName] || 0) + 1;
                 }
             }
@@ -5088,9 +5300,12 @@ io.on('connection', (socket) => {
     socket.on('trade_request', (targetId) => {
         const p = players[playerId];
         const t = players[targetId];
-        if (!p || !t || t.isBot) return;
+        if (!p || !t || t.isBot || targetId === playerId) return;
         const dist = Math.hypot(p.x - t.x, p.y - t.y);
         if (dist > 5) { socket.emit('trade_result', { success:false, msg:'대상이 너무 멉니다 (5 이내)' }); return; }
+        // 대기 중 거래 요청 저장 (수락 시 검증)
+        if (!t._pendingTrades) t._pendingTrades = {};
+        t._pendingTrades[playerId] = Date.now() + 60000; // 60초 유효
         io.to(targetId).emit('trade_incoming', { fromId: playerId, fromName: p.displayName });
         socket.emit('trade_result', { success:true, msg:'거래 요청을 보냈습니다' });
     });
@@ -5098,27 +5313,44 @@ io.on('connection', (socket) => {
     socket.on('trade_accept', (dataStr) => {
         try {
             const data = JSON.parse(dataStr);
-            const { fromId, myItem, theirItem } = data;
+            const fromId = data && data.fromId;
+            const myItem = data && data.myItem;
             const p = players[playerId];
             const t = players[fromId];
-            if (!p || !t) return;
+            if (!p || !t || t.isBot || fromId === playerId) return;
 
-            // 아이템 교환
-            if (myItem && p.inventory && p.inventory[myItem]) {
+            // 유효한 거래 요청 검증 (theirItem 강탈 방지)
+            if (!p._pendingTrades || !p._pendingTrades[fromId] || Date.now() > p._pendingTrades[fromId]) {
+                socket.emit('trade_result', { success:false, msg:'유효한 거래 요청이 없습니다' });
+                return;
+            }
+            // 거리 재검증
+            if (Math.hypot(p.x - t.x, p.y - t.y) > 5) {
+                socket.emit('trade_result', { success:false, msg:'대상이 너무 멉니다' });
+                return;
+            }
+            // 귀속 아이템 보호
+            if (myItem && EQUIP_STATS[myItem]?.bound) {
+                socket.emit('trade_result', { success:false, msg:'귀속 아이템은 거래 불가' });
+                return;
+            }
+            // 한 번만 사용 (재사용 방지)
+            delete p._pendingTrades[fromId];
+
+            // 일방향 양도: 수락자가 자기 아이템을 요청자에게 전달
+            if (myItem && p.inventory && p.inventory[myItem] > 0) {
                 p.inventory[myItem]--;
                 if (p.inventory[myItem] <= 0) delete p.inventory[myItem];
                 if (!t.inventory) t.inventory = {};
                 t.inventory[myItem] = (t.inventory[myItem] || 0) + 1;
+                savePlayer(p); savePlayer(t);
+                socket.emit('trade_result', { success:true, msg:`${myItem} 양도 완료!` });
+                io.to(fromId).emit('trade_result', { success:true, msg:`${p.displayName}에게서 ${myItem} 수령!` });
+                io.emit('player_update', p);
+                io.emit('player_update', t);
+            } else {
+                socket.emit('trade_result', { success:false, msg:'양도할 아이템이 없습니다' });
             }
-            if (theirItem && t.inventory && t.inventory[theirItem]) {
-                t.inventory[theirItem]--;
-                if (t.inventory[theirItem] <= 0) delete t.inventory[theirItem];
-                if (!p.inventory) p.inventory = {};
-                p.inventory[theirItem] = (p.inventory[theirItem] || 0) + 1;
-            }
-            savePlayer(p); savePlayer(t);
-            socket.emit('trade_result', { success:true, msg:'거래 완료!' });
-            io.to(fromId).emit('trade_result', { success:true, msg:'거래 완료!' });
         } catch(e) {}
     });
 
@@ -5239,6 +5471,21 @@ io.on('connection', (socket) => {
     socket.on('chat', (msg) => {
         const p = players[playerId];
         if (!p || typeof msg !== 'string' || msg.length > 100) return;
+        // 레이트 리밋: 2초 윈도우 4메시지 → 초과 시 5초 뮤트
+        const now = Date.now();
+        if (!p._chatLog) p._chatLog = [];
+        if (p._chatMutedUntil && now < p._chatMutedUntil) {
+            socket.emit('chat_msg', { sender: 'SYSTEM', msg: `채팅 도배 방지 — ${Math.ceil((p._chatMutedUntil-now)/1000)}초 후 가능`, team: 'system' });
+            return;
+        }
+        p._chatLog = p._chatLog.filter(t => now - t < 2000);
+        p._chatLog.push(now);
+        if (p._chatLog.length > 4) {
+            p._chatMutedUntil = now + 5000;
+            p._chatLog = [];
+            socket.emit('chat_msg', { sender: 'SYSTEM', msg: '채팅 도배 방지 — 5초간 채팅 불가', team: 'system' });
+            return;
+        }
         const cleanMsg = msg.replace(/</g, '&lt;').replace(/>/g, '&gt;');
         const titleInfo = p.activeTitle && TITLES[p.activeTitle] ? TITLES[p.activeTitle] : null;
         io.emit('chat_msg', {
@@ -5271,6 +5518,24 @@ io.on('connection', (socket) => {
             if (towerProgress[playerId]) delete towerProgress[playerId];
             // 아레나 큐 정리
             arenaQueue = arenaQueue.filter(id => id !== playerId);
+            // 진행 중 아레나 매치 즉시 포기 처리 (상대가 3분 대기하지 않도록)
+            if (p.arenaMatchId && arenaMatches[p.arenaMatchId]) {
+                const match = arenaMatches[p.arenaMatchId];
+                const opponentId = match.player1 === playerId ? match.player2 : match.player1;
+                endArenaMatch(p.arenaMatchId, opponentId, playerId, '상대 이탈');
+            }
+            // 대기 중 거래/결투/용병 제안 정리 (상대 플레이어에 걸어둔 것도 제거)
+            for (const otherId in players) {
+                const other = players[otherId];
+                if (other._pendingTrades && other._pendingTrades[playerId]) delete other._pendingTrades[playerId];
+                if (other._pendingDuels && other._pendingDuels[playerId]) delete other._pendingDuels[playerId];
+                if (other._pendingDiceOffers && other._pendingDiceOffers[playerId]) delete other._pendingDiceOffers[playerId];
+                if (other._pendingUnitOffers) {
+                    for (const uid in other._pendingUnitOffers) {
+                        if (other._pendingUnitOffers[uid].sellerId === playerId) delete other._pendingUnitOffers[uid];
+                    }
+                }
+            }
 
             savePlayer(p);
 
@@ -5319,11 +5584,12 @@ function executeThrow(pId) {
         }, cls.projLife);
     } else {
         // 액티브 플레이 보너스 적용
-        // 버프 아이템 반영 (atk_boost, food_atk 등)
-        const buffedAtk = getBuffedStat(player, 'atk');
+        // 버프 아이템 반영 (atk_boost, food_atk 등) + 패시브 (워리어 분노)
+        let buffedAtk = getBuffedStat(player, 'atk');
+        if (player.passiveAtkBonus) buffedAtk = Math.floor(buffedAtk * (1 + player.passiveAtkBonus));
         let activeDmgMulti = player.dmgMulti;
         if (player._activeBonus && Date.now() < player._activeBonus) activeDmgMulti *= 1.3;
-        const { damage, isCrit } = calcDamage(buffedAtk, 0, activeDmgMulti, player.critRate);
+        const { damage, isCrit } = calcDamage(buffedAtk, 0, activeDmgMulti, player.critRate, undefined, undefined, player);
         axes[currentObjId] = {
             id: currentObjId, ownerId: pId,
             x: player.x + finalDirX * 0.5,
@@ -5866,6 +6132,21 @@ setInterval(() => {
         }
     }
 
+    // ── 6.5 황금 비 이벤트 (15~30분마다, 5분 지속) ──
+    if (!goldenRain && now > nextGoldenTime) {
+        const huntZones = Object.entries(ZONES).filter(([id, z]) => !z.safe && !z.isCastle && !z.isArena);
+        const [gzId, gZone] = huntZones[Math.floor(Math.random() * huntZones.length)];
+        goldenRain = { zoneId: gzId, endTime: now + 300000 };
+        io.emit('server_msg', { msg: `[황금 비] ${gZone.name}에 황금 비가 내립니다! 5분간 골드 x3, EXP x1.5!`, type: 'rare' });
+        logWorldEvent(`황금 비 — ${gZone.name}`, 'rare');
+        io.emit('golden_rain', { zoneId: gzId, zoneName: gZone.name, duration: 300 });
+        nextGoldenTime = now + 900000 + Math.random() * 900000;
+    }
+    if (goldenRain && now > goldenRain.endTime) {
+        io.emit('server_msg', { msg: '[황금 비] 황금 비가 멎었습니다.', type: 'normal' });
+        goldenRain = null;
+    }
+
     // ── 4. 존 정복 집계 (매시 정각 리셋) ──
     if (now - lastConquestReset > 3600000) {
         lastConquestReset = now;
@@ -6009,6 +6290,26 @@ setInterval(() => {
         }
     }
 
+    // 온라인 플레이어 일일 리셋 (1분마다 체크 — 자정 넘어서도 계속 접속한 유저용)
+    if (tickCounter % (30 * 60) === 0) {
+        const today = new Date().toDateString();
+        for (const pid in players) {
+            const p = players[pid];
+            if (p.isBot) continue;
+            if (p.lastLoginDate && p.lastLoginDate !== today) {
+                p.lastLoginDate = today;
+                p._dailyChallengeProgress = 0;
+                p._dailyChallengeCompleted = false;
+                p._dailyChallengeClaimed = false;
+                p.arenaCountToday = 0;
+                if (p.lastLuckySpin && p.lastLuckySpin !== today) {
+                    // lucky spin은 toDateString 비교라 자동 리셋되지만 안전하게 정리
+                }
+                io.to(pid).emit('server_msg', { msg: '[일일 리셋] 일일 챌린지/아레나/룰렛 횟수가 초기화되었습니다.', type: 'normal' });
+            }
+        }
+    }
+
     // 공성전 세금 수입 (5분마다 성 소유 혈맹에게 지급)
     if (tickCounter % (30 * 300) === 0 && castleOwner && clans[castleOwner]) {
         const ownerClan = clans[castleOwner];
@@ -6114,6 +6415,12 @@ setInterval(() => {
 
     updateBots();
 
+    // 패시브 스킬 (워리어 분노/나이트 수호 오라 등) — 모든 플레이어 대상, 4틱당 1회
+    if (tickCounter % 4 === 0) updatePassives();
+
+    // 경매 만료 처리 (30초마다 cron — 아무도 browse 안 해도 자동 정산)
+    if (tickCounter % (30 * 30) === 0) expireMarketListings();
+
     if (tickCounter % 15 === 0) handleAoeDamage();
 
     syncGameState();
@@ -6122,6 +6429,86 @@ setInterval(() => {
 // ==========================================
 // 봇 AI
 // ==========================================
+
+// 경매 만료 처리 — market_browse 호출 시 + 30초마다 cron
+function expireMarketListings() {
+    const now = Date.now();
+    marketListings = marketListings.filter(l => {
+        if (l.expiresAt && now > l.expiresAt) {
+            // 입찰자가 있으면 낙찰 처리
+            if (l.bids && l.bids.length > 0) {
+                const winBid = l.bids[l.bids.length - 1];
+                const winner = players[winBid.bidderId];
+                if (winner) {
+                    if (!winner.inventory) winner.inventory = {};
+                    winner.inventory[l.itemId] = (winner.inventory[l.itemId] || 0) + 1;
+                    io.to(winBid.bidderId).emit('market_result', { msg: `${l.itemName} 낙찰! 경매장에서 획득` });
+                }
+                const seller = players[l.sellerId];
+                if (seller) {
+                    seller.gold += Math.floor(winBid.amount * (1 - MARKET_FEE));
+                    io.to(l.sellerId).emit('market_result', { msg: `${l.itemName} 낙찰 완료! +${Math.floor(winBid.amount * (1-MARKET_FEE))}G` });
+                }
+            } else {
+                // 입찰 없이 만료 → 판매자에게 반환
+                const seller = players[l.sellerId];
+                if (seller) {
+                    if (!seller.inventory) seller.inventory = {};
+                    seller.inventory[l.itemId] = (seller.inventory[l.itemId] || 0) + 1;
+                    io.to(l.sellerId).emit('market_result', { msg: `${l.itemName} 만료 반환` });
+                }
+            }
+            return false;
+        }
+        return true;
+    });
+}
+
+// 패시브 스킬 적용 — 모든 플레이어 (봇 + 실제 유저) 대상
+function updatePassives() {
+    // 1) 매 틱 시작에 aura 효과 리셋 (지속 누적/잔존 방지)
+    for (const id in players) {
+        const p = players[id];
+        if (p.auraDefMulti) p.auraDefMulti = 1;
+    }
+    // 2) 패시브 적용
+    for (const id in players) {
+        const p = players[id];
+        if (!p.isAlive) continue;
+        if (!p.passiveApplied) p.passiveApplied = {};
+        const baseClassName = p.baseClassName || p.className;
+        const classSkills = SKILLS[baseClassName];
+        if (!classSkills) continue;
+        for (const skill of classSkills) {
+            if (skill.type !== 'passive' || p.level < skill.level) continue;
+            // 워리어 - 분노: HP 임계치 이하 시 ATK 보너스
+            if (skill.atkBonus && skill.hpThreshold) {
+                if (p.hp < p.maxHp * skill.hpThreshold) {
+                    p.passiveAtkBonus = skill.atkBonus;
+                } else {
+                    p.passiveAtkBonus = 0;
+                }
+            }
+            // 나이트 - 수호 오라: 주변 아군 DEF 증가 (매 틱 갱신)
+            if (skill.allyDefMulti && skill.auraRange) {
+                for (const aid in players) {
+                    if (aid === id) continue;
+                    const ally = players[aid];
+                    if (!ally.isAlive) continue;
+                    // 같은 팀 또는 같은 소유주
+                    const sameTeam = ally.team === p.team;
+                    const sameOwner = ally.ownerId === p.ownerId || ally.ownerId === id || aid === p.ownerId;
+                    if (!sameTeam && !sameOwner) continue;
+                    const auraDist = Math.hypot(ally.x - p.x, ally.y - p.y);
+                    if (auraDist <= skill.auraRange) {
+                        // 가장 강한 오라가 적용되도록 max
+                        ally.auraDefMulti = Math.max(ally.auraDefMulti || 1, skill.allyDefMulti);
+                    }
+                }
+            }
+        }
+    }
+}
 
 function updateBots() {
     for (let id in players) {
@@ -6245,42 +6632,10 @@ function updateBots() {
                 }
             }
 
-            // 패시브 스킬 적용
+            // 스킬 쿨타임 초기화 (패시브는 updatePassives에서 처리)
             if (!p.skillCooldowns) p.skillCooldowns = {};
-            if (!p.passiveApplied) p.passiveApplied = {};
             const baseClassName = p.baseClassName || p.className;
             const classSkills = SKILLS[baseClassName];
-            if (classSkills) {
-                for (const skill of classSkills) {
-                    if (skill.type !== 'passive' || p.level < skill.level) continue;
-                    // 어쌔신 - 독 바르기: 일반 공격 시 독 적용 (별도 처리 필요 없음, 투사체 적중 시 적용)
-                    // 워리어 - 분노: HP 50% 이하 시 ATK 30% 증가
-                    if (skill.atkBonus && skill.hpThreshold) {
-                        if (p.hp < p.maxHp * skill.hpThreshold) {
-                            if (!p.passiveApplied[skill.name]) {
-                                p.passiveApplied[skill.name] = true;
-                                p.passiveAtkBonus = skill.atkBonus;
-                            }
-                        } else {
-                            if (p.passiveApplied[skill.name]) {
-                                p.passiveApplied[skill.name] = false;
-                                p.passiveAtkBonus = 0;
-                            }
-                        }
-                    }
-                    // 나이트 - 수호 오라: 주변 아군 DEF +15%
-                    if (skill.allyDefMulti && skill.auraRange) {
-                        for (const [aid, ally] of Object.entries(players)) {
-                            if (aid === id || !ally.isAlive) continue;
-                            if (ally.team !== p.team && !(ally.ownerId === p.ownerId || ally.ownerId === id || aid === p.ownerId)) continue;
-                            const auraDist = Math.hypot(ally.x - p.x, ally.y - p.y);
-                            if (auraDist <= skill.auraRange) {
-                                ally.auraDefMulti = skill.allyDefMulti;
-                            }
-                        }
-                    }
-                }
-            }
 
             // 스킬 자동 시전 (클래스별 액티브/궁극기)
             if (classSkills && target && minDist < 8) {
@@ -6607,7 +6962,9 @@ function handleCollisions() {
 
             const dx = axe.x - mob.x, dy = axe.y - mob.y;
             if (dx * dx + dy * dy < 1.0) {
-                const { damage } = calcDamage(owner.atk || 10, mob.def, owner.dmgMulti, owner.critRate || 0.1, owner.element, mob.element);
+                let ownerAtk = getBuffedStat(owner, 'atk') || owner.atk || 10;
+                if (owner.passiveAtkBonus) ownerAtk = Math.floor(ownerAtk * (1 + owner.passiveAtkBonus));
+                const { damage } = calcDamage(ownerAtk, mob.def, owner.dmgMulti, owner.critRate || 0.1, owner.element, mob.element, owner);
                 mob.hp -= damage;
 
                 // 월드보스 기여도 추적
@@ -6641,9 +6998,21 @@ function handleCollisions() {
 
                     // 월드보스 처치 시 기여도 기반 보상
                     if (mob.isWorldBoss) {
-                        const totalDmg = Object.values(mob.damageContrib).reduce((s, d) => s + d, 0);
-                        const sorted = Object.entries(mob.damageContrib).sort((a,b) => b[1] - a[1]);
+                        const totalDmg = Object.values(mob.damageContrib || {}).reduce((s, d) => s + d, 0);
+                        const sorted = Object.entries(mob.damageContrib || {}).sort((a,b) => b[1] - a[1]);
                         io.emit('server_msg', { msg: `[월드 보스] ${mob.name} 처치 완료! MVP: ${players[sorted[0]?.[0]]?.displayName || '???'}`, type: 'boss' });
+                        // totalDmg가 0이면 (오직 DOT/poison으로 처치된 엣지케이스) NaN 보상 방지
+                        if (totalDmg <= 0) {
+                            const safeOwner = (owner.isBot && owner.ownerId && players[owner.ownerId]) ? players[owner.ownerId] : owner;
+                            safeOwner.gold += mob.goldReward || 0;
+                            giveExp(safeOwner, mob.expReward || 0);
+                            worldBoss = null;
+                            io.emit('world_boss_dead', { id: mId, name: mob.name });
+                            delete monsters[mId];
+                            destroyAxe(axeId);
+                            axeDestroyed = true;
+                            break;
+                        }
 
                         for (const [pid, dmg] of sorted) {
                             const p = players[pid];
@@ -6808,6 +7177,10 @@ function handleCollisions() {
                     if (meteorShower && mob.zoneId === meteorShower.zoneId) {
                         goldMulti *= 2; expMulti *= 2;
                     }
+                    // 황금 비 존 보너스 (골드 x3, EXP x1.5)
+                    if (goldenRain && mob.zoneId === goldenRain.zoneId) {
+                        goldMulti *= 3; expMulti *= 1.5;
+                    }
 
                     // 현상금 처치 체크
                     if (!realOwner.isBot && realOwner._activeBounty) {
@@ -6906,8 +7279,8 @@ function handleCollisions() {
                             { id:'equip_ring_3', rate:0.20 }, { id:'equip_neck_3', rate:0.15 },
                         ],
                     };
-                    const drops = equipDrops[mob.tier] || [];
-                    for (const d of drops) {
+                    const dropTable = equipDrops[mob.tier] || [];
+                    for (const d of dropTable) {
                         const effectiveRate = d.rate * (1 + (realOwner.dropRateBonus || 0));
                         if (Math.random() < effectiveRate) {
                             const eqInfo = EQUIP_STATS[d.id];
@@ -7059,31 +7432,70 @@ function handleAoeDamage() {
         const owner = players[aoe.ownerId];
         if (!owner) continue;
 
+        // 버프 적용된 공격력 (음식/물약/스킬 버프 반영)
+        const ownerAtk = getBuffedStat(owner, 'atk') || owner.atk || 10;
+
         // 몬스터
         for (const mId in monsters) {
             const mob = monsters[mId];
             if (!mob.isAlive) continue;
             const dx = aoe.x - mob.x, dy = aoe.y - mob.y;
             if (dx * dx + dy * dy <= aoe.radius * aoe.radius) {
-                const { damage } = calcDamage(owner.atk || 10, mob.def, owner.dmgMulti * 0.8, owner.critRate || 0.1, owner.element, mob.element);
+                const { damage } = calcDamage(ownerAtk, mob.def, owner.dmgMulti * 0.8, owner.critRate || 0.1, owner.element, mob.element, owner);
                 mob.hp -= damage;
+
+                // 월드보스 기여도 추적 (AOE도 포함)
+                if (mob.isWorldBoss && mob.damageContrib) {
+                    const realOwnerId = (owner.isBot && owner.ownerId) ? owner.ownerId : owner.id;
+                    mob.damageContrib[realOwnerId] = (mob.damageContrib[realOwnerId] || 0) + damage;
+                }
 
                 if (mob.hp <= 0) {
                     mob.isAlive = false;
-                    const tier = MONSTER_TIERS[mob.tier];
                     let realOwner = (owner.isBot && owner.ownerId && players[owner.ownerId])
                         ? players[owner.ownerId] : owner;
 
-                    realOwner.gold += tier.goldReward;
-                    giveExp(owner, tier.expReward);
-                    spawnDrop(mob.x, mob.y, Math.floor(tier.goldReward * 0.5), mId);
+                    // 월드보스: 기여도 기반 보상 + 일반 몬스터 리스폰 안 함
+                    if (mob.isWorldBoss) {
+                        const totalDmg = Object.values(mob.damageContrib || {}).reduce((s, d) => s + d, 0);
+                        const sorted = Object.entries(mob.damageContrib || {}).sort((a,b) => b[1] - a[1]);
+                        io.emit('server_msg', { msg: `[월드 보스] ${mob.name} 처치 완료! MVP: ${players[sorted[0]?.[0]]?.displayName || realOwner.displayName}`, type: 'boss' });
+                        if (totalDmg > 0) {
+                            for (const [pid, dmg] of sorted) {
+                                const pp = players[pid];
+                                if (!pp) continue;
+                                const ratio = dmg / totalDmg;
+                                pp.gold += Math.floor((mob.goldReward || 0) * ratio * 2);
+                                giveExp(pp, Math.floor((mob.expReward || 0) * ratio * 2));
+                                io.emit('player_update', pp);
+                            }
+                        } else {
+                            // damageContrib이 비어있으면 처치자에게 전체 보상
+                            realOwner.gold += mob.goldReward || 0;
+                            giveExp(realOwner, mob.expReward || 0);
+                        }
+                        worldBoss = null;
+                        io.emit('world_boss_dead', { id: mId, name: mob.name });
+                        delete monsters[mId];
+                        // 월드보스는 spawnMonster로 대체하지 않음
+                    } else {
+                        const tier = MONSTER_TIERS[mob.tier];
+                        if (tier) {
+                            // 월드 이벤트 보너스 (메테오/황금 비)
+                            let goldMulti = 1, expMulti = 1;
+                            if (meteorShower && mob.zoneId === meteorShower.zoneId) { goldMulti *= 2; expMulti *= 2; }
+                            if (goldenRain && mob.zoneId === goldenRain.zoneId) { goldMulti *= 3; expMulti *= 1.5; }
 
-                    io.emit('monster_die', { id: mId, tier: mob.tier, killer: realOwner.id });
-                    io.emit('player_update', realOwner);
-
-                    delete monsters[mId];
-                    spawnMonster();
-                    io.emit('monster_spawn', monsters['monster_' + entityIdCounter]);
+                            realOwner.gold += Math.floor(tier.goldReward * goldMulti);
+                            giveExp(owner, Math.floor(tier.expReward * expMulti));
+                            spawnDrop(mob.x, mob.y, Math.floor(tier.goldReward * 0.5 * goldMulti), mId);
+                        }
+                        io.emit('monster_die', { id: mId, tier: mob.tier, killer: realOwner.id });
+                        io.emit('player_update', realOwner);
+                        delete monsters[mId];
+                        spawnMonster();
+                        io.emit('monster_spawn', monsters['monster_' + entityIdCounter]);
+                    }
                 } else {
                     io.emit('monster_hit', { id: mId, hp: mob.hp, damage, maxHp: mob.maxHp });
                 }
@@ -7106,7 +7518,7 @@ function handleAoeDamage() {
 
             const dx = aoe.x - target.x, dy = aoe.y - target.y;
             if (dx * dx + dy * dy <= aoe.radius * aoe.radius) {
-                let { damage } = calcDamage(owner.atk || 10, target.def || 0, owner.dmgMulti * 0.6, owner.critRate || 0.1, owner.element, target.element);
+                let { damage } = calcDamage(ownerAtk, target.def || 0, owner.dmgMulti * 0.6, owner.critRate || 0.1, owner.element, target.element, owner);
                 // 철벽 방어 데미지 감소
                 if (target.activeBuffs && target.activeBuffs['iron_wall']) damage = Math.floor(damage * 0.3);
                 // 수호 오라 방어 보너스
