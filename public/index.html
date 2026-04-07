@@ -894,6 +894,51 @@
     }
     window.showWelcomeGuide = showWelcomeGuide; // 메뉴에서도 다시 볼 수 있게
 
+    // ── 패치 노트 ──
+    var PATCH_NOTES = [
+      { ver: 'v1.5', date: '2026-04-07', items: [
+        '🐛 변수 섀도잉으로 크리티컬 루트 픽업 불가 수정',
+        '🐛 음식/물약/패시브 ATK가 일반 공격에 적용되도록 수정',
+        '🐛 메이지 AOE가 월드보스 처치 시 서버 크래시 수정',
+        '🛡 클랜 창고/우편/경매 음수 도용 익스플로잇 차단',
+        '🛡 거래/도박/용병 강제 실행 → offer/accept 패턴 전환',
+        '🛡 소켓 DoS 방어 미들웨어',
+      ]},
+      { ver: 'v1.4', date: '2026-04-07', items: [
+        '✨ 신규 월드 이벤트: 황금 비 (15분 주기, 골드 x3)',
+        '✨ 신규 월드 이벤트: 별똥별 소나기 (25분 주기, 무료 골드 드롭)',
+        '✨ 행운의 룰렛 (일일 1회 무료 스핀, 8가지 보상)',
+        '✨ 채팅 안티스팸 (2초 4메시지 → 5초 뮤트)',
+        '✨ 자정 자동 일일 리셋 (온라인 유저)',
+      ]},
+      { ver: 'v1.3', date: '2026-04-07', items: [
+        '🎨 HP < 30% 위험 펄스 효과',
+        '🎨 월드 이벤트 상단 카운트다운 표시기',
+        '🎨 사망 시 3초 카운트다운 + 자동 마을 부활',
+        '🔊 사운드 설정 모달 (BGM/SFX 볼륨 슬라이더)',
+        '❓ 첫 접속 환영 가이드',
+      ]},
+      { ver: 'v1.2', date: '2026-04-07', items: [
+        '⚖ 메이지 atk 18→24, 나이트 atk 18→22, 어쌔신 HP +15',
+        '⚖ EXP 곡선 1.10→1.12 (후반 도전적)',
+        '⚖ 존 몬스터 스케일링 0.06→0.08',
+        '🐛 워리어 분노/나이트 수호 오라가 인간 플레이어에 적용 안 되던 버그',
+      ]},
+    ];
+    window.showPatchNotes = function() {
+      var html = '<div style="max-height:60vh;overflow-y:auto;padding:0 6px">';
+      for (var p of PATCH_NOTES) {
+        html += '<div style="margin-bottom:14px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">' +
+          '<b style="color:#ffd700;font-size:14px">' + p.ver + '</b>' +
+          '<span class="text-muted text-sm">' + p.date + '</span></div>' +
+          '<ul style="margin:0;padding-left:18px;color:#ddd;font-size:12px;line-height:1.7">';
+        for (var it of p.items) html += '<li>' + it + '</li>';
+        html += '</ul></div>';
+      }
+      html += '</div>';
+      showModal('📜 패치 노트', html, [{label:'닫기', type:'cancel', action:'closeModal()'}]);
+    };
+
     // ── 키보드 단축키 ──
     window.addEventListener('keydown', function(e) {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
@@ -3095,6 +3140,7 @@
         {label:'설정', action:()=>togglePanel('settings')},
         {label:'🔊 사운드', action:()=>window.openAudioSettings()},
         {label:'❓ 도움말', action:()=>window.showWelcomeGuide()},
+        {label:'📜 패치 노트', action:()=>window.showPatchNotes()},
         {label:'시즌 균열', action:()=>togglePanel('rift')},
         {label:'환생', action:()=>{showModal('환생 (프레스티지)','<p class="text-gold">Lv.50 달성 시 레벨을 1로 리셋하고 영구 보너스를 획득합니다.</p><p class="text-muted text-sm">장비/인벤/다이아는 유지. 최대 10회.</p>',[{label:'환생!',action:"window.socket.emit('prestige');closeModal();"},{label:'취소',type:'cancel',action:'closeModal()'}]);}},
         {label:'의뢰', action:()=>{togglePanel('contracts');window.socket.emit('get_contracts');}},
