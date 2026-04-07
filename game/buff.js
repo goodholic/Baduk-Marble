@@ -29,6 +29,12 @@ const BUFF_TYPES = {
   stun:        { name:'스턴',     stat:'stun',  duration:1, icon:'debuff' },
   burn:        { name:'화상',     stat:'hp',    dot:-25,   duration:5,  icon:'debuff' },
   curse:       { name:'저주',     stat:'healReduce', multi:0.5, duration:10, icon:'debuff' },
+  // 신규 디버프
+  freeze:      { name:'빙결',     stat:'speed', multi:0.2, duration:3,  icon:'debuff' },
+  shock:       { name:'감전',     stat:'hp',    dot:-30,   duration:4,  icon:'debuff' },
+  bleed:       { name:'출혈',     stat:'hp',    dot:-20,   duration:8,  icon:'debuff' },
+  weak:        { name:'약화',     stat:'atk',   multi:0.7, duration:6,  icon:'debuff' },
+  fear:        { name:'공포',     stat:'speed', multi:0.6, duration:4,  icon:'debuff' },
 };
 
 function applyBuff(player, buffId) {
@@ -75,7 +81,8 @@ function getBuffedStat(player, stat) {
 
 function isStunned(player) {
   if (!player.activeBuffs) return false;
-  return !!player.activeBuffs['stun'];
+  // stun, freeze, fear 모두 행동 제약
+  return !!(player.activeBuffs['stun'] || player.activeBuffs['freeze']);
 }
 
 // 칭호 시스템 (기획서 확장)
