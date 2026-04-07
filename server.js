@@ -1897,6 +1897,29 @@ const DUNGEONS = {
         ],
         rewards: { gold: 15000, exp: 20000, drops: ['equip_sword_5','equip_armor_5'] }
     },
+    frozen_temple: {
+        name: '얼어붙은 신전', zoneId: 'glacier', minLevel: 18, maxParty: 5, stages: 4,
+        monsters: [
+            { tier:'normal', count:8 }, { tier:'elite', count:6 }, { tier:'rare', count:4 }, { tier:'boss', count:1 }
+        ],
+        rewards: { gold: 4000, exp: 6000, drops: ['equip_helm_3','equip_glove_3','equip_boots_3'] }
+    },
+    void_abyss: {
+        name: '공허의 심연', zoneId: 'void_rift', minLevel: 35, maxParty: 10, stages: 6,
+        monsters: [
+            { tier:'rare', count:5 }, { tier:'boss', count:2 }, { tier:'rare', count:8 },
+            { tier:'boss', count:3 }, { tier:'legendary', count:1 }, { tier:'boss', count:1 }
+        ],
+        rewards: { gold: 30000, exp: 50000, drops: ['equip_mythic_sword','equip_mythic_armor','equip_mythic_ring','mat_dragon'] }
+    },
+    holy_sanctuary: {
+        name: '신성한 성역', zoneId: 'celestial', minLevel: 30, maxParty: 5, stages: 5,
+        monsters: [
+            { tier:'elite', count:6 }, { tier:'rare', count:4 }, { tier:'boss', count:2 },
+            { tier:'rare', count:6 }, { tier:'legendary', count:1 }
+        ],
+        rewards: { gold: 12000, exp: 18000, drops: ['equip_sword_4','equip_cape_4','equip_belt_4'] }
+    },
 };
 let activeDungeons = {}; // {instanceId: {dungeonId, players:[], currentStage, monstersLeft}}
 

@@ -3184,7 +3184,15 @@
         {label:'도감', action:()=>{togglePanel('bestiary');window.socket.emit('get_bestiary');}},
       ],
       etc: [
-        {label:'던전', action:()=>{showModal('던전 입장','<p style="color:#888;font-size:12px;margin-bottom:10px">입장할 던전을 선택하세요</p>',[{label:'어둠의 동굴 (Lv.15)',action:"closeModal();window.socket.emit('enter_dungeon','cave_dungeon')"},{label:'지하 감옥 (Lv.20)',action:"closeModal();window.socket.emit('enter_dungeon','ruins_dungeon')"},{label:'드래곤 레이드 (Lv.25)',action:"closeModal();window.socket.emit('enter_dungeon','dragon_raid')"},{label:'취소',type:'cancel',action:'closeModal()'}]);}},
+        {label:'던전', action:()=>{showModal('던전 입장','<p style="color:#888;font-size:12px;margin-bottom:10px">입장할 던전을 선택하세요</p>',[
+          {label:'어둠의 동굴 (Lv.15) - 3스테이지',action:"closeModal();window.socket.emit('enter_dungeon','cave_dungeon')"},
+          {label:'얼어붙은 신전 (Lv.18) - 4스테이지 ✨',action:"closeModal();window.socket.emit('enter_dungeon','frozen_temple')"},
+          {label:'지하 감옥 (Lv.20) - 5스테이지',action:"closeModal();window.socket.emit('enter_dungeon','ruins_dungeon')"},
+          {label:'드래곤 레이드 (Lv.25) - 25인 레이드',action:"closeModal();window.socket.emit('enter_dungeon','dragon_raid')"},
+          {label:'신성한 성역 (Lv.30) - 5스테이지 ✨',action:"closeModal();window.socket.emit('enter_dungeon','holy_sanctuary')"},
+          {label:'공허의 심연 (Lv.35) - 6스테이지 🆕',action:"closeModal();window.socket.emit('enter_dungeon','void_abyss')"},
+          {label:'취소',type:'cancel',action:'closeModal()'}
+        ]);}},
         {label:'무한의 탑', action:()=>togglePanel('tower')},
         {label:'상자 오픈', action:()=>window.socket.emit('open_rare_box')},
         {label:'스탯 리셋', action:()=>{showModal('스탯 초기화','<p style="color:#ff8800">모든 스탯 포인트가 반환됩니다.</p><p style="color:#888;font-size:11px">비용: 500G + 레벨×100G</p>',[{label:'초기화',action:"closeModal();window.socket.emit('reset_stats')"},{label:'취소',type:'cancel',action:'closeModal()'}]);}},
