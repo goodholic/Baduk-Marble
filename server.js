@@ -837,6 +837,21 @@ const SHOP_ITEMS = {
     // ── 희귀 장비 (다이아) ──
     'shop_sword_3':  { name:'미스릴 검',        price:300,  currency:'diamond', effect:'equip_item', value:'equip_sword_3', desc:'ATK +45 (희귀)' },
     'shop_armor_3':  { name:'미스릴 갑옷',      price:250,  currency:'diamond', effect:'equip_item', value:'equip_armor_3', desc:'DEF +45 (희귀)' },
+    // ── 신규 코스메틱 (다이아) ──
+    'skin_aurora':   { name:'오로라 스킨',       price:600, currency:'diamond', effect:'skin', value:'aurora', desc:'무지개 빛 오라 (영구)' },
+    'skin_void':     { name:'공허 스킨',         price:800, currency:'diamond', effect:'skin', value:'void', desc:'어둠의 균열 이펙트 (영구)' },
+    'skin_celestial':{ name:'천상 스킨',         price:1000,currency:'diamond', effect:'skin', value:'celestial', desc:'별빛 후광 (영구)' },
+    // ── 신규 부스터 ──
+    'mega_exp':      { name:'메가 EXP 부스터',   price:120, currency:'diamond', effect:'exp_boost', value:3, duration:600, desc:'10분간 EXP 3배' },
+    'mega_gold':     { name:'메가 골드 부스터',  price:120, currency:'diamond', effect:'gold_boost', value:3, duration:600, desc:'10분간 골드 3배' },
+    'all_in_one':    { name:'올인원 부스터',     price:250, currency:'diamond', effect:'exp_boost', value:2, duration:1800, desc:'30분간 EXP/골드 2배' },
+    // ── 신규 편의 ──
+    'rare_box_buy':  { name:'희귀 상자',         price:80,  currency:'diamond', effect:'rare_box_grant', desc:'전설/영웅 장비 가능 상자' },
+    'mat_dragon_5':  { name:'드래곤 비늘 x5',    price:200, currency:'diamond', effect:'mat_grant', value:'mat_dragon', count:5, desc:'전설 제작 재료' },
+    'mat_soul_10':   { name:'영혼석 x10',        price:150, currency:'diamond', effect:'mat_grant', value:'mat_soul', count:10, desc:'전설 제작 재료' },
+    // ── 신규 골드 아이템 ──
+    'mp_potion':     { name:'MP 물약 x10',       price:200, currency:'gold', effect:'mp_potion', value:50, count:10, desc:'MP 50 회복 (스킬 충전)' },
+    'speed_scroll':  { name:'질주 주문서',       price:400, currency:'gold', effect:'speed_boost', value:1.5, duration:120, desc:'2분간 이동속도 50% 증가' },
 };
 
 // 다이아몬드 무료 획득 방법
@@ -2949,6 +2964,29 @@ io.on('connection', (socket) => {
                 if (!p.inventory) p.inventory = {};
                 p.inventory['scroll_revive'] = (p.inventory['scroll_revive'] || 0) + (item.count || 1);
                 break;
+            case 'rare_box_grant':
+                if (!p.inventory) p.inventory = {};
+                p.inventory['rare_box'] = (p.inventory['rare_box'] || 0) + 1;
+                msg = `희귀 상자 1개 획득! (인벤토리에서 오픈)`;
+                break;
+            case 'mat_grant':
+                if (!p.inventory) p.inventory = {};
+                p.inventory[item.value] = (p.inventory[item.value] || 0) + (item.count || 1);
+                msg = `${item.name} 획득!`;
+                break;
+            case 'mp_potion':
+                if (!p.inventory) p.inventory = {};
+                p.inventory['mp_potion'] = (p.inventory['mp_potion'] || 0) + (item.count || 1);
+                break;
+            case 'speed_boost': {
+                if (!p.activeBuffs) p.activeBuffs = {};
+                p.activeBuffs['shop_speed'] = {
+                    name: '질주', stat: 'speed', multi: item.value,
+                    startTime: Date.now(), endTime: Date.now() + item.duration * 1000, icon: 'buff',
+                };
+                msg += ` (${item.duration}초간 SPD x${item.value})`;
+                break;
+            }
         }
 
         savePlayer(p);
