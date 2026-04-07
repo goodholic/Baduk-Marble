@@ -412,6 +412,7 @@
     <!-- 옵션 버튼 -->
     <button class="top-btn" style="top:32px" onclick="toggleSound()" id="btn-sound">Sound ON</button>
     <button class="top-btn" style="top:52px" onclick="toggleAutoPotion()" id="btn-potion">AutoPot OFF</button>
+    <button class="top-btn" style="top:72px" onclick="toggleAutoSkill()" id="btn-skill">AutoSkill OFF</button>
 
     <!-- 범용 게임 모달 -->
     <div id="game-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:100;justify-content:center;align-items:center">
@@ -1337,6 +1338,14 @@
           {label:'새로고침', action:"window.socket.emit('get_clan_storage');closeModal();"},
           {label:'닫기', type:'cancel', action:'closeModal()'}
         ]);
+      });
+
+      window.socket.on('auto_skill_status', (d) => {
+        var btn = document.getElementById('btn-skill');
+        if (btn) {
+          btn.textContent = 'AutoSkill ' + (d.enabled ? 'ON' : 'OFF');
+          btn.style.color = d.enabled ? '#ffd700' : '';
+        }
       });
 
       window.socket.on('potion_result', (d) => {
@@ -3810,6 +3819,7 @@
 
     function doMorph(type) { window.socket.emit('morph', type); }
     function toggleAutoPotion() { window.socket.emit('toggle_auto_potion','{}'); }
+    function toggleAutoSkill() { window.socket.emit('toggle_auto_skill'); }
 
     // 전투 로그
     function addCombatLog(msg, cls) {
