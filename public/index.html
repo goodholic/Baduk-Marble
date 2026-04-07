@@ -958,6 +958,64 @@
         '🐛 워리어 분노/나이트 수호 오라가 인간 플레이어에 적용 안 되던 버그',
       ]},
     ];
+    window.showLevelGuide = function() {
+      var lvl = (window._lastSelf && window._lastSelf.level) || 1;
+      var guides = [
+        { range:[1,5],   title:'🌱 초보 모험가', tasks:[
+          '마을(아덴)에서 NPC와 대화하기 (상점/대장장이/힐러)',
+          '근처 사냥터(이슬숲, 해바라기 들판)에서 슬라임 사냥',
+          '일일 보상 / 행운의 룰렛 받기',
+          '환영 가이드 (❓ 도움말) 다시 보기',
+        ]},
+        { range:[6,15],  title:'⚔ 전사의 길', tasks:[
+          '엘리트 몬스터 처치 (보스 등급 1-2티어)',
+          '장비 NPC 상점에서 첫 무기/방어구 구매',
+          '일일 챌린지 시작 (메뉴 → 일일 챌린지)',
+          '용병 모집해 군대 만들기',
+          '낚시터에서 부수입 얻기',
+        ]},
+        { range:[16,25], title:'🏰 던전 도전자', tasks:[
+          '첫 던전 클리어 (어둠의 동굴 Lv.15+)',
+          '얼어붙은 신전 도전 (Lv.18+)',
+          '강화 시작 — 보호 주문서 사용',
+          '아레나/PvP 입문',
+          '제작 시도 — 미스릴 장비',
+        ]},
+        { range:[26,40], title:'🛡 영웅의 시대', tasks:[
+          '전직! Lv.20에 분기 선택 (Saint/Templar 등)',
+          '무한의 탑 도전 (Lv.10+ 시작 가능)',
+          '드래곤 둥지 / 신성한 성역 던전',
+          '혈맹 가입 또는 창설 (Lv.10+)',
+          '룬 워드 컬렉션 시작',
+        ]},
+        { range:[41,99], title:'🐉 전설의 사냥꾼', tasks:[
+          '공허의 심연 던전 도전 (Lv.35+)',
+          '월드 보스 MVP 노리기',
+          '영웅/전설 장비 풀세트',
+          '룬 워드 조합 완성',
+          'Lv.50 달성 시 환생(프레스티지) 고려',
+          '주간 챌린지 5종 완전 클리어',
+        ]},
+      ];
+      var current = guides.find(g => lvl >= g.range[0] && lvl <= g.range[1]) || guides[guides.length-1];
+      var html = '<div style="text-align:center;margin-bottom:10px"><div class="text-gold" style="font-size:13px">현재 레벨</div><div style="font-size:24px;font-weight:900;color:#ffd700">Lv.' + lvl + '</div></div>';
+      html += '<div style="background:rgba(255,215,0,0.05);border-left:3px solid #ffd700;padding:10px;margin:8px 0;border-radius:4px">';
+      html += '<div class="text-gold" style="font-size:14px;font-weight:bold;margin-bottom:6px">' + current.title + '</div>';
+      html += '<div class="text-muted text-sm" style="margin-bottom:6px">Lv.' + current.range[0] + '~' + current.range[1] + ' 추천 활동</div>';
+      html += '<ul style="margin:0;padding-left:18px;color:#ddd;font-size:12px;line-height:1.7">';
+      for (var t of current.tasks) html += '<li>' + t + '</li>';
+      html += '</ul></div>';
+      // 다음 단계 미리보기
+      var nextIdx = guides.indexOf(current) + 1;
+      if (nextIdx < guides.length) {
+        var next = guides[nextIdx];
+        html += '<div style="background:rgba(255,255,255,0.03);border-left:3px solid #888;padding:8px;margin-top:8px;font-size:11px;color:#aaa">';
+        html += '<div style="color:#888;font-size:10px;margin-bottom:2px">다음 단계 (Lv.' + next.range[0] + '~)</div>';
+        html += '<div style="color:#bbb">' + next.title + '</div></div>';
+      }
+      showModal('🎯 추천 활동', html, [{label:'닫기', type:'cancel', action:'closeModal()'}]);
+    };
+
     window.showNotifications = function() {
       var log = window._notifLog || [];
       // 읽음 처리
@@ -3451,6 +3509,7 @@
           '<button class="btn" style="width:100%;margin:3px 0" onclick="window.socket.emit(\'evolve_pet\',\'pet_angel\');closeModal();">천사 → 세라핌 (자동 부활 강화)</button>' +
           '</div>',[{label:'닫기',type:'cancel',action:'closeModal()'}]);}},
         {label:'❓ 도움말', action:()=>window.showWelcomeGuide()},
+        {label:'🎯 추천 활동', action:()=>window.showLevelGuide()},
         {label:'📜 패치 노트', action:()=>window.showPatchNotes()},
         {label:'🏆 개인 기록', action:()=>window.showPersonalRecords()},
         {label:'🔔 알림 센터', action:()=>window.showNotifications()},
