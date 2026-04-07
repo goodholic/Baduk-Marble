@@ -3321,16 +3321,34 @@
     var recentLoots = [];
     var personalBests = JSON.parse(localStorage.getItem('ab_records') || '{}');
 
+    // DPS 히스토리 (스파크라인용)
+    var dpsHistory = []; // 최근 20초간 1초당 dps
     // DPS 계산 (1초마다)
     setInterval(function() {
       var now = Date.now();
       dpsSamples = dpsSamples.filter(function(s) { return now - s.time < 10000; });
       var totalDmg = dpsSamples.reduce(function(sum, s) { return sum + s.damage; }, 0);
       var dps = Math.floor(totalDmg / 10);
+
+      // 히스토리 업데이트 (마지막 1초 내 데미지)
+      var lastSecDmg = dpsSamples.filter(function(s) { return now - s.time < 1000; })
+                                  .reduce(function(sum, s) { return sum + s.damage; }, 0);
+      dpsHistory.push(lastSecDmg);
+      if (dpsHistory.length > 20) dpsHistory.shift();
+
       var el = document.getElementById('dps-meter');
       if (el) {
-        el.textContent = 'DPS: ' + dps;
-        el.style.color = dps > 500 ? '#ff4444' : dps > 200 ? '#ff8800' : dps > 50 ? '#ffd700' : '#aaa';
+        // 스파크라인 (Unicode 블록 문자)
+        var maxVal = Math.max.apply(null, dpsHistory.length > 0 ? dpsHistory : [1]);
+        var blocks = '▁▂▃▄▅▆▇█';
+        var spark = dpsHistory.map(function(v) {
+          if (v <= 0 || maxVal <= 0) return '▁';
+          var idx = Math.min(7, Math.floor(v / maxVal * 7));
+          return blocks[idx];
+        }).join('');
+        var color = dps > 500 ? '#ff4444' : dps > 200 ? '#ff8800' : dps > 50 ? '#ffd700' : '#aaa';
+        el.innerHTML = 'DPS: <b>' + dps + '</b> <span style="opacity:0.7;font-size:11px;letter-spacing:-1px">' + spark + '</span>';
+        el.style.color = color;
       }
       // DPS 개인 기록
       if (dps > (personalBests.maxDps || 0)) {
