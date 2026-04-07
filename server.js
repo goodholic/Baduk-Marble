@@ -161,6 +161,20 @@ async function initDB() {
         const [pingRows] = await pool.query('SELECT 1 AS ok');
         console.log(`[DB] ping OK (${pingRows[0]?.ok})`);
 
+        // 오프라인 우편함 테이블
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS mails (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                target_name VARCHAR(255) NOT NULL,
+                from_name VARCHAR(255) NOT NULL,
+                item_id VARCHAR(100),
+                item_count INT DEFAULT 0,
+                gold INT DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_target (target_name)
+            )
+        `).catch(e => console.error('[DB] mails table:', e.message));
+
         await pool.query(`
             CREATE TABLE IF NOT EXISTS players_save (
                 device_id VARCHAR(255) PRIMARY KEY,
@@ -2440,6 +2454,37 @@ io.on('connection', (socket) => {
         players[playerId] = pInfo;
 
         // ── 오프라인 우편함 배달 ──
+        // 1) DB에서 우편 조회 + 삭제
+        (async () => {
+            try {
+                const [dbMails] = await pool.query('SELECT id, from_name, item_id, item_count, gold FROM mails WHERE target_name = ? ORDER BY id ASC LIMIT 50', [pInfo.displayName]);
+                if (dbMails && dbMails.length > 0) {
+                    let totalGold = 0, itemSummary = [];
+                    if (!pInfo.inventory) pInfo.inventory = {};
+                    const idsToDelete = [];
+                    for (const m of dbMails) {
+                        if (m.gold > 0) { pInfo.gold += m.gold; totalGold += m.gold; }
+                        if (m.item_id && m.item_count > 0) {
+                            pInfo.inventory[m.item_id] = (pInfo.inventory[m.item_id] || 0) + m.item_count;
+                            itemSummary.push(`${m.item_id} x${m.item_count}`);
+                        }
+                        idsToDelete.push(m.id);
+                    }
+                    if (idsToDelete.length > 0) {
+                        await pool.query(`DELETE FROM mails WHERE id IN (${idsToDelete.map(() => '?').join(',')})`, idsToDelete);
+                    }
+                    capResources(pInfo);
+                    savePlayer(pInfo);
+                    socket.emit('mail_delivered', {
+                        count: dbMails.length,
+                        gold: totalGold,
+                        items: itemSummary,
+                        msg: `📬 우편함 ${dbMails.length}건 배달됨!${totalGold ? ' +'+totalGold+'G' : ''}${itemSummary.length ? ' / '+itemSummary.join(', ') : ''}`
+                    });
+                }
+            } catch (e) { console.error('[DB] mail deliver:', e.message); }
+        })();
+        // 2) 메모리 fallback (DB 실패 시 보관된 것들)
         if (pendingMails[pInfo.displayName] && pendingMails[pInfo.displayName].length > 0) {
             const mails = pendingMails[pInfo.displayName];
             let totalGold = 0, itemSummary = [];
@@ -2457,7 +2502,7 @@ io.on('connection', (socket) => {
                 count: mails.length,
                 gold: totalGold,
                 items: itemSummary,
-                msg: `📬 우편함 ${mails.length}건 배달됨!${totalGold ? ' +'+totalGold+'G' : ''}${itemSummary.length ? ' / '+itemSummary.join(', ') : ''}`
+                msg: `📬 우편함(메모리) ${mails.length}건 배달됨!${totalGold ? ' +'+totalGold+'G' : ''}${itemSummary.length ? ' / '+itemSummary.join(', ') : ''}`
             });
         }
 
@@ -4218,16 +4263,27 @@ io.on('connection', (socket) => {
                 if (p.gold < gold) { p.gold += mailCost; socket.emit('mail_result', { msg: '골드 부족' }); return; }
                 p.gold -= gold;
             }
-            if (!pendingMails[targetName]) pendingMails[targetName] = [];
-            pendingMails[targetName].push({
-                from: p.displayName,
-                itemId: validItemCount ? itemId : null,
-                itemCount: validItemCount ? itemCount : 0,
-                gold: validGold ? gold : 0,
-                timestamp: Date.now(),
-            });
-            // 오프라인 우편함 한도 (수신자당 50개)
-            if (pendingMails[targetName].length > 50) pendingMails[targetName].shift();
+            // DB에 영속화 (서버 재시작에도 유지)
+            (async () => {
+                try {
+                    await pool.query(
+                        `INSERT INTO mails (target_name, from_name, item_id, item_count, gold) VALUES (?, ?, ?, ?, ?)`,
+                        [targetName, p.displayName, validItemCount ? itemId : null, validItemCount ? itemCount : 0, validGold ? gold : 0]
+                    );
+                } catch (e) {
+                    console.error('[DB] mail insert:', e.message);
+                    // DB 실패 시 메모리 fallback
+                    if (!pendingMails[targetName]) pendingMails[targetName] = [];
+                    pendingMails[targetName].push({
+                        from: p.displayName,
+                        itemId: validItemCount ? itemId : null,
+                        itemCount: validItemCount ? itemCount : 0,
+                        gold: validGold ? gold : 0,
+                        timestamp: Date.now(),
+                    });
+                    if (pendingMails[targetName].length > 50) pendingMails[targetName].shift();
+                }
+            })();
             savePlayer(p);
             io.emit('player_update', p);
             socket.emit('mail_result', { msg: `📬 ${targetName} 오프라인 — 우편함에 보관됨` });
