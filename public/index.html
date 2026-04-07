@@ -2419,14 +2419,52 @@
       body.innerHTML = html;
     }
 
+    // 인벤토리 상태 (검색/정렬)
+    window._invState = window._invState || { data: null, search: '', sort: 'cat' };
     function renderInventory(data) {
+      if (data) window._invState.data = data;
+      data = window._invState.data;
+      if (!data) return;
       var body = document.getElementById('inventory-body');
       var inv = data.inventory || {};
       var items = data.items || {};
       var keys = Object.keys(inv);
       if (keys.length === 0) { body.innerHTML = '<p style="color:#666">인벤토리가 비어있습니다</p>'; return; }
 
-      // 카테고리 분류
+      // 검색 필터 (이름 또는 ID)
+      var search = (window._invState.search || '').toLowerCase().trim();
+      if (search) {
+        keys = keys.filter(k => {
+          var name = (items[k] && items[k].name || k).toLowerCase();
+          return k.toLowerCase().includes(search) || name.includes(search);
+        });
+      }
+
+      // 정렬 옵션
+      var sortMode = window._invState.sort || 'cat';
+      if (sortMode === 'name') {
+        keys.sort((a, b) => (items[a]?.name || a).localeCompare(items[b]?.name || b));
+      } else if (sortMode === 'count') {
+        keys.sort((a, b) => (inv[b] || 0) - (inv[a] || 0));
+      } else if (sortMode === 'grade') {
+        var gradeOrder = { legendary:0, epic:1, rare:2, uncommon:3, normal:4 };
+        keys.sort((a, b) => (gradeOrder[items[a]?.grade] ?? 5) - (gradeOrder[items[b]?.grade] ?? 5));
+      }
+
+      // 툴바 (검색 + 정렬)
+      var toolbar = '<div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap">' +
+        '<input type="text" placeholder="🔍 검색..." value="' + search + '" ' +
+        'oninput="window._invState.search=this.value;renderInventory();" ' +
+        'style="flex:1;min-width:120px;padding:6px;background:#222;color:#fff;border:1px solid #555;border-radius:4px;font-size:12px">' +
+        '<select onchange="window._invState.sort=this.value;renderInventory();" ' +
+        'style="padding:6px;background:#222;color:#fff;border:1px solid #555;border-radius:4px;font-size:11px">' +
+        '<option value="cat"' + (sortMode==='cat'?' selected':'') + '>카테고리</option>' +
+        '<option value="name"' + (sortMode==='name'?' selected':'') + '>이름순</option>' +
+        '<option value="count"' + (sortMode==='count'?' selected':'') + '>수량순</option>' +
+        '<option value="grade"' + (sortMode==='grade'?' selected':'') + '>등급순</option>' +
+        '</select></div>';
+
+      // 카테고리 분류 (sortMode가 'cat'일 때만 분류)
       var cats = {equip:[], pot:[], mat:[], goods:[], etc:[]};
       keys.forEach(k => {
         if (k.startsWith('equip_')) cats.equip.push(k);
@@ -2436,7 +2474,6 @@
         else cats.etc.push(k);
       });
 
-      var html = '';
       var catNames = {equip:'장비', pot:'물약/음식', mat:'재료', goods:'교역품', etc:'기타'};
       var catColors = {equip:'#44aaff', pot:'#44ff44', mat:'#ffd700', goods:'#ff9944', etc:'#aaa'};
 
@@ -2445,9 +2482,11 @@
       var gradeNames = {normal:'일반',uncommon:'고급',rare:'희귀',epic:'영웅',legendary:'전설'};
       var slotNames = {weapon:'무기',armor:'방어구',helmet:'투구',gloves:'장갑',boots:'신발',ring:'반지',necklace:'목걸이'};
 
+      var html = toolbar;
+
       // 장착 중인 장비 먼저 표시
       var equippedKeys = Object.values(equipped).filter(Boolean);
-      if (equippedKeys.length > 0) {
+      if (equippedKeys.length > 0 && !search && sortMode === 'cat') {
         html += '<h4 style="color:#ffd700;margin:8px 0 4px;font-size:12px">장착 중</h4>';
         for (var slot in equipped) {
           var eqId = equipped[slot];
@@ -2458,6 +2497,37 @@
           html += '<div class="panel-item" style="border-left:3px solid '+gc+';background:rgba(255,215,0,0.05)"><span class="name" style="color:'+gc+'">[' + (slotNames[slot]||slot) + '] '+(eqInfo.name||eqId)+enchLv+'</span>';
           html += '<button onclick="window.socket.emit(\'unequip_item\',\''+slot+'\')" style="background:#4a2a2a">해제</button></div>';
         }
+      }
+
+      // 평면 리스트 렌더러 (sortMode !== 'cat' 또는 검색 중)
+      function renderItemRow(k) {
+          var name = items[k] ? items[k].name : k.replace(/_/g,' ');
+          var isEquip = k.startsWith('equip_');
+          var grade = items[k]?.grade || '';
+          var gColor = gradeColors[grade] || '#ccc';
+          var gName = gradeNames[grade] || '';
+          var enchant = data.enchantLevels && data.enchantLevels[k] ? ' +'+data.enchantLevels[k] : '';
+          var boundTag = items[k]?.bound ? ' <span style="color:#f44;font-size:9px">[귀속]</span>' : '';
+          var isWorn = equippedKeys.includes(k);
+          var row = '<div class="panel-item" style="border-left:3px solid '+gColor+(isWorn?';opacity:0.5':'')+'"><span class="name" style="color:'+gColor+'">'+name+enchant;
+          if (gName) row += ' <small style="color:'+gColor+';opacity:0.7">('+gName+')</small>';
+          if (isWorn) row += ' <span style="color:#ffd700;font-size:9px">[장착중]</span>';
+          row += boundTag+' <b style="color:#888">x'+inv[k]+'</b></span>';
+          if (isEquip && !isWorn) {
+            row += '<button onclick="equipItem(\''+k+'\')" style="background:#2a4a2a">착용</button>';
+            row += '<button onclick="window.socket.emit(\'compare_equip\',\''+k+'\')" style="background:#1a3a4a;margin-left:2px;font-size:9px">비교</button>';
+          }
+          if (isEquip) row += '<button onclick="enchantItem(\''+k+'\')" style="background:#4a3a1a;margin-left:3px">강화</button>';
+          row += '<button onclick="sellItem(\''+k+'\')" style="margin-left:3px">판매</button></div>';
+          return row;
+      }
+
+      // 카테고리 모드가 아니거나 검색 중이면 평면 리스트
+      if (sortMode !== 'cat' || search) {
+        html += '<h4 style="color:#aaa;margin:8px 0 4px;font-size:12px">결과 ('+keys.length+'개)</h4>';
+        keys.forEach(k => { html += renderItemRow(k); });
+        body.innerHTML = html;
+        return;
       }
 
       for (var cat in cats) {
