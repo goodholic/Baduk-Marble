@@ -254,6 +254,9 @@ async function savePlayer(player) {
         _dailyChallengeProgress: player._dailyChallengeProgress || 0,
         _dailyChallengeCompleted: player._dailyChallengeCompleted || false,
         _dailyChallengeClaimed: player._dailyChallengeClaimed || false,
+        _weeklyChallengeWeek: player._weeklyChallengeWeek || null,
+        _weeklyChallengeProgress: player._weeklyChallengeProgress || 0,
+        _weeklyChallengeClaimed: player._weeklyChallengeClaimed || false,
         discoveredZones: player.discoveredZones || [],
         fishingLevel: player.fishingLevel || 1,
         _fishCount: player._fishCount || 0,
@@ -2040,6 +2043,19 @@ function getTodaysChallenge() {
     return DAILY_CHALLENGES[dayNum % DAILY_CHALLENGES.length];
 }
 
+// ── 주간 챌린지 (7일마다 회전, 더 큰 보상) ──
+const WEEKLY_CHALLENGES = [
+    { name:'주간 학살자', desc:'몬스터 200마리 처치', target:'kill_monster', goal:200, reward:{gold:30000,diamonds:200} },
+    { name:'전설 사냥꾼', desc:'전설 몬스터 5마리 처치', target:'kill_legendary', goal:5, reward:{gold:50000,diamonds:300, item:'mat_dragon', itemQty:5} },
+    { name:'골드 거상', desc:'주간 누적 골드 100,000G 획득', target:'earn_gold', goal:100000, reward:{gold:25000,diamonds:150} },
+    { name:'PvP 전사', desc:'PvP 처치 30회', target:'pvp_win', goal:30, reward:{gold:40000,diamonds:250} },
+    { name:'무한탑 등반가', desc:'무한의 탑 20층 도달', target:'tower_floor', goal:20, reward:{gold:35000,diamonds:200} },
+];
+function getThisWeekChallenge() {
+    const weekNum = Math.floor(Date.now() / (86400000 * 7));
+    return WEEKLY_CHALLENGES[weekNum % WEEKLY_CHALLENGES.length];
+}
+
 // ── 존 미니보스 ──
 const ZONE_MINI_BOSSES = {
     forest:    { name:'숲의 수호자', hp:3000, atk:40, def:15, reward:{gold:500,exp:800} },
@@ -2318,6 +2334,9 @@ io.on('connection', (socket) => {
                         _dailyChallengeProgress: ext._dailyChallengeProgress || 0,
                         _dailyChallengeCompleted: ext._dailyChallengeCompleted || false,
                         _dailyChallengeClaimed: ext._dailyChallengeClaimed || false,
+                        _weeklyChallengeWeek: ext._weeklyChallengeWeek || null,
+                        _weeklyChallengeProgress: ext._weeklyChallengeProgress || 0,
+                        _weeklyChallengeClaimed: ext._weeklyChallengeClaimed || false,
                         discoveredZones: ext.discoveredZones || [],
                         fishingLevel: ext.fishingLevel || 1,
                         _fishCount: ext._fishCount || 0,
@@ -3440,6 +3459,49 @@ io.on('connection', (socket) => {
             goal: challenge.goal, progress: Math.min(progress, challenge.goal),
             completed, reward: challenge.reward,
         });
+    });
+
+    // ── 주간 챌린지 ──
+    socket.on('get_weekly_challenge', () => {
+        const p = players[playerId];
+        if (!p) return;
+        const challenge = getThisWeekChallenge();
+        // 주차가 바뀌면 자동 리셋
+        const thisWeek = getWeekNumber();
+        if (p._weeklyChallengeWeek !== thisWeek) {
+            p._weeklyChallengeWeek = thisWeek;
+            p._weeklyChallengeProgress = 0;
+            p._weeklyChallengeClaimed = false;
+        }
+        const progress = p._weeklyChallengeProgress || 0;
+        socket.emit('weekly_challenge', {
+            name: challenge.name, desc: challenge.desc,
+            goal: challenge.goal, progress: Math.min(progress, challenge.goal),
+            completed: progress >= challenge.goal, claimed: !!p._weeklyChallengeClaimed,
+            reward: challenge.reward,
+        });
+    });
+
+    socket.on('claim_weekly_challenge', () => {
+        const p = players[playerId];
+        if (!p) return;
+        const thisWeek = getWeekNumber();
+        if (p._weeklyChallengeWeek !== thisWeek) { socket.emit('challenge_result', { msg: '주간 미시작' }); return; }
+        if (p._weeklyChallengeClaimed) { socket.emit('challenge_result', { msg: '이번 주 이미 수령' }); return; }
+        const challenge = getThisWeekChallenge();
+        if ((p._weeklyChallengeProgress || 0) < challenge.goal) { socket.emit('challenge_result', { msg: `미완료 (${p._weeklyChallengeProgress||0}/${challenge.goal})` }); return; }
+        p.gold += challenge.reward.gold;
+        if (challenge.reward.diamonds) p.diamonds = (p.diamonds||0) + challenge.reward.diamonds;
+        if (challenge.reward.item) {
+            if (!p.inventory) p.inventory = {};
+            p.inventory[challenge.reward.item] = (p.inventory[challenge.reward.item] || 0) + (challenge.reward.itemQty || 1);
+        }
+        capResources(p);
+        p._weeklyChallengeClaimed = true;
+        savePlayer(p);
+        socket.emit('challenge_result', { msg: `[주간] ${challenge.name} 완료! +${challenge.reward.gold}G ${challenge.reward.diamonds ? '+'+challenge.reward.diamonds+'D' : ''}${challenge.reward.item ? ' +'+challenge.reward.item+' x'+(challenge.reward.itemQty||1) : ''}` });
+        io.emit('server_msg', { msg: `${p.displayName}이(가) 주간 챌린지 [${challenge.name}] 완료!`, type: 'rare' });
+        io.emit('player_update', p);
     });
 
     // ── 일일 챌린지 보상 수령 ──
@@ -7378,6 +7440,22 @@ function handleCollisions() {
                                     break;
                                 }
                             }
+                        }
+                    }
+
+                    // 주간 챌린지 진행도
+                    if (!realOwner.isBot) {
+                        const thisWeek = getWeekNumber();
+                        if (realOwner._weeklyChallengeWeek !== thisWeek) {
+                            realOwner._weeklyChallengeWeek = thisWeek;
+                            realOwner._weeklyChallengeProgress = 0;
+                            realOwner._weeklyChallengeClaimed = false;
+                        }
+                        const wch = getThisWeekChallenge();
+                        if (!realOwner._weeklyChallengeClaimed) {
+                            if (wch.target === 'kill_monster') realOwner._weeklyChallengeProgress = (realOwner._weeklyChallengeProgress||0) + 1;
+                            else if (wch.target === 'kill_legendary' && (mob.tier === 'legendary' || mob.tier === 'mythic')) realOwner._weeklyChallengeProgress = (realOwner._weeklyChallengeProgress||0) + 1;
+                            else if (wch.target === 'earn_gold') realOwner._weeklyChallengeProgress = (realOwner._weeklyChallengeProgress||0) + Math.floor(mobGoldReward * goldMulti);
                         }
                     }
 
