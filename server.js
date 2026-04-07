@@ -2015,6 +2015,10 @@ const RUNES = {
     'ㅈ':{name:'자',stat:'gold',value:0.03}, 'ㅊ':{name:'차',stat:'atk',value:5},
     'ㅋ':{name:'카',stat:'def',value:5}, 'ㅌ':{name:'타',stat:'hp',value:25},
     'ㅍ':{name:'파',stat:'crit',value:0.03}, 'ㅎ':{name:'하',stat:'all',value:2},
+    // 신규 5종 (상위)
+    'ㅏ':{name:'아아',stat:'atk',value:8},     'ㅓ':{name:'어',stat:'def',value:8},
+    'ㅗ':{name:'오',stat:'hp',value:50},       'ㅜ':{name:'우',stat:'crit',value:0.05},
+    'ㅡ':{name:'으',stat:'all',value:5},
 };
 const RUNE_WORDS = {
     'ㄱㅂㅊ': { name:'용의 숨결', effect:'fireAoe', desc:'공격 시 10% 확률 화염 광역', bonus:{atk:20} },
@@ -2029,6 +2033,12 @@ const RUNE_WORDS = {
     'ㅂㅈㅎ': { name:'별의 축복', effect:'star',   desc:'모든 스탯 +5', bonus:{atk:5, def:5, hp:50} },
     'ㄴㄹㅅ': { name:'그림자 걸음', effect:'shadow', desc:'회피 +8%, 크리 +5%', bonus:{dodge:0.08, crit:0.05} },
     'ㅊㅍㅎ': { name:'불멸',     effect:'immortal',desc:'HP 10% 이하 시 3초간 무적 (60초 CD)', bonus:{atk:10, hp:100} },
+    // 신규 룬 워드 (상위 룬 사용)
+    'ㅏㅗㅡ': { name:'태초의 분노', effect:'primalRage', desc:'ATK +50, HP +200', bonus:{atk:50, hp:200} },
+    'ㅓㅗㅜ': { name:'성벽',     effect:'fortress', desc:'DEF +60, HP +400', bonus:{def:60, hp:400} },
+    'ㅏㅓㅜ': { name:'완벽',     effect:'perfect',  desc:'크리 +15%, 회피 +5%', bonus:{crit:0.15, dodge:0.05} },
+    'ㅏㅡㅎ': { name:'폭풍의 군주', effect:'storm',  desc:'전체 스탯 +12, SPD +5', bonus:{atk:12, def:12, hp:120, spd:5} },
+    'ㅗㅜㅡ': { name:'운명',     effect:'fate',     desc:'EXP/골드 +50%, 드롭률 +25%', bonus:{exp:0.5, gold:0.5, dropRate:0.25} },
 };
 
 // ── 3. 진영 시스템 ──
