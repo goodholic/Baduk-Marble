@@ -1161,12 +1161,32 @@
               ' | 🔥 최고 스트릭 ' + (personalBests.maxStreak||0) + 'x</div>';
           }
           sessionDeaths++;
-          // 3초 딜레이 후 리스폰 버튼 표시
+          // 자동 부활 카운트다운 (서버가 3초 후 마을에 부활시킴)
           var rs = document.getElementById('respawn-screen');
           rs.style.display = 'flex';
           var btns = rs.querySelectorAll('.class-btn');
           btns.forEach(function(b){b.style.display='none';});
-          setTimeout(function(){ btns.forEach(function(b){b.style.display='';}) }, 2000);
+          // 카운트다운 표시
+          var countdownEl = document.getElementById('respawn-countdown');
+          if (!countdownEl) {
+            countdownEl = document.createElement('div');
+            countdownEl.id = 'respawn-countdown';
+            countdownEl.style.cssText = 'text-align:center;font-size:18px;color:#ffd700;margin-top:12px;font-weight:bold';
+            rs.appendChild(countdownEl);
+          }
+          var sec = 3;
+          countdownEl.textContent = '🏘 ' + sec + '초 후 마을에서 부활...';
+          countdownEl.style.display = 'block';
+          var cdTimer = setInterval(function() {
+            sec--;
+            if (sec <= 0) {
+              clearInterval(cdTimer);
+              countdownEl.textContent = '부활 중...';
+            } else {
+              countdownEl.textContent = '🏘 ' + sec + '초 후 마을에서 부활...';
+            }
+          }, 1000);
+          // player_respawn 이벤트로 화면 닫힘 (line 1890)
           // 화면 빨간색 플래시
           document.getElementById('unity-container').style.filter = 'brightness(0.3) saturate(0) sepia(1) hue-rotate(-50deg)';
           setTimeout(function(){ document.getElementById('unity-container').style.filter = ''; }, 3000);
@@ -1887,7 +1907,15 @@
       window.socket.on('whisper_result', (d) => showToast(d.msg));
       window.socket.on('pk_alert', (d) => { addCombatLog('[PK] '+d.killerName+' PK! 카르마:'+d.karma, 'log-crit'); });
       window.socket.on('chaotic_death_penalty', (d) => { addCombatLog('[카오틱] 골드/EXP 손실!', 'log-crit'); });
-      window.socket.on('player_respawn', (d) => { if(d.id===myPlayerId) { document.getElementById('respawn-screen').style.display='none'; showToast('부활!'); } });
+      window.socket.on('player_respawn', (d) => {
+        if(d.id===myPlayerId) {
+          document.getElementById('respawn-screen').style.display='none';
+          var cd = document.getElementById('respawn-countdown');
+          if (cd) cd.style.display = 'none';
+          showToast('🏘 마을에서 부활!');
+          playSFX('levelup');
+        }
+      });
       window.socket.on('dungeon_update', (d) => { addCombatLog('남은 몬스터: '+d.monstersLeft, 'normal'); });
       window.socket.on('recipe_list', (d) => { /* 제작 레시피는 craft 패널에서 처리 */ });
 
