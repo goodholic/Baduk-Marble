@@ -395,6 +395,10 @@ const ZONES = {
     fortress:   { name:'북부 요새',       x:0,    y:-900, w:70, h:70, lvl:[25,99], safe:false, bg:'map_dungeon', isCastle:true },
     training:   { name:'훈련장',          x:-900, y:0,    w:60, h:60, lvl:[1,15],  safe:false, bg:'map_plains' },
     magma_core: { name:'용암 핵심부',     x:500,  y:300,  w:70, h:70, lvl:[28,42], safe:false, bg:'map_dragon' },
+    // ── 신규 존 ──
+    mist_vale:  { name:'안개의 골짜기',    x:-700, y:300,  w:60, h:60, lvl:[12,22], safe:false, bg:'map_forest' },
+    obsidian:   { name:'흑요석 광산',      x:700,  y:-300, w:60, h:60, lvl:[22,35], safe:false, bg:'map_dungeon' },
+    thunder:    { name:'뇌전 고원',        x:-200, y:-900, w:70, h:60, lvl:[30,45], safe:false, bg:'map_plains' },
 };
 
 // 존 분위기 텍스트 (진입 시 표시)
@@ -446,6 +450,9 @@ const ZONE_AMBIENCE = {
     blood_arena:'피가 마르지 않는 투기장. 관중의 함성 대신 비명만 가득하다.',
     lawless:    '법이 없는 황야. 여기서는 힘만이 정의다.',
     magma_core: '대지의 심장부. 용암이 맥박처럼 맥동한다. 열기가 숨을 막는다.',
+    mist_vale:  '짙은 안개 속에 속삭임이 들린다. 발밑의 풀이 소리없이 흔들린다.',
+    obsidian:   '검은 유리 같은 흑요석 절벽. 광부들의 망치 소리가 깊은 곳에서 울린다.',
+    thunder:    '하늘에서 번개가 끝없이 내리친다. 전기가 공기를 가른다.',
     port_east:  '이국적인 향이 풍기는 동쪽 항구. 멀리서 배의 기적 소리.',
     colosseum:  '거대한 원형 투기장. 전설의 전사들이 여기서 싸웠다.',
     fortress:   '북방의 거대한 요새. 눈보라 속에서도 굳건히 서 있다.',
@@ -751,6 +758,10 @@ const ZONE_MONSTERS = {
     void_rift:   { tiers:{ boss:25, legendary:35, mythic:40 }, expBonus:0.8, goldBonus:0.7 },
     blood_arena: { tiers:{ elite:20, rare:35, boss:35, legendary:10 }, expBonus:0.5, goldBonus:0.5 },
     lawless:     { tiers:{ elite:25, rare:40, boss:30, legendary:5 }, expBonus:0.4, goldBonus:0.4 },
+    // ── 신규 존 몬스터 배치 ──
+    mist_vale:   { tiers:{ normal:45, elite:35, rare:18, boss:2 }, expBonus:0.1, goldBonus:0.05 },
+    obsidian:    { tiers:{ elite:30, rare:45, boss:20, legendary:5 }, expBonus:0.25, goldBonus:0.3 },
+    thunder:     { tiers:{ elite:20, rare:45, boss:30, legendary:5 }, expBonus:0.3, goldBonus:0.2 },
 };
 
 // NPC 정의
@@ -1689,6 +1700,10 @@ const ZONE_MONSTER_NAMES = {
     void_rift:   { boss:'공허의 감시자', legendary:'차원 포식자', mythic:'태초의 존재' },
     blood_arena: { elite:'광전사', rare:'피의 기사', boss:'투기장 챔피언', legendary:'피의 군주' },
     lawless:     { elite:'도적 대장', rare:'현상금 사냥꾼', boss:'무법자 왕' },
+    // ── 신규 존 몬스터 이름 ──
+    mist_vale:   { normal:'안개 정령', elite:'유령 늑대', rare:'안개 마녀', boss:'골짜기의 군주' },
+    obsidian:    { elite:'흑요석 골렘', rare:'심연 광부', boss:'어둠의 제련사', legendary:'흑요석 거인' },
+    thunder:     { elite:'번개 정령', rare:'폭풍 매', boss:'뇌전 거인', legendary:'번개의 왕' },
 };
 
 // ── 카르마 시스템 (PK 페널티) ──
