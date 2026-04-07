@@ -1129,6 +1129,19 @@
       window.socket.on('shop_result', (d) => { showToast(d.msg); playSFX('buy'); });
       window.socket.on('market_result', (d) => { showToast(d.msg); playSFX('buy'); });
       window.socket.on('daily_result', (d) => { showToast(d.msg); playSFX('gold'); if(d.diamonds) document.getElementById('diamond-val').textContent=d.diamonds; });
+      window.socket.on('online_players', (d) => {
+        var html = '<p class="text-gold" style="text-align:center">현재 접속자: <b>' + d.count + '명</b> (상위 30명 표시)</p>';
+        html += '<div style="max-height:55vh;overflow-y:auto;margin-top:10px"><table style="width:100%;font-size:12px;color:#ddd;border-collapse:collapse">';
+        html += '<thead><tr style="border-bottom:1px solid #444;color:#888"><th style="text-align:left;padding:4px">#</th><th style="text-align:left;padding:4px">이름</th><th style="text-align:left;padding:4px">Lv</th><th style="text-align:left;padding:4px">클래스</th><th style="text-align:left;padding:4px">위치</th></tr></thead><tbody>';
+        d.players.forEach(function(p, i) {
+          var karmaBadge = p.karma >= 200 ? ' <span style="color:#ff4444">[PK]</span>' : '';
+          var clanBadge = p.clan ? ' <span style="color:#aa44ff">[' + p.clan + ']</span>' : '';
+          html += '<tr style="border-bottom:1px solid #222"><td style="padding:4px;color:#ffd700">' + (i+1) + '</td><td style="padding:4px">' + p.name + karmaBadge + clanBadge + '</td><td style="padding:4px;color:#88ccff">' + p.level + '</td><td style="padding:4px">' + p.className + '</td><td style="padding:4px;color:#aaa">' + p.zone + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+        showModal('👥 온라인 플레이어', html, [{label:'닫기', type:'cancel', action:'closeModal()'}]);
+      });
+
       window.socket.on('lucky_spin_result', (d) => {
         if (!d.success) { showToast(d.msg); return; }
         showToast('🎰 ' + d.msg);
@@ -3125,6 +3138,7 @@
         {label:'퀘스트', action:()=>{togglePanel('quests');window.socket.emit('get_quests','{}');}},
         {label:'투기장', action:()=>{togglePanel('arena');window.socket.emit('arena_rankings');}},
         {label:'친구', action:()=>{togglePanel('friends');window.socket.emit('get_friends');}},
+        {label:'👥 접속자', action:()=>window.socket.emit('get_online_players')},
         {label:'현상금', action:()=>{togglePanel('bounty');window.socket.emit('get_bounties');}},
         {label:'도감', action:()=>{togglePanel('bestiary');window.socket.emit('get_bestiary');}},
       ],

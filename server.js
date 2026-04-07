@@ -3505,6 +3505,27 @@ io.on('connection', (socket) => {
         }
     });
 
+    // ── 온라인 플레이어 목록 (상위 30명) ──
+    socket.on('get_online_players', () => {
+        const list = [];
+        for (const pid in players) {
+            const pl = players[pid];
+            if (pl.isBot || !pl.isAlive) continue;
+            const z = getZone(pl.x, pl.y);
+            list.push({
+                id: pid,
+                name: pl.displayName || pl.className,
+                level: pl.level || 1,
+                className: pl.advancedClass || pl.className,
+                zone: z?.name || '?',
+                karma: pl.karma || 0,
+                clan: pl.clanName || null,
+            });
+        }
+        list.sort((a, b) => b.level - a.level);
+        socket.emit('online_players', { count: list.length, players: list.slice(0, 30) });
+    });
+
     // ── 길드 온라인 멤버 ──
     socket.on('get_guild_members', () => {
         const p = players[playerId];
