@@ -11,6 +11,7 @@ const BONUS_SOURCES = [
   { id:'legends',       label:'위인 학습',       module:'./legends' },
   { id:'morph',         label:'변신 형상',       module:'./morph' },
   { id:'dream',         label:'꿈의 축복',       module:'./dream' },
+  { id:'music',         label:'음악 연주',       module:'./music' },
 ];
 
 // 모듈 lazy require — 로드 실패 시에도 안전

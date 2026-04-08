@@ -281,6 +281,10 @@ const { registerExcavationHandlers } = require('./game/handlers/excavation_handl
 const dream = require('./game/dream');
 const { registerDreamHandlers } = require('./game/handlers/dream_handlers');
 
+// v2.11: 음악/연주 모듈
+const music = require('./game/music');
+const { registerMusicHandlers } = require('./game/handlers/music_handlers');
+
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
     if (!result.victory) {
@@ -5543,6 +5547,9 @@ io.on('connection', (socket) => {
 
     // ── v2.10: 꿈 ──
     registerDreamHandlers(socket, { io, players, playerId, savePlayer, dream });
+
+    // ── v2.11: 음악/연주 ──
+    registerMusicHandlers(socket, { io, players, playerId, savePlayer, music });
 
     // ── v1.62 ~ v1.81: 잡다 핸들러 일괄 등록 (v1.89: handlers/misc_handlers.js)
     registerMiscHandlers(socket, {
