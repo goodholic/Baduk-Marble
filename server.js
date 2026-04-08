@@ -106,6 +106,8 @@ const leaderboard = require('./game/leaderboard');
 // v1.51: 암시장 모듈 (생성 + 통합 동시)
 const blackMarket = require('./game/black_market');
 let currentBlackMarket = blackMarket.generateMarket();
+// v1.52: 부직업 모듈 (생성 + 통합 동시)
+const jobs = require('./game/jobs');
 
 // v1.33: 도감 자동 발견 헬퍼
 function codexDiscover(p, category, entryId) {
@@ -5348,6 +5350,25 @@ io.on('connection', (socket) => {
                 });
             }
         }
+    });
+
+    // ── v1.52: 부직업 ──
+    socket.on('jobs_status', () => {
+        const p = players[playerId];
+        if (!p) return;
+        socket.emit('jobs_status_result', jobs.getStatus(p));
+    });
+
+    socket.on('jobs_claim_mission', (jobId) => {
+        const p = players[playerId];
+        if (!p) return;
+        const result = jobs.claimMissionReward(p, jobId);
+        if (result.success) {
+            if (p.gold > MAX_GOLD) p.gold = MAX_GOLD;
+            savePlayer(p);
+            io.emit('player_update', p);
+        }
+        socket.emit('jobs_claim_result', result);
     });
 
     // ── v1.51: 암시장 ──
