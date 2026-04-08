@@ -83,6 +83,8 @@ const {
 } = require('./game/data/economy');
 // v1.42: 펫 배틀 모듈 (생성 + 통합 동시)
 const petBattle = require('./game/pet_battle');
+// v1.43: 순수 헬퍼 함수 추출 (server.js → game/helpers.js)
+const { getExpRequired, getYesterday, getWeekNumber } = require('./game/helpers');
 
 // v1.33: 도감 자동 발견 헬퍼
 function codexDiscover(p, category, entryId) {
@@ -1070,9 +1072,7 @@ const CLASSES = {
 // const KARMA = ... (v1.37: game/data/world_data.js로 이동)
 
 // ── 레벨업 테이블 ──
-function getExpRequired(level) {
-    return Math.floor(100 * Math.pow(1.12, level - 1));
-}
+// function getExpRequired = ... (v1.43: game/helpers.js로 이동)
 
 // ── 방어력 기반 데미지 계산 ──
 const MAX_STACK = 999; // 아이템 최대 스택
@@ -1105,15 +1105,7 @@ function capResources(p) {
     if (p.level > MAX_LEVEL) p.level = MAX_LEVEL;
 }
 
-function getYesterday() {
-    const d = new Date(); d.setDate(d.getDate() - 1);
-    return d.toISOString().slice(0, 10);
-}
-function getWeekNumber() {
-    const d = new Date();
-    const start = new Date(d.getFullYear(), 0, 1);
-    return d.getFullYear() + '-W' + Math.ceil(((d - start) / 86400000 + start.getDay() + 1) / 7);
-}
+// function getYesterday/getWeekNumber = ... (v1.43: game/helpers.js로 이동)
 
 function calcDamage(atk, def, dmgMulti, critRate, attackerElement, defenderElement, attacker) {
     // 날씨 ATK/DEF 보정

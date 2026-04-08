@@ -1308,6 +1308,8 @@ for ri, d in enumerate(diff_rows):
 # ========== 21. 패치 노트 ==========
 ws21 = wb.create_sheet('패치 노트')
 patches = [
+    ['v1.43','2026-04-08','함수 추출','game/helpers.js — 첫 함수 추출 (getExpRequired/getYesterday/getWeekNumber + clamp/distance/getToday)'],
+    ['v1.43','2026-04-08','함수 추출','데이터 추출에 이은 두 번째 추출 패턴 (함수 단위)'],
     ['v1.42','2026-04-08','신규 모듈','game/pet_battle.js — 펫 배틀 시뮬레이터 (생성 + 통합 동시)'],
     ['v1.42','2026-04-08','펫 배틀','game/pet.js의 PETS를 import → 자동 전투 스탯 변환'],
     ['v1.42','2026-04-08','펫 배틀','턴제 시뮬레이션 (최대 30턴) + 8강 토너먼트'],
@@ -1432,8 +1434,11 @@ style_sheet(ws21,
     patches, title='패치 노트 히스토리', col_widths=[10,12,12,55])
 
 # ========== 22. v1.9 / v1.10 / v1.11 / v1.12 신규 컨텐츠 요약 ==========
-ws22 = wb.create_sheet('v1.9 ~ v1.42')
+ws22 = wb.create_sheet('v1.9 ~ v1.43')
 v19 = [
+    ['v1.43','함수 추출','game/helpers.js','첫 함수 추출 모듈','순수 유틸 6종'],
+    ['v1.43','검증','getExpRequired(50)','25803','지수 공식 정상'],
+    ['v1.43','신규','clamp / distance / getToday','부가 헬퍼','다음 추출 시 활용'],
     ['v1.42','신규+통합','game/pet_battle.js','펫 배틀 모듈 (PETS import)','턴제 / 8강 토너먼트'],
     ['v1.42','검증','pet_slime vs pet_dragon','드래곤 4턴 승리','시뮬레이션 정상'],
     ['v1.42','보상','승리 시','100G + 50EXP / 토너먼트 200💎+칭호','일일 5회 무료'],
