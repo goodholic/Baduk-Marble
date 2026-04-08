@@ -16,6 +16,7 @@ const BONUS_SOURCES = [
   { id:'talisman',      label:'부적',            module:'./talisman' },
   { id:'wishingWell',   label:'우물의 축복',     module:'./wishing_well' },
   { id:'mask',          label:'가면 페르소나',   module:'./mask' },
+  { id:'heraldry',      label:'가문 문장',       module:'./heraldry' },
 ];
 
 // 모듈 lazy require — 로드 실패 시에도 안전
