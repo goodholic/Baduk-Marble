@@ -120,6 +120,8 @@ const insurance = require('./game/insurance');
 const fortune = require('./game/fortune');
 // v1.58: 트랜스모그 모듈 (생성 + 통합 동시)
 const transmog = require('./game/transmog');
+// v1.59: 우체국 모듈 (생성 + 통합 동시)
+const postoffice = require('./game/postoffice');
 
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
@@ -5403,6 +5405,57 @@ io.on('connection', (socket) => {
                 });
             }
         }
+    });
+
+    // ── v1.59: 우체국 ──
+    socket.on('postoffice_status', () => {
+        const p = players[playerId];
+        if (!p) return;
+        socket.emit('postoffice_status_result', postoffice.getStatus(p));
+    });
+
+    socket.on('postoffice_accept', (contract) => {
+        const p = players[playerId];
+        if (!p) return;
+        if (!contract || !contract.id) {
+            socket.emit('postoffice_result', { success: false, msg: '계약 미지정' });
+            return;
+        }
+        // 출발지 검증
+        const z = getZone(p.x, p.y);
+        if (z.id !== contract.fromZone) {
+            socket.emit('postoffice_result', { success: false, msg: `${contract.fromName}에서 수락 가능` });
+            return;
+        }
+        const result = postoffice.acceptContract(p, contract);
+        if (result.success) {
+            savePlayer(p);
+            io.emit('player_update', p);
+        }
+        socket.emit('postoffice_result', result);
+    });
+
+    socket.on('postoffice_deliver', (contractId) => {
+        const p = players[playerId];
+        if (!p) return;
+        // 도착지 검증
+        const d = postoffice.getStatus(p).active.find(c => c.id === contractId);
+        if (!d) {
+            socket.emit('postoffice_result', { success: false, msg: '존재하지 않는 계약' });
+            return;
+        }
+        const z = getZone(p.x, p.y);
+        if (z.id !== d.toZone) {
+            socket.emit('postoffice_result', { success: false, msg: `${d.toName}로 가야 합니다` });
+            return;
+        }
+        const result = postoffice.deliverPackage(p, contractId);
+        if (result.success) {
+            if (p.gold > MAX_GOLD) p.gold = MAX_GOLD;
+            savePlayer(p);
+            io.emit('player_update', p);
+        }
+        socket.emit('postoffice_result', result);
     });
 
     // ── v1.58: 트랜스모그 ──
