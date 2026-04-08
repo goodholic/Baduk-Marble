@@ -249,6 +249,10 @@ const { registerMorphHandlers } = require('./game/handlers/morph_handlers');
 const waypoint = require('./game/waypoint');
 const { registerWaypointHandlers } = require('./game/handlers/waypoint_handlers');
 
+// v2.03: 친구/우정 모듈
+const friends = require('./game/friends');
+const { registerFriendsHandlers } = require('./game/handlers/friends_handlers');
+
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
     if (!result.victory) {
@@ -5487,6 +5491,9 @@ io.on('connection', (socket) => {
 
     // ── v2.02: 차원문 ──
     registerWaypointHandlers(socket, { io, players, playerId, savePlayer, waypoint });
+
+    // ── v2.03: 친구/우정 ──
+    registerFriendsHandlers(socket, { io, players, playerId, savePlayer, friends });
 
     // ── v1.62 ~ v1.81: 잡다 핸들러 일괄 등록 (v1.89: handlers/misc_handlers.js)
     registerMiscHandlers(socket, {
