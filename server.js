@@ -146,6 +146,8 @@ const blessing = require('./game/blessing');
 const newsBoard = require('./game/news_board');
 // v1.71: 계약 모듈 (생성 + 통합 동시)
 const contracts = require('./game/contracts');
+// v1.72: 도면 모듈 (생성 + 통합 동시)
+const blueprint = require('./game/blueprint');
 
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
@@ -5429,6 +5431,28 @@ io.on('connection', (socket) => {
                 });
             }
         }
+    });
+
+    // ── v1.72: 도면 ──
+    socket.on('blueprint_status', () => {
+        const p = players[playerId];
+        if (!p) return;
+        socket.emit('blueprint_status_result', blueprint.getStatus(p));
+    });
+
+    socket.on('blueprint_craft', (blueprintId) => {
+        const p = players[playerId];
+        if (!p) return;
+        const result = blueprint.craftFromBlueprint(p, blueprintId);
+        if (result.success) {
+            savePlayer(p);
+            io.emit('player_update', p);
+            io.emit('server_msg', {
+                msg: `[도면 제작] ${p.displayName}이(가) ${result.resultName}을(를) 제작했습니다!`,
+                type: 'rare',
+            });
+        }
+        socket.emit('blueprint_result', result);
     });
 
     // ── v1.71: 계약 ──
