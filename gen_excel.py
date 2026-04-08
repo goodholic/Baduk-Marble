@@ -1308,6 +1308,7 @@ for ri, d in enumerate(diff_rows):
 # ========== 21. 패치 노트 ==========
 ws21 = wb.create_sheet('패치 노트')
 patches = [
+    ['v2.15','2026-04-09','신기능','가면 — game/mask.js (11 가면, 페르소나, 4 등급)'],
     ['v2.14','2026-04-09','신기능','소원의 우물 — game/wishing_well.js (8 결과, 가중확률, jackpot 10×)'],
     ['v2.13','2026-04-09','신기능','부적 — game/talisman.js (8 종류, 슬롯 3, 사용 횟수)'],
     ['v2.12','2026-04-09','신기능','타로 — game/tarot.js (22 메이저 아르카나, 일일 3장, 운명선)'],
@@ -1593,8 +1594,9 @@ style_sheet(ws21,
     patches, title='패치 노트 히스토리', col_widths=[10,12,12,55])
 
 # ========== 22. v1.9 / v1.10 / v1.11 / v1.12 신규 컨텐츠 요약 ==========
-ws22 = wb.create_sheet('v1.9 ~ v2.14')
+ws22 = wb.create_sheet('v1.9 ~ v2.15')
 v19 = [
+    ['v2.15','신기능','가면','mask.js (11 가면, 동물/감정/신화/전설, agg 13)','+150줄 모듈'],
     ['v2.14','신기능','소원의 우물','wishing_well.js (8 wish, jackpot 2%, 1h blessing)','+135줄 모듈'],
     ['v2.13','신기능','부적','talisman.js (8 부적, 종이+잉크 제작, charge, 슬롯 3)','+155줄 모듈'],
     ['v2.12','신기능','타로 카드','tarot.js (22 major arcana, 정/역, fateScore 누적)','+170줄 모듈'],

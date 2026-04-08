@@ -297,6 +297,10 @@ const { registerTalismanHandlers } = require('./game/handlers/talisman_handlers'
 const wishingWell = require('./game/wishing_well');
 const { registerWishingWellHandlers } = require('./game/handlers/wishing_well_handlers');
 
+// v2.15: 가면 모듈
+const mask = require('./game/mask');
+const { registerMaskHandlers } = require('./game/handlers/mask_handlers');
+
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
     if (!result.victory) {
@@ -5571,6 +5575,9 @@ io.on('connection', (socket) => {
 
     // ── v2.14: 소원의 우물 ──
     registerWishingWellHandlers(socket, { io, players, playerId, savePlayer, wishingWell });
+
+    // ── v2.15: 가면 ──
+    registerMaskHandlers(socket, { io, players, playerId, savePlayer, mask });
 
     // ── v1.62 ~ v1.81: 잡다 핸들러 일괄 등록 (v1.89: handlers/misc_handlers.js)
     registerMiscHandlers(socket, {
