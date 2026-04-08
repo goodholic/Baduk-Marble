@@ -93,6 +93,8 @@ const TRAINING_DRILLS_NAMES = {
     combat:'전투 훈련', defense:'방어 훈련', agility:'민첩 훈련',
     wisdom:'지혜 훈련', lucky:'행운 훈련'
 };
+// v1.46: 보물 지도 모듈 (생성 + 통합 동시)
+const treasureMap = require('./game/treasure_map');
 
 // v1.33: 도감 자동 발견 헬퍼
 function codexDiscover(p, category, entryId) {
@@ -5335,6 +5337,44 @@ io.on('connection', (socket) => {
                 });
             }
         }
+    });
+
+    // ── v1.46: 보물 지도 ──
+    socket.on('treasure_status', () => {
+        const p = players[playerId];
+        if (!p) return;
+        socket.emit('treasure_status_result', {
+            maps: treasureMap.getActiveMaps(p),
+            grades: treasureMap.TREASURE_GRADES,
+            maxMaps: treasureMap.TREASURE_CONFIG.maxActiveMaps,
+            totalFound: p.treasureFound || 0,
+        });
+    });
+
+    socket.on('treasure_hint', (mapId) => {
+        const p = players[playerId];
+        if (!p) return;
+        socket.emit('treasure_hint_result', treasureMap.getProximityHint(p, mapId));
+    });
+
+    socket.on('treasure_dig', (mapId) => {
+        const p = players[playerId];
+        if (!p) return;
+        const result = treasureMap.digTreasure(p, mapId);
+        if (result.success) {
+            if (p.gold > MAX_GOLD) p.gold = MAX_GOLD;
+            if (p.diamonds > MAX_DIAMONDS) p.diamonds = MAX_DIAMONDS;
+            savePlayer(p);
+            io.emit('player_update', p);
+            // 전설 등급 발견 시 알림
+            if (result.grade === 'legendary') {
+                io.emit('server_msg', {
+                    msg: `[보물] ${p.displayName}이(가) 전설의 보물을 발견했습니다!`,
+                    type: 'rare',
+                });
+            }
+        }
+        socket.emit('treasure_dig_result', result);
     });
 
     // ── v1.45: 일일 훈련 ──
