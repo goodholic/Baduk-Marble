@@ -160,6 +160,8 @@ const aura = require('./game/aura');
 const passport = require('./game/passport');
 // v1.78: 명예 모듈 (생성 + 통합 동시)
 const honor = require('./game/honor');
+// v1.79: 초대 모듈 (생성 + 통합 동시)
+const invitation = require('./game/invitation');
 
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
@@ -5443,6 +5445,33 @@ io.on('connection', (socket) => {
                 });
             }
         }
+    });
+
+    // ── v1.79: 초대 ──
+    socket.on('invitation_status', () => {
+        const p = players[playerId];
+        if (!p) return;
+        socket.emit('invitation_status_result', invitation.getStatus(p));
+    });
+
+    socket.on('invitation_generate', () => {
+        const p = players[playerId];
+        if (!p) return;
+        const result = invitation.generateCode(p);
+        if (result.success) {
+            savePlayer(p);
+        }
+        socket.emit('invitation_result', result);
+    });
+
+    socket.on('invitation_apply', (code) => {
+        const p = players[playerId];
+        if (!p) return;
+        const result = invitation.applyCode(p, code);
+        if (result.success) {
+            savePlayer(p);
+        }
+        socket.emit('invitation_result', result);
     });
 
     // ── v1.78: 명예 ──
