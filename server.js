@@ -213,6 +213,10 @@ const { registerCookingHandlers } = require('./game/handlers/cooking_handlers');
 const constellation = require('./game/constellation');
 const { registerConstellationHandlers } = require('./game/handlers/constellation_handlers');
 
+// v1.94: 기상 모듈
+const weather = require('./game/weather');
+const { registerWeatherHandlers } = require('./game/handlers/weather_handlers');
+
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
     if (!result.victory) {
@@ -5424,6 +5428,9 @@ io.on('connection', (socket) => {
 
     // ── v1.93: 별자리 ──
     registerConstellationHandlers(socket, { io, players, playerId, savePlayer, constellation });
+
+    // ── v1.94: 기상 ──
+    registerWeatherHandlers(socket, { io, players, playerId, savePlayer, weather });
 
     // ── v1.62 ~ v1.81: 잡다 핸들러 일괄 등록 (v1.89: handlers/misc_handlers.js)
     registerMiscHandlers(socket, {
