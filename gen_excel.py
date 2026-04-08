@@ -1308,6 +1308,9 @@ for ri, d in enumerate(diff_rows):
 # ========== 21. 패치 노트 ==========
 ws21 = wb.create_sheet('패치 노트')
 patches = [
+    ['v1.39','2026-04-08','리팩토링','Phase 3: 장비 데이터 6종 추출 → game/data/equipment.js (123줄)'],
+    ['v1.39','2026-04-08','리팩토링','server.js 9103 → 9007줄 (-96줄)'],
+    ['v1.39','2026-04-08','리팩토링','EQUIPMENT_SLOTS/SETS/GRADE_INFO/RANDOM_OPTIONS/EQUIP_STATS(44)/EQUIP_DESCRIPTIONS'],
     ['v1.38','2026-04-08','리팩토링','Phase 2: 지역 데이터 8종 추출 → game/data/zones.js (459줄)'],
     ['v1.38','2026-04-08','리팩토링','server.js 9517 → 9103줄 (-414줄)'],
     ['v1.38','2026-04-08','리팩토링','ZONES(53)/ZONE_AMBIENCE(52)/MONSTER_LORE(79)/ZONE_CONNECTIONS(50)/TERRAIN_BARRIERS/ROADS/ZONE_MONSTERS/ZONE_MONSTER_NAMES'],
@@ -1418,8 +1421,11 @@ style_sheet(ws21,
     patches, title='패치 노트 히스토리', col_widths=[10,12,12,55])
 
 # ========== 22. v1.9 / v1.10 / v1.11 / v1.12 신규 컨텐츠 요약 ==========
-ws22 = wb.create_sheet('v1.9 ~ v1.38')
+ws22 = wb.create_sheet('v1.9 ~ v1.39')
 v19 = [
+    ['v1.39','리팩토링','Phase 3','game/data/equipment.js 추출','-96줄 (9103→9007)'],
+    ['v1.39','분리','장비 6종','SLOTS/SETS/GRADE/RAND/STATS/DESC','generateRandomOptions 함수 유지'],
+    ['v1.39','진척','-615줄 누적','9622 → 9007','-6.4%'],
     ['v1.38','리팩토링','Phase 2','game/data/zones.js 추출','-414줄 (9517→9103)'],
     ['v1.38','분리','지역 8종','ZONES/ZONE_AMBIENCE/MONSTER_LORE/등','함수(isOnRoad/isBlocked) 유지'],
     ['v1.38','진척','-519줄 누적','9622 → 9103','-5.4%'],
