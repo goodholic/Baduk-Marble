@@ -136,6 +136,8 @@ const guildWar = require('./game/guild_war');
 const titleCollection = require('./game/title_collection');
 // v1.66: 잭팟 복권 모듈 (생성 + 통합 동시)
 const lotteryJackpot = require('./game/lottery_jackpot');
+// v1.67: 던전 열쇠 모듈 (생성 + 통합 동시)
+const dungeonKeys = require('./game/dungeon_keys');
 
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
@@ -5419,6 +5421,13 @@ io.on('connection', (socket) => {
                 });
             }
         }
+    });
+
+    // ── v1.67: 던전 열쇠 ──
+    socket.on('dungeon_keys_status', () => {
+        const p = players[playerId];
+        if (!p) return;
+        socket.emit('dungeon_keys_status_result', dungeonKeys.getStatus(p));
     });
 
     // ── v1.66: 잭팟 복권 ──
