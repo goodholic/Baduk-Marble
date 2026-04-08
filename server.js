@@ -142,6 +142,8 @@ const dungeonKeys = require('./game/dungeon_keys');
 const library = require('./game/library');
 // v1.69: 신의 축복 모듈 (생성 + 통합 동시)
 const blessing = require('./game/blessing');
+// v1.70: 서버 뉴스 보드 모듈 (70번째 패치 마일스톤)
+const newsBoard = require('./game/news_board');
 
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
@@ -5425,6 +5427,19 @@ io.on('connection', (socket) => {
                 });
             }
         }
+    });
+
+    // ── v1.70: 서버 뉴스 보드 ──
+    socket.on('news_feed', (filter) => {
+        socket.emit('news_feed_result', {
+            feed: newsBoard.getFeed(filter || {}),
+            categories: newsBoard.NEWS_CATEGORIES,
+            stats: newsBoard.getCategoryStats(),
+        });
+    });
+
+    socket.on('news_highlights', () => {
+        socket.emit('news_highlights_result', newsBoard.getRecentHighlights(10));
     });
 
     // ── v1.69: 신의 축복 ──
