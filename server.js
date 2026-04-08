@@ -158,6 +158,8 @@ const dashboard = require('./game/dashboard');
 const aura = require('./game/aura');
 // v1.77: 여권 모듈 (생성 + 통합 동시)
 const passport = require('./game/passport');
+// v1.78: 명예 모듈 (생성 + 통합 동시)
+const honor = require('./game/honor');
 
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
@@ -5441,6 +5443,24 @@ io.on('connection', (socket) => {
                 });
             }
         }
+    });
+
+    // ── v1.78: 명예 ──
+    socket.on('honor_status', () => {
+        const p = players[playerId];
+        if (!p) return;
+        socket.emit('honor_status_result', honor.getStatus(p));
+    });
+
+    socket.on('honor_buy', (itemId) => {
+        const p = players[playerId];
+        if (!p) return;
+        const result = honor.spendHonor(p, itemId);
+        if (result.success) {
+            savePlayer(p);
+            io.emit('player_update', p);
+        }
+        socket.emit('honor_result', result);
     });
 
     // ── v1.77: 여권 ──
