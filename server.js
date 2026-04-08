@@ -184,6 +184,12 @@ const { registerRelicHandlers } = require('./game/handlers/relic_handlers');
 const { registerTreasureMapHandlers } = require('./game/handlers/treasure_map_handlers');
 const { registerTrainingHandlers } = require('./game/handlers/training_handlers');
 const { registerPetBattleHandlers } = require('./game/handlers/pet_battle_handlers');
+const { registerExpeditionHandlers } = require('./game/handlers/expedition_handlers');
+const { registerRaidHandlers } = require('./game/handlers/raid_handlers');
+const { registerTransmutationHandlers } = require('./game/handlers/transmutation_handlers');
+const { registerJobsHandlers } = require('./game/handlers/jobs_handlers');
+const { registerBlackMarketHandlers } = require('./game/handlers/black_market_handlers');
+const { registerLeaderboardHandlers } = require('./game/handlers/leaderboard_handlers');
 
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
@@ -5971,245 +5977,27 @@ io.on('connection', (socket) => {
         socket.emit('insurance_check_result', { equipId, insured: insurance.isInsured(p, equipId) });
     });
 
-    // ── v1.55: 원정 ──
-    socket.on('expedition_status', () => {
-        const p = players[playerId];
-        if (!p) return;
-        socket.emit('expedition_status_result', expedition.getStatus(p));
+    // ── v1.55: 원정 ── (v1.87: handlers/expedition_handlers.js)
+    registerExpeditionHandlers(socket, { io, players, playerId, savePlayer, expedition });
+
+    // ── v1.54: 레이드 ── (v1.87: handlers/raid_handlers.js)
+    registerRaidHandlers(socket, { io, players, playerId, savePlayer, raid, handleRaidFinish });
+
+    // ── v1.53: 변환 ── (v1.87: handlers/transmutation_handlers.js)
+    registerTransmutationHandlers(socket, { io, players, playerId, savePlayer, transmutation });
+
+    // ── v1.52: 부직업 ── (v1.87: handlers/jobs_handlers.js)
+    registerJobsHandlers(socket, { io, players, playerId, savePlayer, MAX_GOLD, jobs });
+
+    // ── v1.51: 암시장 ── (v1.87: handlers/black_market_handlers.js)
+    registerBlackMarketHandlers(socket, {
+        io, players, playerId, savePlayer, blackMarket,
+        getCurrentBlackMarket: () => currentBlackMarket,
+        setCurrentBlackMarket: (m) => { currentBlackMarket = m; }
     });
 
-    socket.on('expedition_start', (expId) => {
-        const p = players[playerId];
-        if (!p) return;
-        const result = expedition.startExpedition(p, expId);
-        if (result.success) {
-            savePlayer(p);
-            io.emit('player_update', p);
-        }
-        socket.emit('expedition_result', result);
-    });
-
-    socket.on('expedition_branch', (data) => {
-        const p = players[playerId];
-        if (!p) return;
-        if (!data || !data.expId || !data.option) {
-            socket.emit('expedition_result', { success: false, msg: '필수 정보 누락' });
-            return;
-        }
-        const result = expedition.pickBranch(p, data.expId, data.option);
-        if (result.success) {
-            savePlayer(p);
-            io.emit('player_update', p);
-        }
-        socket.emit('expedition_result', result);
-    });
-
-    // ── v1.54: 레이드 ──
-    socket.on('raid_list', () => {
-        socket.emit('raid_list_result', {
-            raids: raid.RAIDS,
-            active: raid.getActiveRaids(),
-            weeklyLimit: raid.RAID_CONFIG.weeklyEntryLimit,
-        });
-    });
-
-    socket.on('raid_create', (raidType) => {
-        const p = players[playerId];
-        if (!p) return;
-        const r = raid.createRaid(raidType);
-        if (!r) {
-            socket.emit('raid_result', { success: false, msg: '존재하지 않는 레이드 종류' });
-            return;
-        }
-        // 생성자는 자동 참가
-        const join = raid.joinRaid(p, r.id);
-        socket.emit('raid_result', { success: true, raid: r, msg: '레이드 생성 + 자동 참가' });
-        io.emit('server_msg', {
-            msg: `[레이드] ${p.displayName}이(가) ${r.name} 레이드를 시작합니다! (모집 5분)`,
-            type: 'normal',
-        });
-    });
-
-    socket.on('raid_join', (raidId) => {
-        const p = players[playerId];
-        if (!p) return;
-        const result = raid.joinRaid(p, raidId);
-        socket.emit('raid_result', result);
-    });
-
-    socket.on('raid_start', (raidId) => {
-        const p = players[playerId];
-        if (!p) return;
-        const result = raid.startRaid(raidId);
-        if (result.success) {
-            // 모든 참가자의 주간 카운트 증가
-            const r = raid._activeRaids[raidId];
-            for (const pid of Object.keys(r.players)) {
-                const pl = players[pid];
-                if (pl) {
-                    if (!pl.raidWeekly) pl.raidWeekly = { week: '', count: 0 };
-                    pl.raidWeekly.count++;
-                    savePlayer(pl);
-                }
-            }
-            io.emit('raid_started', { raidId, name: r.name });
-        }
-        socket.emit('raid_result', result);
-    });
-
-    // 클라이언트가 데미지 보고 (단순화)
-    socket.on('raid_damage', (data) => {
-        const p = players[playerId];
-        if (!p || !data || !data.raidId || !data.damage) return;
-        const result = raid.dealDamage(data.raidId, p.id, Number(data.damage) || 0);
-        if (result && result.victory !== undefined) {
-            // 레이드 종료
-            handleRaidFinish(data.raidId, result);
-        }
-    });
-
-    // ── v1.53: 변환 ──
-    socket.on('transmutation_options', () => {
-        socket.emit('transmutation_options_result', transmutation.getTransmutationOptions());
-    });
-
-    socket.on('transmutation_dismantle', (equipId) => {
-        const p = players[playerId];
-        if (!p) return;
-        const result = transmutation.dismantleEquipment(p, equipId);
-        if (result.success) {
-            savePlayer(p);
-            io.emit('player_update', p);
-        }
-        socket.emit('transmutation_result', result);
-    });
-
-    socket.on('transmutation_refine_food', (foodId) => {
-        const p = players[playerId];
-        if (!p) return;
-        const result = transmutation.refineFood(p, foodId);
-        if (result.success) {
-            savePlayer(p);
-            io.emit('player_update', p);
-        }
-        socket.emit('transmutation_result', result);
-    });
-
-    socket.on('transmutation_compress', (tradeId) => {
-        const p = players[playerId];
-        if (!p) return;
-        const result = transmutation.compressTrade(p, tradeId);
-        if (result.success) {
-            savePlayer(p);
-            io.emit('player_update', p);
-        }
-        socket.emit('transmutation_result', result);
-    });
-
-    socket.on('transmutation_upgrade', (recipeId) => {
-        const p = players[playerId];
-        if (!p) return;
-        const result = transmutation.upgradeMaterial(p, recipeId);
-        if (result.success || result.failed) {
-            savePlayer(p);
-            io.emit('player_update', p);
-        }
-        socket.emit('transmutation_result', result);
-    });
-
-    // ── v1.52: 부직업 ──
-    socket.on('jobs_status', () => {
-        const p = players[playerId];
-        if (!p) return;
-        socket.emit('jobs_status_result', jobs.getStatus(p));
-    });
-
-    socket.on('jobs_claim_mission', (jobId) => {
-        const p = players[playerId];
-        if (!p) return;
-        const result = jobs.claimMissionReward(p, jobId);
-        if (result.success) {
-            if (p.gold > MAX_GOLD) p.gold = MAX_GOLD;
-            savePlayer(p);
-            io.emit('player_update', p);
-        }
-        socket.emit('jobs_claim_result', result);
-    });
-
-    // ── v1.51: 암시장 ──
-    socket.on('black_market_status', () => {
-        const p = players[playerId];
-        if (!p) return;
-        // 윈도우 만료 체크
-        if (Date.now() >= currentBlackMarket.expiresAt) {
-            currentBlackMarket = blackMarket.generateMarket();
-        }
-        const bought = (p.blackMarketBoughtSeed === currentBlackMarket.seed) ? (p.blackMarketBought || {}) : {};
-        socket.emit('black_market_status_result', {
-            seed: currentBlackMarket.seed,
-            expiresAt: currentBlackMarket.expiresAt,
-            slots: currentBlackMarket.slots.map((item, idx) => ({
-                ...item,
-                slotIdx: idx,
-                bought: !!bought[idx],
-            })),
-            rerollPrice: blackMarket.BLACK_MARKET_CONFIG.rerollPriceDiamond,
-        });
-    });
-
-    socket.on('black_market_buy', (data) => {
-        const p = players[playerId];
-        if (!p) return;
-        if (Date.now() >= currentBlackMarket.expiresAt) {
-            currentBlackMarket = blackMarket.generateMarket();
-        }
-        const slotIdx = data && Number(data.slotIdx);
-        const result = blackMarket.buyItem(p, slotIdx, currentBlackMarket);
-        if (result.success) {
-            savePlayer(p);
-            io.emit('player_update', p);
-            // 전설 등급 구매 시 알림
-            if (result.item.rarity === 'legendary') {
-                io.emit('server_msg', {
-                    msg: `[암시장] ${p.displayName}이(가) ${result.item.name}을(를) 구매했습니다!`,
-                    type: 'rare',
-                });
-            }
-        }
-        socket.emit('black_market_buy_result', result);
-    });
-
-    socket.on('black_market_reroll', () => {
-        const p = players[playerId];
-        if (!p) return;
-        const result = blackMarket.rerollMarket(p);
-        if (result.success) {
-            savePlayer(p);
-            io.emit('player_update', p);
-            socket.emit('black_market_status_result', {
-                seed: result.market.seed,
-                expiresAt: result.market.expiresAt,
-                slots: result.market.slots.map((item, idx) => ({ ...item, slotIdx: idx, bought: false })),
-                rerollPrice: blackMarket.BLACK_MARKET_CONFIG.rerollPriceDiamond,
-                isPersonal: true,
-            });
-        } else {
-            socket.emit('black_market_buy_result', result);
-        }
-    });
-
-    // ── v1.50: 종합 랭킹 ──
-    socket.on('leaderboard_status', (data) => {
-        const categoryId = data && data.category;
-        const result = leaderboard.getLeaderboard(players, categoryId);
-        socket.emit('leaderboard_status_result', { categoryId, data: result });
-    });
-
-    socket.on('leaderboard_my_rank', (categoryId) => {
-        const result = leaderboard.getMyRank(players, playerId, categoryId);
-        socket.emit('leaderboard_my_rank_result', { categoryId, ...result });
-    });
-
+    // ── v1.50: 종합 랭킹 ── (v1.87: handlers/leaderboard_handlers.js)
+    registerLeaderboardHandlers(socket, { players, playerId, leaderboard });
 
     // ── v1.49: 룬 ── (v1.86: handlers/runes_handlers.js)
     registerRunesHandlers(socket, { io, players, playerId, savePlayer, trackQuest, runes });
