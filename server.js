@@ -150,6 +150,8 @@ const contracts = require('./game/contracts');
 const blueprint = require('./game/blueprint');
 // v1.73: 영토 모듈 (생성 + 통합 동시)
 const territory = require('./game/territory');
+// v1.74: 여관 모듈 (생성 + 통합 동시)
+const inn = require('./game/inn');
 
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
@@ -5433,6 +5435,26 @@ io.on('connection', (socket) => {
                 });
             }
         }
+    });
+
+    // ── v1.74: 여관 ──
+    socket.on('inn_status', () => {
+        const p = players[playerId];
+        if (!p) return;
+        const z = getZone(p.x, p.y);
+        socket.emit('inn_status_result', inn.getStatus(p, z?.id));
+    });
+
+    socket.on('inn_checkin', (hours) => {
+        const p = players[playerId];
+        if (!p) return;
+        const z = getZone(p.x, p.y);
+        const result = inn.checkIn(p, z?.id, Number(hours) || 1);
+        if (result.success) {
+            savePlayer(p);
+            io.emit('player_update', p);
+        }
+        socket.emit('inn_result', result);
     });
 
     // ── v1.73: 영토 ──
