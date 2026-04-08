@@ -1308,6 +1308,8 @@ for ri, d in enumerate(diff_rows):
 # ========== 21. 패치 노트 ==========
 ws21 = wb.create_sheet('패치 노트')
 patches = [
+    ['v1.83','2026-04-08','리팩토링','fishing 핸들러 분리 (-116줄)'],
+    ['v1.83','2026-04-08','리팩토링','game/handlers/fishing_handlers.js (130줄)'],
     ['v1.82','2026-04-08','리팩토링','핸들러 분리 시작 — game/handlers/lottery_handlers.js'],
     ['v1.82','2026-04-08','패턴','registerXxxHandlers(socket, ctx) 형태로 분리, server.js -73줄'],
     ['v1.82','2026-04-08','첫 단계','lottery만 분리하여 패턴 검증, 다음에 더 많은 모듈 동일 패턴 적용'],
@@ -1557,8 +1559,10 @@ style_sheet(ws21,
     patches, title='패치 노트 히스토리', col_widths=[10,12,12,55])
 
 # ========== 22. v1.9 / v1.10 / v1.11 / v1.12 신규 컨텐츠 요약 ==========
-ws22 = wb.create_sheet('v1.9 ~ v1.82')
+ws22 = wb.create_sheet('v1.9 ~ v1.83')
 v19 = [
+    ['v1.83','리팩토링','fishing_handlers.js','3 핸들러 분리','-116줄 (9796→9680)'],
+    ['v1.83','누적','lottery + fishing','-189줄','9869 → 9680'],
     ['v1.82','리팩토링','핸들러 분리 시작','game/handlers/ 신규 디렉토리','registerXxxHandlers 패턴'],
     ['v1.82','첫 분리','lottery_handlers.js','-73줄 (9869→9796)','패턴 검증 완료'],
     ['v1.82','다음 단계','다른 모듈도 동일 패턴','fishing/event/season/등','점진적 분리'],
