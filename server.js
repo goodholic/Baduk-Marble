@@ -128,6 +128,8 @@ const worldEvent = require('./game/world_event');
 const companion = require('./game/companion');
 // v1.62: 지혜 모듈 (생성 + 통합 동시)
 const wisdom = require('./game/wisdom');
+// v1.63: PvP 토너먼트 모듈 (생성 + 통합 동시)
+const pvpTournament = require('./game/pvp_tournament');
 
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
@@ -5411,6 +5413,26 @@ io.on('connection', (socket) => {
                 });
             }
         }
+    });
+
+    // ── v1.63: PvP 토너먼트 ──
+    socket.on('tournament_status', () => {
+        socket.emit('tournament_status_result', pvpTournament.getStatus());
+    });
+
+    socket.on('tournament_register', () => {
+        const p = players[playerId];
+        if (!p) return;
+        const result = pvpTournament.register(p);
+        if (result.success) {
+            savePlayer(p);
+            io.emit('player_update', p);
+            io.emit('server_msg', {
+                msg: `[토너먼트] ${p.displayName} 참가 (${result.position}/16)`,
+                type: 'normal',
+            });
+        }
+        socket.emit('tournament_result', result);
     });
 
     // ── v1.62: 지혜 ──
