@@ -140,6 +140,8 @@ const lotteryJackpot = require('./game/lottery_jackpot');
 const dungeonKeys = require('./game/dungeon_keys');
 // v1.68: 도서관 모듈 (생성 + 통합 동시)
 const library = require('./game/library');
+// v1.69: 신의 축복 모듈 (생성 + 통합 동시)
+const blessing = require('./game/blessing');
 
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
@@ -5423,6 +5425,35 @@ io.on('connection', (socket) => {
                 });
             }
         }
+    });
+
+    // ── v1.69: 신의 축복 ──
+    socket.on('blessing_status', () => {
+        const p = players[playerId];
+        if (!p) return;
+        socket.emit('blessing_status_result', blessing.getStatus(p));
+    });
+
+    socket.on('blessing_choose', (deityId) => {
+        const p = players[playerId];
+        if (!p) return;
+        const result = blessing.chooseDeity(p, deityId);
+        if (result.success) {
+            savePlayer(p);
+            io.emit('player_update', p);
+        }
+        socket.emit('blessing_result', result);
+    });
+
+    socket.on('blessing_pray', () => {
+        const p = players[playerId];
+        if (!p) return;
+        const result = blessing.pray(p);
+        if (result.success) {
+            savePlayer(p);
+            io.emit('player_update', p);
+        }
+        socket.emit('blessing_result', result);
     });
 
     // ── v1.68: 도서관 ──
