@@ -169,6 +169,10 @@ const statistics = require('./game/statistics');
 // v1.82~: 핸들러 분리 리팩토링
 const { registerLotteryHandlers } = require('./game/handlers/lottery_handlers');
 const { registerFishingHandlers } = require('./game/handlers/fishing_handlers');
+const { registerEventHandlers } = require('./game/handlers/event_handlers');
+const { registerAuctionHandlers } = require('./game/handlers/auction_handlers');
+const { registerBossRushHandlers } = require('./game/handlers/boss_rush_handlers');
+const { registerSeasonHandlers } = require('./game/handlers/season_handlers');
 
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
@@ -6724,269 +6728,25 @@ io.on('connection', (socket) => {
         io.emit('player_update', p);
     });
 
-    // ── v1.31: 경매장 ──
-    socket.on('auction_list', (filter) => {
-        const list = auction.getActiveAuctions(filter || {});
-        socket.emit('auction_list_result', {
-            auctions: list.map(a => ({
-                id: a.id,
-                sellerName: a.sellerName,
-                itemId: a.itemId,
-                itemName: a.itemName,
-                startPrice: a.startPrice,
-                currentBid: a.currentBid,
-                currentBidderName: a.currentBidderName,
-                expiresAt: a.expiresAt,
-                bidCount: a.bidHistory.length,
-            })),
-        });
+
+    // ── v1.31: 경매장 ── (v1.84: handlers/auction_handlers.js로 분리)
+    registerAuctionHandlers(socket, {
+        io, players, playerId, savePlayer, MAX_GOLD, auction, EQUIP_STATS, TRADE_GOODS
     });
 
-    socket.on('auction_create', (data) => {
-        const p = players[playerId];
-        if (!p) return;
-        if (!data || !data.itemId || !data.startPrice) {
-            socket.emit('auction_create_result', { success: false, msg: '필수 정보 누락' });
-            return;
-        }
-        // 표시 이름 (최선 노력)
-        let itemName = data.itemId;
-        if (EQUIP_STATS[data.itemId]) itemName = EQUIP_STATS[data.itemId].name;
-        else if (TRADE_GOODS[data.itemId]) itemName = TRADE_GOODS[data.itemId].name;
-        const result = auction.listAuction(p, data.itemId, itemName, Number(data.startPrice), data.duration || 'medium');
-        socket.emit('auction_create_result', result);
-        if (result.success) {
-            savePlayer(p);
-            io.emit('player_update', p);
-            io.emit('auction_listed', { auctionId: result.auctionId, itemName, sellerName: p.displayName });
-        }
+    // ── v1.30: 보스 러시 ── (v1.84: handlers/boss_rush_handlers.js로 분리)
+    registerBossRushHandlers(socket, {
+        io, players, playerId, savePlayer, bossRush,
+        bossRushSessions, bossRushRanking, finishBossRush
     });
 
-    socket.on('auction_bid', (data) => {
-        const p = players[playerId];
-        if (!p) return;
-        if (!data || !data.auctionId || !data.amount) {
-            socket.emit('auction_bid_result', { success: false, msg: '필수 정보 누락' });
-            return;
-        }
-        // 이전 입찰자 환불 처리 (모듈은 players 접근 불가)
-        const a = auction._auctions[data.auctionId];
-        const prevBidderId = a ? a.currentBidderId : null;
-        const prevBid = a ? a.currentBid : 0;
-
-        const result = auction.placeBid(p, data.auctionId, Number(data.amount));
-        socket.emit('auction_bid_result', result);
-
-        if (result.success) {
-            // 이전 입찰자 골드 환불
-            if (prevBidderId && prevBidderId !== p.id && players[prevBidderId]) {
-                const prev = players[prevBidderId];
-                prev.gold = Math.min(MAX_GOLD, (prev.gold || 0) + prevBid);
-                savePlayer(prev);
-                try {
-                    io.to(prevBidderId).emit('auction_outbid', {
-                        auctionId: data.auctionId, refunded: prevBid, newBid: data.amount,
-                    });
-                } catch (_) {}
-                io.emit('player_update', prev);
-            }
-            savePlayer(p);
-            io.emit('player_update', p);
-            if (result.extended) {
-                io.emit('auction_extended', { auctionId: data.auctionId, newExpiresAt: result.newExpiresAt });
-            }
-        }
+    // ── v1.29: 시즌 패스 ── (v1.84: handlers/season_handlers.js로 분리)
+    registerSeasonHandlers(socket, {
+        io, players, playerId, savePlayer, MAX_GOLD, MAX_DIAMONDS, seasonPass
     });
 
-    socket.on('auction_my', () => {
-        const p = players[playerId];
-        if (!p) return;
-        const selling = auction.getActiveAuctions({ sellerId: p.id });
-        const bidding = Object.values(auction._auctions).filter(a => a.status === 'active' && a.currentBidderId === p.id);
-        socket.emit('auction_my_result', {
-            selling: selling.map(a => ({ id: a.id, itemName: a.itemName, currentBid: a.currentBid, expiresAt: a.expiresAt })),
-            bidding: bidding.map(a => ({ id: a.id, itemName: a.itemName, currentBid: a.currentBid, expiresAt: a.expiresAt })),
-        });
-    });
-
-    // ── v1.30: 보스 러시 ──
-    socket.on('boss_rush_status', () => {
-        const p = players[playerId];
-        if (!p) return;
-        const session = bossRushSessions[playerId] || null;
-        socket.emit('boss_rush_status_result', {
-            canFreeEntry: bossRush.canFreeEntry(p),
-            freeEntriesLeft: Math.max(0, bossRush.BOSS_RUSH_CONFIG.freeEntriesPerDay - ((p.bossRushUsed && p.bossRushDate === new Date().toISOString().slice(0,10)) ? p.bossRushUsed : 0)),
-            entryGold: bossRush.BOSS_RUSH_CONFIG.goldEntryPrice,
-            entryDiamond: bossRush.BOSS_RUSH_CONFIG.diamondEntryPrice,
-            totalWaves: bossRush.BOSS_RUSH_CONFIG.totalWaves,
-            currentSession: session ? {
-                currentWave: session.currentWave,
-                elapsedSec: Math.floor((Date.now() - session.startTime) / 1000),
-                waveInfo: bossRush.BOSS_RUSH_WAVES[session.currentWave - 1] || null,
-            } : null,
-            ranking: bossRushRanking.slice(0, 10),
-            bestWave: p.bossRushBestWave || 0,
-        });
-    });
-
-    socket.on('boss_rush_enter', (data) => {
-        const p = players[playerId];
-        if (!p) return;
-        if (bossRushSessions[playerId]) {
-            socket.emit('boss_rush_result', { success: false, msg: '이미 진행 중인 러시가 있습니다' });
-            return;
-        }
-        const useFree = data && data.useFree;
-        if (useFree) {
-            if (!bossRush.canFreeEntry(p)) {
-                socket.emit('boss_rush_result', { success: false, msg: '오늘 무료 입장 횟수 소진' });
-                return;
-            }
-            bossRush.consumeFreeEntry(p);
-        } else {
-            const currency = (data && data.currency === 'diamond') ? 'diamond' : 'gold';
-            const result = bossRush.payEntry(p, currency);
-            if (!result.success) {
-                socket.emit('boss_rush_result', result);
-                return;
-            }
-        }
-        bossRushSessions[playerId] = {
-            currentWave: 1,
-            startTime: Date.now(),
-            waveStart: Date.now(),
-            killsInWave: 0,
-        };
-        savePlayer(p);
-        socket.emit('boss_rush_result', {
-            success: true,
-            msg: '보스 러시 시작!',
-            wave: 1,
-            waveInfo: bossRush.BOSS_RUSH_WAVES[0],
-        });
-        io.emit('player_update', p);
-    });
-
-    // 클라이언트가 웨이브 클리어를 보고 (서버는 시간 제한 검증)
-    socket.on('boss_rush_advance', () => {
-        const p = players[playerId];
-        const session = bossRushSessions[playerId];
-        if (!p || !session) {
-            socket.emit('boss_rush_result', { success: false, msg: '진행 중인 러시 없음' });
-            return;
-        }
-        const wave = bossRush.BOSS_RUSH_WAVES[session.currentWave - 1];
-        if (!wave) return;
-        const elapsed = (Date.now() - session.waveStart) / 1000;
-        if (elapsed > wave.timeLimit) {
-            // 시간 초과 → 강제 종료
-            finishBossRush(playerId, false);
-            socket.emit('boss_rush_result', { success: false, msg: `웨이브 ${session.currentWave} 시간 초과 (${wave.timeLimit}초)` });
-            return;
-        }
-        // 다음 웨이브로
-        session.currentWave++;
-        session.waveStart = Date.now();
-        if (session.currentWave > bossRush.BOSS_RUSH_CONFIG.totalWaves) {
-            // 클리어!
-            finishBossRush(playerId, true);
-            return;
-        }
-        const next = bossRush.BOSS_RUSH_WAVES[session.currentWave - 1];
-        socket.emit('boss_rush_result', {
-            success: true,
-            msg: `웨이브 ${session.currentWave - 1} 클리어! 다음: ${next.name}`,
-            wave: session.currentWave,
-            waveInfo: next,
-        });
-    });
-
-    socket.on('boss_rush_abandon', () => {
-        if (!bossRushSessions[playerId]) return;
-        finishBossRush(playerId, false);
-        socket.emit('boss_rush_result', { success: true, msg: '러시 포기' });
-    });
-
-    // ── v1.29: 시즌 패스 ──
-    socket.on('season_status', () => {
-        const p = players[playerId];
-        if (!p) return;
-        let currentTier = 0;
-        for (const t of seasonPass.SEASON_PASS_TIERS) {
-            if ((p.seasonXp || 0) >= t.xp) currentTier = t.tier;
-            else break;
-        }
-        socket.emit('season_status_result', {
-            seasonXp: p.seasonXp || 0,
-            currentTier,
-            hasSeasonPass: !!p.hasSeasonPass,
-            claimed: p.seasonClaimed || { free: [], premium: [] },
-            tiers: seasonPass.SEASON_PASS_TIERS,
-            xpSources: seasonPass.SEASON_XP_SOURCES,
-            price: seasonPass.SEASON_PASS_PRICE,
-            duration: seasonPass.SEASON_DURATION_DAYS,
-        });
-    });
-
-    socket.on('season_buy_pass', () => {
-        const p = players[playerId];
-        if (!p) return;
-        const result = seasonPass.buySeasonPass(p);
-        socket.emit('season_buy_result', result);
-        if (result.success) {
-            savePlayer(p);
-            io.emit('player_update', p);
-            io.emit('server_msg', { msg: `[시즌 패스] ${p.displayName}이(가) 프리미엄 패스를 구매했습니다!`, type: 'normal' });
-        }
-    });
-
-    socket.on('season_claim', (data) => {
-        const p = players[playerId];
-        if (!p) return;
-        const tier = data && Number(data.tier);
-        const track = data && (data.track === 'premium' ? 'premium' : 'free');
-        if (!tier) { socket.emit('season_claim_result', { success: false, msg: '티어 미지정' }); return; }
-        const result = seasonPass.claimSeasonReward(p, tier, track);
-        if (!result.success) {
-            socket.emit('season_claim_result', result);
-            return;
-        }
-        // 보상 지급 (간단 매핑)
-        const r = result.reward || {};
-        if (r.gold) p.gold = Math.min(MAX_GOLD, (p.gold || 0) + r.gold);
-        if (r.diamonds) p.diamonds = Math.min(MAX_DIAMONDS, (p.diamonds || 0) + r.diamonds);
-        if (!p.inventory) p.inventory = {};
-        for (const [k, v] of Object.entries(r)) {
-            if (['gold','diamonds','title','skin'].includes(k)) continue;
-            if (typeof v === 'number') p.inventory[k] = (p.inventory[k] || 0) + v;
-        }
-        if (r.title) {
-            if (!p.titles) p.titles = [];
-            if (!p.titles.includes(r.title)) p.titles.push(r.title);
-        }
-        savePlayer(p);
-        socket.emit('season_claim_result', { success: true, tier, track, reward: r });
-        io.emit('player_update', p);
-    });
-
-    // ── v1.28: 시즌 축제 이벤트 ──
-    socket.on('event_status', () => {
-        const ev = festival.getActiveEvent();
-        socket.emit('event_status_result', {
-            active: !!ev,
-            event: ev ? {
-                id: ev.id,
-                name: ev.name,
-                desc: ev.desc,
-                color: ev.color,
-                globalBuff: ev.globalBuff,
-                exclusiveRewards: ev.exclusiveRewards,
-                npcGreeting: ev.npcGreeting,
-                period: `${ev.startMonth}/${ev.startDay} ~ ${ev.endMonth}/${ev.endDay}`,
-            } : null,
-        });
-    });
+    // ── v1.28: 시즌 축제 이벤트 ── (v1.84: handlers/event_handlers.js로 분리)
+    registerEventHandlers(socket, { festival });
 
     // ── v1.27: 낚시 ── (v1.83: game/handlers/fishing_handlers.js로 분리)
     registerFishingHandlers(socket, {
