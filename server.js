@@ -285,6 +285,10 @@ const { registerDreamHandlers } = require('./game/handlers/dream_handlers');
 const music = require('./game/music');
 const { registerMusicHandlers } = require('./game/handlers/music_handlers');
 
+// v2.12: 타로 모듈
+const tarot = require('./game/tarot');
+const { registerTarotHandlers } = require('./game/handlers/tarot_handlers');
+
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
     if (!result.victory) {
@@ -5550,6 +5554,9 @@ io.on('connection', (socket) => {
 
     // ── v2.11: 음악/연주 ──
     registerMusicHandlers(socket, { io, players, playerId, savePlayer, music });
+
+    // ── v2.12: 타로 ──
+    registerTarotHandlers(socket, { io, players, playerId, savePlayer, tarot });
 
     // ── v1.62 ~ v1.81: 잡다 핸들러 일괄 등록 (v1.89: handlers/misc_handlers.js)
     registerMiscHandlers(socket, {
