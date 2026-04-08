@@ -277,6 +277,10 @@ const { registerSailingHandlers } = require('./game/handlers/sailing_handlers');
 const excavation = require('./game/excavation');
 const { registerExcavationHandlers } = require('./game/handlers/excavation_handlers');
 
+// v2.10: 꿈 모듈
+const dream = require('./game/dream');
+const { registerDreamHandlers } = require('./game/handlers/dream_handlers');
+
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
     if (!result.victory) {
@@ -5536,6 +5540,9 @@ io.on('connection', (socket) => {
 
     // ── v2.09: 유물 발굴 ──
     registerExcavationHandlers(socket, { io, players, playerId, savePlayer, excavation });
+
+    // ── v2.10: 꿈 ──
+    registerDreamHandlers(socket, { io, players, playerId, savePlayer, dream });
 
     // ── v1.62 ~ v1.81: 잡다 핸들러 일괄 등록 (v1.89: handlers/misc_handlers.js)
     registerMiscHandlers(socket, {
