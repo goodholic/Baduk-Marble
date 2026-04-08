@@ -138,6 +138,8 @@ const titleCollection = require('./game/title_collection');
 const lotteryJackpot = require('./game/lottery_jackpot');
 // v1.67: 던전 열쇠 모듈 (생성 + 통합 동시)
 const dungeonKeys = require('./game/dungeon_keys');
+// v1.68: 도서관 모듈 (생성 + 통합 동시)
+const library = require('./game/library');
 
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
@@ -5421,6 +5423,28 @@ io.on('connection', (socket) => {
                 });
             }
         }
+    });
+
+    // ── v1.68: 도서관 ──
+    socket.on('library_status', () => {
+        const p = players[playerId];
+        if (!p) return;
+        socket.emit('library_status_result', library.getStatus(p));
+    });
+
+    socket.on('library_read', (bookId) => {
+        const p = players[playerId];
+        if (!p) return;
+        const result = library.readBook(p, bookId);
+        if (result.success) {
+            // 지혜 시스템 연계 (book_read 소스)
+            if (typeof wisdom !== 'undefined' && wisdom.gainWisdom) {
+                wisdom.gainWisdom(p, 'book_read');
+            }
+            savePlayer(p);
+            io.emit('player_update', p);
+        }
+        socket.emit('library_result', result);
     });
 
     // ── v1.67: 던전 열쇠 ──
