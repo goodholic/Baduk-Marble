@@ -70,6 +70,12 @@ const RECIPES = {
   craft_hp_pot:  { name:'HP 물약 제작',  need:{goods_herb:3, goods_potion:1}, result:'pot_hp_m', gold:30, successRate:1.0 },
   craft_hp_pot_l:{ name:'상급 HP 물약 제작', need:{goods_herb:8, goods_potion:3, goods_gem:1}, result:'pot_hp_l', gold:200, successRate:0.9 },
   craft_atk_pot: { name:'공격 물약 제작', need:{goods_herb:5, goods_spice:2}, result:'pot_atk', gold:80, successRate:0.9 },
+  // ── v1.12 연금술: 엘릭서 (장시간 강력 버프) ──
+  elixir_titan:   { name:'타이탄의 엘릭서 제작', need:{mat_dragon:3, mat_magic:10, goods_potion:5}, result:'elixir_titan',   gold:5000, successRate:0.4 },
+  elixir_iron:    { name:'강철 엘릭서 제작',     need:{goods_iron:30, mat_magic:10, goods_potion:5}, result:'elixir_iron',    gold:4000, successRate:0.5 },
+  elixir_swift:   { name:'질풍 엘릭서 제작',     need:{goods_herb:20, mat_magic:8,  goods_potion:5}, result:'elixir_swift',   gold:3500, successRate:0.5 },
+  elixir_wisdom:  { name:'지혜 엘릭서 제작',     need:{goods_crystal:5, mat_soul:5, goods_potion:8}, result:'elixir_wisdom',  gold:6000, successRate:0.4 },
+  elixir_fortune: { name:'행운 엘릭서 제작',     need:{goods_gem:10, mat_magic:5,   goods_potion:5}, result:'elixir_fortune', gold:5500, successRate:0.4 },
 };
 
 function handleCraft(player, recipeId, io) {

@@ -5,12 +5,18 @@ const PETS = {
   pet_fairy:   { name:'요정',       effect:'expBonus',  value:0.15, source:'다이아 300개',       need:{diamonds:300},            evolveTo:'pet_archfairy' },
   pet_dragon:  { name:'미니 드래곤', effect:'atkBonus',  value:0.15, source:'드래곤 20마리 처치', need:{morphKills:{dragon:20}}, evolveTo:'pet_elder_dragon' },
   pet_angel:   { name:'천사',       effect:'autoRevive',value:1,    source:'다이아 1000개',      need:{diamonds:1000},           evolveTo:'pet_seraph' },
+  // ── v1.11 신규 ──
+  pet_phoenix: { name:'불사조',     effect:'fireDmg',   value:0.20, source:'불꽃산 보스 50처치', need:{morphKills:{fire_lord:50}}, evolveTo:'pet_phoenix_lord' },
+  pet_unicorn: { name:'유니콘',     effect:'dodgeBonus',value:0.10, source:'다이아 800개',       need:{diamonds:800},              evolveTo:'pet_celestial_unicorn' },
   // ── 진화형 (상위) ──
   pet_slime_king:    { name:'슬라임 킹',   effect:'hpRegen',   value:0.08, source:'슬라임 진화', evolved:true },
   pet_dire_wolf:     { name:'다이어 울프', effect:'atkBonus',  value:0.18, source:'늑대 진화',  evolved:true },
   pet_archfairy:     { name:'대요정',      effect:'expBonus',  value:0.30, source:'요정 진화',  evolved:true },
   pet_elder_dragon:  { name:'고대 드래곤', effect:'atkBonus',  value:0.30, source:'드래곤 진화', evolved:true },
   pet_seraph:        { name:'세라핌',      effect:'autoRevive',value:1,   source:'천사 진화',  evolved:true, reviveBonus:0.3 },
+  // ── v1.11 진화형 ──
+  pet_phoenix_lord:       { name:'불사조 군주',   effect:'fireDmg',    value:0.40, source:'불사조 진화', evolved:true },
+  pet_celestial_unicorn:  { name:'천상의 유니콘', effect:'dodgeBonus', value:0.20, source:'유니콘 진화', evolved:true },
 };
 
 // 진화 비용
@@ -47,8 +53,10 @@ function handleEvolvePet(player, basePetId) {
 const MOUNTS = {
   mount_horse:   { name:'말',       speedBonus:0.3, source:'상점 1000G',  cost:{gold:1000} },
   mount_warhorse:{ name:'전투마',    speedBonus:0.5, source:'상점 5000G',  cost:{gold:5000} },
-  mount_griffin:  { name:'그리폰',   speedBonus:0.7, source:'다이아 500',  cost:{diamonds:500} },
+  mount_griffin: { name:'그리폰',    speedBonus:0.7, source:'다이아 500',  cost:{diamonds:500} },
   mount_dragon:  { name:'흑룡',     speedBonus:1.0, source:'드래곤 둥지 보스 드롭', cost:{drop:true} },
+  // ── v1.11 신규 ──
+  mount_pegasus: { name:'페가수스',  speedBonus:0.85, source:'다이아 1200', cost:{diamonds:1200}, fly:true },
 };
 
 function handleBuyPet(player, petId) {

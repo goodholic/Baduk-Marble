@@ -774,6 +774,10 @@ const NPCS = {
     '항해사':  { type:'travel',  msgs:['어디로 떠나시겠습니까?','바다 건너에 새로운 세계가 기다리고 있어요.','안전한 항해를 보장합니다!'] },
     '펫 상인': { type:'shop',    msgs:['귀여운 친구를 찾고 계신가요?','이 펫은 전투에 큰 도움이 됩니다!'] },
     '제작소':  { type:'cook',    msgs:['무엇을 제작하시겠습니까?','좋은 재료로 좋은 장비를 만들지요.'] },
+    // ── v1.16 신규 NPC ──
+    '점쟁이':  { type:'fortune', msgs:['오늘의 운세를 봐드릴까요?','별의 흐름이 좋군요...','당신에게 큰 행운이 다가오고 있어요!','조심하세요. 어두운 그림자가 보입니다.'] },
+    '감정사':  { type:'appraise',msgs:['미감정 장비를 가져오셨군요?','이건... 대단한 물건이에요!','감정에는 약간의 비용이 듭니다.','겉보기와 다른 보물일지도 모릅니다.'] },
+    '수집가':  { type:'collect', msgs:['희귀한 아이템을 찾고 있어요!','그 물건... 비싸게 사드릴 수 있어요.','컬렉션을 완성해야 합니다!','오래된 보물에 관심이 있어요.'] },
 };
 function getNpcMsg(npcType, player) {
     const npc = NPCS[npcType];
@@ -792,6 +796,11 @@ function getNpcMsg(npcType, player) {
     if (npc.type === 'travel' && isNight) return '밤바다는 위험하지만... 용기 있는 분이시군요.';
     if (npc.type === 'fisher' && currentWeather.id === 'rain') return '비 오는 날엔 대어가 잘 잡힌답니다!';
     if (npc.type === 'fisher' && isNight) return '밤낚시는 운이 좋으면 전설 물고기가...!';
+    // v1.16 신규 NPC 상황 대사
+    if (npc.type === 'fortune' && isNight) return '밤은 별이 가장 잘 보이는 시간이죠... 운명을 읽을 수 있어요.';
+    if (npc.type === 'fortune' && player.karma > 200) return '...당신에게서 어두운 기운이 느껴져요. 조심하세요.';
+    if (npc.type === 'appraise' && player.level >= 30) return '전설급 장비를 다뤄본 분이시군요! 어떤 보물을 가져오셨나요?';
+    if (npc.type === 'collect' && player.gold > 50000) return '오, 부유한 모험가시군요! 특별한 거래를 제안할 수 있어요.';
     if (player.faction && npc.type === 'shop') return `${FACTIONS[player.faction]?.name} 소속이시군요! 진영 할인은 없지만 응원합니다!`;
     if (player.prestigeLevel > 0) return `환생 ${player.prestigeLevel}차... 대단하시군요. 경의를 표합니다.`;
     return npc.msgs[Math.floor(Math.random() * npc.msgs.length)];
@@ -826,6 +835,10 @@ const TRADE_GOODS = {
     'goods_dragon_eye':{ name:'용의 눈',   basePrice: 800 },
     'goods_star_dust': { name:'별의 가루',  basePrice: 400 },
     'goods_moonstone': { name:'월석',      basePrice: 350 },
+    // ── v1.13 신규 교역품 (이국의 사치품) ──
+    'goods_phoenix_feather': { name:'불사조 깃털', basePrice: 600 },
+    'goods_void_essence':    { name:'공허의 정수', basePrice: 750 },
+    'goods_celestial_silk':  { name:'천공의 비단', basePrice: 900 },
 };
 
 let townPrices = {};
@@ -914,6 +927,12 @@ const SHOP_ITEMS = {
     'pot_s_pack':    { name:'하급 HP 물약 x10 (자동용)', price:150, currency:'gold', effect:'mat_grant', value:'pot_hp_s', count:10, desc:'인벤토리에 보관, 자동물약 작동' },
     'pot_m_pack':    { name:'중급 HP 물약 x10 (자동용)', price:500, currency:'gold', effect:'mat_grant', value:'pot_hp_m', count:10, desc:'인벤토리에 보관, 자동물약 작동' },
     'pot_l_pack':    { name:'상급 HP 물약 x10 (자동용)', price:30,  currency:'diamond', effect:'mat_grant', value:'pot_hp_l', count:10, desc:'인벤토리에 보관, 자동물약 작동' },
+    // ── v1.18 신규 프리미엄 아이템 ──
+    'skin_phoenix':       { name:'불사조 스킨',          price:1200, currency:'diamond', effect:'skin', value:'phoenix', desc:'불사조 깃털 이펙트 (영구) — v1.18' },
+    'skin_storm':         { name:'폭풍 스킨',            price:1200, currency:'diamond', effect:'skin', value:'storm', desc:'번개 오라 이펙트 (영구) — v1.18' },
+    'auto_potion_premium':{ name:'프리미엄 자동물약',    price:500,  currency:'diamond', effect:'auto_potion_premium', duration:86400, desc:'24시간 자동물약 무한 사용 — v1.18' },
+    'rare_box_premium':   { name:'프리미엄 보물 상자',   price:300,  currency:'diamond', effect:'premium_box', desc:'전설 장비 확정 + 다이아 보너스 — v1.18' },
+    'mat_pack_legendary': { name:'전설 재료 패키지',     price:600,  currency:'diamond', effect:'mat_pack', desc:'용재료 x10 + 영혼석 x20 + 마법재료 x20 — v1.18' },
 };
 
 // 다이아몬드 무료 획득 방법
@@ -926,6 +945,12 @@ const FREE_DIAMOND_SOURCES = {
     pvp_10_wins: 30,        // PvP 10승: 30 다이아
     pvp_100_wins: 100,      // PvP 100승: 100 다이아
     weekly_quest: 50,       // 주간 퀘스트 완료: 50 다이아
+    // ── v1.19 신규 마일스톤 ──
+    level_40: 150,          // Lv.40 달성 (각성기 해금): 150 다이아
+    level_50: 250,          // Lv.50 달성 (환생 가능): 250 다이아
+    first_prestige: 500,    // 첫 환생: 500 다이아
+    worldboss_first: 100,   // 첫 월드 보스 처치: 100 다이아
+    achievement_50: 200,    // 업적 50개 달성: 200 다이아
 };
 
 // ==========================================
@@ -1056,6 +1081,12 @@ const QUESTS = {
     ach_marathon:    { name:'마라톤', desc:'누적 100시간 플레이', target:'playtime', goal:360000, reward:{gold:10000,diamonds:200}, type:'achievement' },
     ach_lucky:       { name:'행운의 손', desc:'행운의 룰렛 30회', target:'lucky_spin', goal:30, reward:{gold:3000,diamonds:50}, type:'achievement' },
     ach_weekly_all:  { name:'주간 챔피언', desc:'모든 주간 챌린지 완료', target:'weekly_all', goal:5, reward:{gold:20000,diamonds:300}, type:'achievement' },
+    // ── v1.14 신규 업적 (v1.9~v1.13 컨텐츠 연계) ──
+    ach_storm_giant:    { name:'폭풍 정복자',   desc:'폭풍의 거인 처치',     target:'worldboss_kill', goal:1, reward:{gold:10000,diamonds:150}, type:'achievement' },
+    ach_alchemist:      { name:'연금술사',      desc:'엘릭서 10회 제작',      target:'craft_count',    goal:10, reward:{gold:5000,diamonds:80},  type:'achievement' },
+    ach_shadow_clear:   { name:'그림자 정복자', desc:'그림자 미궁 클리어',    target:'dungeon_clear',  goal:1, reward:{gold:8000,diamonds:120}, type:'achievement' },
+    ach_legendary_pet:  { name:'전설의 동반자', desc:'전설급 펫 진화 1회',    target:'pet_evolve',     goal:1, reward:{gold:6000,diamonds:100}, type:'achievement' },
+    ach_exotic_trader:  { name:'이국의 상인',   desc:'사치품 교역 5회',       target:'trade_count',    goal:5, reward:{gold:4000,diamonds:60},  type:'achievement' },
 };
 
 // ==========================================
@@ -1068,6 +1099,8 @@ const SKILLS = {
         { name:'은신', type:'active', cooldown:15, duration:5, level:10, mpCost:30, buff:true, stealth:true, nextAtkMulti:2.0 },
         { name:'연속 베기', type:'active', dmgMulti:1.5, hits:4, cooldown:8, range:2, aoe:false, level:15, mpCost:25 },
         { name:'암살', type:'ultimate', dmgMulti:8.0, cooldown:60, range:2, aoe:false, level:25, mpCost:80, executeThreshold:0.3 },
+        // v1.15 각성기
+        { name:'천 개의 칼날', type:'ultimate', dmgMulti:3.5, hits:7, cooldown:150, range:3, aoe:true, level:40, mpCost:200, critBonus:true },
     ],
     Warrior: [
         { name:'파워 스트라이크', type:'active', dmgMulti:2.5, cooldown:4, range:4, aoe:false, level:1, mpCost:15, knockback:true },
@@ -1075,6 +1108,8 @@ const SKILLS = {
         { name:'분노', type:'passive', level:10, hpThreshold:0.5, atkBonus:0.3 },
         { name:'회전 베기', type:'active', dmgMulti:2.0, cooldown:6, range:3, aoe:true, level:15, mpCost:20 },
         { name:'버서커', type:'ultimate', dmgMulti:2.0, spdMulti:1.5, cooldown:90, duration:15, level:25, mpCost:100, buff:true, defPenalty:0.5 },
+        // v1.15 각성기
+        { name:'대지 가르기', type:'ultimate', dmgMulti:6.0, cooldown:150, range:5, aoe:true, aoeRadius:5, level:40, mpCost:200, knockback:true, stun:2 },
     ],
     Knight: [
         { name:'방패 강타', type:'active', dmgMulti:2.0, cooldown:6, range:3, aoe:false, level:1, mpCost:15, stun:1 },
@@ -1082,6 +1117,8 @@ const SKILLS = {
         { name:'도발', type:'active', cooldown:10, range:8, aoe:true, level:10, mpCost:20, taunt:true },
         { name:'철벽 방어', type:'active', cooldown:15, duration:5, level:15, mpCost:30, buff:true, dmgReduce:0.7 },
         { name:'신성한 방벽', type:'ultimate', cooldown:120, duration:3, range:6, level:25, mpCost:120, buff:true, allyInvincible:true },
+        // v1.15 각성기
+        { name:'불멸의 수호자', type:'ultimate', cooldown:180, duration:10, range:8, level:40, mpCost:220, buff:true, dmgReduce:0.9, allyDefMulti:1.5, taunt:true },
     ],
     Mage: [
         { name:'파이어볼', type:'active', dmgMulti:3.0, cooldown:3, range:6, aoe:true, level:1, mpCost:15 },
@@ -1089,6 +1126,8 @@ const SKILLS = {
         { name:'마나 재생', type:'passive', level:10, mpRegenMulti:1.5 },
         { name:'체인 라이트닝', type:'active', dmgMulti:2.5, cooldown:8, range:6, level:15, mpCost:35, chainCount:3, chainRange:4 },
         { name:'메테오', type:'ultimate', dmgMulti:10.0, cooldown:90, range:8, aoe:true, level:25, mpCost:150, aoeRadius:4 },
+        // v1.15 각성기
+        { name:'시간 정지', type:'ultimate', dmgMulti:12.0, cooldown:180, range:10, aoe:true, aoeRadius:6, level:40, mpCost:250, slow:0.1, slowDuration:5 },
     ],
     Cleric: [
         { name:'홀리 라이트', type:'active', dmgMulti:2.0, cooldown:4, range:5, aoe:false, level:1, mpCost:15 },
@@ -1096,6 +1135,8 @@ const SKILLS = {
         { name:'축복', type:'active', cooldown:25, duration:15, range:6, level:5, mpCost:25, buff:true, allyAtkMulti:1.2 },
         { name:'정화', type:'active', cooldown:15, range:5, level:10, mpCost:20, cleanseDebuff:true },
         { name:'대천사의 강림', type:'ultimate', cooldown:120, range:8, level:25, mpCost:150, healAllPct:0.5, buff:true },
+        // v1.15 각성기
+        { name:'신의 은총', type:'ultimate', cooldown:200, duration:8, range:10, level:40, mpCost:250, buff:true, healAllPct:1.0, allyAtkMulti:1.5, allyDefMulti:1.5, cleanseDebuff:true },
     ],
 };
 
@@ -1287,13 +1328,19 @@ const ELEMENT_BONUS = { fire: 'water', water: 'wind', wind: 'earth', earth: 'fir
 // 혈맹(클랜) 시스템 (기획서 확장)
 // ==========================================
 const CLAN_LEVEL_EXP = [0, 1000, 3000, 7000, 15000, 30000]; // 레벨업 필요 경험치
-const CLAN_MAX_MEMBERS = { 1:10, 2:20, 3:30, 4:40, 5:50 };
+const CLAN_MAX_MEMBERS = { 1:10, 2:20, 3:30, 4:40, 5:50, 6:60, 7:70, 8:80, 9:90, 10:100 };
 const CLAN_SKILLS = {
     1: { name:'혈맹의 힘', effect:'ATK +5%', stat:'atk', multi:0.05 },
     2: { name:'혈맹의 방패', effect:'DEF +5%', stat:'def', multi:0.05 },
     3: { name:'혈맹의 지혜', effect:'EXP +10%', stat:'exp', multi:0.10 },
     4: { name:'혈맹의 축복', effect:'HP +10%', stat:'hp', multi:0.10 },
     5: { name:'혈맹의 영광', effect:'골드 +10%', stat:'gold', multi:0.10 },
+    // ── v1.17 신규 (Lv.6-10) ──
+    6: { name:'혈맹의 분노', effect:'크리티컬 +5%', stat:'critRate', multi:0.05 },
+    7: { name:'혈맹의 신속', effect:'이동속도 +10%', stat:'speed', multi:0.10 },
+    8: { name:'혈맹의 회복', effect:'HP 재생 +50%', stat:'hpRegen', multi:0.50 },
+    9: { name:'혈맹의 운명', effect:'회피 +5%', stat:'dodgeRate', multi:0.05 },
+    10:{ name:'혈맹의 전설', effect:'전 스탯 +5%', stat:'all', multi:0.05 },
 };
 let clans = {}; // { clanName: { leader, officers:[], members:[], level, exp, storage:{}, war:null } }
 
@@ -1892,6 +1939,9 @@ const WORLD_BOSS_TYPES = [
     { name:'태고의 드래곤', hp:50000, atk:120, def:50, expReward:5000, goldReward:3000, tier:'worldboss', color:'#FF0000' },
     { name:'심연의 군주',   hp:80000, atk:150, def:70, expReward:8000, goldReward:5000, tier:'worldboss', color:'#8800FF' },
     { name:'불멸의 피닉스', hp:60000, atk:130, def:40, expReward:6000, goldReward:4000, tier:'worldboss', color:'#FF8800' },
+    // ── v1.13 신규 월드 보스 ──
+    { name:'폭풍의 거인',   hp:100000, atk:140, def:90, expReward:10000, goldReward:6000, tier:'worldboss', color:'#00DDFF' },
+    { name:'시간의 수호자', hp:70000,  atk:170, def:60, expReward:9000,  goldReward:7000, tier:'worldboss', color:'#FFD700' },
 ];
 
 function endArenaMatch(matchId, winnerId, loserId, reason) {
@@ -2017,6 +2067,16 @@ const DUNGEONS = {
             { tier:'rare', count:6 }, { tier:'legendary', count:1 }
         ],
         rewards: { gold: 12000, exp: 18000, drops: ['equip_sword_4','equip_cape_4','equip_belt_4'] }
+    },
+    // ── v1.10 신규 던전 ──
+    shadow_labyrinth: {
+        name: '그림자 미궁', zoneId: 'shadow', minLevel: 38, maxParty: 8, stages: 7,
+        monsters: [
+            { tier:'rare', count:6 }, { tier:'elite', count:10 }, { tier:'rare', count:8 },
+            { tier:'boss', count:2 }, { tier:'rare', count:10 }, { tier:'boss', count:3 },
+            { tier:'legendary', count:1 }
+        ],
+        rewards: { gold: 22000, exp: 32000, drops: ['equip_sword_5','equip_cape_5','equip_helm_5','equip_glove_5'] }
     },
 };
 let activeDungeons = {}; // {instanceId: {dungeonId, players:[], currentStage, monstersLeft}}

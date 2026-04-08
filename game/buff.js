@@ -35,6 +35,12 @@ const BUFF_TYPES = {
   bleed:       { name:'출혈',     stat:'hp',    dot:-20,   duration:8,  icon:'debuff' },
   weak:        { name:'약화',     stat:'atk',   multi:0.7, duration:6,  icon:'debuff' },
   fear:        { name:'공포',     stat:'speed', multi:0.6, duration:4,  icon:'debuff' },
+  // ── v1.12 엘릭서 (장시간 강력 버프) ──
+  elixir_titan:    { name:'타이탄의 엘릭서', stat:'atk',      multi:1.5, duration:1800, icon:'elixir' }, // 30분 ATK x1.5
+  elixir_iron:     { name:'강철 엘릭서',     stat:'def',      multi:1.5, duration:1800, icon:'elixir' }, // 30분 DEF x1.5
+  elixir_swift:    { name:'질풍 엘릭서',     stat:'speed',    multi:1.4, duration:1200, icon:'elixir' }, // 20분 SPD x1.4
+  elixir_wisdom:   { name:'지혜 엘릭서',     stat:'expMulti', multi:2.5, duration:900,  icon:'elixir' }, // 15분 EXP x2.5
+  elixir_fortune:  { name:'행운 엘릭서',     stat:'goldBonus',multi:2.0, duration:900,  icon:'elixir' }, // 15분 GOLD x2.0
 };
 
 function applyBuff(player, buffId) {
@@ -105,6 +111,10 @@ const TITLES = {
   title_rank_level:  { name:'서버 최강자',    cond:'레벨 1위 (주간)', color:'#ffd700',  effect:{ stat:'expBonus', multi:0.20 }, weekly:true },
   title_rank_pvp:    { name:'최강 전사',      cond:'PvP 1위 (주간)', color:'#ff4444',  effect:{ stat:'atk', multi:0.10 }, weekly:true },
   title_rank_guild:  { name:'최고의 혈맹',    cond:'혈맹 1위 (주간)', color:'#aa44ff',  effect:null, weekly:true },
+  // 전설 칭호 v1.9 (엔드게임)
+  title_void_walker: { name:'공허의 방랑자',  cond:'몬스터 10,000 처치', color:'#8800ff', effect:{ stat:'atk', multi:0.07 } },
+  title_immortal:    { name:'불멸자',         cond:'환생 5회',           color:'#ffaa00', effect:{ stat:'expBonus', multi:0.25 } },
+  title_sky_lord:    { name:'천공의 군주',    cond:'월드 보스 10회 처치', color:'#00ddff', effect:{ stat:'bossDmg', multi:0.15 } },
 };
 
 function checkTitles(player) {
@@ -121,6 +131,10 @@ function checkTitles(player) {
   if (player.gold >= 1000000) addTitle('title_millionaire');
   if ((player.totalCrafts||0) >= 50) addTitle('title_crafter');
   if ((player.arenaWins||0) >= 100) addTitle('title_arena_king');
+  // 전설 칭호 v1.9
+  if ((player.totalKills||player.killCount||0) >= 10000) addTitle('title_void_walker');
+  if ((player.prestigeCount||0) >= 5) addTitle('title_immortal');
+  if ((player.worldBossKills||0) >= 10) addTitle('title_sky_lord');
 }
 
 // 칭호 효과 계산
