@@ -1308,6 +1308,10 @@ for ri, d in enumerate(diff_rows):
 # ========== 21. 패치 노트 ==========
 ws21 = wb.create_sheet('패치 노트')
 patches = [
+    ['v1.41','2026-04-08','리팩토링','Phase 5 (마지막): 경제/사회 12종 추출 → game/data/economy.js (216줄)'],
+    ['v1.41','2026-04-08','리팩토링','server.js 8868 → 8696줄 (-172줄)'],
+    ['v1.41','2026-04-08','리팩토링','DIAMOND_PRODUCTS/NPCS(11)/TRADE_GOODS(23)/SHOP_ITEMS(45)/FREE_DIAMOND/TRADEABLE/CLAN/EMOTES'],
+    ['v1.41','2026-04-08','마일스톤','🎉 server.js 리팩토링 마스터 플랜 5단계 완료 (-926줄, -9.6%)'],
     ['v1.40','2026-04-08','리팩토링','Phase 4: 퀘스트/스킬/전직 추출 → game/data/quests.js (149줄)'],
     ['v1.40','2026-04-08','리팩토링','server.js 9007 → 8868줄 (-139줄)'],
     ['v1.40','2026-04-08','리팩토링','QUESTS(63)/SKILLS(5클래스×6)/CLASS_ADVANCE(5)'],
@@ -1424,8 +1428,12 @@ style_sheet(ws21,
     patches, title='패치 노트 히스토리', col_widths=[10,12,12,55])
 
 # ========== 22. v1.9 / v1.10 / v1.11 / v1.12 신규 컨텐츠 요약 ==========
-ws22 = wb.create_sheet('v1.9 ~ v1.40')
+ws22 = wb.create_sheet('v1.9 ~ v1.41')
 v19 = [
+    ['v1.41','리팩토링','Phase 5 (최종)','game/data/economy.js 추출','-172줄 (8868→8696)'],
+    ['v1.41','분리','경제 12종','DIAMOND_PRODUCTS/NPCS/TRADE_GOODS/SHOP_ITEMS 등','마지막 phase'],
+    ['v1.41','마일스톤','마스터 플랜 완료','5단계 phase 모두 완료','-926줄 / -9.6%'],
+    ['v1.41','진척','9622 → 8696','game/data/ 5개 모듈 1082줄','13개 → 17개 모듈'],
     ['v1.40','리팩토링','Phase 4','game/data/quests.js 추출','-139줄 (9007→8868)'],
     ['v1.40','분리','퀘스트 3종','QUESTS / SKILLS / CLASS_ADVANCE','전부 순수 데이터'],
     ['v1.40','진척','-754줄 누적','9622 → 8868','-7.8%'],
