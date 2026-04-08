@@ -134,6 +134,8 @@ const pvpTournament = require('./game/pvp_tournament');
 const guildWar = require('./game/guild_war');
 // v1.65: 칭호 컬렉션 모듈 (생성 + 통합 동시)
 const titleCollection = require('./game/title_collection');
+// v1.66: 잭팟 복권 모듈 (생성 + 통합 동시)
+const lotteryJackpot = require('./game/lottery_jackpot');
 
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
@@ -5417,6 +5419,32 @@ io.on('connection', (socket) => {
                 });
             }
         }
+    });
+
+    // ── v1.66: 잭팟 복권 ──
+    socket.on('jackpot_status', () => {
+        const p = players[playerId];
+        socket.emit('jackpot_status_result', lotteryJackpot.getStatus(p?.id));
+    });
+
+    socket.on('jackpot_buy', (data) => {
+        const p = players[playerId];
+        if (!p) return;
+        const count = (data && Number(data.count)) || 1;
+        const currency = (data && data.currency === 'diamond') ? 'diamond' : 'gold';
+        const result = lotteryJackpot.buyTickets(p, count, currency);
+        if (result.success) {
+            savePlayer(p);
+            io.emit('player_update', p);
+            // 잭팟이 100만G 넘으면 알림
+            if (result.currentJackpot >= 1000000) {
+                io.emit('server_msg', {
+                    msg: `💰 잭팟 ${result.currentJackpot.toLocaleString()}G 돌파!`,
+                    type: 'rare',
+                });
+            }
+        }
+        socket.emit('jackpot_result', result);
     });
 
     // ── v1.65: 칭호 컬렉션 ──
