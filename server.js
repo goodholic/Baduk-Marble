@@ -103,6 +103,9 @@ const breeding = require('./game/breeding');
 const runes = require('./game/runes');
 // v1.50: 종합 랭킹 모듈 (50번째 패치 마일스톤)
 const leaderboard = require('./game/leaderboard');
+// v1.51: 암시장 모듈 (생성 + 통합 동시)
+const blackMarket = require('./game/black_market');
+let currentBlackMarket = blackMarket.generateMarket();
 
 // v1.33: 도감 자동 발견 헬퍼
 function codexDiscover(p, category, entryId) {
@@ -5344,6 +5347,68 @@ io.on('connection', (socket) => {
                     type: 'rare',
                 });
             }
+        }
+    });
+
+    // ── v1.51: 암시장 ──
+    socket.on('black_market_status', () => {
+        const p = players[playerId];
+        if (!p) return;
+        // 윈도우 만료 체크
+        if (Date.now() >= currentBlackMarket.expiresAt) {
+            currentBlackMarket = blackMarket.generateMarket();
+        }
+        const bought = (p.blackMarketBoughtSeed === currentBlackMarket.seed) ? (p.blackMarketBought || {}) : {};
+        socket.emit('black_market_status_result', {
+            seed: currentBlackMarket.seed,
+            expiresAt: currentBlackMarket.expiresAt,
+            slots: currentBlackMarket.slots.map((item, idx) => ({
+                ...item,
+                slotIdx: idx,
+                bought: !!bought[idx],
+            })),
+            rerollPrice: blackMarket.BLACK_MARKET_CONFIG.rerollPriceDiamond,
+        });
+    });
+
+    socket.on('black_market_buy', (data) => {
+        const p = players[playerId];
+        if (!p) return;
+        if (Date.now() >= currentBlackMarket.expiresAt) {
+            currentBlackMarket = blackMarket.generateMarket();
+        }
+        const slotIdx = data && Number(data.slotIdx);
+        const result = blackMarket.buyItem(p, slotIdx, currentBlackMarket);
+        if (result.success) {
+            savePlayer(p);
+            io.emit('player_update', p);
+            // 전설 등급 구매 시 알림
+            if (result.item.rarity === 'legendary') {
+                io.emit('server_msg', {
+                    msg: `[암시장] ${p.displayName}이(가) ${result.item.name}을(를) 구매했습니다!`,
+                    type: 'rare',
+                });
+            }
+        }
+        socket.emit('black_market_buy_result', result);
+    });
+
+    socket.on('black_market_reroll', () => {
+        const p = players[playerId];
+        if (!p) return;
+        const result = blackMarket.rerollMarket(p);
+        if (result.success) {
+            savePlayer(p);
+            io.emit('player_update', p);
+            socket.emit('black_market_status_result', {
+                seed: result.market.seed,
+                expiresAt: result.market.expiresAt,
+                slots: result.market.slots.map((item, idx) => ({ ...item, slotIdx: idx, bought: false })),
+                rerollPrice: blackMarket.BLACK_MARKET_CONFIG.rerollPriceDiamond,
+                isPersonal: true,
+            });
+        } else {
+            socket.emit('black_market_buy_result', result);
         }
     });
 
