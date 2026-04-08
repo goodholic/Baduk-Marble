@@ -1308,6 +1308,9 @@ for ri, d in enumerate(diff_rows):
 # ========== 21. 패치 노트 ==========
 ws21 = wb.create_sheet('패치 노트')
 patches = [
+    ['v1.40','2026-04-08','리팩토링','Phase 4: 퀘스트/스킬/전직 추출 → game/data/quests.js (149줄)'],
+    ['v1.40','2026-04-08','리팩토링','server.js 9007 → 8868줄 (-139줄)'],
+    ['v1.40','2026-04-08','리팩토링','QUESTS(63)/SKILLS(5클래스×6)/CLASS_ADVANCE(5)'],
     ['v1.39','2026-04-08','리팩토링','Phase 3: 장비 데이터 6종 추출 → game/data/equipment.js (123줄)'],
     ['v1.39','2026-04-08','리팩토링','server.js 9103 → 9007줄 (-96줄)'],
     ['v1.39','2026-04-08','리팩토링','EQUIPMENT_SLOTS/SETS/GRADE_INFO/RANDOM_OPTIONS/EQUIP_STATS(44)/EQUIP_DESCRIPTIONS'],
@@ -1421,8 +1424,11 @@ style_sheet(ws21,
     patches, title='패치 노트 히스토리', col_widths=[10,12,12,55])
 
 # ========== 22. v1.9 / v1.10 / v1.11 / v1.12 신규 컨텐츠 요약 ==========
-ws22 = wb.create_sheet('v1.9 ~ v1.39')
+ws22 = wb.create_sheet('v1.9 ~ v1.40')
 v19 = [
+    ['v1.40','리팩토링','Phase 4','game/data/quests.js 추출','-139줄 (9007→8868)'],
+    ['v1.40','분리','퀘스트 3종','QUESTS / SKILLS / CLASS_ADVANCE','전부 순수 데이터'],
+    ['v1.40','진척','-754줄 누적','9622 → 8868','-7.8%'],
     ['v1.39','리팩토링','Phase 3','game/data/equipment.js 추출','-96줄 (9103→9007)'],
     ['v1.39','분리','장비 6종','SLOTS/SETS/GRADE/RAND/STATS/DESC','generateRandomOptions 함수 유지'],
     ['v1.39','진척','-615줄 누적','9622 → 9007','-6.4%'],
