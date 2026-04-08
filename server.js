@@ -110,6 +110,49 @@ let currentBlackMarket = blackMarket.generateMarket();
 const jobs = require('./game/jobs');
 // v1.53: 변환 모듈 (생성 + 통합 동시)
 const transmutation = require('./game/transmutation');
+// v1.54: 레이드 모듈 (생성 + 통합 동시)
+const raid = require('./game/raid');
+
+// v1.54 헬퍼: 레이드 종료 시 보상 분배
+function handleRaidFinish(raidId, result) {
+    if (!result.victory) {
+        io.emit('server_msg', { msg: '[레이드] 패배...', type: 'normal' });
+        return;
+    }
+    io.emit('server_msg', {
+        msg: `[레이드] ${result.raidName} 격파! (${result.duration}초, 총 데미지 ${result.totalDamage.toLocaleString()})`,
+        type: 'rare',
+    });
+    // 각 플레이어에게 보상 지급
+    for (const [pid, data] of Object.entries(result.rewards)) {
+        const p = players[pid];
+        if (!p) continue;
+        const r = data.reward;
+        if (r.gold) p.gold = Math.min(MAX_GOLD, (p.gold || 0) + r.gold);
+        if (r.exp) p.exp = (p.exp || 0) + r.exp;
+        if (r.diamonds) p.diamonds = Math.min(MAX_DIAMONDS, (p.diamonds || 0) + r.diamonds);
+        if (r.drop) {
+            if (!p.inventory) p.inventory = {};
+            p.inventory[r.drop] = (p.inventory[r.drop] || 0) + 1;
+        }
+        savePlayer(p);
+        try {
+            io.to(pid).emit('raid_finished', {
+                tier: data.tier,
+                rank: data.rank,
+                damage: data.damage,
+                reward: r,
+            });
+        } catch (_) {}
+        if (data.tier === 'mvp') {
+            io.emit('server_msg', {
+                msg: `[레이드 MVP] ${p.displayName} (데미지 ${data.damage.toLocaleString()})`,
+                type: 'rare',
+            });
+        }
+        io.emit('player_update', p);
+    }
+}
 
 // v1.33: 도감 자동 발견 헬퍼
 function codexDiscover(p, category, entryId) {
@@ -5351,6 +5394,70 @@ io.on('connection', (socket) => {
                     type: 'rare',
                 });
             }
+        }
+    });
+
+    // ── v1.54: 레이드 ──
+    socket.on('raid_list', () => {
+        socket.emit('raid_list_result', {
+            raids: raid.RAIDS,
+            active: raid.getActiveRaids(),
+            weeklyLimit: raid.RAID_CONFIG.weeklyEntryLimit,
+        });
+    });
+
+    socket.on('raid_create', (raidType) => {
+        const p = players[playerId];
+        if (!p) return;
+        const r = raid.createRaid(raidType);
+        if (!r) {
+            socket.emit('raid_result', { success: false, msg: '존재하지 않는 레이드 종류' });
+            return;
+        }
+        // 생성자는 자동 참가
+        const join = raid.joinRaid(p, r.id);
+        socket.emit('raid_result', { success: true, raid: r, msg: '레이드 생성 + 자동 참가' });
+        io.emit('server_msg', {
+            msg: `[레이드] ${p.displayName}이(가) ${r.name} 레이드를 시작합니다! (모집 5분)`,
+            type: 'normal',
+        });
+    });
+
+    socket.on('raid_join', (raidId) => {
+        const p = players[playerId];
+        if (!p) return;
+        const result = raid.joinRaid(p, raidId);
+        socket.emit('raid_result', result);
+    });
+
+    socket.on('raid_start', (raidId) => {
+        const p = players[playerId];
+        if (!p) return;
+        const result = raid.startRaid(raidId);
+        if (result.success) {
+            // 모든 참가자의 주간 카운트 증가
+            const r = raid._activeRaids[raidId];
+            for (const pid of Object.keys(r.players)) {
+                const pl = players[pid];
+                if (pl) {
+                    if (!pl.raidWeekly) pl.raidWeekly = { week: '', count: 0 };
+                    pl.raidWeekly.count++;
+                    savePlayer(pl);
+                }
+            }
+            io.emit('raid_started', { raidId, name: r.name });
+        }
+        socket.emit('raid_result', result);
+    });
+
+    // 클라이언트가 데미지 보고 (단순화)
+    socket.on('raid_damage', (data) => {
+        const p = players[playerId];
+        if (!p || !data || !data.raidId || !data.damage) return;
+        const result = raid.dealDamage(data.raidId, p.id, Number(data.damage) || 0);
+        if (result && result.victory !== undefined) {
+            // 레이드 종료
+            handleRaidFinish(data.raidId, result);
         }
     });
 
