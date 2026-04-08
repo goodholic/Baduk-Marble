@@ -253,6 +253,10 @@ const { registerWaypointHandlers } = require('./game/handlers/waypoint_handlers'
 const friends = require('./game/friends');
 const { registerFriendsHandlers } = require('./game/handlers/friends_handlers');
 
+// v2.04: 프로필 카드 모듈
+const profile = require('./game/profile');
+const { registerProfileHandlers } = require('./game/handlers/profile_handlers');
+
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
     if (!result.victory) {
@@ -5494,6 +5498,9 @@ io.on('connection', (socket) => {
 
     // ── v2.03: 친구/우정 ──
     registerFriendsHandlers(socket, { io, players, playerId, savePlayer, friends });
+
+    // ── v2.04: 프로필 카드 ──
+    registerProfileHandlers(socket, { io, players, playerId, savePlayer, profile });
 
     // ── v1.62 ~ v1.81: 잡다 핸들러 일괄 등록 (v1.89: handlers/misc_handlers.js)
     registerMiscHandlers(socket, {
