@@ -1308,6 +1308,9 @@ for ri, d in enumerate(diff_rows):
 # ========== 21. 패치 노트 ==========
 ws21 = wb.create_sheet('패치 노트')
 patches = [
+    ['v1.45','2026-04-08','신규 모듈','game/training.js — 일일 훈련 (5종 드릴 × 30랭크)'],
+    ['v1.45','2026-04-08','일일 훈련','매일 5 스태미나, 30💎로 추가 충전, 영구 보너스 + 임시 버프'],
+    ['v1.45','2026-04-08','드릴','전투/방어/민첩/지혜/행운'],
     ['v1.44','2026-04-08','함수 추출','game/monster_spawn.js — pickMonsterTier/pickZoneTier/scaleMonster (-33줄)'],
     ['v1.44','2026-04-08','함수 추출','데이터 모듈을 require하는 새 패턴 (data/world_data + data/zones)'],
     ['v1.43','2026-04-08','함수 추출','game/helpers.js — 첫 함수 추출 (getExpRequired/getYesterday/getWeekNumber + clamp/distance/getToday)'],
@@ -1436,8 +1439,11 @@ style_sheet(ws21,
     patches, title='패치 노트 히스토리', col_widths=[10,12,12,55])
 
 # ========== 22. v1.9 / v1.10 / v1.11 / v1.12 신규 컨텐츠 요약 ==========
-ws22 = wb.create_sheet('v1.9 ~ v1.44')
+ws22 = wb.create_sheet('v1.9 ~ v1.45')
 v19 = [
+    ['v1.45','신규+통합','game/training.js','일일 훈련 모듈','5드릴 × 30랭크 + 임시 버프'],
+    ['v1.45','드릴','전투/방어/민첩/지혜/행운','매일 5 스태미나','각 영구 +0.5%~+1'],
+    ['v1.45','보상','회당 100G + 50EXP','+ 1시간 임시 버프','30💎 충전'],
     ['v1.44','함수 추출','game/monster_spawn.js','두 번째 함수 추출','데이터 모듈 의존'],
     ['v1.44','검증','1000 spawn','normal 52% / elite 26% / rare 14% / boss 6% / leg 1%','가중치 정상'],
     ['v1.44','검증','scaleMonster','Lv5: HP 80 / Lv25: HP 208','2.6배 강화 정상'],

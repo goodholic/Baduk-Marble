@@ -87,6 +87,12 @@ const petBattle = require('./game/pet_battle');
 const { getExpRequired, getYesterday, getWeekNumber } = require('./game/helpers');
 // v1.44: 몬스터 스폰 함수 추출 (server.js → game/monster_spawn.js)
 const { pickMonsterTier, pickZoneTier, scaleMonster } = require('./game/monster_spawn');
+// v1.45: 일일 훈련 모듈 (생성 + 통합 동시)
+const training = require('./game/training');
+const TRAINING_DRILLS_NAMES = {
+    combat:'전투 훈련', defense:'방어 훈련', agility:'민첩 훈련',
+    wisdom:'지혜 훈련', lucky:'행운 훈련'
+};
 
 // v1.33: 도감 자동 발견 헬퍼
 function codexDiscover(p, category, entryId) {
@@ -5329,6 +5335,47 @@ io.on('connection', (socket) => {
                 });
             }
         }
+    });
+
+    // ── v1.45: 일일 훈련 ──
+    socket.on('training_status', () => {
+        const p = players[playerId];
+        if (!p) return;
+        socket.emit('training_status_result', training.getStatus(p));
+    });
+
+    socket.on('training_perform', (drillId) => {
+        const p = players[playerId];
+        if (!p) return;
+        const result = training.performTraining(p, drillId);
+        if (result.success) {
+            // 임시 버프 적용
+            if (result.tempBuff && typeof applyBuff === 'function') {
+                // BUFF_TYPES에 직접 등록되지 않은 경우 임시 버프 객체 만들기
+                if (!p.activeBuffs) p.activeBuffs = {};
+                p.activeBuffs[`training_${drillId}`] = {
+                    ...result.tempBuff,
+                    name: TRAINING_DRILLS_NAMES[drillId] || drillId,
+                    startTime: Date.now(),
+                    endTime: Date.now() + result.tempBuff.duration * 1000,
+                };
+            }
+            if (p.gold > MAX_GOLD) p.gold = MAX_GOLD;
+            savePlayer(p);
+            io.emit('player_update', p);
+        }
+        socket.emit('training_perform_result', result);
+    });
+
+    socket.on('training_refill', () => {
+        const p = players[playerId];
+        if (!p) return;
+        const result = training.refillStamina(p);
+        if (result.success) {
+            savePlayer(p);
+            io.emit('player_update', p);
+        }
+        socket.emit('training_refill_result', result);
     });
 
     // ── v1.42: 펫 배틀 ──
