@@ -1308,6 +1308,10 @@ for ri, d in enumerate(diff_rows):
 # ========== 21. 패치 노트 ==========
 ws21 = wb.create_sheet('패치 노트')
 patches = [
+    ['v1.42','2026-04-08','신규 모듈','game/pet_battle.js — 펫 배틀 시뮬레이터 (생성 + 통합 동시)'],
+    ['v1.42','2026-04-08','펫 배틀','game/pet.js의 PETS를 import → 자동 전투 스탯 변환'],
+    ['v1.42','2026-04-08','펫 배틀','턴제 시뮬레이션 (최대 30턴) + 8강 토너먼트'],
+    ['v1.42','2026-04-08','소켓','pet_battle_status / pet_battle_fight (일일 5회 무료)'],
     ['v1.41','2026-04-08','리팩토링','Phase 5 (마지막): 경제/사회 12종 추출 → game/data/economy.js (216줄)'],
     ['v1.41','2026-04-08','리팩토링','server.js 8868 → 8696줄 (-172줄)'],
     ['v1.41','2026-04-08','리팩토링','DIAMOND_PRODUCTS/NPCS(11)/TRADE_GOODS(23)/SHOP_ITEMS(45)/FREE_DIAMOND/TRADEABLE/CLAN/EMOTES'],
@@ -1428,8 +1432,11 @@ style_sheet(ws21,
     patches, title='패치 노트 히스토리', col_widths=[10,12,12,55])
 
 # ========== 22. v1.9 / v1.10 / v1.11 / v1.12 신규 컨텐츠 요약 ==========
-ws22 = wb.create_sheet('v1.9 ~ v1.41')
+ws22 = wb.create_sheet('v1.9 ~ v1.42')
 v19 = [
+    ['v1.42','신규+통합','game/pet_battle.js','펫 배틀 모듈 (PETS import)','턴제 / 8강 토너먼트'],
+    ['v1.42','검증','pet_slime vs pet_dragon','드래곤 4턴 승리','시뮬레이션 정상'],
+    ['v1.42','보상','승리 시','100G + 50EXP / 토너먼트 200💎+칭호','일일 5회 무료'],
     ['v1.41','리팩토링','Phase 5 (최종)','game/data/economy.js 추출','-172줄 (8868→8696)'],
     ['v1.41','분리','경제 12종','DIAMOND_PRODUCTS/NPCS/TRADE_GOODS/SHOP_ITEMS 등','마지막 phase'],
     ['v1.41','마일스톤','마스터 플랜 완료','5단계 phase 모두 완료','-926줄 / -9.6%'],
