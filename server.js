@@ -101,6 +101,8 @@ const relic = require('./game/relic');
 const breeding = require('./game/breeding');
 // v1.49: 룬 모듈 (생성 + 통합 동시)
 const runes = require('./game/runes');
+// v1.50: 종합 랭킹 모듈 (50번째 패치 마일스톤)
+const leaderboard = require('./game/leaderboard');
 
 // v1.33: 도감 자동 발견 헬퍼
 function codexDiscover(p, category, entryId) {
@@ -5343,6 +5345,18 @@ io.on('connection', (socket) => {
                 });
             }
         }
+    });
+
+    // ── v1.50: 종합 랭킹 ──
+    socket.on('leaderboard_status', (data) => {
+        const categoryId = data && data.category;
+        const result = leaderboard.getLeaderboard(players, categoryId);
+        socket.emit('leaderboard_status_result', { categoryId, data: result });
+    });
+
+    socket.on('leaderboard_my_rank', (categoryId) => {
+        const result = leaderboard.getMyRank(players, playerId, categoryId);
+        socket.emit('leaderboard_my_rank_result', { categoryId, ...result });
     });
 
     // ── v1.49: 룬 ──
