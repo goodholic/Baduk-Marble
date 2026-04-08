@@ -703,6 +703,47 @@ style_sheet(ws_dg,
     ['ID','던전명','지역','최소Lv','최대파티','스테이지','구성','보상','드롭'],
     dungeons, title='던전 (7종 — v1.10 그림자 미궁 신규)', col_widths=[16,18,22,8,10,10,30,18,30])
 
+# ========== 20.11 우편함 ==========
+ws_mail = wb.create_sheet('우편함')
+mail_features = [
+    ['시스템 메일','이벤트 보상/공지/GM 메시지','시스템 자동 발송','14일'],
+    ['선물 메일','플레이어 → 플레이어','로그인 중인 수신자','7일'],
+    ['일반 메일','-','범용','30일 (기본)'],
+]
+style_sheet(ws_mail,
+    ['종류','용도','조건','만료'],
+    mail_features, title='우편함 시스템 (v1.34 신규 모듈 game/mail.js)', col_widths=[14,28,22,12])
+
+r = len(mail_features) + 6
+ws_mail.cell(row=r, column=1, value='첨부 가능 항목').font = Font(name='맑은 고딕', bold=True, size=12, color='FFD700')
+r += 1
+for ci, h in enumerate(['항목','검증','특수'], 1):
+    c = ws_mail.cell(row=r, column=ci, value=h); c.font = header_font; c.fill = sub_fill; c.border = thin_border
+r += 1
+attach = [
+    ['gold','발신자 골드 검증','선물 발송 시 2% 수수료'],
+    ['diamonds','발신자 다이아 검증','-'],
+    ['items','발신자 인벤토리 검증','itemId → count 매핑'],
+]
+for ri, d in enumerate(attach):
+    for ci, v in enumerate(d, 1):
+        c = ws_mail.cell(row=r+ri, column=ci, value=v); c.font = cell_font; c.border = thin_border
+r += len(attach) + 2
+
+ws_mail.cell(row=r, column=1, value='제한 / 룰').font = Font(name='맑은 고딕', bold=True, size=12, color='FFD700')
+r += 1
+mail_rules = [
+    ['우편함 최대','100통 (가득 시 수신 거부)'],
+    ['일일 선물 한도','플레이어당 10회 / 일'],
+    ['선물 수수료','골드 첨부의 2%'],
+    ['첨부 미수령 삭제','거부 (수령 후에만 삭제 가능)'],
+    ['만료 처리','조회 시 자동 삭제'],
+    ['기존 시스템','인라인 pendingMails 보완 (정식 모듈)'],
+]
+for ri, d in enumerate(mail_rules):
+    for ci, v in enumerate(d, 1):
+        c = ws_mail.cell(row=r+ri, column=ci, value=v); c.font = cell_font; c.border = thin_border
+
 # ========== 20.12 도감 ==========
 ws_cdx = wb.create_sheet('도감')
 codex_data = [
@@ -1188,6 +1229,10 @@ for ri, d in enumerate(diff_rows):
 # ========== 21. 패치 노트 ==========
 ws21 = wb.create_sheet('패치 노트')
 patches = [
+    ['v1.34','2026-04-08','신규 모듈','game/mail.js — 정식 우편함 시스템 (생성 + 통합 동시)'],
+    ['v1.34','2026-04-08','우편함','시스템/선물 메일 + 첨부(골드/다이아/아이템) + 만료/수령 관리'],
+    ['v1.34','2026-04-08','선물','일일 10회 / 골드 첨부 수수료 2% / 7일 만료'],
+    ['v1.34','2026-04-08','소켓','mail_inbox/read/claim/delete/send_gift'],
     ['v1.33','2026-04-08','신규 모듈','game/codex.js — 도감 시스템 (생성 + 통합 동시)'],
     ['v1.33','2026-04-08','도감','5개 카테고리 (몬스터/지역/장비/어종/펫) × 4단계 마일스톤'],
     ['v1.33','2026-04-08','도감','마일스톤 달성 시 영구 스탯 보너스 + 전 서버 알림'],
@@ -1279,8 +1324,12 @@ style_sheet(ws21,
     patches, title='패치 노트 히스토리', col_widths=[10,12,12,55])
 
 # ========== 22. v1.9 / v1.10 / v1.11 / v1.12 신규 컨텐츠 요약 ==========
-ws22 = wb.create_sheet('v1.9 ~ v1.33')
+ws22 = wb.create_sheet('v1.9 ~ v1.34')
 v19 = [
+    ['v1.34','신규+통합','game/mail.js','우편함 모듈 생성 + 즉시 통합','시스템/선물 + 첨부 + 만료'],
+    ['v1.34','메일','시스템 메일','이벤트 보상/공지','14일 만료'],
+    ['v1.34','메일','선물 메일','플레이어 간 / 일일 10회','7일 만료, 수수료 2%'],
+    ['v1.34','검증','발송 시 자원 차감','수신자 우편함 가득 → 거부','첨부 미수령 메일 삭제 거부'],
     ['v1.33','신규+통합','game/codex.js','도감 모듈 생성 + 즉시 통합','5카테고리 × 4마일스톤'],
     ['v1.33','자동화','trackQuest 훅','explore_count → zone 자동 등록','별도 학습 불필요'],
     ['v1.33','자동화','fishing_cast 훅','어종 자동 등록','v1.24와 자연 연동'],
