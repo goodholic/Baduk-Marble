@@ -1308,6 +1308,7 @@ for ri, d in enumerate(diff_rows):
 # ========== 21. 패치 노트 ==========
 ws21 = wb.create_sheet('패치 노트')
 patches = [
+    ['v1.88','2026-04-09','리팩토링','companion/world_event/postoffice/transmog/fortune/insurance 6개 분리 (-175줄)'],
     ['v1.87','2026-04-09','리팩토링','expedition/raid/transmutation/jobs/black_market/leaderboard 6개 분리 (-212줄)'],
     ['v1.86','2026-04-09','리팩토링','runes/breeding/relic/treasure_map/training/pet_battle 6개 분리 (-253줄)'],
     ['v1.85','2026-04-08','리팩토링','farm/skill_tree/mail/codex/daily_shop 핸들러 5개 분리 (-228줄)'],
@@ -1564,8 +1565,10 @@ style_sheet(ws21,
     patches, title='패치 노트 히스토리', col_widths=[10,12,12,55])
 
 # ========== 22. v1.9 / v1.10 / v1.11 / v1.12 신규 컨텐츠 요약 ==========
-ws22 = wb.create_sheet('v1.9 ~ v1.87')
+ws22 = wb.create_sheet('v1.9 ~ v1.88')
 v19 = [
+    ['v1.88','리팩토링','6 핸들러 분리','companion/world_event/postoffice/transmog/fortune/insurance','-175줄 (8747→8572)'],
+    ['v1.88','누적 리팩','29 모듈 핸들러 분리','-1297줄','9869 → 8572'],
     ['v1.87','리팩토링','6 핸들러 분리','expedition/raid/transmutation/jobs/black_market/leaderboard','-212줄 (8959→8747)'],
     ['v1.87','누적 리팩','23 모듈 핸들러 분리','-1122줄','9869 → 8747'],
     ['v1.86','리팩토링','6 핸들러 동시 분리','runes/breeding/relic/treasure_map/training/pet_battle','-253줄 (9212→8959)'],

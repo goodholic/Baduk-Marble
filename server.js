@@ -190,6 +190,12 @@ const { registerTransmutationHandlers } = require('./game/handlers/transmutation
 const { registerJobsHandlers } = require('./game/handlers/jobs_handlers');
 const { registerBlackMarketHandlers } = require('./game/handlers/black_market_handlers');
 const { registerLeaderboardHandlers } = require('./game/handlers/leaderboard_handlers');
+const { registerCompanionHandlers } = require('./game/handlers/companion_handlers');
+const { registerWorldEventHandlers } = require('./game/handlers/world_event_handlers');
+const { registerPostofficeHandlers } = require('./game/handlers/postoffice_handlers');
+const { registerTransmogHandlers } = require('./game/handlers/transmog_handlers');
+const { registerFortuneHandlers } = require('./game/handlers/fortune_handlers');
+const { registerInsuranceHandlers } = require('./game/handlers/insurance_handlers');
 
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
@@ -5777,205 +5783,24 @@ io.on('connection', (socket) => {
         socket.emit('wisdom_status_result', wisdom.getStatus(p));
     });
 
-    // ── v1.61: 동료 ──
-    socket.on('companion_status', () => {
-        const p = players[playerId];
-        if (!p) return;
-        socket.emit('companion_status_result', companion.getStatus(p));
-    });
 
-    socket.on('companion_set_active', (companionId) => {
-        const p = players[playerId];
-        if (!p) return;
-        const result = companion.setActive(p, companionId);
-        if (result.success) {
-            savePlayer(p);
-            io.emit('player_update', p);
-        }
-        socket.emit('companion_result', result);
-    });
+    // ── v1.61: 동료 ── (v1.88: handlers/companion_handlers.js)
+    registerCompanionHandlers(socket, { io, players, playerId, savePlayer, companion });
 
-    socket.on('companion_gift', (data) => {
-        const p = players[playerId];
-        if (!p || !data || !data.companionId || !data.itemId) {
-            socket.emit('companion_result', { success: false, msg: '필수 정보 누락' });
-            return;
-        }
-        const result = companion.giveGift(p, data.companionId, data.itemId);
-        if (result.success) {
-            savePlayer(p);
-            io.emit('player_update', p);
-        }
-        socket.emit('companion_result', result);
-    });
+    // ── v1.60: 월드 이벤트 ── (v1.88: handlers/world_event_handlers.js)
+    registerWorldEventHandlers(socket, { worldEvent });
 
-    socket.on('companion_talk', (companionId) => {
-        const p = players[playerId];
-        if (!p) return;
-        const result = companion.talk(p, companionId);
-        if (result.success) {
-            savePlayer(p);
-        }
-        socket.emit('companion_result', result);
-    });
+    // ── v1.59: 우체국 ── (v1.88: handlers/postoffice_handlers.js)
+    registerPostofficeHandlers(socket, { io, players, playerId, savePlayer, MAX_GOLD, postoffice, getZone });
 
-    // ── v1.60: 월드 이벤트 ──
-    socket.on('world_event_status', () => {
-        socket.emit('world_event_status_result', worldEvent.getStatus());
-    });
+    // ── v1.58: 트랜스모그 ── (v1.88: handlers/transmog_handlers.js)
+    registerTransmogHandlers(socket, { io, players, playerId, savePlayer, transmog });
 
-    socket.on('world_event_stats', () => {
-        socket.emit('world_event_stats_result', worldEvent.getEventStats());
-    });
+    // ── v1.57: 일일 운세 ── (v1.88: handlers/fortune_handlers.js)
+    registerFortuneHandlers(socket, { io, players, playerId, savePlayer, MAX_GOLD, fortune });
 
-    // ── v1.59: 우체국 ──
-    socket.on('postoffice_status', () => {
-        const p = players[playerId];
-        if (!p) return;
-        socket.emit('postoffice_status_result', postoffice.getStatus(p));
-    });
-
-    socket.on('postoffice_accept', (contract) => {
-        const p = players[playerId];
-        if (!p) return;
-        if (!contract || !contract.id) {
-            socket.emit('postoffice_result', { success: false, msg: '계약 미지정' });
-            return;
-        }
-        // 출발지 검증
-        const z = getZone(p.x, p.y);
-        if (z.id !== contract.fromZone) {
-            socket.emit('postoffice_result', { success: false, msg: `${contract.fromName}에서 수락 가능` });
-            return;
-        }
-        const result = postoffice.acceptContract(p, contract);
-        if (result.success) {
-            savePlayer(p);
-            io.emit('player_update', p);
-        }
-        socket.emit('postoffice_result', result);
-    });
-
-    socket.on('postoffice_deliver', (contractId) => {
-        const p = players[playerId];
-        if (!p) return;
-        // 도착지 검증
-        const d = postoffice.getStatus(p).active.find(c => c.id === contractId);
-        if (!d) {
-            socket.emit('postoffice_result', { success: false, msg: '존재하지 않는 계약' });
-            return;
-        }
-        const z = getZone(p.x, p.y);
-        if (z.id !== d.toZone) {
-            socket.emit('postoffice_result', { success: false, msg: `${d.toName}로 가야 합니다` });
-            return;
-        }
-        const result = postoffice.deliverPackage(p, contractId);
-        if (result.success) {
-            if (p.gold > MAX_GOLD) p.gold = MAX_GOLD;
-            savePlayer(p);
-            io.emit('player_update', p);
-        }
-        socket.emit('postoffice_result', result);
-    });
-
-    // ── v1.58: 트랜스모그 ──
-    socket.on('transmog_status', () => {
-        const p = players[playerId];
-        if (!p) return;
-        socket.emit('transmog_status_result', transmog.getStatus(p));
-    });
-
-    socket.on('transmog_apply', (data) => {
-        const p = players[playerId];
-        if (!p) return;
-        if (!data || !data.skinId) {
-            socket.emit('transmog_result', { success: false, msg: '스킨 미지정' });
-            return;
-        }
-        const result = transmog.applySkin(p, data.skinId, data.slot || null);
-        if (result.success) {
-            savePlayer(p);
-            io.emit('player_update', p);
-        }
-        socket.emit('transmog_result', result);
-    });
-
-    socket.on('transmog_remove', (slot) => {
-        const p = players[playerId];
-        if (!p) return;
-        const result = transmog.removeSkin(p, slot);
-        if (result.success) {
-            savePlayer(p);
-            io.emit('player_update', p);
-        }
-        socket.emit('transmog_result', result);
-    });
-
-    // ── v1.57: 일일 운세 ──
-    socket.on('fortune_status', () => {
-        const p = players[playerId];
-        if (!p) return;
-        socket.emit('fortune_status_result', fortune.getStatus(p));
-    });
-
-    socket.on('fortune_read', () => {
-        const p = players[playerId];
-        if (!p) return;
-        const result = fortune.readFortune(p);
-        if (result.success) {
-            if (p.gold > MAX_GOLD) p.gold = MAX_GOLD;
-            savePlayer(p);
-            io.emit('player_update', p);
-            // 대길/길 운세는 알림
-            if (result.fortune.id === 'excellent') {
-                io.emit('server_msg', {
-                    msg: `[운세] ${p.displayName}이(가) 오늘 대길운! (스트릭 ${result.streak}일)`,
-                    type: 'rare',
-                });
-            }
-        }
-        socket.emit('fortune_read_result', result);
-    });
-
-    socket.on('fortune_reroll', () => {
-        const p = players[playerId];
-        if (!p) return;
-        const result = fortune.rerollFortune(p);
-        if (result.success) {
-            savePlayer(p);
-            io.emit('player_update', p);
-        }
-        socket.emit('fortune_read_result', result);
-    });
-
-    // ── v1.56: 장비 보험 ──
-    socket.on('insurance_status', () => {
-        const p = players[playerId];
-        if (!p) return;
-        socket.emit('insurance_status_result', insurance.getStatus(p));
-    });
-
-    socket.on('insurance_buy', (data) => {
-        const p = players[playerId];
-        if (!p) return;
-        if (!data || !data.equipId) {
-            socket.emit('insurance_result', { success: false, msg: '장비 미지정' });
-            return;
-        }
-        const result = insurance.buyInsurance(p, data.equipId, !!data.autoRenew);
-        if (result.success) {
-            savePlayer(p);
-            io.emit('player_update', p);
-        }
-        socket.emit('insurance_result', result);
-    });
-
-    socket.on('insurance_check', (equipId) => {
-        const p = players[playerId];
-        if (!p) return;
-        socket.emit('insurance_check_result', { equipId, insured: insurance.isInsured(p, equipId) });
-    });
+    // ── v1.56: 장비 보험 ── (v1.88: handlers/insurance_handlers.js)
+    registerInsuranceHandlers(socket, { io, players, playerId, savePlayer, insurance });
 
     // ── v1.55: 원정 ── (v1.87: handlers/expedition_handlers.js)
     registerExpeditionHandlers(socket, { io, players, playerId, savePlayer, expedition });
