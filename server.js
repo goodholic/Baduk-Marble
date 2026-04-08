@@ -273,6 +273,10 @@ const { registerLabyrinthHandlers } = require('./game/handlers/labyrinth_handler
 const sailing = require('./game/sailing');
 const { registerSailingHandlers } = require('./game/handlers/sailing_handlers');
 
+// v2.09: 유물 발굴 모듈
+const excavation = require('./game/excavation');
+const { registerExcavationHandlers } = require('./game/handlers/excavation_handlers');
+
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
     if (!result.victory) {
@@ -5529,6 +5533,9 @@ io.on('connection', (socket) => {
 
     // ── v2.08: 항해 ──
     registerSailingHandlers(socket, { io, players, playerId, savePlayer, sailing });
+
+    // ── v2.09: 유물 발굴 ──
+    registerExcavationHandlers(socket, { io, players, playerId, savePlayer, excavation });
 
     // ── v1.62 ~ v1.81: 잡다 핸들러 일괄 등록 (v1.89: handlers/misc_handlers.js)
     registerMiscHandlers(socket, {
