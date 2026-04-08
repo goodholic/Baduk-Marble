@@ -21,6 +21,72 @@ const fishing = require('./game/fishing');
 const festival = require('./game/event');
 // v1.29: 시즌 패스 모듈 통합
 const seasonPass = require('./game/season');
+// v1.30: 보스 러시 모듈 통합
+const bossRush = require('./game/boss_rush');
+
+// v1.30: 보스 러시 활성 세션 (메모리)
+const bossRushSessions = {}; // { playerId: { currentWave, startTime, waveStart, killsInWave } }
+let bossRushRanking = []; // [{ playerId, name, maxWave, time, finishedAt }]
+
+function finishBossRush(playerId, isFullClear) {
+    const p = players[playerId];
+    const session = bossRushSessions[playerId];
+    if (!p || !session) return;
+    const reachedWave = isFullClear ? bossRush.BOSS_RUSH_CONFIG.totalWaves : Math.max(0, session.currentWave - 1);
+    const totalTime = Math.floor((Date.now() - session.startTime) / 1000);
+
+    // 누적 보상
+    const cumulative = bossRush.getCumulativeReward(reachedWave);
+    p.gold = Math.min(MAX_GOLD, (p.gold || 0) + cumulative.gold);
+    p.exp = (p.exp || 0) + cumulative.exp;
+    p.diamonds = Math.min(MAX_DIAMONDS, (p.diamonds || 0) + cumulative.diamonds);
+    if (!p.inventory) p.inventory = {};
+    for (const [k, v] of Object.entries(cumulative.mats)) {
+        p.inventory[k] = (p.inventory[k] || 0) + v;
+    }
+
+    // 최고 기록 갱신
+    if (reachedWave > (p.bossRushBestWave || 0)) {
+        p.bossRushBestWave = reachedWave;
+    }
+
+    // 랭킹 등재 (최고 웨이브 기준)
+    bossRushRanking.push({
+        playerId: p.id,
+        name: p.displayName,
+        maxWave: reachedWave,
+        time: totalTime,
+        finishedAt: Date.now(),
+        fullClear: isFullClear,
+    });
+    bossRushRanking.sort((a, b) => b.maxWave - a.maxWave || a.time - b.time);
+    if (bossRushRanking.length > 100) bossRushRanking = bossRushRanking.slice(0, 100);
+
+    delete bossRushSessions[playerId];
+    savePlayer(p);
+
+    try {
+        io.to(playerId).emit('boss_rush_finished', {
+            isFullClear,
+            reachedWave,
+            totalTime,
+            cumulative,
+        });
+    } catch (_) {}
+
+    if (isFullClear) {
+        io.emit('server_msg', {
+            msg: `[보스 러시] ${p.displayName}이(가) 20웨이브 풀클리어! (${totalTime}초)`,
+            type: 'rare',
+        });
+    } else if (reachedWave >= 10) {
+        io.emit('server_msg', {
+            msg: `[보스 러시] ${p.displayName}이(가) 웨이브 ${reachedWave}까지 도달!`,
+            type: 'normal',
+        });
+    }
+    io.emit('player_update', p);
+}
 
 // v1.29: trackQuest target → season XP source 매핑
 const SEASON_XP_MAP = {
@@ -6190,6 +6256,105 @@ io.on('connection', (socket) => {
                 });
             }
         }
+    });
+
+    // ── v1.30: 보스 러시 ──
+    socket.on('boss_rush_status', () => {
+        const p = players[playerId];
+        if (!p) return;
+        const session = bossRushSessions[playerId] || null;
+        socket.emit('boss_rush_status_result', {
+            canFreeEntry: bossRush.canFreeEntry(p),
+            freeEntriesLeft: Math.max(0, bossRush.BOSS_RUSH_CONFIG.freeEntriesPerDay - ((p.bossRushUsed && p.bossRushDate === new Date().toISOString().slice(0,10)) ? p.bossRushUsed : 0)),
+            entryGold: bossRush.BOSS_RUSH_CONFIG.goldEntryPrice,
+            entryDiamond: bossRush.BOSS_RUSH_CONFIG.diamondEntryPrice,
+            totalWaves: bossRush.BOSS_RUSH_CONFIG.totalWaves,
+            currentSession: session ? {
+                currentWave: session.currentWave,
+                elapsedSec: Math.floor((Date.now() - session.startTime) / 1000),
+                waveInfo: bossRush.BOSS_RUSH_WAVES[session.currentWave - 1] || null,
+            } : null,
+            ranking: bossRushRanking.slice(0, 10),
+            bestWave: p.bossRushBestWave || 0,
+        });
+    });
+
+    socket.on('boss_rush_enter', (data) => {
+        const p = players[playerId];
+        if (!p) return;
+        if (bossRushSessions[playerId]) {
+            socket.emit('boss_rush_result', { success: false, msg: '이미 진행 중인 러시가 있습니다' });
+            return;
+        }
+        const useFree = data && data.useFree;
+        if (useFree) {
+            if (!bossRush.canFreeEntry(p)) {
+                socket.emit('boss_rush_result', { success: false, msg: '오늘 무료 입장 횟수 소진' });
+                return;
+            }
+            bossRush.consumeFreeEntry(p);
+        } else {
+            const currency = (data && data.currency === 'diamond') ? 'diamond' : 'gold';
+            const result = bossRush.payEntry(p, currency);
+            if (!result.success) {
+                socket.emit('boss_rush_result', result);
+                return;
+            }
+        }
+        bossRushSessions[playerId] = {
+            currentWave: 1,
+            startTime: Date.now(),
+            waveStart: Date.now(),
+            killsInWave: 0,
+        };
+        savePlayer(p);
+        socket.emit('boss_rush_result', {
+            success: true,
+            msg: '보스 러시 시작!',
+            wave: 1,
+            waveInfo: bossRush.BOSS_RUSH_WAVES[0],
+        });
+        io.emit('player_update', p);
+    });
+
+    // 클라이언트가 웨이브 클리어를 보고 (서버는 시간 제한 검증)
+    socket.on('boss_rush_advance', () => {
+        const p = players[playerId];
+        const session = bossRushSessions[playerId];
+        if (!p || !session) {
+            socket.emit('boss_rush_result', { success: false, msg: '진행 중인 러시 없음' });
+            return;
+        }
+        const wave = bossRush.BOSS_RUSH_WAVES[session.currentWave - 1];
+        if (!wave) return;
+        const elapsed = (Date.now() - session.waveStart) / 1000;
+        if (elapsed > wave.timeLimit) {
+            // 시간 초과 → 강제 종료
+            finishBossRush(playerId, false);
+            socket.emit('boss_rush_result', { success: false, msg: `웨이브 ${session.currentWave} 시간 초과 (${wave.timeLimit}초)` });
+            return;
+        }
+        // 다음 웨이브로
+        session.currentWave++;
+        session.waveStart = Date.now();
+        if (session.currentWave > bossRush.BOSS_RUSH_CONFIG.totalWaves) {
+            // 클리어!
+            finishBossRush(playerId, true);
+            return;
+        }
+        const next = bossRush.BOSS_RUSH_WAVES[session.currentWave - 1];
+        socket.emit('boss_rush_result', {
+            success: true,
+            msg: `웨이브 ${session.currentWave - 1} 클리어! 다음: ${next.name}`,
+            wave: session.currentWave,
+            waveInfo: next,
+        });
+    });
+
+    socket.on('boss_rush_abandon', () => {
+        if (!bossRushSessions[playerId]) return;
+        finishBossRush(playerId, false);
+        socket.emit('boss_rush_result', { success: true, msg: '러시 포기' });
     });
 
     // ── v1.29: 시즌 패스 ──

@@ -1104,6 +1104,10 @@ for ri, d in enumerate(diff_rows):
 # ========== 21. 패치 노트 ==========
 ws21 = wb.create_sheet('패치 노트')
 patches = [
+    ['v1.30','2026-04-08','통합','game/boss_rush.js → server.js 통합 (5번째 모듈 통합)'],
+    ['v1.30','2026-04-08','보스 러시','메모리 세션 + 시간 검증 + 누적 보상 + 랭킹 (TOP 100)'],
+    ['v1.30','2026-04-08','소켓','boss_rush_status / enter / advance / abandon'],
+    ['v1.30','2026-04-08','보스 러시','풀클리어 시 전 서버 알림, 10웨이브+ 일반 알림'],
     ['v1.29','2026-04-08','통합','game/season.js → server.js 통합 (4번째 모듈 통합)'],
     ['v1.29','2026-04-08','시즌 패스','trackQuest 자동 XP 적립 (PvP/보스/월드보스/던전/제작)'],
     ['v1.29','2026-04-08','소켓','season_status / season_buy_pass / season_claim'],
@@ -1178,8 +1182,14 @@ style_sheet(ws21,
     patches, title='패치 노트 히스토리', col_widths=[10,12,12,55])
 
 # ========== 22. v1.9 / v1.10 / v1.11 / v1.12 신규 컨텐츠 요약 ==========
-ws22 = wb.create_sheet('v1.9 ~ v1.29')
+ws22 = wb.create_sheet('v1.9 ~ v1.30')
 v19 = [
+    ['v1.30','통합','boss_rush → server.js','5번째 모듈 통합','메모리 세션 기반'],
+    ['v1.30','상태','bossRushSessions','진행 중 세션 저장','currentWave/시간 추적'],
+    ['v1.30','상태','bossRushRanking','글로벌 랭킹 TOP 100','웨이브 → 시간 정렬'],
+    ['v1.30','소켓','boss_rush_enter','무료/유료/다이아 입장','동시 1개 세션 제한'],
+    ['v1.30','소켓','boss_rush_advance','웨이브 클리어 보고','시간 초과 검증'],
+    ['v1.30','보상','풀클리어 보상','20웨이브 누적','전 서버 알림'],
     ['v1.29','통합','season → server.js','4번째 모듈 통합','XP 자동 적립 + 보상 수령'],
     ['v1.29','자동화','trackQuest 훅','PvP/보스/월드보스/던전/제작 → 시즌 XP','SEASON_XP_MAP 매핑'],
     ['v1.29','소켓','season_status','XP/티어/구매여부/수령내역 조회','15티어 전체'],
