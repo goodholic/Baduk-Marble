@@ -27,6 +27,27 @@ const bossRush = require('./game/boss_rush');
 const auction = require('./game/auction');
 // v1.32: 일일 상점 모듈 (생성 + 통합 동시)
 const dailyShop = require('./game/dailyshop');
+// v1.33: 도감 모듈 (생성 + 통합 동시)
+const codex = require('./game/codex');
+
+// v1.33: 도감 자동 발견 헬퍼
+function codexDiscover(p, category, entryId) {
+    if (!p || p.isBot) return;
+    const result = codex.discover(p, category, entryId);
+    if (result && result.added && result.newMilestones && result.newMilestones.length) {
+        for (const m of result.newMilestones) {
+            try {
+                io.to(p.id).emit('codex_milestone', {
+                    category, name: m.name, count: m.count, reward: m.reward,
+                });
+            } catch (_) {}
+            io.emit('server_msg', {
+                msg: `[도감] ${p.displayName}이(가) "${m.name}" 마일스톤 달성! (영구 보너스 획득)`,
+                type: 'normal',
+            });
+        }
+    }
+}
 
 // v1.32: 오늘의 일일 상점 (메모리 캐시)
 let todayDailyShop = dailyShop.generateDailyShop();
@@ -1643,6 +1664,10 @@ function trackQuest(p, target, amount) {
                 io.to(p.id).emit('season_tier_up', { tier: result.tier, totalXp: result.totalXp });
             } catch (_) {}
         }
+    }
+    // v1.33: 도감 자동 발견 — explore_count 추적 시 현재 존을 zone 도감에 등록
+    if (target === 'explore_count' && p.currentZone) {
+        codexDiscover(p, 'zone', p.currentZone);
     }
 }
 
@@ -6265,6 +6290,24 @@ io.on('connection', (socket) => {
         }
     });
 
+    // ── v1.33: 도감 ──
+    socket.on('codex_status', () => {
+        const p = players[playerId];
+        if (!p) return;
+        socket.emit('codex_status_result', codex.getProgress(p));
+    });
+
+    // 클라이언트가 명시적으로 발견 보고 (낚시/펫 등 자동화 어려운 경우)
+    socket.on('codex_report', (data) => {
+        const p = players[playerId];
+        if (!p) return;
+        if (!data || !data.category || !data.entryId) return;
+        if (!['monster','zone','equip','fish','pet'].includes(data.category)) return;
+        codexDiscover(p, data.category, String(data.entryId));
+        savePlayer(p);
+        socket.emit('codex_status_result', codex.getProgress(p));
+    });
+
     // ── v1.32: 일일 상점 ──
     socket.on('daily_shop_status', () => {
         const p = players[playerId];
@@ -6670,6 +6713,9 @@ io.on('connection', (socket) => {
 
         // 업적 추적
         if (typeof trackQuest === 'function') trackQuest(p, 'fish_catch', 1);
+
+        // v1.33: 도감 자동 발견 (어종)
+        codexDiscover(p, 'fish', result.fish.name);
 
         savePlayer(p);
         socket.emit('fishing_result', {
