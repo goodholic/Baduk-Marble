@@ -15,6 +15,8 @@ const { PETS, MOUNTS, handleBuyPet, handleBuyMount, getPetEffect, getMountSpeed,
 const { BUFF_TYPES, applyBuff, removeBuff, updateBuffs, getBuffedStat, isStunned, TITLES, checkTitles, getTitleBonus } = require('./game/buff');
 // v1.26: 행운의 룰렛 모듈 통합
 const lottery = require('./game/lottery');
+// v1.27: 낚시 모듈 통합
+const fishing = require('./game/fishing');
 
 const app = express();
 const server = http.createServer(app);
@@ -6157,6 +6159,126 @@ io.on('connection', (socket) => {
                 });
             }
         }
+    });
+
+    // ── v1.27: 낚시 ──
+    const FISHING_ZONES = ['fishing', 'riverbank', 'coral'];
+
+    socket.on('fishing_status', () => {
+        const p = players[playerId];
+        if (!p) return;
+        const z = getZone(p.x, p.y);
+        socket.emit('fishing_status_result', {
+            inFishingZone: FISHING_ZONES.includes(z.id),
+            zoneName: z.name,
+            fishCount: p.fishCount || 0,
+            ownedRods: p.rods || ['rod_wooden'],
+            activeRod: p.activeRod || 'rod_wooden',
+            isNight: !!isNight,
+            rods: Object.entries(fishing.FISHING_RODS).map(([id, r]) => ({ id, ...r })),
+            baits: Object.entries(fishing.FISHING_BAIT).map(([id, b]) => ({ id, ...b })),
+        });
+    });
+
+    socket.on('fishing_cast', (data) => {
+        const p = players[playerId];
+        if (!p) return;
+        const z = getZone(p.x, p.y);
+        if (!FISHING_ZONES.includes(z.id)) {
+            socket.emit('fishing_result', { success: false, msg: '낚시 가능 지역이 아닙니다 (낚시 만/강변/산호초)' });
+            return;
+        }
+        // 낚싯대 검증
+        const rodId = (data && data.rod) || p.activeRod || 'rod_wooden';
+        if (!fishing.FISHING_RODS[rodId]) {
+            socket.emit('fishing_result', { success: false, msg: '존재하지 않는 낚싯대' });
+            return;
+        }
+        if (!p.rods) p.rods = ['rod_wooden'];
+        if (!p.rods.includes(rodId)) {
+            socket.emit('fishing_result', { success: false, msg: '보유하지 않은 낚싯대' });
+            return;
+        }
+        // 미끼 검증 (옵션)
+        const baitId = data && data.bait;
+        if (baitId) {
+            if (!fishing.FISHING_BAIT[baitId]) {
+                socket.emit('fishing_result', { success: false, msg: '존재하지 않는 미끼' });
+                return;
+            }
+            if (!p.inventory || !p.inventory[baitId]) {
+                socket.emit('fishing_result', { success: false, msg: '미끼 부족' });
+                return;
+            }
+            p.inventory[baitId]--;
+            if (p.inventory[baitId] <= 0) delete p.inventory[baitId];
+        }
+        // 낚시 시도 — currentZone, isNight 컨텍스트 주입
+        p.currentZone = z.id;
+        const prevNight = globalThis.isNight;
+        globalThis.isNight = isNight;
+        const result = fishing.catchFish(p, rodId, baitId);
+        globalThis.isNight = prevNight;
+
+        if (!result.success) {
+            socket.emit('fishing_result', { success: false, msg: result.msg || '잡지 못했다' });
+            return;
+        }
+
+        // 보상 적용
+        p.gold = Math.min(MAX_GOLD, (p.gold || 0) + result.value);
+        p.exp = (p.exp || 0) + result.expGain;
+
+        // 업적 추적
+        if (typeof trackQuest === 'function') trackQuest(p, 'fish_catch', 1);
+
+        savePlayer(p);
+        socket.emit('fishing_result', {
+            success: true,
+            fish: result.fish,
+            value: result.value,
+            expGain: result.expGain,
+            totalCount: p.fishCount,
+        });
+        io.emit('player_update', p);
+
+        // 전설/신화 어종은 전 서버 알림
+        if (result.fish.rarity === 'legendary' || result.fish.rarity === 'mythic') {
+            io.emit('server_msg', {
+                msg: `[낚시] ${p.displayName}이(가) ${result.fish.name}을(를) 낚았습니다!`,
+                type: 'rare',
+            });
+        }
+    });
+
+    // 낚싯대 구매
+    socket.on('fishing_buy_rod', (rodId) => {
+        const p = players[playerId];
+        if (!p) return;
+        const rod = fishing.FISHING_RODS[rodId];
+        if (!rod) {
+            socket.emit('fishing_result', { success: false, msg: '존재하지 않는 낚싯대' });
+            return;
+        }
+        if (!p.rods) p.rods = ['rod_wooden'];
+        if (p.rods.includes(rodId)) {
+            socket.emit('fishing_result', { success: false, msg: '이미 보유 중' });
+            return;
+        }
+        // 비용 차감
+        if (rod.price.gold) {
+            if (p.gold < rod.price.gold) { socket.emit('fishing_result', { success: false, msg: '골드 부족' }); return; }
+            p.gold -= rod.price.gold;
+        }
+        if (rod.price.diamonds) {
+            if ((p.diamonds || 0) < rod.price.diamonds) { socket.emit('fishing_result', { success: false, msg: '다이아 부족' }); return; }
+            p.diamonds -= rod.price.diamonds;
+        }
+        p.rods.push(rodId);
+        p.activeRod = rodId;
+        savePlayer(p);
+        socket.emit('fishing_result', { success: true, msg: `${rod.name} 구매 완료!`, rodId });
+        io.emit('player_update', p);
     });
 
     // ── 채팅 ──

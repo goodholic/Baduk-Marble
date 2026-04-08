@@ -1104,6 +1104,10 @@ for ri, d in enumerate(diff_rows):
 # ========== 21. 패치 노트 ==========
 ws21 = wb.create_sheet('패치 노트')
 patches = [
+    ['v1.27','2026-04-08','통합','game/fishing.js → server.js 통합 (소켓 핸들러 3종)'],
+    ['v1.27','2026-04-08','낚시','fishing_status / fishing_cast / fishing_buy_rod 이벤트'],
+    ['v1.27','2026-04-08','낚시','지역 검증 (낚시 만/강변/산호초), 낚싯대 보유 검증, 미끼 소비'],
+    ['v1.27','2026-04-08','낚시','전설/신화 어종 낚시 시 전 서버 알림 + ach_fish50 추적'],
     ['v1.26','2026-04-08','통합','game/lottery.js → server.js 통합 (require + 소켓 핸들러 3종)'],
     ['v1.26','2026-04-08','룰렛','lottery_status / lottery_free_spin / lottery_paid_spin 이벤트 추가'],
     ['v1.26','2026-04-08','룰렛','전설/영웅 보상 획득 시 전 서버 알림 + ach_lucky 업적 추적'],
@@ -1166,8 +1170,12 @@ style_sheet(ws21,
     patches, title='패치 노트 히스토리', col_widths=[10,12,12,55])
 
 # ========== 22. v1.9 / v1.10 / v1.11 / v1.12 신규 컨텐츠 요약 ==========
-ws22 = wb.create_sheet('v1.9 ~ v1.26')
+ws22 = wb.create_sheet('v1.9 ~ v1.27')
 v19 = [
+    ['v1.27','통합','fishing → server.js','require + 소켓 핸들러 3종','두 번째 모듈 통합'],
+    ['v1.27','소켓','fishing_status','지역/낚싯대/미끼/시간대 조회','클라이언트 표시용'],
+    ['v1.27','소켓','fishing_cast','낚시 시도 (지역+낚싯대+미끼 검증)','전설/신화 → 서버 알림'],
+    ['v1.27','소켓','fishing_buy_rod','낚싯대 구매 (골드/다이아)','5등급 모두'],
     ['v1.26','통합','lottery → server.js','require + 소켓 핸들러 3종','첫 모듈 통합 마일스톤'],
     ['v1.26','소켓 이벤트','lottery_status','상태/가격/상품 풀 조회','클라이언트 표시용'],
     ['v1.26','소켓 이벤트','lottery_free_spin','매일 무료 1회 스핀','자정 초기화'],
