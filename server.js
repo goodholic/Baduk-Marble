@@ -97,6 +97,8 @@ const TRAINING_DRILLS_NAMES = {
 const treasureMap = require('./game/treasure_map');
 // v1.47: 유물 모듈 (생성 + 통합 동시)
 const relic = require('./game/relic');
+// v1.48: 펫 교배 모듈 (생성 + 통합 동시)
+const breeding = require('./game/breeding');
 
 // v1.33: 도감 자동 발견 헬퍼
 function codexDiscover(p, category, entryId) {
@@ -5339,6 +5341,46 @@ io.on('connection', (socket) => {
                 });
             }
         }
+    });
+
+    // ── v1.48: 펫 교배 ──
+    socket.on('breeding_status', () => {
+        const p = players[playerId];
+        if (!p) return;
+        socket.emit('breeding_status_result', breeding.getStatus(p));
+    });
+
+    socket.on('breeding_breed', (data) => {
+        const p = players[playerId];
+        if (!p) return;
+        if (!data || !data.parent1 || !data.parent2) {
+            socket.emit('breeding_result', { success: false, msg: '두 펫 미지정' });
+            return;
+        }
+        const result = breeding.breed(p, data.parent1, data.parent2);
+        if (result.success) {
+            // 자손은 인벤토리에 저장 (실제 펫으로 등록되지 않음 — 별도 컬렉션)
+            if (!p.bredOffspring) p.bredOffspring = [];
+            p.bredOffspring.push({
+                ...result.offspring,
+                bornAt: Date.now(),
+            });
+            savePlayer(p);
+            io.emit('player_update', p);
+            // 특별 하이브리드는 알림
+            if (result.type === 'hybrid') {
+                io.emit('server_msg', {
+                    msg: `[교배] ${p.displayName}이(가) 특별 하이브리드 ${result.offspring.name}을(를) 발견했습니다!`,
+                    type: 'rare',
+                });
+            } else if (result.type === 'mutation') {
+                io.emit('server_msg', {
+                    msg: `[교배] ${p.displayName}이(가) 변이 자손을 얻었습니다!`,
+                    type: 'normal',
+                });
+            }
+        }
+        socket.emit('breeding_result', result);
     });
 
     // ── v1.47: 유물 ──
