@@ -257,6 +257,10 @@ const { registerFriendsHandlers } = require('./game/handlers/friends_handlers');
 const profile = require('./game/profile');
 const { registerProfileHandlers } = require('./game/handlers/profile_handlers');
 
+// v2.05: 카지노 모듈
+const casino = require('./game/casino');
+const { registerCasinoHandlers } = require('./game/handlers/casino_handlers');
+
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
     if (!result.victory) {
@@ -5501,6 +5505,9 @@ io.on('connection', (socket) => {
 
     // ── v2.04: 프로필 카드 ──
     registerProfileHandlers(socket, { io, players, playerId, savePlayer, profile });
+
+    // ── v2.05: 카지노 ──
+    registerCasinoHandlers(socket, { io, players, playerId, savePlayer, casino });
 
     // ── v1.62 ~ v1.81: 잡다 핸들러 일괄 등록 (v1.89: handlers/misc_handlers.js)
     registerMiscHandlers(socket, {
