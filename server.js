@@ -305,6 +305,10 @@ const { registerMaskHandlers } = require('./game/handlers/mask_handlers');
 const heraldry = require('./game/heraldry');
 const { registerHeraldryHandlers } = require('./game/handlers/heraldry_handlers');
 
+// v2.17: 차원 균열 모듈
+const rift = require('./game/rift');
+const { registerRiftHandlers } = require('./game/handlers/rift_handlers');
+
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
     if (!result.victory) {
@@ -5585,6 +5589,9 @@ io.on('connection', (socket) => {
 
     // ── v2.16: 가문 문장 ──
     registerHeraldryHandlers(socket, { io, players, playerId, savePlayer, heraldry });
+
+    // ── v2.17: 차원 균열 ──
+    registerRiftHandlers(socket, { io, players, playerId, savePlayer, rift });
 
     // ── v1.62 ~ v1.81: 잡다 핸들러 일괄 등록 (v1.89: handlers/misc_handlers.js)
     registerMiscHandlers(socket, {
