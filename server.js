@@ -164,6 +164,8 @@ const honor = require('./game/honor');
 const invitation = require('./game/invitation');
 // v1.80: 시간 캡슐 모듈 (80번째 패치 마일스톤)
 const timeCapsule = require('./game/time_capsule');
+// v1.81: 서버 통계 모듈 (생성 + 통합 동시)
+const statistics = require('./game/statistics');
 
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
@@ -5447,6 +5449,15 @@ io.on('connection', (socket) => {
                 });
             }
         }
+    });
+
+    // ── v1.81: 서버 통계 ──
+    socket.on('statistics_full', () => {
+        socket.emit('statistics_full_result', statistics.getStats(players));
+    });
+
+    socket.on('statistics_compact', () => {
+        socket.emit('statistics_compact_result', statistics.getCompactStats(players));
     });
 
     // ── v1.80: 시간 캡슐 ──
