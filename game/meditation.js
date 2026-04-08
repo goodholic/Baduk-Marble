@@ -121,4 +121,5 @@ module.exports = {
   endSession,
   buyPerk,
   getPerkBonuses,
+  getActiveBonuses: getPerkBonuses, // v2.0: aggregator 호환 별칭
 };

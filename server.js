@@ -237,6 +237,10 @@ const { registerForgeHandlers } = require('./game/handlers/forge_handlers');
 const legends = require('./game/legends');
 const { registerLegendsHandlers } = require('./game/handlers/legends_handlers');
 
+// v2.0 마일스톤: 보너스 집계 모듈 (v1.91~v1.99 active bonus 통합)
+const bonusAggregator = require('./game/bonus_aggregator');
+const { registerBonusHandlers } = require('./game/handlers/bonus_handlers');
+
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
     if (!result.victory) {
@@ -5466,6 +5470,9 @@ io.on('connection', (socket) => {
 
     // ── v1.99: 위인 전당 ──
     registerLegendsHandlers(socket, { io, players, playerId, savePlayer, legends });
+
+    // ── v2.0: 보너스 집계 ──
+    registerBonusHandlers(socket, { players, playerId, bonusAggregator });
 
     // ── v1.62 ~ v1.81: 잡다 핸들러 일괄 등록 (v1.89: handlers/misc_handlers.js)
     registerMiscHandlers(socket, {
