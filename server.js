@@ -265,6 +265,10 @@ const { registerCasinoHandlers } = require('./game/handlers/casino_handlers');
 const emote = require('./game/emote');
 const { registerEmoteHandlers } = require('./game/handlers/emote_handlers');
 
+// v2.07: 미궁 모듈
+const labyrinth = require('./game/labyrinth');
+const { registerLabyrinthHandlers } = require('./game/handlers/labyrinth_handlers');
+
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
     if (!result.victory) {
@@ -5515,6 +5519,9 @@ io.on('connection', (socket) => {
 
     // ── v2.06: 이모트 ──
     registerEmoteHandlers(socket, { io, players, playerId, savePlayer, emote });
+
+    // ── v2.07: 미궁 ──
+    registerLabyrinthHandlers(socket, { io, players, playerId, savePlayer, labyrinth });
 
     // ── v1.62 ~ v1.81: 잡다 핸들러 일괄 등록 (v1.89: handlers/misc_handlers.js)
     registerMiscHandlers(socket, {

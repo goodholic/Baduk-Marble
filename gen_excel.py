@@ -1308,6 +1308,7 @@ for ri, d in enumerate(diff_rows):
 # ========== 21. 패치 노트 ==========
 ws21 = wb.create_sheet('패치 노트')
 patches = [
+    ['v2.07','2026-04-09','신기능','미궁 — game/labyrinth.js (5x5, 일일 결정론적, 보물/몬스터/함정/출구)'],
     ['v2.06','2026-04-09','신기능','이모트 — game/emote.js (15 감정, 4 해금경로, 브로드캐스트)'],
     ['v2.05','2026-04-09','신기능','카지노 — game/casino.js (슬롯/주사위/동전, 통계 추적)'],
     ['v2.04','2026-04-09','신기능','프로필 카드 — game/profile.js (8 테마, 8 뱃지, 한줄소개, 조회수)'],
@@ -1585,8 +1586,9 @@ style_sheet(ws21,
     patches, title='패치 노트 히스토리', col_widths=[10,12,12,55])
 
 # ========== 22. v1.9 / v1.10 / v1.11 / v1.12 신규 컨텐츠 요약 ==========
-ws22 = wb.create_sheet('v1.9 ~ v2.06')
+ws22 = wb.create_sheet('v1.9 ~ v2.07')
 v19 = [
+    ['v2.07','신기능','미궁','labyrinth.js (5x5 절차적, mulberry32, fog of war)','+170줄 모듈'],
     ['v2.06','신기능','이모트','emote.js (15 감정, default/gold/level/achieve)','+150줄 모듈'],
     ['v2.05','신기능','카지노','casino.js (slot 7심볼 × 50배, dice 8배, coin 1.95배)','+160줄 모듈'],
     ['v2.04','신기능','프로필 카드','profile.js (8 테마 × 8 뱃지, autoCheckBadges)','+155줄 모듈'],
