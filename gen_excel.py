@@ -1308,6 +1308,9 @@ for ri, d in enumerate(diff_rows):
 # ========== 21. 패치 노트 ==========
 ws21 = wb.create_sheet('패치 노트')
 patches = [
+    ['v1.38','2026-04-08','리팩토링','Phase 2: 지역 데이터 8종 추출 → game/data/zones.js (459줄)'],
+    ['v1.38','2026-04-08','리팩토링','server.js 9517 → 9103줄 (-414줄)'],
+    ['v1.38','2026-04-08','리팩토링','ZONES(53)/ZONE_AMBIENCE(52)/MONSTER_LORE(79)/ZONE_CONNECTIONS(50)/TERRAIN_BARRIERS/ROADS/ZONE_MONSTERS/ZONE_MONSTER_NAMES'],
     ['v1.37','2026-04-08','리팩토링','Phase 1: 순수 데이터 6종 추출 → game/data/world_data.js'],
     ['v1.37','2026-04-08','리팩토링','server.js 9622 → 9517줄 (-105줄)'],
     ['v1.37','2026-04-08','리팩토링','MONSTER_TIERS / KARMA / WORLD_BOSS_TYPES / DUNGEONS / ELEMENT_BONUS / ATTENDANCE_REWARDS'],
@@ -1415,8 +1418,11 @@ style_sheet(ws21,
     patches, title='패치 노트 히스토리', col_widths=[10,12,12,55])
 
 # ========== 22. v1.9 / v1.10 / v1.11 / v1.12 신규 컨텐츠 요약 ==========
-ws22 = wb.create_sheet('v1.9 ~ v1.37')
+ws22 = wb.create_sheet('v1.9 ~ v1.38')
 v19 = [
+    ['v1.38','리팩토링','Phase 2','game/data/zones.js 추출','-414줄 (9517→9103)'],
+    ['v1.38','분리','지역 8종','ZONES/ZONE_AMBIENCE/MONSTER_LORE/등','함수(isOnRoad/isBlocked) 유지'],
+    ['v1.38','진척','-519줄 누적','9622 → 9103','-5.4%'],
     ['v1.37','리팩토링','Phase 1','game/data/world_data.js 추출','-105줄 (9622→9517)'],
     ['v1.37','마스터 플랜','5단계 분리','Phase 2: ZONES / 3: 장비 / 4: 퀘스트 / 5: 상점','각 phase = 1 커밋'],
     ['v1.37','버그 수정','MONSTER_TIERS','깨진 한글 동시 수정','드래곤 / 고대 드래곤'],
