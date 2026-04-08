@@ -1308,6 +1308,7 @@ for ri, d in enumerate(diff_rows):
 # ========== 21. 패치 노트 ==========
 ws21 = wb.create_sheet('패치 노트')
 patches = [
+    ['v1.86','2026-04-09','리팩토링','runes/breeding/relic/treasure_map/training/pet_battle 6개 분리 (-253줄)'],
     ['v1.85','2026-04-08','리팩토링','farm/skill_tree/mail/codex/daily_shop 핸들러 5개 분리 (-228줄)'],
     ['v1.84','2026-04-08','리팩토링','event/auction/boss_rush/season 핸들러 4개 동시 분리 (-240줄)'],
     ['v1.84','2026-04-08','리팩토링','game/handlers/ 4 신규 파일'],
@@ -1562,8 +1563,10 @@ style_sheet(ws21,
     patches, title='패치 노트 히스토리', col_widths=[10,12,12,55])
 
 # ========== 22. v1.9 / v1.10 / v1.11 / v1.12 신규 컨텐츠 요약 ==========
-ws22 = wb.create_sheet('v1.9 ~ v1.85')
+ws22 = wb.create_sheet('v1.9 ~ v1.86')
 v19 = [
+    ['v1.86','리팩토링','6 핸들러 동시 분리','runes/breeding/relic/treasure_map/training/pet_battle','-253줄 (9212→8959)'],
+    ['v1.86','누적 리팩','17 모듈 핸들러 분리','-910줄','9869 → 8959'],
     ['v1.85','리팩토링','5 핸들러 분리','farm/skill_tree/mail/codex/daily_shop','-228줄 (9440→9212)'],
     ['v1.85','누적 리팩','11 모듈 핸들러 분리','-657줄','9869 → 9212'],
     ['v1.84','리팩토링','4 핸들러 동시 분리','event/auction/boss_rush/season','-240줄 (9680→9440)'],

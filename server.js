@@ -178,6 +178,12 @@ const { registerSkillTreeHandlers } = require('./game/handlers/skill_tree_handle
 const { registerMailHandlers } = require('./game/handlers/mail_handlers');
 const { registerCodexHandlers } = require('./game/handlers/codex_handlers');
 const { registerDailyShopHandlers } = require('./game/handlers/daily_shop_handlers');
+const { registerRunesHandlers } = require('./game/handlers/runes_handlers');
+const { registerBreedingHandlers } = require('./game/handlers/breeding_handlers');
+const { registerRelicHandlers } = require('./game/handlers/relic_handlers');
+const { registerTreasureMapHandlers } = require('./game/handlers/treasure_map_handlers');
+const { registerTrainingHandlers } = require('./game/handlers/training_handlers');
+const { registerPetBattleHandlers } = require('./game/handlers/pet_battle_handlers');
 
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
@@ -6204,283 +6210,24 @@ io.on('connection', (socket) => {
         socket.emit('leaderboard_my_rank_result', { categoryId, ...result });
     });
 
-    // ── v1.49: 룬 ──
-    socket.on('rune_status', () => {
-        const p = players[playerId];
-        if (!p) return;
-        socket.emit('rune_status_result', runes.getStatus(p));
-    });
 
-    socket.on('rune_craft', (data) => {
-        const p = players[playerId];
-        if (!p) return;
-        if (!data || !data.type) {
-            socket.emit('rune_result', { success: false, msg: '룬 종류 미지정' });
-            return;
-        }
-        const result = runes.craftRune(p, data.type, data.grade || 'common');
-        if (result.success) {
-            savePlayer(p);
-            io.emit('player_update', p);
-        }
-        socket.emit('rune_result', result);
-    });
+    // ── v1.49: 룬 ── (v1.86: handlers/runes_handlers.js)
+    registerRunesHandlers(socket, { io, players, playerId, savePlayer, trackQuest, runes });
 
-    socket.on('rune_socket', (data) => {
-        const p = players[playerId];
-        if (!p) return;
-        if (!data || !data.runeId || !data.equipSlot) {
-            socket.emit('rune_result', { success: false, msg: '필수 정보 누락' });
-            return;
-        }
-        const result = runes.socketRune(p, data.runeId, data.equipSlot);
-        if (result.success) {
-            // 룬 워드 활성화 체크
-            const activeWords = runes.getActiveRuneWords(p);
-            if (activeWords.length > 0) {
-                if (typeof trackQuest === 'function') trackQuest(p, 'rune_word', 1);
-            }
-            savePlayer(p);
-            io.emit('player_update', p);
-        }
-        socket.emit('rune_result', result);
-    });
+    // ── v1.48: 펫 교배 ── (v1.86: handlers/breeding_handlers.js)
+    registerBreedingHandlers(socket, { io, players, playerId, savePlayer, breeding });
 
-    socket.on('rune_unsocket', (data) => {
-        const p = players[playerId];
-        if (!p) return;
-        if (!data || !data.equipSlot || typeof data.socketIdx !== 'number') {
-            socket.emit('rune_result', { success: false, msg: '필수 정보 누락' });
-            return;
-        }
-        const result = runes.unsocketRune(p, data.equipSlot, data.socketIdx);
-        if (result.success) {
-            savePlayer(p);
-            io.emit('player_update', p);
-        }
-        socket.emit('rune_result', result);
-    });
+    // ── v1.47: 유물 ── (v1.86: handlers/relic_handlers.js)
+    registerRelicHandlers(socket, { io, players, playerId, savePlayer, relic });
 
-    // ── v1.48: 펫 교배 ──
-    socket.on('breeding_status', () => {
-        const p = players[playerId];
-        if (!p) return;
-        socket.emit('breeding_status_result', breeding.getStatus(p));
-    });
+    // ── v1.46: 보물 지도 ── (v1.86: handlers/treasure_map_handlers.js)
+    registerTreasureMapHandlers(socket, { io, players, playerId, savePlayer, MAX_GOLD, MAX_DIAMONDS, treasureMap });
 
-    socket.on('breeding_breed', (data) => {
-        const p = players[playerId];
-        if (!p) return;
-        if (!data || !data.parent1 || !data.parent2) {
-            socket.emit('breeding_result', { success: false, msg: '두 펫 미지정' });
-            return;
-        }
-        const result = breeding.breed(p, data.parent1, data.parent2);
-        if (result.success) {
-            // 자손은 인벤토리에 저장 (실제 펫으로 등록되지 않음 — 별도 컬렉션)
-            if (!p.bredOffspring) p.bredOffspring = [];
-            p.bredOffspring.push({
-                ...result.offspring,
-                bornAt: Date.now(),
-            });
-            savePlayer(p);
-            io.emit('player_update', p);
-            // 특별 하이브리드는 알림
-            if (result.type === 'hybrid') {
-                io.emit('server_msg', {
-                    msg: `[교배] ${p.displayName}이(가) 특별 하이브리드 ${result.offspring.name}을(를) 발견했습니다!`,
-                    type: 'rare',
-                });
-            } else if (result.type === 'mutation') {
-                io.emit('server_msg', {
-                    msg: `[교배] ${p.displayName}이(가) 변이 자손을 얻었습니다!`,
-                    type: 'normal',
-                });
-            }
-        }
-        socket.emit('breeding_result', result);
-    });
+    // ── v1.45: 일일 훈련 ── (v1.86: handlers/training_handlers.js)
+    registerTrainingHandlers(socket, { io, players, playerId, savePlayer, MAX_GOLD, training });
 
-    // ── v1.47: 유물 ──
-    socket.on('relic_status', () => {
-        const p = players[playerId];
-        if (!p) return;
-        socket.emit('relic_status_result', relic.getStatus(p));
-    });
-
-    socket.on('relic_equip', (relicId) => {
-        const p = players[playerId];
-        if (!p) return;
-        const result = relic.equipRelic(p, relicId);
-        if (result.success) {
-            savePlayer(p);
-            io.emit('player_update', p);
-        }
-        socket.emit('relic_equip_result', result);
-    });
-
-    socket.on('relic_unequip', (relicId) => {
-        const p = players[playerId];
-        if (!p) return;
-        const result = relic.unequipRelic(p, relicId);
-        if (result.success) {
-            savePlayer(p);
-            io.emit('player_update', p);
-        }
-        socket.emit('relic_unequip_result', result);
-    });
-
-    socket.on('relic_enchant', (relicId) => {
-        const p = players[playerId];
-        if (!p) return;
-        const result = relic.enchantRelic(p, relicId);
-        if (result.success) {
-            savePlayer(p);
-            io.emit('player_update', p);
-        }
-        socket.emit('relic_enchant_result', result);
-    });
-
-    // ── v1.46: 보물 지도 ──
-    socket.on('treasure_status', () => {
-        const p = players[playerId];
-        if (!p) return;
-        socket.emit('treasure_status_result', {
-            maps: treasureMap.getActiveMaps(p),
-            grades: treasureMap.TREASURE_GRADES,
-            maxMaps: treasureMap.TREASURE_CONFIG.maxActiveMaps,
-            totalFound: p.treasureFound || 0,
-        });
-    });
-
-    socket.on('treasure_hint', (mapId) => {
-        const p = players[playerId];
-        if (!p) return;
-        socket.emit('treasure_hint_result', treasureMap.getProximityHint(p, mapId));
-    });
-
-    socket.on('treasure_dig', (mapId) => {
-        const p = players[playerId];
-        if (!p) return;
-        const result = treasureMap.digTreasure(p, mapId);
-        if (result.success) {
-            if (p.gold > MAX_GOLD) p.gold = MAX_GOLD;
-            if (p.diamonds > MAX_DIAMONDS) p.diamonds = MAX_DIAMONDS;
-            savePlayer(p);
-            io.emit('player_update', p);
-            // 전설 등급 발견 시 알림
-            if (result.grade === 'legendary') {
-                io.emit('server_msg', {
-                    msg: `[보물] ${p.displayName}이(가) 전설의 보물을 발견했습니다!`,
-                    type: 'rare',
-                });
-            }
-        }
-        socket.emit('treasure_dig_result', result);
-    });
-
-    // ── v1.45: 일일 훈련 ──
-    socket.on('training_status', () => {
-        const p = players[playerId];
-        if (!p) return;
-        socket.emit('training_status_result', training.getStatus(p));
-    });
-
-    socket.on('training_perform', (drillId) => {
-        const p = players[playerId];
-        if (!p) return;
-        const result = training.performTraining(p, drillId);
-        if (result.success) {
-            // 임시 버프 적용
-            if (result.tempBuff && typeof applyBuff === 'function') {
-                // BUFF_TYPES에 직접 등록되지 않은 경우 임시 버프 객체 만들기
-                if (!p.activeBuffs) p.activeBuffs = {};
-                p.activeBuffs[`training_${drillId}`] = {
-                    ...result.tempBuff,
-                    name: TRAINING_DRILLS_NAMES[drillId] || drillId,
-                    startTime: Date.now(),
-                    endTime: Date.now() + result.tempBuff.duration * 1000,
-                };
-            }
-            if (p.gold > MAX_GOLD) p.gold = MAX_GOLD;
-            savePlayer(p);
-            io.emit('player_update', p);
-        }
-        socket.emit('training_perform_result', result);
-    });
-
-    socket.on('training_refill', () => {
-        const p = players[playerId];
-        if (!p) return;
-        const result = training.refillStamina(p);
-        if (result.success) {
-            savePlayer(p);
-            io.emit('player_update', p);
-        }
-        socket.emit('training_refill_result', result);
-    });
-
-    // ── v1.42: 펫 배틀 ──
-    socket.on('pet_battle_status', () => {
-        const p = players[playerId];
-        if (!p) return;
-        const today = new Date().toISOString().slice(0, 10);
-        const used = (p.petBattleDate === today) ? (p.petBattleCount || 0) : 0;
-        socket.emit('pet_battle_status_result', {
-            ownedPets: p.pets || [],
-            activePet: p.activePet || null,
-            wins: p.petBattleWins || 0,
-            losses: p.petBattleLosses || 0,
-            freeLeft: Math.max(0, petBattle.PET_BATTLE_CONFIG.dailyFreeBattles - used),
-            paidPrice: petBattle.PET_BATTLE_CONFIG.paidBattlePrice,
-            tournamentFee: petBattle.PET_BATTLE_CONFIG.tournamentEntryFee,
-        });
-    });
-
-    socket.on('pet_battle_fight', (data) => {
-        const p = players[playerId];
-        if (!p) return;
-        if (!data || !data.myPet || !data.enemyPet) {
-            socket.emit('pet_battle_result', { success: false, msg: '펫 미지정' });
-            return;
-        }
-        if (!p.pets || !p.pets.includes(data.myPet)) {
-            socket.emit('pet_battle_result', { success: false, msg: '보유하지 않은 펫' });
-            return;
-        }
-        const usePaid = !petBattle.canFreeBattle(p);
-        if (usePaid) {
-            const cost = petBattle.PET_BATTLE_CONFIG.paidBattlePrice;
-            if ((p.diamonds || 0) < cost) {
-                socket.emit('pet_battle_result', { success: false, msg: `무료 횟수 소진 — 다이아 ${cost}개 필요` });
-                return;
-            }
-            p.diamonds -= cost;
-        } else {
-            petBattle.consumeFreeBattle(p);
-        }
-        const result = petBattle.simulateBattle(data.myPet, data.enemyPet);
-        if (result.error) {
-            socket.emit('pet_battle_result', { success: false, msg: result.error });
-            return;
-        }
-        const won = result.winnerId === data.myPet;
-        petBattle.applyBattleReward(p, won);
-        if (p.gold > MAX_GOLD) p.gold = MAX_GOLD;
-        savePlayer(p);
-        socket.emit('pet_battle_result', {
-            success: true,
-            won,
-            winner: result.winner,
-            turns: result.turns,
-            draw: !!result.draw,
-            log: result.log.slice(0, 10),
-            reward: won ? { gold: petBattle.PET_BATTLE_CONFIG.winRewardGold, exp: petBattle.PET_BATTLE_CONFIG.winRewardExp } : null,
-        });
-        io.emit('player_update', p);
-    });
-
-
+    // ── v1.42: 펫 배틀 ── (v1.86: handlers/pet_battle_handlers.js)
+    registerPetBattleHandlers(socket, { io, players, playerId, savePlayer, MAX_GOLD, petBattle });
 
     // ── v1.36: 농장 ── (v1.85: handlers/farm_handlers.js)
     registerFarmHandlers(socket, { io, players, playerId, savePlayer, MAX_GOLD, farm });
