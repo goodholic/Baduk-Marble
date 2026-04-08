@@ -17,6 +17,8 @@ const { BUFF_TYPES, applyBuff, removeBuff, updateBuffs, getBuffedStat, isStunned
 const lottery = require('./game/lottery');
 // v1.27: 낚시 모듈 통합
 const fishing = require('./game/fishing');
+// v1.28: 시즌 축제 이벤트 모듈 통합
+const festival = require('./game/event');
 
 const app = express();
 const server = http.createServer(app);
@@ -69,6 +71,10 @@ app.get('/status', (req, res) => {
                 weather: currentWeather?.id || null,
             },
             db: 'connected', // initDB가 실패하면 catch에서 로그
+            festival: (() => {
+                const ev = festival.getActiveEvent();
+                return ev ? { id: ev.id, name: ev.name, color: ev.color, buff: ev.globalBuff } : null;
+            })(),
             timestamp: new Date().toISOString(),
         });
     } catch (e) {
@@ -807,6 +813,9 @@ function getNpcMsg(npcType, player) {
     if (npc.type === 'collect' && player.gold > 50000) return '오, 부유한 모험가시군요! 특별한 거래를 제안할 수 있어요.';
     if (player.faction && npc.type === 'shop') return `${FACTIONS[player.faction]?.name} 소속이시군요! 진영 할인은 없지만 응원합니다!`;
     if (player.prestigeLevel > 0) return `환생 ${player.prestigeLevel}차... 대단하시군요. 경의를 표합니다.`;
+    // v1.28: 축제 이벤트 기간 중에는 30% 확률로 축제 인사
+    const activeEvent = festival.getActiveEvent();
+    if (activeEvent && Math.random() < 0.3) return `[${activeEvent.name}] ${activeEvent.npcGreeting}`;
     return npc.msgs[Math.floor(Math.random() * npc.msgs.length)];
 }
 
@@ -6159,6 +6168,24 @@ io.on('connection', (socket) => {
                 });
             }
         }
+    });
+
+    // ── v1.28: 시즌 축제 이벤트 ──
+    socket.on('event_status', () => {
+        const ev = festival.getActiveEvent();
+        socket.emit('event_status_result', {
+            active: !!ev,
+            event: ev ? {
+                id: ev.id,
+                name: ev.name,
+                desc: ev.desc,
+                color: ev.color,
+                globalBuff: ev.globalBuff,
+                exclusiveRewards: ev.exclusiveRewards,
+                npcGreeting: ev.npcGreeting,
+                period: `${ev.startMonth}/${ev.startDay} ~ ${ev.endMonth}/${ev.endDay}`,
+            } : null,
+        });
     });
 
     // ── v1.27: 낚시 ──
