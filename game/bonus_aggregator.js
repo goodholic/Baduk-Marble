@@ -9,6 +9,7 @@ const BONUS_SOURCES = [
   { id:'weather',       label:'기상',            module:'./weather' },
   { id:'oracle',        label:'신탁',            module:'./oracle' },
   { id:'legends',       label:'위인 학습',       module:'./legends' },
+  { id:'morph',         label:'변신 형상',       module:'./morph' },
 ];
 
 // 모듈 lazy require — 로드 실패 시에도 안전

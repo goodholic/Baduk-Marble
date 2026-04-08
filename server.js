@@ -241,6 +241,10 @@ const { registerLegendsHandlers } = require('./game/handlers/legends_handlers');
 const bonusAggregator = require('./game/bonus_aggregator');
 const { registerBonusHandlers } = require('./game/handlers/bonus_handlers');
 
+// v2.01: 변신 모듈
+const morph = require('./game/morph');
+const { registerMorphHandlers } = require('./game/handlers/morph_handlers');
+
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
     if (!result.victory) {
@@ -5473,6 +5477,9 @@ io.on('connection', (socket) => {
 
     // ── v2.0: 보너스 집계 ──
     registerBonusHandlers(socket, { players, playerId, bonusAggregator });
+
+    // ── v2.01: 변신 ──
+    registerMorphHandlers(socket, { io, players, playerId, savePlayer, morph });
 
     // ── v1.62 ~ v1.81: 잡다 핸들러 일괄 등록 (v1.89: handlers/misc_handlers.js)
     registerMiscHandlers(socket, {
