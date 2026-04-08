@@ -1308,6 +1308,8 @@ for ri, d in enumerate(diff_rows):
 # ========== 21. 패치 노트 ==========
 ws21 = wb.create_sheet('패치 노트')
 patches = [
+    ['v1.89','2026-04-09','리팩토링','잡다 20개 핸들러 일괄 분리 → misc_handlers.js (-377줄)'],
+    ['v1.89','2026-04-09','마일스톤','🎉 핸들러 분리 완료 — server.js 9869→8195 (-1674줄, -17%)'],
     ['v1.88','2026-04-09','리팩토링','companion/world_event/postoffice/transmog/fortune/insurance 6개 분리 (-175줄)'],
     ['v1.87','2026-04-09','리팩토링','expedition/raid/transmutation/jobs/black_market/leaderboard 6개 분리 (-212줄)'],
     ['v1.86','2026-04-09','리팩토링','runes/breeding/relic/treasure_map/training/pet_battle 6개 분리 (-253줄)'],
@@ -1565,8 +1567,10 @@ style_sheet(ws21,
     patches, title='패치 노트 히스토리', col_widths=[10,12,12,55])
 
 # ========== 22. v1.9 / v1.10 / v1.11 / v1.12 신규 컨텐츠 요약 ==========
-ws22 = wb.create_sheet('v1.9 ~ v1.88')
+ws22 = wb.create_sheet('v1.9 ~ v1.89')
 v19 = [
+    ['v1.89','🎉 마일스톤','핸들러 분리 완료','misc_handlers.js로 20개 일괄','-377줄 (8572→8195)'],
+    ['v1.89','누적 리팩','49 모듈 핸들러 분리 완료','-1674줄 / -17%','9869 → 8195'],
     ['v1.88','리팩토링','6 핸들러 분리','companion/world_event/postoffice/transmog/fortune/insurance','-175줄 (8747→8572)'],
     ['v1.88','누적 리팩','29 모듈 핸들러 분리','-1297줄','9869 → 8572'],
     ['v1.87','리팩토링','6 핸들러 분리','expedition/raid/transmutation/jobs/black_market/leaderboard','-212줄 (8959→8747)'],
