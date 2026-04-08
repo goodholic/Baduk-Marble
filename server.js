@@ -124,6 +124,8 @@ const transmog = require('./game/transmog');
 const postoffice = require('./game/postoffice');
 // v1.60: 월드 이벤트 모듈 (60번째 패치 마일스톤)
 const worldEvent = require('./game/world_event');
+// v1.61: 동료 모듈 (생성 + 통합 동시)
+const companion = require('./game/companion');
 
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
@@ -5407,6 +5409,48 @@ io.on('connection', (socket) => {
                 });
             }
         }
+    });
+
+    // ── v1.61: 동료 ──
+    socket.on('companion_status', () => {
+        const p = players[playerId];
+        if (!p) return;
+        socket.emit('companion_status_result', companion.getStatus(p));
+    });
+
+    socket.on('companion_set_active', (companionId) => {
+        const p = players[playerId];
+        if (!p) return;
+        const result = companion.setActive(p, companionId);
+        if (result.success) {
+            savePlayer(p);
+            io.emit('player_update', p);
+        }
+        socket.emit('companion_result', result);
+    });
+
+    socket.on('companion_gift', (data) => {
+        const p = players[playerId];
+        if (!p || !data || !data.companionId || !data.itemId) {
+            socket.emit('companion_result', { success: false, msg: '필수 정보 누락' });
+            return;
+        }
+        const result = companion.giveGift(p, data.companionId, data.itemId);
+        if (result.success) {
+            savePlayer(p);
+            io.emit('player_update', p);
+        }
+        socket.emit('companion_result', result);
+    });
+
+    socket.on('companion_talk', (companionId) => {
+        const p = players[playerId];
+        if (!p) return;
+        const result = companion.talk(p, companionId);
+        if (result.success) {
+            savePlayer(p);
+        }
+        socket.emit('companion_result', result);
     });
 
     // ── v1.60: 월드 이벤트 ──
