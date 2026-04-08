@@ -31,6 +31,8 @@ const dailyShop = require('./game/dailyshop');
 const codex = require('./game/codex');
 // v1.34: 우편함 모듈 (생성 + 통합 동시)
 const mailbox = require('./game/mail');
+// v1.35: 특성 트리 모듈 (생성 + 통합 동시)
+const skillTree = require('./game/skill_tree');
 
 // v1.33: 도감 자동 발견 헬퍼
 function codexDiscover(p, category, entryId) {
@@ -6292,6 +6294,39 @@ io.on('connection', (socket) => {
         }
     });
 
+    // ── v1.35: 특성 트리 ──
+    socket.on('talent_status', () => {
+        const p = players[playerId];
+        if (!p) return;
+        socket.emit('talent_status_result', skillTree.getTreeStatus(p));
+    });
+
+    socket.on('talent_spend', (nodeId) => {
+        const p = players[playerId];
+        if (!p) return;
+        const result = skillTree.spendPoint(p, nodeId);
+        socket.emit('talent_spend_result', result);
+        if (result.success) {
+            savePlayer(p);
+            io.emit('player_update', p);
+        }
+    });
+
+    socket.on('talent_reset', () => {
+        const p = players[playerId];
+        if (!p) return;
+        const cost = skillTree.TREE_CONFIG.resetCostDiamond;
+        if ((p.diamonds || 0) < cost) {
+            socket.emit('talent_reset_result', { success: false, msg: `다이아 ${cost}개 필요` });
+            return;
+        }
+        p.diamonds -= cost;
+        const result = skillTree.resetTree(p);
+        savePlayer(p);
+        socket.emit('talent_reset_result', { success: true, refunded: result.refunded });
+        io.emit('player_update', p);
+    });
+
     // ── v1.34: 우편함 ──
     socket.on('mail_inbox', () => {
         const p = players[playerId];
@@ -8509,6 +8544,8 @@ function giveExp(playerObj, amount) {
         capResources(target);
 
         target.statPoints = (target.statPoints || 0) + 3; // 레벨업 시 스탯 3포인트
+        // v1.35: 특성 포인트 +1
+        if (!target.isBot) skillTree.awardPoints(target, 1);
         io.emit('level_up', { id: target.id, level: target.level, className: target.displayName, statPoints: target.statPoints, maxHp: target.maxHp, atk: target.atk, def: target.def, maxExp: getExpRequired(target.level) });
         trackQuest(target, 'reach_level', 0);
 

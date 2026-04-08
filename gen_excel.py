@@ -703,6 +703,54 @@ style_sheet(ws_dg,
     ['ID','던전명','지역','최소Lv','최대파티','스테이지','구성','보상','드롭'],
     dungeons, title='던전 (7종 — v1.10 그림자 미궁 신규)', col_widths=[16,18,22,8,10,10,30,18,30])
 
+# ========== 20.10 특성 트리 ==========
+ws_tree = wb.create_sheet('특성 트리')
+tree_data = [
+    # offense
+    ['offense','⚔️','공격력 단련','off_atk',5,'ATK +3 / 랭크',0],
+    ['offense','⚔️','크리티컬','off_crit',5,'크리율 +2% / 랭크',0],
+    ['offense','⚔️','공격 속도','off_speed',3,'공속 +5% / 랭크',5],
+    ['offense','⚔️','관통','off_pierce',3,'관통 +4% / 랭크',10],
+    ['offense','⚔️','폭발 일격','off_burst',3,'크리DMG +10% / 랭크',15],
+    ['offense','⚔️','마무리 일격','off_execute',1,'처형 보너스 +15%',20],
+    ['offense','⚔️','전쟁의 화신','off_master',1,'ATK +30 / 크리 +5%',25],
+    # defense
+    ['defense','🛡️','방어력 단련','def_def',5,'DEF +3 / 랭크',0],
+    ['defense','🛡️','체력 단련','def_hp',5,'HP +30 / 랭크',0],
+    ['defense','🛡️','회피','def_dodge',3,'회피 +2% / 랭크',5],
+    ['defense','🛡️','재생','def_regen',3,'HP재생 +10% / 랭크',10],
+    ['defense','🛡️','피해 감소','def_block',3,'피해 -3% / 랭크',15],
+    ['defense','🛡️','불굴','def_revive',1,'부활 확률 +10%',20],
+    ['defense','🛡️','불멸의 의지','def_master',1,'DEF +30 / HP +300',25],
+    # utility
+    ['utility','✨','경험치 보너스','util_exp',5,'EXP +3% / 랭크',0],
+    ['utility','✨','골드 보너스','util_gold',5,'GOLD +3% / 랭크',0],
+    ['utility','✨','드롭률','util_drop',3,'드롭 +3% / 랭크',5],
+    ['utility','✨','이동 속도','util_speed',3,'SPD +1 / 랭크',10],
+    ['utility','✨','행운','util_lucky',3,'행운 확률 +2% / 랭크',15],
+    ['utility','✨','정찰','util_scout',1,'시야 +5',20],
+    ['utility','✨','운명의 인도자','util_master',1,'EXP/GOLD +20% / 드롭 +10%',25],
+]
+style_sheet(ws_tree,
+    ['브랜치','아이콘','노드명','ID','최대 랭크','효과','요구 포인트'],
+    tree_data, title='특성 트리 (3브랜치 × 7노드 = 21노드 — v1.35 신규 모듈 game/skill_tree.js)',
+    col_widths=[10,8,18,16,10,28,12])
+
+r = len(tree_data) + 6
+ws_tree.cell(row=r, column=1, value='특성 트리 시스템').font = Font(name='맑은 고딕', bold=True, size=12, color='FFD700')
+r += 1
+tree_sys = [
+    ['포인트 획득','레벨업 시 +1 (Lv.50 만렙 = 50 포인트)'],
+    ['게이트','상위 노드는 해당 브랜치에 5/10/15/20/25 투자 후 해금'],
+    ['리셋 비용','100 다이아 → 모든 포인트 환원'],
+    ['최대 효과','한 브랜치 풀투자 시 마스터 노드 해금 가능'],
+    ['모듈','game/skill_tree.js (신규 파일)'],
+    ['통합','레벨업 시 awardPoints() 자동 호출 / 소켓 talent_status / spend / reset'],
+]
+for ri, d in enumerate(tree_sys):
+    for ci, v in enumerate(d, 1):
+        c = ws_tree.cell(row=r+ri, column=ci, value=v); c.font = cell_font; c.border = thin_border
+
 # ========== 20.11 우편함 ==========
 ws_mail = wb.create_sheet('우편함')
 mail_features = [
@@ -1229,6 +1277,10 @@ for ri, d in enumerate(diff_rows):
 # ========== 21. 패치 노트 ==========
 ws21 = wb.create_sheet('패치 노트')
 patches = [
+    ['v1.35','2026-04-08','신규 모듈','game/skill_tree.js — 특성 트리 (생성 + 통합 동시)'],
+    ['v1.35','2026-04-08','특성 트리','3브랜치 (공격/방어/유틸) × 7노드 = 21노드'],
+    ['v1.35','2026-04-08','특성 트리','레벨업 시 1포인트 자동 지급, 100💎로 리셋'],
+    ['v1.35','2026-04-08','게이트','5/10/15/20/25 포인트 투자 시 상위 노드 해금'],
     ['v1.34','2026-04-08','신규 모듈','game/mail.js — 정식 우편함 시스템 (생성 + 통합 동시)'],
     ['v1.34','2026-04-08','우편함','시스템/선물 메일 + 첨부(골드/다이아/아이템) + 만료/수령 관리'],
     ['v1.34','2026-04-08','선물','일일 10회 / 골드 첨부 수수료 2% / 7일 만료'],
@@ -1324,8 +1376,13 @@ style_sheet(ws21,
     patches, title='패치 노트 히스토리', col_widths=[10,12,12,55])
 
 # ========== 22. v1.9 / v1.10 / v1.11 / v1.12 신규 컨텐츠 요약 ==========
-ws22 = wb.create_sheet('v1.9 ~ v1.34')
+ws22 = wb.create_sheet('v1.9 ~ v1.35')
 v19 = [
+    ['v1.35','신규+통합','game/skill_tree.js','특성 트리 모듈 생성 + 즉시 통합','3브랜치 × 7노드'],
+    ['v1.35','자동화','레벨업 훅','awardPoints(target, 1) 자동 호출','별도 학습 불필요'],
+    ['v1.35','마스터 노드','off_master','전쟁의 화신','ATK +30 / 크리 +5%'],
+    ['v1.35','마스터 노드','def_master','불멸의 의지','DEF +30 / HP +300'],
+    ['v1.35','마스터 노드','util_master','운명의 인도자','EXP/GOLD +20% / 드롭 +10%'],
     ['v1.34','신규+통합','game/mail.js','우편함 모듈 생성 + 즉시 통합','시스템/선물 + 첨부 + 만료'],
     ['v1.34','메일','시스템 메일','이벤트 보상/공지','14일 만료'],
     ['v1.34','메일','선물 메일','플레이어 간 / 일일 10회','7일 만료, 수수료 2%'],
