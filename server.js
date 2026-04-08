@@ -126,6 +126,8 @@ const postoffice = require('./game/postoffice');
 const worldEvent = require('./game/world_event');
 // v1.61: 동료 모듈 (생성 + 통합 동시)
 const companion = require('./game/companion');
+// v1.62: 지혜 모듈 (생성 + 통합 동시)
+const wisdom = require('./game/wisdom');
 
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
@@ -5409,6 +5411,13 @@ io.on('connection', (socket) => {
                 });
             }
         }
+    });
+
+    // ── v1.62: 지혜 ──
+    socket.on('wisdom_status', () => {
+        const p = players[playerId];
+        if (!p) return;
+        socket.emit('wisdom_status_result', wisdom.getStatus(p));
     });
 
     // ── v1.61: 동료 ──
