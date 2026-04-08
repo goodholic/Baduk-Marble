@@ -703,6 +703,46 @@ style_sheet(ws_dg,
     ['ID','던전명','지역','최소Lv','최대파티','스테이지','구성','보상','드롭'],
     dungeons, title='던전 (7종 — v1.10 그림자 미궁 신규)', col_widths=[16,18,22,8,10,10,30,18,30])
 
+# ========== 20.13 일일 상점 ==========
+ws_ds = wb.create_sheet('일일 상점')
+ds_pool = [
+    ['pot_hp_l','상급 HP 물약','consumable','300G','매일 6슬롯 풀'],
+    ['pot_atk','공격 물약','consumable','500G','-'],
+    ['mat_magic','마법재료','mat','200G','-'],
+    ['mat_soul','영혼석','mat','600G','-'],
+    ['mat_dragon','용재료','mat','2500G','-'],
+    ['protect_scroll','보호 주문서','consumable','80💎','-'],
+    ['bless_scroll','축복 주문서','consumable','40💎','-'],
+    ['rare_box','희귀 상자','box','60💎','-'],
+    ['mega_exp','메가 EXP 부스터','booster','100💎','-'],
+    ['mega_gold','메가 골드 부스터','booster','100💎','-'],
+    ['food_king','왕의 연회','food','1200G','-'],
+    ['food_all','용의 만찬','food','600G','-'],
+    ['goods_phoenix_feather','불사조 깃털','trade','600G','v1.13 사치품'],
+    ['goods_void_essence','공허의 정수','trade','750G','v1.13 사치품'],
+    ['goods_celestial_silk','천공의 비단','trade','900G','v1.13 사치품'],
+]
+style_sheet(ws_ds,
+    ['ID','이름','분류','기본가','비고'],
+    ds_pool, title='일일 상점 풀 (15종 — v1.32 신규 모듈 game/dailyshop.js)', col_widths=[24,16,12,10,18])
+
+r = len(ds_pool) + 6
+ws_ds.cell(row=r, column=1, value='일일 상점 시스템').font = Font(name='맑은 고딕', bold=True, size=12, color='FFD700')
+r += 1
+ds_sys = [
+    ['슬롯 수','6개 (매일 무작위 6종 선출)'],
+    ['결정적 랜덤','시드 = 날짜(YYYY-MM-DD), 모든 플레이어 동일 상품'],
+    ['할인율','10~50% (슬롯별 무작위)'],
+    ['구매 제한','슬롯당 1회 / 일'],
+    ['수동 갱신','30💎로 개인 시드 생성 → 새 6종 + 구매 기록 초기화'],
+    ['자동 갱신','자정 (다음 날 첫 status 요청 시 자동)'],
+    ['모듈','game/dailyshop.js (신규 파일)'],
+    ['통합','daily_shop_status / daily_shop_buy / daily_shop_reroll'],
+]
+for ri, d in enumerate(ds_sys):
+    for ci, v in enumerate(d, 1):
+        c = ws_ds.cell(row=r+ri, column=ci, value=v); c.font = cell_font; c.border = thin_border
+
 # ========== 20.15 경매장 ==========
 ws_auc = wb.create_sheet('경매장')
 auc_durations = [
@@ -1104,6 +1144,10 @@ for ri, d in enumerate(diff_rows):
 # ========== 21. 패치 노트 ==========
 ws21 = wb.create_sheet('패치 노트')
 patches = [
+    ['v1.32','2026-04-08','신규 모듈','game/dailyshop.js — 일일 상점 (생성 + 통합 동시 패치)'],
+    ['v1.32','2026-04-08','일일 상점','15종 풀에서 매일 6슬롯 무작위 (결정적 시드 = 날짜)'],
+    ['v1.32','2026-04-08','일일 상점','할인율 10~50% / 슬롯당 1회 구매 / 다이아 30개로 개인 갱신'],
+    ['v1.32','2026-04-08','소켓','daily_shop_status / daily_shop_buy / daily_shop_reroll'],
     ['v1.31','2026-04-08','통합','game/auction.js → server.js 통합 (6번째 = 마지막 모듈 통합)'],
     ['v1.31','2026-04-08','경매장','자동 정산 틱 (10초마다 tickAuctions())'],
     ['v1.31','2026-04-08','경매장','이전 입찰자 자동 환불, 낙찰 시 아이템/골드 양방향 지급'],
@@ -1187,8 +1231,11 @@ style_sheet(ws21,
     patches, title='패치 노트 히스토리', col_widths=[10,12,12,55])
 
 # ========== 22. v1.9 / v1.10 / v1.11 / v1.12 신규 컨텐츠 요약 ==========
-ws22 = wb.create_sheet('v1.9 ~ v1.31')
+ws22 = wb.create_sheet('v1.9 ~ v1.32')
 v19 = [
+    ['v1.32','신규+통합','game/dailyshop.js','일일 상점 모듈 생성 + 즉시 통합','15종 풀 / 6슬롯 / 10~50% 할인'],
+    ['v1.32','결정적 랜덤','날짜 시드','모든 플레이어 동일 상품','seededRandom + Fisher-Yates'],
+    ['v1.32','개인 갱신','30💎','개인 시드 생성','구매 기록 초기화'],
     ['v1.31','통합','auction → server.js','6번째 (마지막) 모듈 통합','자동 정산 + 환불 + 양방향 지급'],
     ['v1.31','자동화','tickAuctions','10초마다 만료 정산','setInterval 통합'],
     ['v1.31','소켓','auction_create','경매 등록 (등록 수수료 자동 차감)','3가지 기간'],

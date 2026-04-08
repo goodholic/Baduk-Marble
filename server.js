@@ -25,6 +25,11 @@ const seasonPass = require('./game/season');
 const bossRush = require('./game/boss_rush');
 // v1.31: 경매장 모듈 통합 (마지막 신규 모듈)
 const auction = require('./game/auction');
+// v1.32: 일일 상점 모듈 (생성 + 통합 동시)
+const dailyShop = require('./game/dailyshop');
+
+// v1.32: 오늘의 일일 상점 (메모리 캐시)
+let todayDailyShop = dailyShop.generateDailyShop();
 
 // v1.30: 보스 러시 활성 세션 (메모리)
 const bossRushSessions = {}; // { playerId: { currentWave, startTime, waveStart, killsInWave } }
@@ -6258,6 +6263,77 @@ io.on('connection', (socket) => {
                 });
             }
         }
+    });
+
+    // ── v1.32: 일일 상점 ──
+    socket.on('daily_shop_status', () => {
+        const p = players[playerId];
+        if (!p) return;
+        // 날짜가 바뀌었으면 갱신
+        const todaySeed = dailyShop.getTodaySeed();
+        if (todayDailyShop.seed !== todaySeed) {
+            todayDailyShop = dailyShop.generateDailyShop();
+        }
+        // 플레이어 구매 기록 (오늘 시드와 다르면 리셋)
+        const bought = (p.dailyShopBoughtSeed === todaySeed) ? (p.dailyShopBought || {}) : {};
+        socket.emit('daily_shop_status_result', {
+            seed: todayDailyShop.seed,
+            slots: todayDailyShop.slots.map((item, idx) => ({
+                ...item,
+                slotIdx: idx,
+                bought: !!bought[idx],
+            })),
+            rerollPrice: dailyShop.DAILY_SHOP_CONFIG.rerollPriceDiamond,
+        });
+    });
+
+    socket.on('daily_shop_buy', (data) => {
+        const p = players[playerId];
+        if (!p) return;
+        const slotIdx = data && Number(data.slotIdx);
+        if (typeof slotIdx !== 'number') {
+            socket.emit('daily_shop_buy_result', { success: false, msg: '슬롯 미지정' });
+            return;
+        }
+        // 날짜 갱신 체크
+        const todaySeed = dailyShop.getTodaySeed();
+        if (todayDailyShop.seed !== todaySeed) {
+            todayDailyShop = dailyShop.generateDailyShop();
+        }
+        const result = dailyShop.buyDailyShop(p, slotIdx, todayDailyShop);
+        socket.emit('daily_shop_buy_result', result);
+        if (result.success) {
+            savePlayer(p);
+            io.emit('player_update', p);
+        }
+    });
+
+    // 개인 갱신 (다이아 30개)
+    socket.on('daily_shop_reroll', () => {
+        const p = players[playerId];
+        if (!p) return;
+        const cost = dailyShop.DAILY_SHOP_CONFIG.rerollPriceDiamond;
+        if ((p.diamonds || 0) < cost) {
+            socket.emit('daily_shop_buy_result', { success: false, msg: '다이아 부족' });
+            return;
+        }
+        p.diamonds -= cost;
+        // 개인용 시드: 날짜 + 플레이어ID + 갱신 횟수
+        p.dailyShopRerollCount = (p.dailyShopRerollCount || 0) + 1;
+        const personalSeed = `${dailyShop.getTodaySeed()}_${p.id}_${p.dailyShopRerollCount}`;
+        const personalShop = dailyShop.generateDailyShop(personalSeed);
+        p.dailyShopBought = {}; // 갱신 시 구매 기록 초기화
+        p.dailyShopBoughtSeed = personalShop.seed;
+        // 개인 시드를 플레이어에 저장 (서버 재시작 시 잃어버림 — 단순화)
+        p._personalDailyShop = personalShop;
+        savePlayer(p);
+        socket.emit('daily_shop_status_result', {
+            seed: personalShop.seed,
+            slots: personalShop.slots.map((item, idx) => ({ ...item, slotIdx: idx, bought: false })),
+            rerollPrice: cost,
+            isPersonal: true,
+        });
+        io.emit('player_update', p);
     });
 
     // ── v1.31: 경매장 ──
