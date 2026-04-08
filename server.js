@@ -99,6 +99,8 @@ const treasureMap = require('./game/treasure_map');
 const relic = require('./game/relic');
 // v1.48: 펫 교배 모듈 (생성 + 통합 동시)
 const breeding = require('./game/breeding');
+// v1.49: 룬 모듈 (생성 + 통합 동시)
+const runes = require('./game/runes');
 
 // v1.33: 도감 자동 발견 헬퍼
 function codexDiscover(p, category, entryId) {
@@ -5341,6 +5343,63 @@ io.on('connection', (socket) => {
                 });
             }
         }
+    });
+
+    // ── v1.49: 룬 ──
+    socket.on('rune_status', () => {
+        const p = players[playerId];
+        if (!p) return;
+        socket.emit('rune_status_result', runes.getStatus(p));
+    });
+
+    socket.on('rune_craft', (data) => {
+        const p = players[playerId];
+        if (!p) return;
+        if (!data || !data.type) {
+            socket.emit('rune_result', { success: false, msg: '룬 종류 미지정' });
+            return;
+        }
+        const result = runes.craftRune(p, data.type, data.grade || 'common');
+        if (result.success) {
+            savePlayer(p);
+            io.emit('player_update', p);
+        }
+        socket.emit('rune_result', result);
+    });
+
+    socket.on('rune_socket', (data) => {
+        const p = players[playerId];
+        if (!p) return;
+        if (!data || !data.runeId || !data.equipSlot) {
+            socket.emit('rune_result', { success: false, msg: '필수 정보 누락' });
+            return;
+        }
+        const result = runes.socketRune(p, data.runeId, data.equipSlot);
+        if (result.success) {
+            // 룬 워드 활성화 체크
+            const activeWords = runes.getActiveRuneWords(p);
+            if (activeWords.length > 0) {
+                if (typeof trackQuest === 'function') trackQuest(p, 'rune_word', 1);
+            }
+            savePlayer(p);
+            io.emit('player_update', p);
+        }
+        socket.emit('rune_result', result);
+    });
+
+    socket.on('rune_unsocket', (data) => {
+        const p = players[playerId];
+        if (!p) return;
+        if (!data || !data.equipSlot || typeof data.socketIdx !== 'number') {
+            socket.emit('rune_result', { success: false, msg: '필수 정보 누락' });
+            return;
+        }
+        const result = runes.unsocketRune(p, data.equipSlot, data.socketIdx);
+        if (result.success) {
+            savePlayer(p);
+            io.emit('player_update', p);
+        }
+        socket.emit('rune_result', result);
     });
 
     // ── v1.48: 펫 교배 ──
