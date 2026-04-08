@@ -1104,6 +1104,10 @@ for ri, d in enumerate(diff_rows):
 # ========== 21. 패치 노트 ==========
 ws21 = wb.create_sheet('패치 노트')
 patches = [
+    ['v1.29','2026-04-08','통합','game/season.js → server.js 통합 (4번째 모듈 통합)'],
+    ['v1.29','2026-04-08','시즌 패스','trackQuest 자동 XP 적립 (PvP/보스/월드보스/던전/제작)'],
+    ['v1.29','2026-04-08','소켓','season_status / season_buy_pass / season_claim'],
+    ['v1.29','2026-04-08','시즌 패스','티어 승급 시 server_msg + season_tier_up 알림'],
     ['v1.28','2026-04-08','통합','game/event.js → server.js 통합 (3번째 모듈 통합)'],
     ['v1.28','2026-04-08','축제','event_status 소켓 + /status 엔드포인트 노출'],
     ['v1.28','2026-04-08','축제','NPC 대사 30% 확률로 축제 인사 (getNpcMsg 통합)'],
@@ -1174,8 +1178,13 @@ style_sheet(ws21,
     patches, title='패치 노트 히스토리', col_widths=[10,12,12,55])
 
 # ========== 22. v1.9 / v1.10 / v1.11 / v1.12 신규 컨텐츠 요약 ==========
-ws22 = wb.create_sheet('v1.9 ~ v1.28')
+ws22 = wb.create_sheet('v1.9 ~ v1.29')
 v19 = [
+    ['v1.29','통합','season → server.js','4번째 모듈 통합','XP 자동 적립 + 보상 수령'],
+    ['v1.29','자동화','trackQuest 훅','PvP/보스/월드보스/던전/제작 → 시즌 XP','SEASON_XP_MAP 매핑'],
+    ['v1.29','소켓','season_status','XP/티어/구매여부/수령내역 조회','15티어 전체'],
+    ['v1.29','소켓','season_buy_pass','프리미엄 패스 구매 (1500💎)','전 서버 알림'],
+    ['v1.29','소켓','season_claim','티어 보상 수령 (free/premium)','자동 인벤토리 적용'],
     ['v1.28','통합','event → server.js','3번째 모듈 통합','축제 시스템 활성화'],
     ['v1.28','소켓','event_status','현재 활성 축제 조회','이름/기간/버프/한정 보상'],
     ['v1.28','API','/status JSON','festival 필드 추가','대시보드 확인용'],

@@ -19,6 +19,17 @@ const lottery = require('./game/lottery');
 const fishing = require('./game/fishing');
 // v1.28: 시즌 축제 이벤트 모듈 통합
 const festival = require('./game/event');
+// v1.29: 시즌 패스 모듈 통합
+const seasonPass = require('./game/season');
+
+// v1.29: trackQuest target → season XP source 매핑
+const SEASON_XP_MAP = {
+    pvp_win: 'pvp_win',
+    kill_boss: 'boss_kill',
+    worldboss_kill: 'worldboss_kill',
+    dungeon_clear: 'dungeon_clear',
+    craft_count: 'craft_success',
+};
 
 const app = express();
 const server = http.createServer(app);
@@ -1547,6 +1558,17 @@ function trackQuest(p, target, amount) {
             } else {
                 p.questProgress[qId] = (p.questProgress[qId] || 0) + (amount || 1);
             }
+        }
+    }
+    // v1.29: 시즌 패스 XP 자동 적립
+    const seasonSource = SEASON_XP_MAP[target];
+    if (seasonSource) {
+        const result = seasonPass.addSeasonXp(p, seasonSource);
+        if (result.gained && result.tier > (p.seasonTierAchieved || 0)) {
+            p.seasonTierAchieved = result.tier;
+            try {
+                io.to(p.id).emit('season_tier_up', { tier: result.tier, totalXp: result.totalXp });
+            } catch (_) {}
         }
     }
 }
@@ -6168,6 +6190,68 @@ io.on('connection', (socket) => {
                 });
             }
         }
+    });
+
+    // ── v1.29: 시즌 패스 ──
+    socket.on('season_status', () => {
+        const p = players[playerId];
+        if (!p) return;
+        let currentTier = 0;
+        for (const t of seasonPass.SEASON_PASS_TIERS) {
+            if ((p.seasonXp || 0) >= t.xp) currentTier = t.tier;
+            else break;
+        }
+        socket.emit('season_status_result', {
+            seasonXp: p.seasonXp || 0,
+            currentTier,
+            hasSeasonPass: !!p.hasSeasonPass,
+            claimed: p.seasonClaimed || { free: [], premium: [] },
+            tiers: seasonPass.SEASON_PASS_TIERS,
+            xpSources: seasonPass.SEASON_XP_SOURCES,
+            price: seasonPass.SEASON_PASS_PRICE,
+            duration: seasonPass.SEASON_DURATION_DAYS,
+        });
+    });
+
+    socket.on('season_buy_pass', () => {
+        const p = players[playerId];
+        if (!p) return;
+        const result = seasonPass.buySeasonPass(p);
+        socket.emit('season_buy_result', result);
+        if (result.success) {
+            savePlayer(p);
+            io.emit('player_update', p);
+            io.emit('server_msg', { msg: `[시즌 패스] ${p.displayName}이(가) 프리미엄 패스를 구매했습니다!`, type: 'normal' });
+        }
+    });
+
+    socket.on('season_claim', (data) => {
+        const p = players[playerId];
+        if (!p) return;
+        const tier = data && Number(data.tier);
+        const track = data && (data.track === 'premium' ? 'premium' : 'free');
+        if (!tier) { socket.emit('season_claim_result', { success: false, msg: '티어 미지정' }); return; }
+        const result = seasonPass.claimSeasonReward(p, tier, track);
+        if (!result.success) {
+            socket.emit('season_claim_result', result);
+            return;
+        }
+        // 보상 지급 (간단 매핑)
+        const r = result.reward || {};
+        if (r.gold) p.gold = Math.min(MAX_GOLD, (p.gold || 0) + r.gold);
+        if (r.diamonds) p.diamonds = Math.min(MAX_DIAMONDS, (p.diamonds || 0) + r.diamonds);
+        if (!p.inventory) p.inventory = {};
+        for (const [k, v] of Object.entries(r)) {
+            if (['gold','diamonds','title','skin'].includes(k)) continue;
+            if (typeof v === 'number') p.inventory[k] = (p.inventory[k] || 0) + v;
+        }
+        if (r.title) {
+            if (!p.titles) p.titles = [];
+            if (!p.titles.includes(r.title)) p.titles.push(r.title);
+        }
+        savePlayer(p);
+        socket.emit('season_claim_result', { success: true, tier, track, reward: r });
+        io.emit('player_update', p);
     });
 
     // ── v1.28: 시즌 축제 이벤트 ──
