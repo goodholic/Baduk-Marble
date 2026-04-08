@@ -18,6 +18,7 @@ const BONUS_SOURCES = [
   { id:'mask',          label:'가면 페르소나',   module:'./mask' },
   { id:'heraldry',      label:'가문 문장',       module:'./heraldry' },
   { id:'rift',          label:'균열 가호',       module:'./rift' },
+  { id:'garden',        label:'정원 만개',       module:'./garden' },
 ];
 
 // 모듈 lazy require — 로드 실패 시에도 안전

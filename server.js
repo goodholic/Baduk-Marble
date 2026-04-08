@@ -309,6 +309,10 @@ const { registerHeraldryHandlers } = require('./game/handlers/heraldry_handlers'
 const rift = require('./game/rift');
 const { registerRiftHandlers } = require('./game/handlers/rift_handlers');
 
+// v2.18: 정원 모듈
+const garden = require('./game/garden');
+const { registerGardenHandlers } = require('./game/handlers/garden_handlers');
+
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
     if (!result.victory) {
@@ -5592,6 +5596,9 @@ io.on('connection', (socket) => {
 
     // ── v2.17: 차원 균열 ──
     registerRiftHandlers(socket, { io, players, playerId, savePlayer, rift });
+
+    // ── v2.18: 정원 ──
+    registerGardenHandlers(socket, { io, players, playerId, savePlayer, garden });
 
     // ── v1.62 ~ v1.81: 잡다 핸들러 일괄 등록 (v1.89: handlers/misc_handlers.js)
     registerMiscHandlers(socket, {
