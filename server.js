@@ -197,6 +197,9 @@ const { registerTransmogHandlers } = require('./game/handlers/transmog_handlers'
 const { registerFortuneHandlers } = require('./game/handlers/fortune_handlers');
 const { registerInsuranceHandlers } = require('./game/handlers/insurance_handlers');
 const { registerMiscHandlers } = require('./game/handlers/misc_handlers');
+// v1.90: 일기장 모듈 (생성 + 통합 + 핸들러 분리)
+const diary = require('./game/diary');
+const { registerDiaryHandlers } = require('./game/handlers/diary_handlers');
 
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
@@ -5397,6 +5400,9 @@ io.on('connection', (socket) => {
     });
 
 
+
+    // ── v1.90: 일기장 ──
+    registerDiaryHandlers(socket, { players, playerId, diary });
 
     // ── v1.62 ~ v1.81: 잡다 핸들러 일괄 등록 (v1.89: handlers/misc_handlers.js)
     registerMiscHandlers(socket, {
