@@ -132,6 +132,8 @@ const wisdom = require('./game/wisdom');
 const pvpTournament = require('./game/pvp_tournament');
 // v1.64: 길드 전쟁 모듈 (생성 + 통합 동시)
 const guildWar = require('./game/guild_war');
+// v1.65: 칭호 컬렉션 모듈 (생성 + 통합 동시)
+const titleCollection = require('./game/title_collection');
 
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
@@ -5415,6 +5417,13 @@ io.on('connection', (socket) => {
                 });
             }
         }
+    });
+
+    // ── v1.65: 칭호 컬렉션 ──
+    socket.on('title_collection_status', () => {
+        const p = players[playerId];
+        if (!p) return;
+        socket.emit('title_collection_status_result', titleCollection.getStatus(p));
     });
 
     // ── v1.64: 길드 전쟁 ──
