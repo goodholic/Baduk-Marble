@@ -108,6 +108,8 @@ const blackMarket = require('./game/black_market');
 let currentBlackMarket = blackMarket.generateMarket();
 // v1.52: 부직업 모듈 (생성 + 통합 동시)
 const jobs = require('./game/jobs');
+// v1.53: 변환 모듈 (생성 + 통합 동시)
+const transmutation = require('./game/transmutation');
 
 // v1.33: 도감 자동 발견 헬퍼
 function codexDiscover(p, category, entryId) {
@@ -5350,6 +5352,55 @@ io.on('connection', (socket) => {
                 });
             }
         }
+    });
+
+    // ── v1.53: 변환 ──
+    socket.on('transmutation_options', () => {
+        socket.emit('transmutation_options_result', transmutation.getTransmutationOptions());
+    });
+
+    socket.on('transmutation_dismantle', (equipId) => {
+        const p = players[playerId];
+        if (!p) return;
+        const result = transmutation.dismantleEquipment(p, equipId);
+        if (result.success) {
+            savePlayer(p);
+            io.emit('player_update', p);
+        }
+        socket.emit('transmutation_result', result);
+    });
+
+    socket.on('transmutation_refine_food', (foodId) => {
+        const p = players[playerId];
+        if (!p) return;
+        const result = transmutation.refineFood(p, foodId);
+        if (result.success) {
+            savePlayer(p);
+            io.emit('player_update', p);
+        }
+        socket.emit('transmutation_result', result);
+    });
+
+    socket.on('transmutation_compress', (tradeId) => {
+        const p = players[playerId];
+        if (!p) return;
+        const result = transmutation.compressTrade(p, tradeId);
+        if (result.success) {
+            savePlayer(p);
+            io.emit('player_update', p);
+        }
+        socket.emit('transmutation_result', result);
+    });
+
+    socket.on('transmutation_upgrade', (recipeId) => {
+        const p = players[playerId];
+        if (!p) return;
+        const result = transmutation.upgradeMaterial(p, recipeId);
+        if (result.success || result.failed) {
+            savePlayer(p);
+            io.emit('player_update', p);
+        }
+        socket.emit('transmutation_result', result);
     });
 
     // ── v1.52: 부직업 ──
