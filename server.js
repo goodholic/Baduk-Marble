@@ -112,6 +112,8 @@ const jobs = require('./game/jobs');
 const transmutation = require('./game/transmutation');
 // v1.54: 레이드 모듈 (생성 + 통합 동시)
 const raid = require('./game/raid');
+// v1.55: 원정 모듈 (생성 + 통합 동시)
+const expedition = require('./game/expedition');
 
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
@@ -5395,6 +5397,39 @@ io.on('connection', (socket) => {
                 });
             }
         }
+    });
+
+    // ── v1.55: 원정 ──
+    socket.on('expedition_status', () => {
+        const p = players[playerId];
+        if (!p) return;
+        socket.emit('expedition_status_result', expedition.getStatus(p));
+    });
+
+    socket.on('expedition_start', (expId) => {
+        const p = players[playerId];
+        if (!p) return;
+        const result = expedition.startExpedition(p, expId);
+        if (result.success) {
+            savePlayer(p);
+            io.emit('player_update', p);
+        }
+        socket.emit('expedition_result', result);
+    });
+
+    socket.on('expedition_branch', (data) => {
+        const p = players[playerId];
+        if (!p) return;
+        if (!data || !data.expId || !data.option) {
+            socket.emit('expedition_result', { success: false, msg: '필수 정보 누락' });
+            return;
+        }
+        const result = expedition.pickBranch(p, data.expId, data.option);
+        if (result.success) {
+            savePlayer(p);
+            io.emit('player_update', p);
+        }
+        socket.emit('expedition_result', result);
     });
 
     // ── v1.54: 레이드 ──
