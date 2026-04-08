@@ -85,6 +85,8 @@ const {
 const petBattle = require('./game/pet_battle');
 // v1.43: 순수 헬퍼 함수 추출 (server.js → game/helpers.js)
 const { getExpRequired, getYesterday, getWeekNumber } = require('./game/helpers');
+// v1.44: 몬스터 스폰 함수 추출 (server.js → game/monster_spawn.js)
+const { pickMonsterTier, pickZoneTier, scaleMonster } = require('./game/monster_spawn');
 
 // v1.33: 도감 자동 발견 헬퍼
 function codexDiscover(p, category, entryId) {
@@ -1127,42 +1129,7 @@ function calcDamage(atk, def, dmgMulti, critRate, attackerElement, defenderEleme
 }
 
 // ── 몬스터 스폰 (등급별 가중치) ──
-function pickMonsterTier() {
-    const totalWeight = Object.values(MONSTER_TIERS).reduce((s, t) => s + t.spawnWeight, 0);
-    let roll = Math.random() * totalWeight;
-    for (const [key, tier] of Object.entries(MONSTER_TIERS)) {
-        roll -= tier.spawnWeight;
-        if (roll <= 0) return key;
-    }
-    return 'normal';
-}
-
-function pickZoneTier(zoneId) {
-    const zm = ZONE_MONSTERS[zoneId];
-    if (!zm) return pickMonsterTier();
-    const total = Object.values(zm.tiers).reduce((s, w) => s + w, 0);
-    let roll = Math.random() * total;
-    for (const [tier, weight] of Object.entries(zm.tiers)) {
-        roll -= weight;
-        if (roll <= 0) return tier;
-    }
-    return 'normal';
-}
-
-// 존 레벨에 따라 몬스터 스탯 스케일링
-function scaleMonster(tier, zoneLvl) {
-    const base = MONSTER_TIERS[tier];
-    if (!base) return MONSTER_TIERS.normal;
-    const scale = 1 + Math.max(0, zoneLvl - 5) * 0.08; // 존 레벨 5 이상부터 8%씩 강화
-    return {
-        ...base,
-        hp: Math.floor(base.hp * scale),
-        atk: Math.floor(base.atk * scale),
-        def: Math.floor(base.def * scale),
-        expReward: Math.floor(base.expReward * scale),
-        goldReward: Math.floor(base.goldReward * scale),
-    };
-}
+// pickMonsterTier / pickZoneTier / scaleMonster (v1.44: game/monster_spawn.js로 이동)
 
 function spawnMonster() {
     entityIdCounter++;

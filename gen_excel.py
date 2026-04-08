@@ -1308,6 +1308,8 @@ for ri, d in enumerate(diff_rows):
 # ========== 21. 패치 노트 ==========
 ws21 = wb.create_sheet('패치 노트')
 patches = [
+    ['v1.44','2026-04-08','함수 추출','game/monster_spawn.js — pickMonsterTier/pickZoneTier/scaleMonster (-33줄)'],
+    ['v1.44','2026-04-08','함수 추출','데이터 모듈을 require하는 새 패턴 (data/world_data + data/zones)'],
     ['v1.43','2026-04-08','함수 추출','game/helpers.js — 첫 함수 추출 (getExpRequired/getYesterday/getWeekNumber + clamp/distance/getToday)'],
     ['v1.43','2026-04-08','함수 추출','데이터 추출에 이은 두 번째 추출 패턴 (함수 단위)'],
     ['v1.42','2026-04-08','신규 모듈','game/pet_battle.js — 펫 배틀 시뮬레이터 (생성 + 통합 동시)'],
@@ -1434,8 +1436,11 @@ style_sheet(ws21,
     patches, title='패치 노트 히스토리', col_widths=[10,12,12,55])
 
 # ========== 22. v1.9 / v1.10 / v1.11 / v1.12 신규 컨텐츠 요약 ==========
-ws22 = wb.create_sheet('v1.9 ~ v1.43')
+ws22 = wb.create_sheet('v1.9 ~ v1.44')
 v19 = [
+    ['v1.44','함수 추출','game/monster_spawn.js','두 번째 함수 추출','데이터 모듈 의존'],
+    ['v1.44','검증','1000 spawn','normal 52% / elite 26% / rare 14% / boss 6% / leg 1%','가중치 정상'],
+    ['v1.44','검증','scaleMonster','Lv5: HP 80 / Lv25: HP 208','2.6배 강화 정상'],
     ['v1.43','함수 추출','game/helpers.js','첫 함수 추출 모듈','순수 유틸 6종'],
     ['v1.43','검증','getExpRequired(50)','25803','지수 공식 정상'],
     ['v1.43','신규','clamp / distance / getToday','부가 헬퍼','다음 추출 시 활용'],
