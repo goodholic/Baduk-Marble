@@ -130,6 +130,8 @@ const companion = require('./game/companion');
 const wisdom = require('./game/wisdom');
 // v1.63: PvP 토너먼트 모듈 (생성 + 통합 동시)
 const pvpTournament = require('./game/pvp_tournament');
+// v1.64: 길드 전쟁 모듈 (생성 + 통합 동시)
+const guildWar = require('./game/guild_war');
 
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
@@ -5413,6 +5415,38 @@ io.on('connection', (socket) => {
                 });
             }
         }
+    });
+
+    // ── v1.64: 길드 전쟁 ──
+    socket.on('guild_war_status', () => {
+        const p = players[playerId];
+        if (!p) return;
+        socket.emit('guild_war_status_result', guildWar.getStatus(p.clanName));
+    });
+
+    socket.on('guild_war_declare', (defenderGuild) => {
+        const p = players[playerId];
+        if (!p || !p.clanName) {
+            socket.emit('guild_war_result', { success: false, msg: '길드 소속 필요' });
+            return;
+        }
+        // 길드 리더만 선전포고 가능
+        const myClan = clans[p.clanName];
+        if (!myClan || myClan.leader !== p.id) {
+            socket.emit('guild_war_result', { success: false, msg: '길드 리더만 선전포고 가능' });
+            return;
+        }
+        const result = guildWar.declareWar(p.clanName, defenderGuild, p.gold || 0);
+        if (result.success) {
+            p.gold -= result.cost;
+            savePlayer(p);
+            io.emit('player_update', p);
+            io.emit('server_msg', {
+                msg: `[전쟁] ${p.clanName} 길드가 ${defenderGuild} 길드에 선전포고!`,
+                type: 'rare',
+            });
+        }
+        socket.emit('guild_war_result', result);
     });
 
     // ── v1.63: PvP 토너먼트 ──
