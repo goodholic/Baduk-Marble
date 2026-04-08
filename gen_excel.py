@@ -1104,6 +1104,11 @@ for ri, d in enumerate(diff_rows):
 # ========== 21. 패치 노트 ==========
 ws21 = wb.create_sheet('패치 노트')
 patches = [
+    ['v1.31','2026-04-08','통합','game/auction.js → server.js 통합 (6번째 = 마지막 모듈 통합)'],
+    ['v1.31','2026-04-08','경매장','자동 정산 틱 (10초마다 tickAuctions())'],
+    ['v1.31','2026-04-08','경매장','이전 입찰자 자동 환불, 낙찰 시 아이템/골드 양방향 지급'],
+    ['v1.31','2026-04-08','소켓','auction_list / create / bid / my'],
+    ['v1.31','2026-04-08','마일스톤','🎉 v1.20~v1.25 신규 모듈 6개 모두 통합 완료'],
     ['v1.30','2026-04-08','통합','game/boss_rush.js → server.js 통합 (5번째 모듈 통합)'],
     ['v1.30','2026-04-08','보스 러시','메모리 세션 + 시간 검증 + 누적 보상 + 랭킹 (TOP 100)'],
     ['v1.30','2026-04-08','소켓','boss_rush_status / enter / advance / abandon'],
@@ -1182,8 +1187,14 @@ style_sheet(ws21,
     patches, title='패치 노트 히스토리', col_widths=[10,12,12,55])
 
 # ========== 22. v1.9 / v1.10 / v1.11 / v1.12 신규 컨텐츠 요약 ==========
-ws22 = wb.create_sheet('v1.9 ~ v1.30')
+ws22 = wb.create_sheet('v1.9 ~ v1.31')
 v19 = [
+    ['v1.31','통합','auction → server.js','6번째 (마지막) 모듈 통합','자동 정산 + 환불 + 양방향 지급'],
+    ['v1.31','자동화','tickAuctions','10초마다 만료 정산','setInterval 통합'],
+    ['v1.31','소켓','auction_create','경매 등록 (등록 수수료 자동 차감)','3가지 기간'],
+    ['v1.31','소켓','auction_bid','입찰 + 이전 입찰자 자동 환불','스나이핑 방지 연장'],
+    ['v1.31','소켓','auction_my','내 등록/입찰 내역 조회','-'],
+    ['v1.31','마일스톤','신규 모듈 6/6','100% 통합 완료','lottery/fishing/event/season/boss_rush/auction'],
     ['v1.30','통합','boss_rush → server.js','5번째 모듈 통합','메모리 세션 기반'],
     ['v1.30','상태','bossRushSessions','진행 중 세션 저장','currentWave/시간 추적'],
     ['v1.30','상태','bossRushRanking','글로벌 랭킹 TOP 100','웨이브 → 시간 정렬'],

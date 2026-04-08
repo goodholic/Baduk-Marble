@@ -23,6 +23,8 @@ const festival = require('./game/event');
 const seasonPass = require('./game/season');
 // v1.30: 보스 러시 모듈 통합
 const bossRush = require('./game/boss_rush');
+// v1.31: 경매장 모듈 통합 (마지막 신규 모듈)
+const auction = require('./game/auction');
 
 // v1.30: 보스 러시 활성 세션 (메모리)
 const bossRushSessions = {}; // { playerId: { currentWave, startTime, waveStart, killsInWave } }
@@ -6258,6 +6260,91 @@ io.on('connection', (socket) => {
         }
     });
 
+    // ── v1.31: 경매장 ──
+    socket.on('auction_list', (filter) => {
+        const list = auction.getActiveAuctions(filter || {});
+        socket.emit('auction_list_result', {
+            auctions: list.map(a => ({
+                id: a.id,
+                sellerName: a.sellerName,
+                itemId: a.itemId,
+                itemName: a.itemName,
+                startPrice: a.startPrice,
+                currentBid: a.currentBid,
+                currentBidderName: a.currentBidderName,
+                expiresAt: a.expiresAt,
+                bidCount: a.bidHistory.length,
+            })),
+        });
+    });
+
+    socket.on('auction_create', (data) => {
+        const p = players[playerId];
+        if (!p) return;
+        if (!data || !data.itemId || !data.startPrice) {
+            socket.emit('auction_create_result', { success: false, msg: '필수 정보 누락' });
+            return;
+        }
+        // 표시 이름 (최선 노력)
+        let itemName = data.itemId;
+        if (EQUIP_STATS[data.itemId]) itemName = EQUIP_STATS[data.itemId].name;
+        else if (TRADE_GOODS[data.itemId]) itemName = TRADE_GOODS[data.itemId].name;
+        const result = auction.listAuction(p, data.itemId, itemName, Number(data.startPrice), data.duration || 'medium');
+        socket.emit('auction_create_result', result);
+        if (result.success) {
+            savePlayer(p);
+            io.emit('player_update', p);
+            io.emit('auction_listed', { auctionId: result.auctionId, itemName, sellerName: p.displayName });
+        }
+    });
+
+    socket.on('auction_bid', (data) => {
+        const p = players[playerId];
+        if (!p) return;
+        if (!data || !data.auctionId || !data.amount) {
+            socket.emit('auction_bid_result', { success: false, msg: '필수 정보 누락' });
+            return;
+        }
+        // 이전 입찰자 환불 처리 (모듈은 players 접근 불가)
+        const a = auction._auctions[data.auctionId];
+        const prevBidderId = a ? a.currentBidderId : null;
+        const prevBid = a ? a.currentBid : 0;
+
+        const result = auction.placeBid(p, data.auctionId, Number(data.amount));
+        socket.emit('auction_bid_result', result);
+
+        if (result.success) {
+            // 이전 입찰자 골드 환불
+            if (prevBidderId && prevBidderId !== p.id && players[prevBidderId]) {
+                const prev = players[prevBidderId];
+                prev.gold = Math.min(MAX_GOLD, (prev.gold || 0) + prevBid);
+                savePlayer(prev);
+                try {
+                    io.to(prevBidderId).emit('auction_outbid', {
+                        auctionId: data.auctionId, refunded: prevBid, newBid: data.amount,
+                    });
+                } catch (_) {}
+                io.emit('player_update', prev);
+            }
+            savePlayer(p);
+            io.emit('player_update', p);
+            if (result.extended) {
+                io.emit('auction_extended', { auctionId: data.auctionId, newExpiresAt: result.newExpiresAt });
+            }
+        }
+    });
+
+    socket.on('auction_my', () => {
+        const p = players[playerId];
+        if (!p) return;
+        const selling = auction.getActiveAuctions({ sellerId: p.id });
+        const bidding = Object.values(auction._auctions).filter(a => a.status === 'active' && a.currentBidderId === p.id);
+        socket.emit('auction_my_result', {
+            selling: selling.map(a => ({ id: a.id, itemName: a.itemName, currentBid: a.currentBid, expiresAt: a.expiresAt })),
+            bidding: bidding.map(a => ({ id: a.id, itemName: a.itemName, currentBid: a.currentBid, expiresAt: a.expiresAt })),
+        });
+    });
+
     // ── v1.30: 보스 러시 ──
     socket.on('boss_rush_status', () => {
         const p = players[playerId];
@@ -6782,6 +6869,42 @@ setInterval(() => {
     tickCounter++;
 
     handleCollisions();
+
+    // v1.31: 경매장 자동 정산 (10초마다)
+    if (tickCounter % 300 === 0) {
+        const settlements = auction.tickAuctions();
+        for (const s of settlements) {
+            if (s.type === 'success') {
+                // 판매자에게 골드 지급 (수수료 차감 후)
+                const seller = players[s.sellerId];
+                if (seller) {
+                    seller.gold = Math.min(MAX_GOLD, (seller.gold || 0) + s.sellerPayout);
+                    savePlayer(seller);
+                    try { io.to(s.sellerId).emit('auction_sold', { auctionId: s.auctionId, finalPrice: s.finalPrice, payout: s.sellerPayout, fee: s.fee }); } catch (_) {}
+                    io.emit('player_update', seller);
+                }
+                // 구매자에게 아이템 지급
+                const buyer = players[s.buyerId];
+                if (buyer) {
+                    if (!buyer.inventory) buyer.inventory = {};
+                    buyer.inventory[s.itemId] = (buyer.inventory[s.itemId] || 0) + 1;
+                    savePlayer(buyer);
+                    try { io.to(s.buyerId).emit('auction_won', { auctionId: s.auctionId, itemId: s.itemId, finalPrice: s.finalPrice }); } catch (_) {}
+                    io.emit('player_update', buyer);
+                }
+            } else if (s.type === 'failed') {
+                // 유찰: 판매자에게 아이템 반환
+                const seller = players[s.sellerId];
+                if (seller) {
+                    if (!seller.inventory) seller.inventory = {};
+                    seller.inventory[s.itemId] = (seller.inventory[s.itemId] || 0) + 1;
+                    savePlayer(seller);
+                    try { io.to(s.sellerId).emit('auction_failed', { auctionId: s.auctionId, itemId: s.itemId }); } catch (_) {}
+                    io.emit('player_update', seller);
+                }
+            }
+        }
+    }
 
     // 몬스터 AI (1초마다)
     if (tickCounter % 30 === 0) {
