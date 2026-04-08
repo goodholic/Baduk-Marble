@@ -162,6 +162,8 @@ const passport = require('./game/passport');
 const honor = require('./game/honor');
 // v1.79: 초대 모듈 (생성 + 통합 동시)
 const invitation = require('./game/invitation');
+// v1.80: 시간 캡슐 모듈 (80번째 패치 마일스톤)
+const timeCapsule = require('./game/time_capsule');
 
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
@@ -5445,6 +5447,39 @@ io.on('connection', (socket) => {
                 });
             }
         }
+    });
+
+    // ── v1.80: 시간 캡슐 ──
+    socket.on('capsule_status', () => {
+        const p = players[playerId];
+        if (!p) return;
+        socket.emit('capsule_status_result', timeCapsule.getStatus(p));
+    });
+
+    socket.on('capsule_deposit', (data) => {
+        const p = players[playerId];
+        if (!p || !data || !data.tier || !data.gold) {
+            socket.emit('capsule_result', { success: false, msg: '필수 정보 누락' });
+            return;
+        }
+        const result = timeCapsule.depositCapsule(p, data.tier, Number(data.gold));
+        if (result.success) {
+            savePlayer(p);
+            io.emit('player_update', p);
+        }
+        socket.emit('capsule_result', result);
+    });
+
+    socket.on('capsule_withdraw', (capsuleId) => {
+        const p = players[playerId];
+        if (!p) return;
+        const result = timeCapsule.withdrawCapsule(p, capsuleId);
+        if (result.success) {
+            if (p.gold > MAX_GOLD) p.gold = MAX_GOLD;
+            savePlayer(p);
+            io.emit('player_update', p);
+        }
+        socket.emit('capsule_result', result);
     });
 
     // ── v1.79: 초대 ──
