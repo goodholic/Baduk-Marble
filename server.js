@@ -229,6 +229,10 @@ const { registerOracleHandlers } = require('./game/handlers/oracle_handlers');
 const gathering = require('./game/gathering');
 const { registerGatheringHandlers } = require('./game/handlers/gathering_handlers');
 
+// v1.98: 제련 모듈
+const forge = require('./game/forge');
+const { registerForgeHandlers } = require('./game/handlers/forge_handlers');
+
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
     if (!result.victory) {
@@ -5452,6 +5456,9 @@ io.on('connection', (socket) => {
 
     // ── v1.97: 채집 ──
     registerGatheringHandlers(socket, { io, players, playerId, savePlayer, gathering });
+
+    // ── v1.98: 제련 ──
+    registerForgeHandlers(socket, { io, players, playerId, savePlayer, forge });
 
     // ── v1.62 ~ v1.81: 잡다 핸들러 일괄 등록 (v1.89: handlers/misc_handlers.js)
     registerMiscHandlers(socket, {
