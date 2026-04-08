@@ -225,6 +225,10 @@ const { registerGemcraftHandlers } = require('./game/handlers/gemcraft_handlers'
 const oracle = require('./game/oracle');
 const { registerOracleHandlers } = require('./game/handlers/oracle_handlers');
 
+// v1.97: 채집 모듈
+const gathering = require('./game/gathering');
+const { registerGatheringHandlers } = require('./game/handlers/gathering_handlers');
+
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
     if (!result.victory) {
@@ -5445,6 +5449,9 @@ io.on('connection', (socket) => {
 
     // ── v1.96: 신탁 ──
     registerOracleHandlers(socket, { io, players, playerId, savePlayer, oracle });
+
+    // ── v1.97: 채집 ──
+    registerGatheringHandlers(socket, { io, players, playerId, savePlayer, gathering });
 
     // ── v1.62 ~ v1.81: 잡다 핸들러 일괄 등록 (v1.89: handlers/misc_handlers.js)
     registerMiscHandlers(socket, {
