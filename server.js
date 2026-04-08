@@ -152,6 +152,8 @@ const blueprint = require('./game/blueprint');
 const territory = require('./game/territory');
 // v1.74: 여관 모듈 (생성 + 통합 동시)
 const inn = require('./game/inn');
+// v1.75: 통합 대시보드 모듈 (50 모듈 마일스톤)
+const dashboard = require('./game/dashboard');
 
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
@@ -5435,6 +5437,19 @@ io.on('connection', (socket) => {
                 });
             }
         }
+    });
+
+    // ── v1.75: 통합 대시보드 ──
+    socket.on('dashboard_full', () => {
+        const p = players[playerId];
+        if (!p) return;
+        socket.emit('dashboard_full_result', dashboard.buildDashboard(p));
+    });
+
+    socket.on('dashboard_summary', () => {
+        const p = players[playerId];
+        if (!p) return;
+        socket.emit('dashboard_summary_result', dashboard.getCompactSummary(p));
     });
 
     // ── v1.74: 여관 ──
