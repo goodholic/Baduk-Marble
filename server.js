@@ -148,6 +148,8 @@ const newsBoard = require('./game/news_board');
 const contracts = require('./game/contracts');
 // v1.72: 도면 모듈 (생성 + 통합 동시)
 const blueprint = require('./game/blueprint');
+// v1.73: 영토 모듈 (생성 + 통합 동시)
+const territory = require('./game/territory');
 
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
@@ -5431,6 +5433,36 @@ io.on('connection', (socket) => {
                 });
             }
         }
+    });
+
+    // ── v1.73: 영토 ──
+    socket.on('territory_status', () => {
+        const p = players[playerId];
+        socket.emit('territory_status_result', territory.getStatus(p?.clanName));
+    });
+
+    socket.on('territory_claim', (zoneId) => {
+        const p = players[playerId];
+        if (!p || !p.clanName) {
+            socket.emit('territory_result', { success: false, msg: '길드 소속 필요' });
+            return;
+        }
+        const myClan = clans[p.clanName];
+        if (!myClan || myClan.leader !== p.id) {
+            socket.emit('territory_result', { success: false, msg: '길드 리더만 점유 가능' });
+            return;
+        }
+        const result = territory.claimTerritory(p.clanName, p.gold || 0, zoneId);
+        if (result.success) {
+            p.gold -= result.cost;
+            savePlayer(p);
+            io.emit('player_update', p);
+            io.emit('server_msg', {
+                msg: `[영토] ${p.clanName} 길드가 ${zoneId} 영토 점유!`,
+                type: 'rare',
+            });
+        }
+        socket.emit('territory_result', result);
     });
 
     // ── v1.72: 도면 ──
