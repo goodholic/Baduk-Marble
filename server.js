@@ -154,6 +154,8 @@ const territory = require('./game/territory');
 const inn = require('./game/inn');
 // v1.75: 통합 대시보드 모듈 (50 모듈 마일스톤)
 const dashboard = require('./game/dashboard');
+// v1.76: 오라 모듈 (생성 + 통합 동시)
+const aura = require('./game/aura');
 
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
@@ -5437,6 +5439,24 @@ io.on('connection', (socket) => {
                 });
             }
         }
+    });
+
+    // ── v1.76: 오라 ──
+    socket.on('aura_status', () => {
+        const p = players[playerId];
+        if (!p) return;
+        socket.emit('aura_status_result', aura.getStatus(p));
+    });
+
+    socket.on('aura_activate', (auraId) => {
+        const p = players[playerId];
+        if (!p) return;
+        const result = aura.setActive(p, auraId);
+        if (result.success) {
+            savePlayer(p);
+            io.emit('player_update', p);
+        }
+        socket.emit('aura_result', result);
     });
 
     // ── v1.75: 통합 대시보드 ──
