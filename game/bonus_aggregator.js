@@ -13,6 +13,7 @@ const BONUS_SOURCES = [
   { id:'dream',         label:'꿈의 축복',       module:'./dream' },
   { id:'music',         label:'음악 연주',       module:'./music' },
   { id:'tarot',         label:'타로 운명',       module:'./tarot' },
+  { id:'talisman',      label:'부적',            module:'./talisman' },
 ];
 
 // 모듈 lazy require — 로드 실패 시에도 안전
