@@ -1308,6 +1308,7 @@ for ri, d in enumerate(diff_rows):
 # ========== 21. 패치 노트 ==========
 ws21 = wb.create_sheet('패치 노트')
 patches = [
+    ['v1.85','2026-04-08','리팩토링','farm/skill_tree/mail/codex/daily_shop 핸들러 5개 분리 (-228줄)'],
     ['v1.84','2026-04-08','리팩토링','event/auction/boss_rush/season 핸들러 4개 동시 분리 (-240줄)'],
     ['v1.84','2026-04-08','리팩토링','game/handlers/ 4 신규 파일'],
     ['v1.83','2026-04-08','리팩토링','fishing 핸들러 분리 (-116줄)'],
@@ -1561,8 +1562,10 @@ style_sheet(ws21,
     patches, title='패치 노트 히스토리', col_widths=[10,12,12,55])
 
 # ========== 22. v1.9 / v1.10 / v1.11 / v1.12 신규 컨텐츠 요약 ==========
-ws22 = wb.create_sheet('v1.9 ~ v1.84')
+ws22 = wb.create_sheet('v1.9 ~ v1.85')
 v19 = [
+    ['v1.85','리팩토링','5 핸들러 분리','farm/skill_tree/mail/codex/daily_shop','-228줄 (9440→9212)'],
+    ['v1.85','누적 리팩','11 모듈 핸들러 분리','-657줄','9869 → 9212'],
     ['v1.84','리팩토링','4 핸들러 동시 분리','event/auction/boss_rush/season','-240줄 (9680→9440)'],
     ['v1.84','누적 리팩','lottery+fishing+event+auction+bossrush+season','-429줄','9869 → 9440'],
     ['v1.83','리팩토링','fishing_handlers.js','3 핸들러 분리','-116줄 (9796→9680)'],

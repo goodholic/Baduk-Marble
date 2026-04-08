@@ -173,6 +173,11 @@ const { registerEventHandlers } = require('./game/handlers/event_handlers');
 const { registerAuctionHandlers } = require('./game/handlers/auction_handlers');
 const { registerBossRushHandlers } = require('./game/handlers/boss_rush_handlers');
 const { registerSeasonHandlers } = require('./game/handlers/season_handlers');
+const { registerFarmHandlers } = require('./game/handlers/farm_handlers');
+const { registerSkillTreeHandlers } = require('./game/handlers/skill_tree_handlers');
+const { registerMailHandlers } = require('./game/handlers/mail_handlers');
+const { registerCodexHandlers } = require('./game/handlers/codex_handlers');
+const { registerDailyShopHandlers } = require('./game/handlers/daily_shop_handlers');
 
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
@@ -6475,259 +6480,26 @@ io.on('connection', (socket) => {
         io.emit('player_update', p);
     });
 
-    // ── v1.36: 농장 ──
-    socket.on('farm_status', () => {
-        const p = players[playerId];
-        if (!p) return;
-        socket.emit('farm_status_result', farm.getFarmStatus(p));
-    });
 
-    socket.on('farm_plant', (data) => {
-        const p = players[playerId];
-        if (!p) return;
-        if (!data || typeof data.slotIdx !== 'number' || !data.cropId) {
-            socket.emit('farm_result', { success: false, msg: '필수 정보 누락' });
-            return;
-        }
-        const result = farm.plantCrop(p, data.slotIdx, data.cropId);
-        socket.emit('farm_result', result);
-        if (result.success) {
-            savePlayer(p);
-            io.emit('player_update', p);
-        }
-    });
 
-    socket.on('farm_harvest', (slotIdx) => {
-        const p = players[playerId];
-        if (!p) return;
-        const result = farm.harvestCrop(p, Number(slotIdx));
-        if (result.success) {
-            if (p.gold > MAX_GOLD) p.gold = MAX_GOLD;
-            savePlayer(p);
-            io.emit('player_update', p);
-        }
-        socket.emit('farm_result', result);
-    });
+    // ── v1.36: 농장 ── (v1.85: handlers/farm_handlers.js)
+    registerFarmHandlers(socket, { io, players, playerId, savePlayer, MAX_GOLD, farm });
 
-    socket.on('farm_fertilize', (slotIdx) => {
-        const p = players[playerId];
-        if (!p) return;
-        const result = farm.applyFertilizer(p, Number(slotIdx));
-        if (result.success) {
-            savePlayer(p);
-            io.emit('player_update', p);
-        }
-        socket.emit('farm_result', result);
-    });
+    // ── v1.35: 특성 트리 ── (v1.85: handlers/skill_tree_handlers.js)
+    registerSkillTreeHandlers(socket, { io, players, playerId, savePlayer, skillTree });
 
-    socket.on('farm_expand', () => {
-        const p = players[playerId];
-        if (!p) return;
-        const result = farm.expandSlot(p);
-        if (result.success) {
-            savePlayer(p);
-            io.emit('player_update', p);
-        }
-        socket.emit('farm_result', result);
-    });
+    // ── v1.34: 우편함 ── (v1.85: handlers/mail_handlers.js)
+    registerMailHandlers(socket, { io, players, playerId, savePlayer, MAX_GOLD, MAX_DIAMONDS, mailbox });
 
-    // ── v1.35: 특성 트리 ──
-    socket.on('talent_status', () => {
-        const p = players[playerId];
-        if (!p) return;
-        socket.emit('talent_status_result', skillTree.getTreeStatus(p));
-    });
+    // ── v1.33: 도감 ── (v1.85: handlers/codex_handlers.js)
+    registerCodexHandlers(socket, { players, playerId, savePlayer, codex, codexDiscover });
 
-    socket.on('talent_spend', (nodeId) => {
-        const p = players[playerId];
-        if (!p) return;
-        const result = skillTree.spendPoint(p, nodeId);
-        socket.emit('talent_spend_result', result);
-        if (result.success) {
-            savePlayer(p);
-            io.emit('player_update', p);
-        }
+    // ── v1.32: 일일 상점 ── (v1.85: handlers/daily_shop_handlers.js)
+    registerDailyShopHandlers(socket, {
+        io, players, playerId, savePlayer, dailyShop,
+        getTodayDailyShop: () => todayDailyShop,
+        setTodayDailyShop: (s) => { todayDailyShop = s; }
     });
-
-    socket.on('talent_reset', () => {
-        const p = players[playerId];
-        if (!p) return;
-        const cost = skillTree.TREE_CONFIG.resetCostDiamond;
-        if ((p.diamonds || 0) < cost) {
-            socket.emit('talent_reset_result', { success: false, msg: `다이아 ${cost}개 필요` });
-            return;
-        }
-        p.diamonds -= cost;
-        const result = skillTree.resetTree(p);
-        savePlayer(p);
-        socket.emit('talent_reset_result', { success: true, refunded: result.refunded });
-        io.emit('player_update', p);
-    });
-
-    // ── v1.34: 우편함 ──
-    socket.on('mail_inbox', () => {
-        const p = players[playerId];
-        if (!p) return;
-        socket.emit('mail_inbox_result', {
-            mails: mailbox.getInbox(p.id),
-            unreadCount: mailbox.getUnreadCount(p.id),
-            maxSize: mailbox.MAIL_CONFIG.maxInboxSize,
-            giftLeft: Math.max(0, mailbox.MAIL_CONFIG.maxGiftPerDay - (p.giftMailDate === new Date().toISOString().slice(0,10) ? (p.giftMailCount||0) : 0)),
-        });
-    });
-
-    socket.on('mail_read', (mailId) => {
-        const p = players[playerId];
-        if (!p) return;
-        const result = mailbox.markRead(p.id, mailId);
-        socket.emit('mail_read_result', result);
-    });
-
-    socket.on('mail_claim', (mailId) => {
-        const p = players[playerId];
-        if (!p) return;
-        const result = mailbox.claimAttachments(p, mailId);
-        if (result.success) {
-            // 한도 클램프
-            if (p.gold > MAX_GOLD) p.gold = MAX_GOLD;
-            if (p.diamonds > MAX_DIAMONDS) p.diamonds = MAX_DIAMONDS;
-            savePlayer(p);
-            io.emit('player_update', p);
-        }
-        socket.emit('mail_claim_result', result);
-    });
-
-    socket.on('mail_delete', (mailId) => {
-        const p = players[playerId];
-        if (!p) return;
-        const result = mailbox.deleteMail(p.id, mailId);
-        socket.emit('mail_delete_result', result);
-    });
-
-    socket.on('mail_send_gift', (data) => {
-        const p = players[playerId];
-        if (!p) return;
-        if (!data || !data.recipientName || !data.title) {
-            socket.emit('mail_send_result', { success: false, msg: '필수 정보 누락' });
-            return;
-        }
-        // 수신자 찾기 (displayName으로)
-        let recipientId = null;
-        for (const [pid, pl] of Object.entries(players)) {
-            if (!pl.isBot && pl.displayName === data.recipientName) {
-                recipientId = pid;
-                break;
-            }
-        }
-        if (!recipientId) {
-            socket.emit('mail_send_result', { success: false, msg: '수신자를 찾을 수 없음 (접속 중인 플레이어만 가능)' });
-            return;
-        }
-        const result = mailbox.sendGiftMail(p, recipientId, data.title, data.body || '', data.attachments || {});
-        if (result.success) {
-            savePlayer(p);
-            io.emit('player_update', p);
-            // 수신자에게 알림
-            try {
-                io.to(recipientId).emit('mail_received', {
-                    mailId: result.mailId,
-                    senderName: p.displayName,
-                    title: data.title,
-                });
-            } catch (_) {}
-        }
-        socket.emit('mail_send_result', result);
-    });
-
-    // ── v1.33: 도감 ──
-    socket.on('codex_status', () => {
-        const p = players[playerId];
-        if (!p) return;
-        socket.emit('codex_status_result', codex.getProgress(p));
-    });
-
-    // 클라이언트가 명시적으로 발견 보고 (낚시/펫 등 자동화 어려운 경우)
-    socket.on('codex_report', (data) => {
-        const p = players[playerId];
-        if (!p) return;
-        if (!data || !data.category || !data.entryId) return;
-        if (!['monster','zone','equip','fish','pet'].includes(data.category)) return;
-        codexDiscover(p, data.category, String(data.entryId));
-        savePlayer(p);
-        socket.emit('codex_status_result', codex.getProgress(p));
-    });
-
-    // ── v1.32: 일일 상점 ──
-    socket.on('daily_shop_status', () => {
-        const p = players[playerId];
-        if (!p) return;
-        // 날짜가 바뀌었으면 갱신
-        const todaySeed = dailyShop.getTodaySeed();
-        if (todayDailyShop.seed !== todaySeed) {
-            todayDailyShop = dailyShop.generateDailyShop();
-        }
-        // 플레이어 구매 기록 (오늘 시드와 다르면 리셋)
-        const bought = (p.dailyShopBoughtSeed === todaySeed) ? (p.dailyShopBought || {}) : {};
-        socket.emit('daily_shop_status_result', {
-            seed: todayDailyShop.seed,
-            slots: todayDailyShop.slots.map((item, idx) => ({
-                ...item,
-                slotIdx: idx,
-                bought: !!bought[idx],
-            })),
-            rerollPrice: dailyShop.DAILY_SHOP_CONFIG.rerollPriceDiamond,
-        });
-    });
-
-    socket.on('daily_shop_buy', (data) => {
-        const p = players[playerId];
-        if (!p) return;
-        const slotIdx = data && Number(data.slotIdx);
-        if (typeof slotIdx !== 'number') {
-            socket.emit('daily_shop_buy_result', { success: false, msg: '슬롯 미지정' });
-            return;
-        }
-        // 날짜 갱신 체크
-        const todaySeed = dailyShop.getTodaySeed();
-        if (todayDailyShop.seed !== todaySeed) {
-            todayDailyShop = dailyShop.generateDailyShop();
-        }
-        const result = dailyShop.buyDailyShop(p, slotIdx, todayDailyShop);
-        socket.emit('daily_shop_buy_result', result);
-        if (result.success) {
-            savePlayer(p);
-            io.emit('player_update', p);
-        }
-    });
-
-    // 개인 갱신 (다이아 30개)
-    socket.on('daily_shop_reroll', () => {
-        const p = players[playerId];
-        if (!p) return;
-        const cost = dailyShop.DAILY_SHOP_CONFIG.rerollPriceDiamond;
-        if ((p.diamonds || 0) < cost) {
-            socket.emit('daily_shop_buy_result', { success: false, msg: '다이아 부족' });
-            return;
-        }
-        p.diamonds -= cost;
-        // 개인용 시드: 날짜 + 플레이어ID + 갱신 횟수
-        p.dailyShopRerollCount = (p.dailyShopRerollCount || 0) + 1;
-        const personalSeed = `${dailyShop.getTodaySeed()}_${p.id}_${p.dailyShopRerollCount}`;
-        const personalShop = dailyShop.generateDailyShop(personalSeed);
-        p.dailyShopBought = {}; // 갱신 시 구매 기록 초기화
-        p.dailyShopBoughtSeed = personalShop.seed;
-        // 개인 시드를 플레이어에 저장 (서버 재시작 시 잃어버림 — 단순화)
-        p._personalDailyShop = personalShop;
-        savePlayer(p);
-        socket.emit('daily_shop_status_result', {
-            seed: personalShop.seed,
-            slots: personalShop.slots.map((item, idx) => ({ ...item, slotIdx: idx, bought: false })),
-            rerollPrice: cost,
-            isPersonal: true,
-        });
-        io.emit('player_update', p);
-    });
-
 
     // ── v1.31: 경매장 ── (v1.84: handlers/auction_handlers.js로 분리)
     registerAuctionHandlers(socket, {
