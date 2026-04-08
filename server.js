@@ -122,6 +122,8 @@ const fortune = require('./game/fortune');
 const transmog = require('./game/transmog');
 // v1.59: 우체국 모듈 (생성 + 통합 동시)
 const postoffice = require('./game/postoffice');
+// v1.60: 월드 이벤트 모듈 (60번째 패치 마일스톤)
+const worldEvent = require('./game/world_event');
 
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
@@ -5405,6 +5407,15 @@ io.on('connection', (socket) => {
                 });
             }
         }
+    });
+
+    // ── v1.60: 월드 이벤트 ──
+    socket.on('world_event_status', () => {
+        socket.emit('world_event_status_result', worldEvent.getStatus());
+    });
+
+    socket.on('world_event_stats', () => {
+        socket.emit('world_event_stats_result', worldEvent.getEventStats());
     });
 
     // ── v1.59: 우체국 ──
