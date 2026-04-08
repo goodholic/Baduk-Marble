@@ -144,6 +144,8 @@ const library = require('./game/library');
 const blessing = require('./game/blessing');
 // v1.70: 서버 뉴스 보드 모듈 (70번째 패치 마일스톤)
 const newsBoard = require('./game/news_board');
+// v1.71: 계약 모듈 (생성 + 통합 동시)
+const contracts = require('./game/contracts');
 
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
@@ -5427,6 +5429,34 @@ io.on('connection', (socket) => {
                 });
             }
         }
+    });
+
+    // ── v1.71: 계약 ──
+    socket.on('contracts_status', () => {
+        const p = players[playerId];
+        if (!p) return;
+        socket.emit('contracts_status_result', contracts.getStatus(p));
+    });
+
+    socket.on('contracts_accept', (contractId) => {
+        const p = players[playerId];
+        if (!p) return;
+        const result = contracts.acceptContract(p, contractId);
+        if (result.success) {
+            savePlayer(p);
+            io.emit('player_update', p);
+        }
+        socket.emit('contracts_result', result);
+    });
+
+    socket.on('contracts_abandon', (contractId) => {
+        const p = players[playerId];
+        if (!p) return;
+        const result = contracts.abandonContract(p, contractId);
+        if (result.success) {
+            savePlayer(p);
+        }
+        socket.emit('contracts_result', result);
     });
 
     // ── v1.70: 서버 뉴스 보드 ──
