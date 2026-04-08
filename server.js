@@ -221,6 +221,10 @@ const { registerWeatherHandlers } = require('./game/handlers/weather_handlers');
 const gemcraft = require('./game/gemcraft');
 const { registerGemcraftHandlers } = require('./game/handlers/gemcraft_handlers');
 
+// v1.96: 신탁 모듈
+const oracle = require('./game/oracle');
+const { registerOracleHandlers } = require('./game/handlers/oracle_handlers');
+
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
 function handleRaidFinish(raidId, result) {
     if (!result.victory) {
@@ -5438,6 +5442,9 @@ io.on('connection', (socket) => {
 
     // ── v1.95: 보석 세공 ──
     registerGemcraftHandlers(socket, { io, players, playerId, savePlayer, gemcraft });
+
+    // ── v1.96: 신탁 ──
+    registerOracleHandlers(socket, { io, players, playerId, savePlayer, oracle });
 
     // ── v1.62 ~ v1.81: 잡다 핸들러 일괄 등록 (v1.89: handlers/misc_handlers.js)
     registerMiscHandlers(socket, {
