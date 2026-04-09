@@ -23,6 +23,7 @@ const serverHelpers = require('./game/server_helpers');
 const questChain = require('./game/quest_chain');
 const bossSummon = require('./game/boss_summon');
 const weatherDungeon = require('./game/weather_dungeon');
+const pvpMatch = require('./game/pvp_matchmaking');
 const { handleRaidFinish, codexDiscover, finishBossRush, updateTownPrices, generateRandomOptions, logWorldEvent } = serverHelpers;
 const { expireMarketListings, destroyAxe, syncGameState, updatePassives, updatePlayerAutoSkills, updateBots, giveExp, handleCollisions, handleAoeDamage, handlePlayerDeath } = loops;
 // Phase 3 refactor: 전투/스폰/랭킹 모듈
@@ -538,6 +539,7 @@ async function savePlayer(player) {
         _totalGoldEarned: player._totalGoldEarned || 0,
         _summons: player._summons || null,
         _weatherDungeon: player._weatherDungeon || null,
+        _pvpMatch: player._pvpMatch || null,
     });
 
     try {
@@ -871,7 +873,7 @@ registerConnection(io, {
     createBot, createAutoArmy, alertArmy, executeThrow,
     generateRandomOptions, codexDiscover, handleRaidFinish, finishBossRush,
     SEASON_XP_MAP, ELEMENTS, FACTIONS, RUNES, RUNE_WORDS, TRAINING_DRILLS_NAMES,
-    questChain, bossSummon, weatherDungeon,
+    questChain, bossSummon, weatherDungeon, pvpMatch,
     // mutable primitives via getters
     get isNight() { return isNight; },
     get currentWeather() { return currentWeather; },
@@ -1754,6 +1756,26 @@ setInterval(() => {
     // 주간 랭킹 보상 체크 (1분마다)
     if (tickCounter % (30 * 60) === 0) {
         checkWeeklyRankingRewards();
+    }
+
+    // v2.22: PvP 매칭 시도 (5초마다)
+    if (tickCounter % (30 * 5) === 0) {
+        const matchResults = pvpMatch.tryMatch();
+        for (const mr of matchResults) {
+            if (mr.timeout) {
+                io.to(mr.playerId).emit('pvp_match_result', { success: false, msg: '매칭 시간 초과' });
+            } else if (mr.matchId) {
+                for (const p of mr.players) {
+                    io.to(p.playerId).emit('pvp_match_found', { matchId: mr.matchId, mode: mr.mode, teams: mr.teams, players: mr.players });
+                }
+                io.emit('server_msg', { msg: `[PvP] ${mr.mode} 매칭 성사!`, type: 'normal' });
+            }
+        }
+        // 시즌 리셋 체크
+        const seasonCheck = pvpMatch.checkSeasonReset();
+        if (seasonCheck.reset) {
+            io.emit('server_msg', { msg: '[PvP] 새 시즌 시작! 랭킹이 초기화되었습니다.', type: 'boss' });
+        }
     }
 
     // 시간대별 필드보스 스폰 (12:00, 20:00)
