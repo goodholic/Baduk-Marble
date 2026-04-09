@@ -35,6 +35,7 @@ const wishTree = require('./game/wish_tree');
 const soulSystem = require('./game/soul_system');
 const timeDungeon = require('./game/time_dungeon');
 const mythicSummon = require('./game/mythic_summon');
+const ancientRuins = require('./game/ancient_ruins');
 const { handleRaidFinish, codexDiscover, finishBossRush, updateTownPrices, generateRandomOptions, logWorldEvent } = serverHelpers;
 const { expireMarketListings, destroyAxe, syncGameState, updatePassives, updatePlayerAutoSkills, updateBots, giveExp, handleCollisions, handleAoeDamage, handlePlayerDeath } = loops;
 // Phase 3 refactor: 전투/스폰/랭킹 모듈
@@ -564,6 +565,7 @@ async function savePlayer(player) {
         _soulSystem: player._soulSystem || null,
         _timeDungeon: player._timeDungeon || null,
         _mythicSummon: player._mythicSummon || null,
+        _ancientRuins: player._ancientRuins || null,
     });
 
     try {
@@ -897,7 +899,7 @@ registerConnection(io, {
     createBot, createAutoArmy, alertArmy, executeThrow,
     generateRandomOptions, codexDiscover, handleRaidFinish, finishBossRush,
     SEASON_XP_MAP, ELEMENTS, FACTIONS, RUNES, RUNE_WORDS, TRAINING_DRILLS_NAMES,
-    questChain, bossSummon, weatherDungeon, pvpMatch, bountyHunter, raceSystem, relicFusion, skillWave, achievements, superBoss, territoryWar, wishTree, soulSystem, timeDungeon, mythicSummon,
+    questChain, bossSummon, weatherDungeon, pvpMatch, bountyHunter, raceSystem, relicFusion, skillWave, achievements, superBoss, territoryWar, wishTree, soulSystem, timeDungeon, mythicSummon, ancientRuins,
     // mutable primitives via getters
     get isNight() { return isNight; },
     get currentWeather() { return currentWeather; },

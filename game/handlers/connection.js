@@ -83,6 +83,7 @@ const { registerWishTreeHandlers } = require('./wish_tree_handlers');
 const { registerSoulHandlers } = require('./soul_handlers');
 const { registerTimeDungeonHandlers } = require('./time_dungeon_handlers');
 const { registerMythicSummonHandlers } = require('./mythic_summon_handlers');
+const { registerAncientRuinsHandlers } = require('./ancient_ruins_handlers');
 
 function registerConnection(io, $) {
 
@@ -192,6 +193,7 @@ io.on("connection", (socket) => {
     registerSoulHandlers(socket, { io, players, playerId, savePlayer, soulSystem: $.soulSystem });
     registerTimeDungeonHandlers(socket, { io, players, playerId, savePlayer, timeDungeon: $.timeDungeon, trackQuest: $.trackQuest });
     registerMythicSummonHandlers(socket, { io, players, playerId, savePlayer, mythicSummon: $.mythicSummon });
+    registerAncientRuinsHandlers(socket, { io, players, playerId, savePlayer, ancientRuins: $.ancientRuins, trackQuest: $.trackQuest });
     registerWeatherDungeonHandlers(socket, {
         io, players, playerId, savePlayer,
         weatherDungeon: $.weatherDungeon,
