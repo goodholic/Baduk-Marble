@@ -133,7 +133,7 @@ function refillStamina(player) {
     return { success: false, msg: '다이아 부족' };
   }
   player.diamonds -= TRAINING_CONFIG.refillCostDiamond;
-  t.stamina += TRAINING_CONFIG.dailyStamina;
+  t.stamina = Math.min(t.stamina + TRAINING_CONFIG.dailyStamina, TRAINING_CONFIG.maxStamina || 5);
   return { success: true, newStamina: t.stamina };
 }
 

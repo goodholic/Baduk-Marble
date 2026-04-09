@@ -44,6 +44,7 @@ function consumeFreeSpin(player) {
 }
 
 function paidSpin(player, count = 1) {
+  count = Math.max(1, Math.min(Math.floor(count) || 1, 100)); // 1~100회 제한
   const cost = count >= LOTTERY_CONFIG.bulkSpinCount
     ? LOTTERY_CONFIG.bulkSpinPrice
     : LOTTERY_CONFIG.paidSpinPrice * count;

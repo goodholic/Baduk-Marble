@@ -874,7 +874,6 @@ const CLASSES = {
 // function getExpRequired = ... (v1.43: game/helpers.js로 이동)
 
 // ── 방어력 기반 데미지 계산 ──
-const MAX_STACK = 999; // 아이템 최대 스택
 // ── 재미 시스템 전역 변수 ──
 let treasureGoblin = null; // { id, zoneId, spawnTime }
 let nextTreasureTime = Date.now() + 180000 + Math.random() * 300000;
@@ -946,7 +945,6 @@ let friendLists = {}; // {playerId: [friendId, ...]}
 let friendRequests = {}; // {targetId: [{fromId, fromName, time}]}
 
 // ── 시간대별 필드보스 ──
-let fieldBossActive = false;
 let lastFieldBossHour = -1;
 let goldFeverZone = null;
 

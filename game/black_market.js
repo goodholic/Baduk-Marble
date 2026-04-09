@@ -53,7 +53,7 @@ function _pickByRarity(rng, pool) {
   // 가중치 기반 등급 선택
   const totalW = Object.values(RARITY_WEIGHTS).reduce((s, w) => s + w, 0);
   let roll = rng() * totalW;
-  let chosenRarity;
+  let chosenRarity = Object.keys(RARITY_WEIGHTS)[0]; // fallback: 첫 번째 등급
   for (const [rarity, weight] of Object.entries(RARITY_WEIGHTS)) {
     roll -= weight;
     if (roll <= 0) { chosenRarity = rarity; break; }

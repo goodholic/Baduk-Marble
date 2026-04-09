@@ -36,6 +36,9 @@ function listAuction(player, itemId, itemName, startPrice, durationKey = 'medium
   if (player.gold < fee) return { success: false, msg: `등록 수수료 ${fee}G 부족` };
 
   player.gold -= fee;
+  if (!player.inventory || !player.inventory[itemId] || player.inventory[itemId] <= 0) {
+    return { success: false, msg: '아이템이 없습니다' };
+  }
   player.inventory[itemId]--;
   if (player.inventory[itemId] <= 0) delete player.inventory[itemId];
 

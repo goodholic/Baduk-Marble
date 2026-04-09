@@ -55,8 +55,9 @@ function _ensure(player) {
 }
 
 function _pickRandomZone() {
-  const safeZones = Object.entries(ZONES).filter(([id, z]) => !z.safe && !z.isArena && !z.isCastle);
-  return safeZones[Math.floor(Math.random() * safeZones.length)];
+  const huntZones = Object.entries(ZONES).filter(([id, z]) => !z.safe && !z.isArena && !z.isCastle);
+  if (!huntZones.length) return Object.entries(ZONES)[0]; // fallback
+  return huntZones[Math.floor(Math.random() * huntZones.length)];
 }
 
 function _randomCoord(zone, radius) {

@@ -123,7 +123,7 @@ function trackStage(player, target, count = 1, extra = {}) {
       if (nextStage) {
         // 부분 보상
         const partial = expDef.rewards.stage;
-        if (partial.gold) player.gold = (player.gold || 0) + partial.gold;
+        if (partial.gold) player.gold = Math.min(999999999, (player.gold || 0) + partial.gold);
         if (partial.exp) player.exp = (player.exp || 0) + partial.exp;
 
         state.currentStage++;
@@ -133,9 +133,9 @@ function trackStage(player, target, count = 1, extra = {}) {
       } else {
         // 마지막 스테이지 완료 — 원정 종료
         const reward = expDef.rewards.complete;
-        if (reward.gold) player.gold = (player.gold || 0) + reward.gold;
+        if (reward.gold) player.gold = Math.min(999999999, (player.gold || 0) + reward.gold);
         if (reward.exp) player.exp = (player.exp || 0) + reward.exp;
-        if (reward.diamonds) player.diamonds = (player.diamonds || 0) + reward.diamonds;
+        if (reward.diamonds) player.diamonds = Math.min(9999999, (player.diamonds || 0) + reward.diamonds);
         if (reward.item) {
           if (!player.inventory) player.inventory = {};
           player.inventory[reward.item] = (player.inventory[reward.item] || 0) + 1;
