@@ -129,7 +129,7 @@ function registerMiscHandlers(socket, ctx) {
     }
     const result = territory.claimTerritory(p.clanName, p.gold || 0, zoneId);
     if (result.success) {
-      p.gold -= result.cost;
+      if (result.cost > 0 && p.gold >= result.cost) p.gold -= result.cost; else p.gold = 0;
       savePlayer(p);
       io.emit('player_update', p);
       io.emit('server_msg', {
@@ -235,7 +235,7 @@ function registerMiscHandlers(socket, ctx) {
   });
   socket.on('jackpot_buy', (data) => {
     const p = players[playerId]; if (!p) return;
-    const count = (data && Number(data.count)) || 1;
+    const count = Math.min(100, Math.max(1, Math.floor((data && Number(data.count)) || 1)));
     const currency = (data && data.currency === 'diamond') ? 'diamond' : 'gold';
     const result = lotteryJackpot.buyTickets(p, count, currency);
     if (result.success) {
@@ -275,7 +275,7 @@ function registerMiscHandlers(socket, ctx) {
     }
     const result = guildWar.declareWar(p.clanName, defenderGuild, p.gold || 0);
     if (result.success) {
-      p.gold -= result.cost;
+      if (result.cost > 0 && p.gold >= result.cost) p.gold -= result.cost; else p.gold = 0;
       savePlayer(p);
       io.emit('player_update', p);
       io.emit('server_msg', {

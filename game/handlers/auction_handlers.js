@@ -28,10 +28,15 @@ function registerAuctionHandlers(socket, ctx) {
       socket.emit('auction_create_result', { success: false, msg: '필수 정보 누락' });
       return;
     }
+    const startPrice = Math.floor(Number(data.startPrice));
+    if (!Number.isFinite(startPrice) || startPrice < 1 || startPrice > MAX_GOLD) {
+      socket.emit('auction_create_result', { success: false, msg: '잘못된 시작가' });
+      return;
+    }
     let itemName = data.itemId;
     if (EQUIP_STATS[data.itemId]) itemName = EQUIP_STATS[data.itemId].name;
     else if (TRADE_GOODS[data.itemId]) itemName = TRADE_GOODS[data.itemId].name;
-    const result = auction.listAuction(p, data.itemId, itemName, Number(data.startPrice), data.duration || 'medium');
+    const result = auction.listAuction(p, data.itemId, itemName, startPrice, data.duration || 'medium');
     socket.emit('auction_create_result', result);
     if (result.success) {
       savePlayer(p);

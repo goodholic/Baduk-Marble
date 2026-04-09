@@ -1304,6 +1304,7 @@ let tickCounter = 0;
 
 setInterval(() => {
     tickCounter++;
+    if (tickCounter > 1e8) tickCounter = 0; // 정수 정밀도 오버플로우 방지
 
     handleCollisions();
 

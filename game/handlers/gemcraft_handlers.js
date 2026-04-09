@@ -13,7 +13,7 @@ function registerGemcraftHandlers(socket, ctx) {
       socket.emit('gemcraft_result', { success:false, msg:'원석 ID 필요' });
       return;
     }
-    const result = gemcraft.buyRough(p, data.id, Number(data.count) || 1);
+    const result = gemcraft.buyRough(p, data.id, Math.min(999, Math.max(1, Math.floor(Number(data.count)) || 1)));
     if (result.success) { savePlayer(p); io.emit('player_update', p); }
     socket.emit('gemcraft_result', result);
   });

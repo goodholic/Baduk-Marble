@@ -697,8 +697,8 @@ function registerCombatPvpConnectionHandlers(socket, $) {
             socket.emit('dice_result', { msg: `동점! (${roll2} vs ${roll1}) 무승부`, roll1: roll2, roll2: roll1, tie: true });
             return;
         }
-        loser.gold -= betAmount;
-        winner.gold += betAmount - tax;
+        loser.gold = Math.max(0, loser.gold - betAmount);
+        winner.gold = Math.min(999999999, winner.gold + betAmount - tax);
         const result = { roll1, roll2, bet: betAmount, winner: winner.displayName, tax };
         io.to(fromId).emit('dice_result', { msg: `주사위: ${roll1} vs ${roll2} → ${winner.displayName} 승리!${winner===p ? ' +'+(betAmount-tax)+'G' : ' -'+betAmount+'G'}`, ...result });
         socket.emit('dice_result', { msg: `주사위: ${roll2} vs ${roll1} → ${winner.displayName} 승리!${winner===target ? ' +'+(betAmount-tax)+'G' : ' -'+betAmount+'G'}`, ...result });

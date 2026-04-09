@@ -13,7 +13,7 @@ function registerCookingHandlers(socket, ctx) {
       socket.emit('cooking_result', { success:false, msg:'재료 ID 필요' });
       return;
     }
-    const result = cooking.buyIngredient(p, data.id, Number(data.count) || 1);
+    const result = cooking.buyIngredient(p, data.id, Math.min(999, Math.max(1, Math.floor(Number(data.count)) || 1)));
     if (result.success) { savePlayer(p); io.emit('player_update', p); }
     socket.emit('cooking_result', result);
   });
