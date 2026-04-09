@@ -158,6 +158,7 @@ function registerCoreConnectionHandlers(socket, $) {
                         _totalPlaytime: ext._totalPlaytime || 0,
                         _totalGoldEarned: ext._totalGoldEarned || 0,
                         _summons: ext._summons || null,
+                        _weatherDungeon: ext._weatherDungeon || null,
                     });
                     if (pInfo.isAdvanced && pInfo.advancedClass) {
                         const adv = CLASS_ADVANCE[pInfo.baseClassName || pInfo.className];

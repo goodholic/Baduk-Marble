@@ -70,6 +70,7 @@ const { registerRiftHandlers } = require('./rift_handlers');
 const { registerGardenHandlers } = require('./garden_handlers');
 const { registerQuestChainHandlers } = require('./quest_chain_handlers');
 const { registerBossSummonHandlers } = require('./boss_summon_handlers');
+const { registerWeatherDungeonHandlers } = require('./weather_dungeon_handlers');
 
 function registerConnection(io, $) {
 
@@ -167,6 +168,12 @@ io.on("connection", (socket) => {
     registerGardenHandlers(socket, { io, players, playerId, savePlayer, garden });
     registerQuestChainHandlers(socket, { io, players, playerId, savePlayer, questChain: $.questChain });
     registerBossSummonHandlers(socket, { io, players, playerId, savePlayer, bossSummon: $.bossSummon });
+    registerWeatherDungeonHandlers(socket, {
+        io, players, playerId, savePlayer,
+        weatherDungeon: $.weatherDungeon,
+        getCurrentWeather: () => $.currentWeather,
+        trackQuest: $.trackQuest,
+    });
     registerMiscHandlers(socket, {
         io, players, playerId, savePlayer, MAX_GOLD,
         statistics, timeCapsule, invitation, honor, passport, aura, dashboard,
