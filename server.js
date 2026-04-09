@@ -1165,6 +1165,7 @@ registerConnection(io, {
     get contractIdCounter() { return contractIdCounter; },
     set contractIdCounter(v) { contractIdCounter = v; },
     factionState,
+    worldEventLog, bountyBoard,
 });
 // ==========================================
 // 투사체 & 전투 로직

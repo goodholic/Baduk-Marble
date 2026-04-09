@@ -1,6 +1,13 @@
 // core connection handlers (split from connection.js)
 
 function registerCoreConnectionHandlers(socket, $) {
+    const {
+        players, io, savePlayer, pool, monsters, drops, axes, aoes,
+        recalcStats, getZone, getNpcMsg, isOnRoad, isBlocked, isSlowTerrain, CLASSES, QUESTS,
+        CLASS_ADVANCE, ZONES, EQUIPMENT_SLOTS, EQUIP_STATS, GRADE_INFO, ZONE_AMBIENCE, NPCS, getMountSpeed,
+        TITLES, capResources, giveExp, executeThrow, arenaMatches, ELEMENTS, FACTIONS, getYesterday,
+        getWeekNumber, MONSTER_TIERS, KARMA, ZONE_MONSTERS, ZONE_CONNECTIONS,
+    } = $;
     // --- init_request ---
     socket.on('init_request', async (dataStr) => {
         let selectedClass = 'Warrior';

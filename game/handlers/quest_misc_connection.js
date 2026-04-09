@@ -1,6 +1,11 @@
 // quest_misc connection handlers (split from connection.js)
 
 function registerQuestMiscConnectionHandlers(socket, $) {
+    const {
+        players, io, savePlayer, recalcStats, SKILLS, QUESTS, ZONES, EMOTES,
+        ARENA_TIERS, capResources, getArenaTier, getTodaysChallenge, getThisWeekChallenge, giveExp, clans, arenaRankings,
+        rankings, FACTIONS, getWeekNumber, ATTENDANCE_REWARDS, ZONE_MONSTER_NAMES, worldEventLog,
+    } = $;
     // --- get_quests ---
     socket.on('get_quests', () => {
         const p = players[playerId];
@@ -337,7 +342,7 @@ function registerQuestMiscConnectionHandlers(socket, $) {
         if (!p) return;
         const discovered = p.discoveredZones || [];
         const total = Object.keys(ZONES).length;
-        socket.emit('exploration_data', { discovered, total, pct: Math.floor(discovered.length / total * 100) });
+        socket.emit('exploration_data', { discovered, total, pct: total > 0 ? Math.floor(discovered.length / total * 100) : 0 });
     });
 
     // 5대 신규 시스템 소켓 핸들러

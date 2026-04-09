@@ -1,6 +1,11 @@
 // combat_pvp connection handlers (split from connection.js)
 
 function registerCombatPvpConnectionHandlers(socket, $) {
+    const {
+        players, io, savePlayer, monsters, drops, recalcStats, getZone, CLASSES,
+        ZONES, EQUIP_STATS, GRADE_INFO, TAME_RATES, TAME_COSTS, capResources, spawnMonster, giveExp,
+        clans, arenaMatches, arenaRankings, MONSTER_TIERS, DUNGEONS,
+    } = $;
     // --- toggle_pvp ---
     socket.on('toggle_pvp', () => {
         const p = players[playerId];
@@ -698,6 +703,7 @@ function registerCombatPvpConnectionHandlers(socket, $) {
         io.to(fromId).emit('dice_result', { msg: `주사위: ${roll1} vs ${roll2} → ${winner.displayName} 승리!${winner===p ? ' +'+(betAmount-tax)+'G' : ' -'+betAmount+'G'}`, ...result });
         socket.emit('dice_result', { msg: `주사위: ${roll2} vs ${roll1} → ${winner.displayName} 승리!${winner===target ? ' +'+(betAmount-tax)+'G' : ' -'+betAmount+'G'}`, ...result });
         if (betAmount >= 5000) io.emit('server_msg', { msg: `[도박] ${p.displayName} vs ${target.displayName} — ${betAmount}G 판돈! ${winner.displayName} 승리!`, type: 'rare' });
+        savePlayer(p); savePlayer(target);
         io.emit('player_update', p); io.emit('player_update', target);
     });
 

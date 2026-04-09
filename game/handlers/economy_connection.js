@@ -1,6 +1,11 @@
 // economy connection handlers (split from connection.js)
 
 function registerEconomyConnectionHandlers(socket, $) {
+    const {
+        players, io, savePlayer, recalcStats, trackQuest, getZone, EQUIP_STATS, SHOP_ITEMS,
+        FREE_DIAMOND_SOURCES, TRADEABLE_ITEMS, RECIPES, handleCraft, handleBuyPet, handleBuyMount, handleEvolvePet, checkTitles,
+        MAX_GOLD, capResources, giveExp, getExpRequired, bountyBoard,
+    } = $;
     // --- shop_buy ---
     socket.on('shop_buy', (itemId) => {
         const p = players[playerId];
@@ -295,11 +300,16 @@ function registerEconomyConnectionHandlers(socket, $) {
         if (listing.bids.length > 0) {
             const prevBid = listing.bids[listing.bids.length - 1];
             const prevBidder = players[prevBid.bidderId];
-            if (prevBidder) { prevBidder.gold += prevBid.amount; io.emit('player_update', prevBidder); }
+            if (prevBidder) {
+                prevBidder.gold += prevBid.amount;
+                savePlayer(prevBidder);
+                io.emit('player_update', prevBidder);
+            }
         }
 
         p.gold -= bidAmount;
         listing.bids.push({ bidderId: playerId, bidderName: p.displayName, amount: bidAmount });
+        savePlayer(p);
         socket.emit('market_result', { msg: `${listing.itemName}에 ${bidAmount}G 입찰 완료!` });
         io.emit('player_update', p);
     });
@@ -334,12 +344,13 @@ function registerEconomyConnectionHandlers(socket, $) {
         if (listing.bids && listing.bids.length > 0) {
             const lastBid = listing.bids[listing.bids.length - 1];
             const bidder = players[lastBid.bidderId];
-            if (bidder) { bidder.gold += lastBid.amount; io.emit('player_update', bidder); }
+            if (bidder) { bidder.gold += lastBid.amount; savePlayer(bidder); io.emit('player_update', bidder); }
         }
         // 아이템 반환
         if (!p.inventory) p.inventory = {};
         p.inventory[listing.itemId] = (p.inventory[listing.itemId] || 0) + 1;
         $.marketListings.splice(idx, 1);
+        savePlayer(p);
         socket.emit('market_result', { msg: `${listing.itemName} 등록 취소` });
     });
 

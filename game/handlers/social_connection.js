@@ -1,6 +1,11 @@
 // social connection handlers (split from connection.js)
 
 function registerSocialConnectionHandlers(socket, $) {
+    const {
+        players, io, savePlayer, pool, recalcStats, getZone, CLASS_ADVANCE, EQUIP_STATS,
+        TRADEABLE_ITEMS, CLAN_LEVEL_EXP, CLAN_MAX_MEMBERS, CLAN_SKILLS, MAX_GOLD, clans, rankings, pendingMails,
+        FACTIONS, DUNGEONS,
+    } = $;
     // --- get_profile ---
     socket.on('get_profile', () => {
         const p = players[playerId];
