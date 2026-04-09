@@ -36,6 +36,7 @@ const soulSystem = require('./game/soul_system');
 const timeDungeon = require('./game/time_dungeon');
 const mythicSummon = require('./game/mythic_summon');
 const ancientRuins = require('./game/ancient_ruins');
+const worldChronicle = require('./game/world_chronicle');
 const { handleRaidFinish, codexDiscover, finishBossRush, updateTownPrices, generateRandomOptions, logWorldEvent } = serverHelpers;
 const { expireMarketListings, destroyAxe, syncGameState, updatePassives, updatePlayerAutoSkills, updateBots, giveExp, handleCollisions, handleAoeDamage, handlePlayerDeath } = loops;
 // Phase 3 refactor: 전투/스폰/랭킹 모듈
@@ -899,7 +900,7 @@ registerConnection(io, {
     createBot, createAutoArmy, alertArmy, executeThrow,
     generateRandomOptions, codexDiscover, handleRaidFinish, finishBossRush,
     SEASON_XP_MAP, ELEMENTS, FACTIONS, RUNES, RUNE_WORDS, TRAINING_DRILLS_NAMES,
-    questChain, bossSummon, weatherDungeon, pvpMatch, bountyHunter, raceSystem, relicFusion, skillWave, achievements, superBoss, territoryWar, wishTree, soulSystem, timeDungeon, mythicSummon, ancientRuins,
+    questChain, bossSummon, weatherDungeon, pvpMatch, bountyHunter, raceSystem, relicFusion, skillWave, achievements, superBoss, territoryWar, wishTree, soulSystem, timeDungeon, mythicSummon, ancientRuins, worldChronicle,
     // mutable primitives via getters
     get isNight() { return isNight; },
     get currentWeather() { return currentWeather; },
@@ -1782,6 +1783,15 @@ setInterval(() => {
     // 주간 랭킹 보상 체크 (1분마다)
     if (tickCounter % (30 * 60) === 0) {
         checkWeeklyRankingRewards();
+    }
+
+    // v2.35: 세계 보스 연대기 주간 리셋 (1분마다)
+    if (tickCounter % (30 * 60) === 0) {
+        const resetResult = worldChronicle.checkWeeklyReset();
+        if (resetResult.reset) {
+            io.emit('server_msg', { msg: `[연대기] 🌟 새 시즌: "${resetResult.newSeason.name}" ${resetResult.newSeason.icon} 시작!`, type: 'boss' });
+            io.emit('chronicle_new_season', resetResult.newSeason);
+        }
     }
 
     // v2.29: 전장 점령 틱 (매 초)
