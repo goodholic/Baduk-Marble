@@ -554,7 +554,10 @@ function registerEconomyConnectionHandlers(socket, $) {
         const p = players[playerId];
         if (!p) return;
         const result = handleBuyPet(p, petId);
-        if (result.success) savePlayer(p);
+        if (result.success) {
+            trackQuest(p, 'pet_count', (p.pets || []).length);
+            savePlayer(p);
+        }
         socket.emit('pet_result', result);
     });
 

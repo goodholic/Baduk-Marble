@@ -390,6 +390,7 @@ serverHelpers.init({
     get townPrices() { return townPrices; },
     set townPrices(v) { townPrices = v; },
     get worldEventLog() { return worldEventLog; },
+    trackQuest,
 });
 
 // v1.33: 도감 자동 발견 헬퍼

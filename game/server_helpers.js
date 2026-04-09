@@ -1,7 +1,7 @@
 // Server helper functions (extracted from server.js)
 
 let $ = null;
-let players, io, savePlayer, bossRush, codex, TRADE_GOODS, RANDOM_OPTIONS, MAX_GOLD;
+let players, io, savePlayer, bossRush, codex, TRADE_GOODS, RANDOM_OPTIONS, MAX_GOLD, trackQuest;
 
 function init(deps) {
     $ = deps;
@@ -13,6 +13,7 @@ function init(deps) {
     TRADE_GOODS = deps.TRADE_GOODS;
     RANDOM_OPTIONS = deps.RANDOM_OPTIONS;
     MAX_GOLD = deps.MAX_GOLD;
+    trackQuest = deps.trackQuest;
 }
 
 // Lazy accessors
@@ -40,6 +41,7 @@ function handleRaidFinish(raidId, result) {
             if (!p.inventory) p.inventory = {};
             p.inventory[r.drop] = (p.inventory[r.drop] || 0) + 1;
         }
+        if (trackQuest) trackQuest(p, 'guild_raid', 1);
         savePlayer(p);
         try {
             _io().to(pid).emit('raid_finished', {

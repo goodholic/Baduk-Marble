@@ -44,6 +44,7 @@ function registerCombatPvpConnectionHandlers(socket, $) {
             if (p.hp > p.maxHp) p.hp = p.maxHp;
         }
 
+        if (p.team !== 'peace') trackQuest(p, 'toggle_pvp', 1);
         savePlayer(p);
         io.emit('player_update', p);
 
