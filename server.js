@@ -25,6 +25,7 @@ const bossSummon = require('./game/boss_summon');
 const weatherDungeon = require('./game/weather_dungeon');
 const pvpMatch = require('./game/pvp_matchmaking');
 const bountyHunter = require('./game/bounty_hunter');
+const raceSystem = require('./game/race_system');
 const { handleRaidFinish, codexDiscover, finishBossRush, updateTownPrices, generateRandomOptions, logWorldEvent } = serverHelpers;
 const { expireMarketListings, destroyAxe, syncGameState, updatePassives, updatePlayerAutoSkills, updateBots, giveExp, handleCollisions, handleAoeDamage, handlePlayerDeath } = loops;
 // Phase 3 refactor: 전투/스폰/랭킹 모듈
@@ -544,6 +545,7 @@ async function savePlayer(player) {
         _weatherDungeon: player._weatherDungeon || null,
         _pvpMatch: player._pvpMatch || null,
         _bountyHunter: player._bountyHunter || null,
+        _race: player._race || null,
     });
 
     try {
@@ -877,7 +879,7 @@ registerConnection(io, {
     createBot, createAutoArmy, alertArmy, executeThrow,
     generateRandomOptions, codexDiscover, handleRaidFinish, finishBossRush,
     SEASON_XP_MAP, ELEMENTS, FACTIONS, RUNES, RUNE_WORDS, TRAINING_DRILLS_NAMES,
-    questChain, bossSummon, weatherDungeon, pvpMatch, bountyHunter,
+    questChain, bossSummon, weatherDungeon, pvpMatch, bountyHunter, raceSystem,
     // mutable primitives via getters
     get isNight() { return isNight; },
     get currentWeather() { return currentWeather; },

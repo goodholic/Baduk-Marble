@@ -161,6 +161,7 @@ function registerCoreConnectionHandlers(socket, $) {
                         _weatherDungeon: ext._weatherDungeon || null,
                         _pvpMatch: ext._pvpMatch || null,
                         _bountyHunter: ext._bountyHunter || null,
+                        _race: ext._race || null,
                     });
                     if (pInfo.isAdvanced && pInfo.advancedClass) {
                         const adv = CLASS_ADVANCE[pInfo.baseClassName || pInfo.className];

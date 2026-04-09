@@ -73,6 +73,7 @@ const { registerBossSummonHandlers } = require('./boss_summon_handlers');
 const { registerWeatherDungeonHandlers } = require('./weather_dungeon_handlers');
 const { registerPvpMatchHandlers } = require('./pvp_match_handlers');
 const { registerBountyHunterHandlers } = require('./bounty_hunter_handlers');
+const { registerRaceHandlers } = require('./race_handlers');
 
 function registerConnection(io, $) {
 
@@ -172,6 +173,7 @@ io.on("connection", (socket) => {
     registerBossSummonHandlers(socket, { io, players, playerId, savePlayer, bossSummon: $.bossSummon });
     registerPvpMatchHandlers(socket, { io, players, playerId, savePlayer, pvpMatch: $.pvpMatch, trackQuest: $.trackQuest });
     registerBountyHunterHandlers(socket, { io, players, playerId, savePlayer, bountyHunter: $.bountyHunter });
+    registerRaceHandlers(socket, { io, players, playerId, savePlayer, raceSystem: $.raceSystem });
     registerWeatherDungeonHandlers(socket, {
         io, players, playerId, savePlayer,
         weatherDungeon: $.weatherDungeon,
