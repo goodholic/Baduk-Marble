@@ -7,7 +7,10 @@ const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
-const mysql = require('mysql2/promise');
+
+// Phase 1 refactor: DB pool + HTTP routes 분리
+const { pool, initDB } = require('./server/db');
+const httpRoutes = require('./server/routes');
 
 // 게임 모듈
 const { RECIPES, handleCraft } = require('./game/craft');
@@ -466,116 +469,19 @@ const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY || 'test_sk_zXLkKEypNArWmo50
 
 // 다이아몬드 상품
 
-app.get('/health', (req, res) => res.send('AutoBattle.io Server Running'));
-
-// 서버 상태 JSON 엔드포인트 (모니터링/대시보드)
-app.get('/status', (req, res) => {
-    try {
-        const uptimeSec = Math.floor((Date.now() - serverStartTime) / 1000);
-        const onlineCount = Object.values(players).filter(p => !p.isBot && p.isAlive).length;
-        const botCount = Object.values(players).filter(p => p.isBot && p.isAlive).length;
-        const monsterCount = Object.keys(monsters).length;
-        res.json({
-            status: 'ok',
-            uptime: uptimeSec,
-            uptimeFormatted: `${Math.floor(uptimeSec/3600)}h ${Math.floor((uptimeSec%3600)/60)}m ${uptimeSec%60}s`,
-            players: {
-                online: onlineCount,
-                bots: botCount,
-                max: MAX_PLAYERS,
-            },
-            monsters: monsterCount,
-            world: {
-                worldBoss: worldBoss ? worldBoss.name : null,
-                meteorShower: meteorShower ? meteorShower.zoneId : null,
-                goldenRain: goldenRain ? goldenRain.zoneId : null,
-                starShower: starShower ? starShower.zoneId : null,
-                isNight,
-                weather: currentWeather?.id || null,
-            },
-            db: 'connected', // initDB가 실패하면 catch에서 로그
-            festival: (() => {
-                const ev = festival.getActiveEvent();
-                return ev ? { id: ev.id, name: ev.name, color: ev.color, buff: ev.globalBuff } : null;
-            })(),
-            timestamp: new Date().toISOString(),
-        });
-    } catch (e) {
-        res.status(500).json({ status: 'error', message: e.message });
-    }
-});
-
-// 결제 성공 페이지
-app.get('/payment/success', async (req, res) => {
-    const { paymentKey, orderId, amount } = req.query;
-
-    try {
-        // 토스페이먼츠 결제 승인 API 호출
-        const response = await fetch('https://api.tosspayments.com/v1/payments/confirm', {
-            method: 'POST',
-            headers: {
-                'Authorization': 'Basic ' + Buffer.from(TOSS_SECRET_KEY + ':').toString('base64'),
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ paymentKey, orderId, amount: Number(amount) }),
-        });
-
-        const result = await response.json();
-
-        if (result.status === 'DONE') {
-            // 결제 성공 → 다이아몬드 지급
-            const parts = orderId.split('_');
-            const productId = parts[0] + '_' + parts[1];
-            const deviceId = parts.slice(2, -1).join('_');
-            const product = DIAMOND_PRODUCTS[productId];
-
-            if (product && Number(amount) === product.price) {
-                // 접속 중인 플레이어 찾기
-                for (const pId in players) {
-                    if (players[pId].deviceId === deviceId && !players[pId].isBot) {
-                        players[pId].diamonds = (players[pId].diamonds || 0) + product.diamonds;
-                        savePlayer(players[pId]);
-                        io.to(pId).emit('player_update', players[pId]);
-                        io.to(pId).emit('shop_result', {
-                            success: true,
-                            msg: `${product.name} 구매 완료! +${product.diamonds} 다이아`,
-                            diamonds: players[pId].diamonds
-                        });
-                        break;
-                    }
-                }
-            }
-
-            res.send(`<html><head><meta charset="utf-8"><script>
-                alert('결제 완료! ${product ? product.diamonds : 0} 다이아몬드가 지급되었습니다.');
-                window.close(); setTimeout(()=>location.href='/',1000);
-            </script></head></html>`);
-        } else {
-            res.send(`<html><head><meta charset="utf-8"><script>
-                alert('결제 확인 실패: ${result.message || "알 수 없는 오류"}');
-                window.close(); setTimeout(()=>location.href='/',1000);
-            </script></head></html>`);
-        }
-    } catch (err) {
-        console.error('[Payment] Error:', err.message);
-        res.send(`<html><head><meta charset="utf-8"><script>
-            alert('결제 처리 중 오류가 발생했습니다.');
-            window.close(); setTimeout(()=>location.href='/',1000);
-        </script></head></html>`);
-    }
-});
-
-// 결제 실패 페이지
-app.get('/payment/fail', (req, res) => {
-    res.send(`<html><head><meta charset="utf-8"><script>
-        alert('결제가 취소되었습니다.');
-        window.close(); setTimeout(()=>location.href='/',1000);
-    </script></head></html>`);
-});
-
-// 상품 목록 API
-app.get('/api/products', (req, res) => {
-    res.json(DIAMOND_PRODUCTS);
+// HTTP 라우트는 server/routes.js 에서 등록 (Phase 1 refactor)
+// 모든 게임 글로벌은 핸들러 호출 시점에 lazy 접근 (TDZ 회피)
+httpRoutes.register(app, {
+    io,
+    getPlayers: () => players,
+    savePlayer: (p) => savePlayer(p),
+    getMonsterCount: () => Object.keys(monsters).length,
+    getWorldState: () => ({ worldBoss, meteorShower, goldenRain, starShower, isNight, weather: currentWeather }),
+    festival,
+    DIAMOND_PRODUCTS,
+    TOSS_SECRET_KEY,
+    serverStartTime,
+    getMaxPlayers: () => MAX_PLAYERS,
 });
 
 server.listen(PORT, () => {
@@ -583,96 +489,8 @@ server.listen(PORT, () => {
 });
 
 // ==========================================
-// Database
+// Database — server/db.js 로 추출됨 (Phase 1 refactor)
 // ==========================================
-// Railway는 보통 MYSQL_URL 또는 개별 MYSQLHOST/USER/PASSWORD/DATABASE/PORT 환경변수를 제공.
-// 둘 다 지원하도록 fallback 구성.
-function buildDbConfig() {
-    const url = process.env.MYSQL_URL || process.env.DATABASE_URL;
-    if (url) {
-        try {
-            const u = new URL(url);
-            return {
-                host: u.hostname,
-                user: decodeURIComponent(u.username),
-                password: decodeURIComponent(u.password),
-                database: u.pathname.replace(/^\//, '') || 'railway',
-                port: u.port ? parseInt(u.port) : 3306,
-            };
-        } catch (e) {
-            console.error('[DB] MYSQL_URL 파싱 실패:', e.message);
-        }
-    }
-    return {
-        host: process.env.MYSQLHOST || 'localhost',
-        user: process.env.MYSQLUSER || 'root',
-        password: process.env.MYSQLPASSWORD || '',
-        database: process.env.MYSQLDATABASE || 'railway',
-        port: parseInt(process.env.MYSQLPORT || 3306),
-    };
-}
-const _dbCfg = buildDbConfig();
-console.log(`[DB] connecting host=${_dbCfg.host} port=${_dbCfg.port} db=${_dbCfg.database} user=${_dbCfg.user}`);
-const pool = mysql.createPool({
-    ..._dbCfg,
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0,
-    connectTimeout: 10000,
-});
-
-async function initDB() {
-    try {
-        // 연결 ping 테스트
-        const [pingRows] = await pool.query('SELECT 1 AS ok');
-        console.log(`[DB] ping OK (${pingRows[0]?.ok})`);
-
-        // 오프라인 우편함 테이블
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS mails (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                target_name VARCHAR(255) NOT NULL,
-                from_name VARCHAR(255) NOT NULL,
-                item_id VARCHAR(100),
-                item_count INT DEFAULT 0,
-                gold INT DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                INDEX idx_target (target_name)
-            )
-        `).catch(e => console.error('[DB] mails table:', e.message));
-
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS players_save (
-                device_id VARCHAR(255) PRIMARY KEY,
-                class_name VARCHAR(50),
-                level INT DEFAULT 1,
-                exp INT DEFAULT 0,
-                gold INT DEFAULT 0,
-                kill_count INT DEFAULT 0,
-                karma INT DEFAULT 0,
-                team VARCHAR(50) DEFAULT 'peace',
-                is_alive BOOLEAN DEFAULT TRUE,
-                army_data JSON,
-                total_playtime INT DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        `);
-        // 새 컬럼 안전하게 추가
-        const newCols = [
-            ['gold', 'INT DEFAULT 0'],
-            ['karma', 'INT DEFAULT 0'],
-            ['total_playtime', 'INT DEFAULT 0'],
-            ['created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'],
-            ['ext_data', 'LONGTEXT']
-        ];
-        for (const [col, def] of newCols) {
-            try { await pool.query(`ALTER TABLE players_save ADD COLUMN ${col} ${def}`); } catch(e) {}
-        }
-        console.log("[DB] MySQL initialized.");
-    } catch (error) {
-        console.error("[DB] Init Error:", error);
-    }
-}
 initDB();
 
 async function savePlayer(player) {
