@@ -14,13 +14,14 @@ const httpRoutes = require('./server/routes');
 // Phase 2 refactor: 월드/지형 헬퍼 분리
 const world = require('./game/world');
 const { isOnRoad, isBlocked, isSlowTerrain, getZone, getNpcMsg } = world;
-// Phase 3a/3b refactor: 전투 헬퍼 + 상수 + 데미지 계산 + 챌린지 분리
+// Phase 3a/3b/3c refactor: 전투 헬퍼 + 상수 + 데미지 + 챌린지 + 스탯/퀘스트 분리
 const combat = require('./game/combat');
 const {
     MAX_GOLD, MAX_DIAMONDS, MAX_LEVEL, ARENA_TIERS,
     getEnchantBonus, capResources, getArenaTier,
     calcDamage, getTodaysChallenge, getThisWeekChallenge,
     DAILY_CHALLENGES, WEEKLY_CHALLENGES,
+    recalcStats, trackQuest,
 } = combat;
 
 // 게임 모듈
@@ -336,10 +337,20 @@ world.init({
     getIsNight: () => isNight,
     getCurrentWeather: () => currentWeather,
 });
-// Phase 3b: combat 모듈에 데이터 + lazy weather getter 주입
+// Phase 3b/3c: combat 모듈에 데이터 + lazy getter 주입
 combat.init({
     ELEMENT_BONUS,
     getCurrentWeather: () => currentWeather,
+    // Phase 3c
+    EQUIPMENT_SLOTS, EQUIP_STATS, GRADE_INFO, EQUIPMENT_SETS, QUESTS,
+    seasonPass, getPetEffect, getTitleBonus, codexDiscover,
+    getCLASSES: () => CLASSES,
+    getRUNES: () => RUNES,
+    getRUNE_WORDS: () => RUNE_WORDS,
+    getFACTIONS: () => FACTIONS,
+    getSEASON_XP_MAP: () => SEASON_XP_MAP,
+    getPlayers: () => players,
+    getIo: () => io,
 });
 
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
@@ -768,187 +779,9 @@ let rankings = { level:[], pvp:[], gold:[] };
 
 // extracted to game/combat.js (Phase 3a refactor)
 
-function recalcStats(p) {
-    if (!p || p.isBot) return;
-    const cls = CLASSES[p.className];
-    if (!cls) return;
-    let bonusAtk = 0, bonusDef = 0, bonusHp = 0, bonusSpd = 0;
-    let bonusCrit = 0, bonusDodge = 0, bonusExp = 0, bonusGold = 0;
+// extracted to game/combat.js (Phase 3c refactor)
 
-    if (p.equipped) {
-        for (const slot of EQUIPMENT_SLOTS) {
-            const eqId = p.equipped[slot];
-            if (!eqId || !EQUIP_STATS[eqId]) continue;
-            const eq = EQUIP_STATS[eqId];
-            const grade = GRADE_INFO[eq.grade] || GRADE_INFO.normal;
-            const enchant = (p.enchantLevels && p.enchantLevels[eqId]) || 0;
-            const enchantMult = 1 + getEnchantBonus(enchant);
-
-            bonusAtk += Math.floor(eq.atk * grade.atkMulti * enchantMult);
-            bonusDef += Math.floor(eq.def * grade.defMulti * enchantMult);
-            if (eq.bonusSpd) bonusSpd += eq.bonusSpd;
-            if (eq.expBonus) bonusExp += eq.expBonus;
-            if (eq.goldBonus) bonusGold += eq.goldBonus;
-
-            // 랜덤 옵션 적용
-            const opts = p.equipOptions && p.equipOptions[eqId];
-            if (opts) {
-                for (const opt of opts) {
-                    if (opt.stat === 'bonusHp') bonusHp += opt.value;
-                    if (opt.stat === 'critRate') bonusCrit += opt.value;
-                    if (opt.stat === 'dodgeRate') bonusDodge += opt.value;
-                    if (opt.stat === 'bonusSpd') bonusSpd += opt.value;
-                    if (opt.stat === 'expBonus') bonusExp += opt.value;
-                    if (opt.stat === 'goldBonus') bonusGold += opt.value;
-                }
-            }
-        }
-    }
-
-    // 스탯 포인트 보너스 (bonusStr/Dex/Int/Con 사용)
-    const str = p.bonusStr || 0, dex = p.bonusDex || 0, int_ = p.bonusInt || 0, con = p.bonusCon || 0;
-
-    // 세트 보너스 계산
-    let setAtkBonus = 0, setDefBonus = 0, setHpBonus = 0, setAtkMulti = 1, setDefMulti = 1, setExpBonus = 0;
-    if (p.equipped) {
-        const equippedIds = Object.values(p.equipped).filter(Boolean);
-        for (const [setId, setInfo] of Object.entries(EQUIPMENT_SETS)) {
-            const count = setInfo.pieces.filter(pid => equippedIds.includes(pid)).length;
-            for (const [req, bonus] of Object.entries(setInfo.bonuses)) {
-                if (count >= parseInt(req)) {
-                    if (bonus.atk) setAtkBonus += bonus.atk;
-                    if (bonus.def) setDefBonus += bonus.def;
-                    if (bonus.hp) setHpBonus += bonus.hp;
-                    if (bonus.atkMulti) setAtkMulti = Math.max(setAtkMulti, bonus.atkMulti);
-                    if (bonus.defMulti) setDefMulti = Math.max(setDefMulti, bonus.defMulti);
-                    if (bonus.expBonus) setExpBonus += bonus.expBonus;
-                }
-            }
-        }
-    }
-
-    // 펫 보너스
-    let petAtkMulti = 1.0;
-    const pet = getPetEffect(p);
-    if (pet && pet.effect === 'atkBonus') petAtkMulti += pet.value;
-
-    // ── 룬 개별 스탯 + 룬 워드 보너스 ──
-    let runeAtk = 0, runeDef = 0, runeHp = 0, runeSpd = 0, runeCrit = 0, runeDodge = 0, runeExp = 0, runeGold = 0;
-    let runeDropRate = 0;
-    if (p.itemRunes && p.equipped) {
-        for (const eqId of Object.values(p.equipped)) {
-            const runes = p.itemRunes[eqId];
-            if (!runes) continue;
-            // 개별 룬 스탯
-            for (const rId of runes) {
-                const r = RUNES[rId];
-                if (!r) continue;
-                if (r.stat === 'atk') runeAtk += r.value;
-                if (r.stat === 'def') runeDef += r.value;
-                if (r.stat === 'hp') runeHp += r.value;
-                if (r.stat === 'spd') runeSpd += r.value;
-                if (r.stat === 'crit') runeCrit += r.value;
-                if (r.stat === 'dodge') runeDodge += r.value;
-                if (r.stat === 'exp') runeExp += r.value;
-                if (r.stat === 'gold') runeGold += r.value;
-                if (r.stat === 'mp') { /* MP는 별도 처리 */ }
-                if (r.stat === 'all') { runeAtk += r.value; runeDef += r.value; }
-            }
-            // 룬 워드 보너스
-            const runeKey = [...runes].sort().join('');
-            const rw = RUNE_WORDS[runeKey];
-            if (rw && rw.bonus) {
-                if (rw.bonus.atk) runeAtk += rw.bonus.atk;
-                if (rw.bonus.def) runeDef += rw.bonus.def;
-                if (rw.bonus.spd) runeSpd += rw.bonus.spd;
-                if (rw.bonus.exp) runeExp += rw.bonus.exp;
-                if (rw.bonus.hpRegen) { /* 별도 처리 */ }
-                if (rw.bonus.dropRate) runeDropRate += rw.bonus.dropRate;
-            }
-        }
-    }
-
-    // ── 프레스티지 (환생) 영구 보너스 ──
-    let legacyAtk = 0, legacyDef = 0, legacyHp = 0, legacySpd = 0, legacyCrit = 0;
-    let legacyExpBonus = 0, legacyGoldBonus = 0, legacyDropRate = 0, legacyAllMulti = 1;
-    if (p.legacyPerks && p.legacyPerks.length > 0) {
-        for (const perk of p.legacyPerks) {
-            if (perk.stat === 'atk') legacyAtk += perk.value;
-            if (perk.stat === 'def') legacyDef += perk.value;
-            if (perk.stat === 'hp') legacyHp += perk.value;
-            if (perk.stat === 'spd') legacySpd += perk.value;
-            if (perk.stat === 'crit') legacyCrit += perk.value;
-            if (perk.stat === 'goldBonus') legacyGoldBonus += perk.value;
-            if (perk.stat === 'expBonus') legacyExpBonus += perk.value;
-            if (perk.stat === 'dropRate') legacyDropRate += perk.value;
-            if (perk.stat === 'allMulti') legacyAllMulti += perk.value;
-        }
-    }
-
-    // ── 전직 보너스 ──
-    const ab = p.advanceBonus || {};
-    const advAtk = ab.atk || 0, advDef = ab.def || 0, advHp = ab.hp || 0;
-    const advCrit = ab.crit || 0, advDodge = ab.dodge || 0;
-
-    // ── 진영 보너스 ──
-    let factionAtkMulti = 1, factionDefMulti = 1;
-    if (p.faction && FACTIONS[p.faction]) {
-        const fb = FACTIONS[p.faction];
-        if (fb.bonus === 'atk') factionAtkMulti += fb.bonusValue;
-        if (fb.bonus === 'def') factionDefMulti += fb.bonusValue;
-    }
-
-    // ── 칭호 보너스 ──
-    let titleAtk = 0, titleExp = 0;
-    const tb = getTitleBonus(p, 'atk'); if (tb) titleAtk = tb;
-    const te = getTitleBonus(p, 'expBonus'); if (te) titleExp = te;
-
-    // ── 최종 스탯 계산 ──
-    p.atk = Math.floor((cls.atk + bonusAtk + setAtkBonus + runeAtk + legacyAtk + advAtk + str * 2) * petAtkMulti * setAtkMulti * factionAtkMulti * legacyAllMulti * (1 + titleAtk));
-    p.def = Math.floor((cls.def + bonusDef + setDefBonus + runeDef + legacyDef + advDef) * setDefMulti * factionDefMulti * legacyAllMulti);
-    p.equipBonusHp = bonusHp + con * 10 + setHpBonus + runeHp + legacyHp + advHp;
-    p.maxHp = (cls.maxHp || cls.hp || 100) + (p.level - 1) * 20 + p.equipBonusHp;
-    p.dmgMulti = 1.0 + (p.level - 1) * 0.08 + int_ * 0.02;
-    p.critRate = (cls.critRate || 0.1) + bonusCrit + runeCrit + legacyCrit + advCrit + dex * 0.005;
-    p.dodgeRate = (cls.dodgeRate || 0) + bonusDodge + runeDodge + advDodge + dex * 0.003;
-    p.equipBonusSpd = bonusSpd + runeSpd + legacySpd;
-    p.equipExpBonus = bonusExp + setExpBonus + runeExp + legacyExpBonus + titleExp;
-    p.equipGoldBonus = bonusGold + runeGold + legacyGoldBonus;
-    p.dropRateBonus = runeDropRate + legacyDropRate;
-}
-
-function trackQuest(p, target, amount) {
-    if (!p || p.isBot) return;
-    if (!p.questProgress) p.questProgress = {};
-    for (const [qId, q] of Object.entries(QUESTS)) {
-        if (q.target === target && !(p.questCompleted && p.questCompleted[qId])) {
-            if (target === 'reach_level') {
-                p.questProgress[qId] = p.level;
-            } else if (target === 'army_count') {
-                let count = 0;
-                for (const bId in players) { if (players[bId].isBot && players[bId].ownerId === p.id && players[bId].isAlive) count++; }
-                p.questProgress[qId] = count;
-            } else {
-                p.questProgress[qId] = (p.questProgress[qId] || 0) + (amount || 1);
-            }
-        }
-    }
-    // v1.29: 시즌 패스 XP 자동 적립
-    const seasonSource = SEASON_XP_MAP[target];
-    if (seasonSource) {
-        const result = seasonPass.addSeasonXp(p, seasonSource);
-        if (result.gained && result.tier > (p.seasonTierAchieved || 0)) {
-            p.seasonTierAchieved = result.tier;
-            try {
-                io.to(p.id).emit('season_tier_up', { tier: result.tier, totalXp: result.totalXp });
-            } catch (_) {}
-        }
-    }
-    // v1.33: 도감 자동 발견 — explore_count 추적 시 현재 존을 zone 도감에 등록
-    if (target === 'explore_count' && p.currentZone) {
-        codexDiscover(p, 'zone', p.currentZone);
-    }
-}
+// extracted to game/combat.js (Phase 3c refactor)
 
 function updateRankings() {
     const oldLevelTop = rankings.level ? rankings.level.map(r => r.id) : [];
