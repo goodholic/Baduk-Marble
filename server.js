@@ -16,7 +16,7 @@ const world = require('./game/world');
 const { isOnRoad, isBlocked, isSlowTerrain, getZone, getNpcMsg } = world;
 // Phase 4 refactor: 게임 루프 분리
 const loops = require('./game/loops');
-const { expireMarketListings, destroyAxe, syncGameState } = loops;
+const { expireMarketListings, destroyAxe, syncGameState, updatePassives, updatePlayerAutoSkills } = loops;
 // Phase 3 refactor: 전투/스폰/랭킹 모듈
 const combat = require('./game/combat');
 const {
@@ -388,6 +388,10 @@ loops.init({
     getCurrentWeather: () => currentWeather,
     getWorldTime: () => worldTime,
     get serverStartTime() { return serverStartTime; },
+    // Phase 4b
+    getSKILLS: () => SKILLS,
+    getBuffedStat,
+    spawnMonster,
 });
 
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
@@ -6146,136 +6150,10 @@ setInterval(() => {
 // extracted to game/loops.js (Phase 4a refactor)
 
 // 패시브 스킬 적용 — 모든 플레이어 (봇 + 실제 유저) 대상
-function updatePassives() {
-    // 1) 매 틱 시작에 aura 효과 리셋 (지속 누적/잔존 방지)
-    for (const id in players) {
-        const p = players[id];
-        if (!p) continue;
-        if (p.auraDefMulti) p.auraDefMulti = 1;
-    }
-    // 2) 패시브 적용
-    for (const id in players) {
-        const p = players[id];
-        if (!p || !p.isAlive) continue;
-        if (!p.passiveApplied) p.passiveApplied = {};
-        const baseClassName = p.baseClassName || p.className;
-        const classSkills = SKILLS[baseClassName];
-        if (!classSkills) continue;
-        for (const skill of classSkills) {
-            if (skill.type !== 'passive' || p.level < skill.level) continue;
-            // 워리어 - 분노: HP 임계치 이하 시 ATK 보너스
-            if (skill.atkBonus && skill.hpThreshold) {
-                if (p.hp < p.maxHp * skill.hpThreshold) {
-                    p.passiveAtkBonus = skill.atkBonus;
-                } else {
-                    p.passiveAtkBonus = 0;
-                }
-            }
-            // 나이트 - 수호 오라: 주변 아군 DEF 증가 (매 틱 갱신)
-            if (skill.allyDefMulti && skill.auraRange) {
-                for (const aid in players) {
-                    if (aid === id) continue;
-                    const ally = players[aid];
-                    if (!ally.isAlive) continue;
-                    // 같은 팀 또는 같은 소유주
-                    const sameTeam = ally.team === p.team;
-                    const sameOwner = ally.ownerId === p.ownerId || ally.ownerId === id || aid === p.ownerId;
-                    if (!sameTeam && !sameOwner) continue;
-                    const auraDist = Math.hypot(ally.x - p.x, ally.y - p.y);
-                    if (auraDist <= skill.auraRange) {
-                        // 가장 강한 오라가 적용되도록 max
-                        ally.auraDefMulti = Math.max(ally.auraDefMulti || 1, skill.allyDefMulti);
-                    }
-                }
-            }
-            // 클레릭 - 치유의 손길: 주변 아군 + 자기 자신 HP 회복 (updatePassives 호출당 1회)
-            if (skill.healAuraTick && skill.auraRange) {
-                const healAmt = skill.healAuraTick;
-                // 자기 자신 회복
-                if (p.hp < p.maxHp) {
-                    p.hp = Math.min(p.maxHp, p.hp + healAmt);
-                }
-                for (const aid in players) {
-                    if (aid === id) continue;
-                    const ally = players[aid];
-                    if (!ally.isAlive || ally.hp >= ally.maxHp) continue;
-                    const sameTeam = ally.team === p.team;
-                    const sameOwner = ally.ownerId === p.ownerId || ally.ownerId === id || aid === p.ownerId;
-                    if (!sameTeam && !sameOwner) continue;
-                    const auraDist = Math.hypot(ally.x - p.x, ally.y - p.y);
-                    if (auraDist <= skill.auraRange) {
-                        ally.hp = Math.min(ally.maxHp, ally.hp + healAmt);
-                        io.to(aid).emit('combat_log', { msg: `클레릭의 치유 +${healAmt} HP` });
-                    }
-                }
-            }
-        }
-    }
-}
+// extracted to game/loops.js (Phase 4b refactor)
 
 // 인간 플레이어 자동 스킬 시전 (autoSkill 토글 시)
-function updatePlayerAutoSkills() {
-    const now = Date.now();
-    for (const id in players) {
-        const p = players[id];
-        if (p.isBot || !p.isAlive || !p.autoSkill) continue;
-        if (!p.skillCooldowns) p.skillCooldowns = {};
-        const baseClassName = p.baseClassName || p.className;
-        const classSkills = SKILLS[baseClassName];
-        if (!classSkills) continue;
-
-        // 가장 가까운 적/몬스터 찾기
-        let target = null, minDist = 9999;
-        for (const mId in monsters) {
-            const m = monsters[mId];
-            if (!m.isAlive) continue;
-            const d = Math.hypot(m.x - p.x, m.y - p.y);
-            if (d < minDist && d < 8) { minDist = d; target = m; }
-        }
-        if (!target) continue;
-
-        // 스킬 자동 시전 (액티브만)
-        for (const skill of classSkills) {
-            if (skill.type === 'passive') continue;
-            if (p.level < skill.level) continue;
-            if (skill.mpCost && (p.mp || 0) < skill.mpCost) continue;
-            const lastUsed = p.skillCooldowns[skill.name] || 0;
-            if (now - lastUsed < skill.cooldown * 1000) continue;
-            // 사거리 검사
-            if (skill.range && minDist > skill.range) continue;
-
-            p.skillCooldowns[skill.name] = now;
-            if (skill.mpCost) p.mp = Math.max(0, (p.mp || 0) - skill.mpCost);
-
-            // 데미지 스킬
-            if (skill.dmgMulti) {
-                const buffedAtk = (typeof getBuffedStat === 'function' ? getBuffedStat(p, 'atk') : p.atk) || p.atk || 10;
-                const skillDmg = Math.floor(buffedAtk * skill.dmgMulti * (p.dmgMulti || 1));
-                target.hp -= skillDmg;
-                io.emit('skill_effect', { casterId: id, skillName: skill.name, type: 'cast', targetX: target.x, targetY: target.y });
-                io.emit('monster_hit', { id: target.id, hp: target.hp, damage: skillDmg, isCrit: false, skillName: skill.name, maxHp: target.maxHp });
-                io.to(id).emit('combat_log', { msg: `${skill.name} → ${skillDmg}` });
-                if (target.hp <= 0) {
-                    target.isAlive = false;
-                    delete monsters[target.id];
-                    spawnMonster();
-                }
-                break; // 한 번에 한 스킬만
-            }
-            // 버프 스킬
-            if (skill.buff) {
-                if (!p.activeBuffs) p.activeBuffs = {};
-                p.activeBuffs['skill_'+skill.name] = {
-                    name: skill.name, stat: skill.allyAtkMulti ? 'atk' : 'def',
-                    multi: skill.allyAtkMulti || skill.dmgReduce || 1.2,
-                    startTime: now, endTime: now + (skill.duration || 10) * 1000, icon: 'skill',
-                };
-                io.to(id).emit('combat_log', { msg: `${skill.name} 발동!` });
-                break;
-            }
-        }
-    }
-}
+// extracted to game/loops.js (Phase 4b refactor)
 
 function updateBots() {
     for (let id in players) {
