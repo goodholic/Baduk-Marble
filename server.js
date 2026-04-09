@@ -31,6 +31,7 @@ const skillWave = require('./game/skill_wave');
 const achievements = require('./game/achievements');
 const superBoss = require('./game/super_boss');
 const territoryWar = require('./game/territory_war');
+const wishTree = require('./game/wish_tree');
 const { handleRaidFinish, codexDiscover, finishBossRush, updateTownPrices, generateRandomOptions, logWorldEvent } = serverHelpers;
 const { expireMarketListings, destroyAxe, syncGameState, updatePassives, updatePlayerAutoSkills, updateBots, giveExp, handleCollisions, handleAoeDamage, handlePlayerDeath } = loops;
 // Phase 3 refactor: 전투/스폰/랭킹 모듈
@@ -555,6 +556,7 @@ async function savePlayer(player) {
         _relicFusion: player._relicFusion || null,
         _skillWave: player._skillWave || null,
         _achievements: player._achievements || null,
+        _wishTree: player._wishTree || null,
     });
 
     try {
@@ -888,7 +890,7 @@ registerConnection(io, {
     createBot, createAutoArmy, alertArmy, executeThrow,
     generateRandomOptions, codexDiscover, handleRaidFinish, finishBossRush,
     SEASON_XP_MAP, ELEMENTS, FACTIONS, RUNES, RUNE_WORDS, TRAINING_DRILLS_NAMES,
-    questChain, bossSummon, weatherDungeon, pvpMatch, bountyHunter, raceSystem, relicFusion, skillWave, achievements, superBoss, territoryWar,
+    questChain, bossSummon, weatherDungeon, pvpMatch, bountyHunter, raceSystem, relicFusion, skillWave, achievements, superBoss, territoryWar, wishTree,
     // mutable primitives via getters
     get isNight() { return isNight; },
     get currentWeather() { return currentWeather; },

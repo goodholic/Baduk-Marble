@@ -165,6 +165,7 @@ function registerCoreConnectionHandlers(socket, $) {
                         _relicFusion: ext._relicFusion || null,
                         _skillWave: ext._skillWave || null,
                         _achievements: ext._achievements || null,
+                        _wishTree: ext._wishTree || null,
                     });
                     if (pInfo.isAdvanced && pInfo.advancedClass) {
                         const adv = CLASS_ADVANCE[pInfo.baseClassName || pInfo.className];

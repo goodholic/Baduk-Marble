@@ -79,6 +79,7 @@ const { registerSkillWaveHandlers } = require('./skill_wave_handlers');
 const { registerAchievementHandlers } = require('./achievement_handlers');
 const { registerSuperBossHandlers } = require('./super_boss_handlers');
 const { registerTerritoryWarHandlers } = require('./territory_war_handlers');
+const { registerWishTreeHandlers } = require('./wish_tree_handlers');
 
 function registerConnection(io, $) {
 
@@ -184,6 +185,7 @@ io.on("connection", (socket) => {
     registerAchievementHandlers(socket, { io, players, playerId, savePlayer, achievements: $.achievements });
     registerSuperBossHandlers(socket, { io, players, playerId, savePlayer, superBoss: $.superBoss, trackQuest: $.trackQuest });
     registerTerritoryWarHandlers(socket, { io, players, playerId, savePlayer, territoryWar: $.territoryWar });
+    registerWishTreeHandlers(socket, { io, players, playerId, savePlayer, wishTree: $.wishTree });
     registerWeatherDungeonHandlers(socket, {
         io, players, playerId, savePlayer,
         weatherDungeon: $.weatherDungeon,
