@@ -68,6 +68,7 @@ const { registerMaskHandlers } = require('./mask_handlers');
 const { registerHeraldryHandlers } = require('./heraldry_handlers');
 const { registerRiftHandlers } = require('./rift_handlers');
 const { registerGardenHandlers } = require('./garden_handlers');
+const { registerQuestChainHandlers } = require('./quest_chain_handlers');
 
 function registerConnection(io, $) {
 
