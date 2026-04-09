@@ -965,6 +965,25 @@ function handleCollisions() {
                     $.trackQuest(realOwner, 'total_gold', realOwner._totalGoldEarned);
                     giveExp(owner, Math.floor(mobExpReward * expMulti));
 
+                    // v2.20: 소환석 드롭 (15% 확률)
+                    if (!realOwner.isBot && Math.random() < 0.15) {
+                        const stoneKeys = Object.keys($.SUMMON_STONES || {});
+                        if (stoneKeys.length > 0) {
+                            // 가중치 기반 선택
+                            const stones = $.SUMMON_STONES;
+                            const totalW = stoneKeys.reduce((s, k) => s + (stones[k].dropWeight || 1), 0);
+                            let roll = Math.random() * totalW;
+                            let picked = stoneKeys[0];
+                            for (const k of stoneKeys) {
+                                roll -= (stones[k].dropWeight || 1);
+                                if (roll <= 0) { picked = k; break; }
+                            }
+                            if (!realOwner.inventory) realOwner.inventory = {};
+                            realOwner.inventory[picked] = (realOwner.inventory[picked] || 0) + 1;
+                            io.to(realOwner.id).emit('combat_log', { msg: `${stones[picked].icon} ${stones[picked].name} 획득!` });
+                        }
+                    }
+
                     // 변신 처치 카운트
                     if (!realOwner.morphKills) realOwner.morphKills = {};
                     if (mob.tier === 'normal') realOwner.morphKills['slime'] = (realOwner.morphKills['slime']||0) + 1;

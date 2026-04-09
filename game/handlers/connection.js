@@ -69,6 +69,7 @@ const { registerHeraldryHandlers } = require('./heraldry_handlers');
 const { registerRiftHandlers } = require('./rift_handlers');
 const { registerGardenHandlers } = require('./garden_handlers');
 const { registerQuestChainHandlers } = require('./quest_chain_handlers');
+const { registerBossSummonHandlers } = require('./boss_summon_handlers');
 
 function registerConnection(io, $) {
 
@@ -165,6 +166,7 @@ io.on("connection", (socket) => {
     registerRiftHandlers(socket, { io, players, playerId, savePlayer, rift });
     registerGardenHandlers(socket, { io, players, playerId, savePlayer, garden });
     registerQuestChainHandlers(socket, { io, players, playerId, savePlayer, questChain: $.questChain });
+    registerBossSummonHandlers(socket, { io, players, playerId, savePlayer, bossSummon: $.bossSummon });
     registerMiscHandlers(socket, {
         io, players, playerId, savePlayer, MAX_GOLD,
         statistics, timeCapsule, invitation, honor, passport, aura, dashboard,

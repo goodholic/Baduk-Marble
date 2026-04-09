@@ -21,6 +21,7 @@ const { registerConnection } = require('./game/handlers/connection');
 // Helper functions
 const serverHelpers = require('./game/server_helpers');
 const questChain = require('./game/quest_chain');
+const bossSummon = require('./game/boss_summon');
 const { handleRaidFinish, codexDiscover, finishBossRush, updateTownPrices, generateRandomOptions, logWorldEvent } = serverHelpers;
 const { expireMarketListings, destroyAxe, syncGameState, updatePassives, updatePlayerAutoSkills, updateBots, giveExp, handleCollisions, handleAoeDamage, handlePlayerDeath } = loops;
 // Phase 3 refactor: 전투/스폰/랭킹 모듈
@@ -356,6 +357,7 @@ loops.init({
     get MAX_LEVEL() { return MAX_LEVEL; },
     capResources,
     get skillTree() { return skillTree; },
+    SUMMON_STONES: bossSummon.SUMMON_STONES,
     savePlayer: (p) => savePlayer(p),
     trackQuest,
     getPetEffect,
@@ -533,6 +535,7 @@ async function savePlayer(player) {
         _storyQuests: player._storyQuests || null,
         _totalPlaytime: player._totalPlaytime || 0,
         _totalGoldEarned: player._totalGoldEarned || 0,
+        _summons: player._summons || null,
     });
 
     try {
@@ -866,7 +869,7 @@ registerConnection(io, {
     createBot, createAutoArmy, alertArmy, executeThrow,
     generateRandomOptions, codexDiscover, handleRaidFinish, finishBossRush,
     SEASON_XP_MAP, ELEMENTS, FACTIONS, RUNES, RUNE_WORDS, TRAINING_DRILLS_NAMES,
-    questChain,
+    questChain, bossSummon,
     // mutable primitives via getters
     get isNight() { return isNight; },
     get currentWeather() { return currentWeather; },
