@@ -518,8 +518,9 @@ app.use(express.json());
 const PORT = process.env.PORT || 3000;
 const serverStartTime = Date.now();
 
-// 토스페이먼츠 테스트 키
+// 토스페이먼츠 시크릿 키 (프로덕션에서는 반드시 환경변수 설정)
 const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY || 'test_sk_zXLkKEypNArWmo50nX3lmeaxYG5R';
+if (!process.env.TOSS_SECRET_KEY) console.warn('[Payment] TOSS_SECRET_KEY 미설정 — 테스트 키 사용 중 (프로덕션 배포 전 설정 필요)');
 
 // 다이아몬드 상품
 

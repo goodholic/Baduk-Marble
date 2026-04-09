@@ -220,6 +220,12 @@ function registerSocialConnectionHandlers(socket, $) {
         const p = players[playerId];
         if (!p || p.level < 15) { socket.emit('mail_result', { msg: 'Lv.15 이상 필요' }); return; }
         if (!data) return;
+        // 메일 발송 쿨다운 (5초)
+        const now = Date.now();
+        if (p._lastMailSend && now - p._lastMailSend < 5000) {
+            socket.emit('mail_result', { msg: '5초 후 다시 보내세요' }); return;
+        }
+        p._lastMailSend = now;
         const targetName = data.targetName;
         const itemId = data.itemId;
         const itemCount = Math.floor(Number(data.itemCount));
