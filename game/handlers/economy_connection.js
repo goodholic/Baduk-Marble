@@ -564,6 +564,7 @@ function registerEconomyConnectionHandlers(socket, $) {
         if (!p) return;
         const result = handleEvolvePet(p, petId);
         if (result.success) {
+            trackQuest(p, 'pet_evolve', 1);
             savePlayer(p);
             io.emit('player_update', p);
             io.emit('server_msg', { msg: `${p.displayName}이(가) 펫을 진화시켰습니다: ${result.msg}`, type: 'rare' });

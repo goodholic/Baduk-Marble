@@ -1304,6 +1304,7 @@ const TICK_TIME = 1000 / TICK_RATE;
 let tickCounter = 0;
 
 setInterval(() => {
+  try {
     tickCounter++;
     if (tickCounter > 1e8) tickCounter = 0; // 정수 정밀도 오버플로우 방지
 
@@ -2160,6 +2161,9 @@ setInterval(() => {
     if (tickCounter % 15 === 0) handleAoeDamage();
 
     syncGameState();
+  } catch (err) {
+    console.error('[GameLoop] tick error:', err.message, err.stack?.split('\n')[1]);
+  }
 }, TICK_TIME);
 
 // ==========================================

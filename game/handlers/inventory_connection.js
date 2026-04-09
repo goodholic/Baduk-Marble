@@ -270,6 +270,7 @@ function registerInventoryConnectionHandlers(socket, $) {
             p.enchantLevels[itemId] = Math.min(gradeInfo.maxEnchant, curLevel + enchantGain);
             recalcStats(p);
             const newLevel = p.enchantLevels[itemId];
+            trackQuest(p, 'enchant_level', newLevel); // 최고 강화 레벨 추적
             const announce = newLevel >= 10 ? 'rare' : newLevel >= 7 ? 'normal' : null;
             if (announce && !jackpotMsg) io.emit('server_msg', { msg: `${p.displayName}: ${eq.name} +${newLevel} 강화 성공!`, type: announce });
             socket.emit('enchant_result', { success: true, msg: `${jackpotMsg || ''} ${eq.name} +${newLevel} 성공!${enchantGain > 1 ? ' (+' + enchantGain + '!)' : ''} (${rate}%)`, jackpot: jackpotMsg || null });

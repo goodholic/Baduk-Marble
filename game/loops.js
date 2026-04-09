@@ -877,8 +877,10 @@ function handleCollisions() {
                             const expReward = Math.floor(mob.expReward * ratio * 2);
                             p.gold += goldReward;
                             giveExp(p, expReward);
+                            $.trackQuest(p, 'worldboss_kill', 1);
                             // MVP (1위)에게 전설 재료 보너스
                             if (pid === sorted[0][0]) {
+                                $.trackQuest(p, 'worldboss_mvp', 1);
                                 if (!p.inventory) p.inventory = {};
                                 p.inventory['mat_dragon'] = (p.inventory['mat_dragon']||0) + 3;
                                 io.to(pid).emit('combat_log', { msg: `MVP 보너스! 드래곤 비늘 x3, ${goldReward}G, ${expReward} EXP` });
@@ -955,6 +957,7 @@ function handleCollisions() {
                     if (ks.count % 10 === 0 && ks.count >= 10) {
                         io.to(realOwner.id).emit('kill_streak_bonus', { count: ks.count, multi: goldMulti });
                     }
+                    $.trackQuest(realOwner, 'kill_streak', ks.count); // 최대 스트릭 추적
 
                     realOwner.gold += Math.floor(mobGoldReward * goldMulti);
                     giveExp(owner, Math.floor(mobExpReward * expMulti));
