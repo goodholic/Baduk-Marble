@@ -47,15 +47,17 @@ function registerAuctionHandlers(socket, ctx) {
       socket.emit('auction_bid_result', { success: false, msg: '필수 정보 누락' });
       return;
     }
+    // 입찰 전 이전 입찰자 기록 (환불용)
     const a = auction._auctions[data.auctionId];
     const prevBidderId = a ? a.currentBidderId : null;
-    const prevBid = a ? a.currentBid : 0;
+    const prevBid = a ? (a.currentBid || 0) : 0;
 
     const result = auction.placeBid(p, data.auctionId, Number(data.amount));
     socket.emit('auction_bid_result', result);
 
     if (result.success) {
-      if (prevBidderId && prevBidderId !== p.id && players[prevBidderId]) {
+      // 이전 입찰자 환불 (prevBid가 0이면 건너뜀)
+      if (prevBidderId && prevBidderId !== p.id && prevBid > 0 && players[prevBidderId]) {
         const prev = players[prevBidderId];
         prev.gold = Math.min(MAX_GOLD, (prev.gold || 0) + prevBid);
         savePlayer(prev);

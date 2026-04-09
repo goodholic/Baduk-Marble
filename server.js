@@ -5111,8 +5111,8 @@ io.on('connection', (socket) => {
 
             savePlayer(p);
 
-            for (let bId in players) {
-                if (players[bId].isBot && players[bId].ownerId === playerId) {
+            for (const bId of Object.keys(players)) {
+                if (players[bId] && players[bId].isBot && players[bId].ownerId === playerId) {
                     io.emit('player_leave', bId);
                     delete players[bId];
                 }
@@ -5396,6 +5396,7 @@ setInterval(() => {
                             m.lastSpecialAttack = now;
                             // 브레스: 방향으로 범위 6, 폭 2의 직선 공격
                             const breathDmg = Math.floor(m.atk * 2.0);
+                            if (mag < 0.01) break; // 거리 0이면 방향 계산 불가
                             const bdx = dx / mag, bdy = dy / mag;
                             for (const pId in players) {
                                 const p = players[pId];
@@ -5545,6 +5546,7 @@ setInterval(() => {
 
     // 버프/디버프 업데이트 (매 틱)
     for (let pId in players) {
+        if (!players[pId]) continue;
         if (players[pId].isAlive) updateBuffs(players[pId]);
     }
 
@@ -5552,6 +5554,7 @@ setInterval(() => {
     if (tickCounter % 60 === 0) {
         for (let pId in players) {
             const p = players[pId];
+            if (!p) continue;
             if (p.isAlive && p.hp < p.maxHp) {
                 let regenRate = 0.01; // 1%/2초 (2%에서 하향)
                 const pet = getPetEffect(p);
@@ -6158,12 +6161,13 @@ function updatePassives() {
     // 1) 매 틱 시작에 aura 효과 리셋 (지속 누적/잔존 방지)
     for (const id in players) {
         const p = players[id];
+        if (!p) continue;
         if (p.auraDefMulti) p.auraDefMulti = 1;
     }
     // 2) 패시브 적용
     for (const id in players) {
         const p = players[id];
-        if (!p.isAlive) continue;
+        if (!p || !p.isAlive) continue;
         if (!p.passiveApplied) p.passiveApplied = {};
         const baseClassName = p.baseClassName || p.className;
         const classSkills = SKILLS[baseClassName];
@@ -6287,7 +6291,7 @@ function updatePlayerAutoSkills() {
 function updateBots() {
     for (let id in players) {
         const p = players[id];
-        if (!p.isBot || !p.isAlive) continue;
+        if (!p || !p.isBot || !p.isAlive) continue;
 
         const cls = CLASSES[p.className];
         if (!cls) continue;
@@ -6608,9 +6612,9 @@ function updateBots() {
             }
 
             // 주인과 거리 체크 → 너무 멀면 강제 복귀
-            if (p.ownerId && players[p.ownerId] && cls.speed > 0) {
+            if (p.ownerId && players[p.ownerId] && players[p.ownerId].isAlive && cls.speed > 0) {
                 const ownerDist = Math.hypot(p.x - players[p.ownerId].x, p.y - players[p.ownerId].y);
-                if (ownerDist > 15) {
+                if (ownerDist > 15 && ownerDist > 0) {
                     // 주인에게 강제 복귀 (타겟 포기)
                     target = null;
                     const owner = players[p.ownerId];
@@ -7507,8 +7511,8 @@ function handlePlayerDeath(target, targetId, owner, attackerId) {
     target.targetId = null;
 
     // 군대 소멸
-    for (let bId in players) {
-        if (players[bId].isBot && players[bId].ownerId === targetId) {
+    for (const bId of Object.keys(players)) {
+        if (players[bId] && players[bId].isBot && players[bId].ownerId === targetId) {
             players[bId].isAlive = false;
             io.emit('player_die', { victimId: bId, attackerId, stolen: false });
             delete players[bId];
