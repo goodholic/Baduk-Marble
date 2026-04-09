@@ -189,151 +189,92 @@ const timeCapsule = require('./game/time_capsule');
 // v1.81: 서버 통계 모듈 (생성 + 통합 동시)
 const statistics = require('./game/statistics');
 // v1.82~: 핸들러 분리 리팩토링
-const { registerLotteryHandlers } = require('./game/handlers/lottery_handlers');
-const { registerFishingHandlers } = require('./game/handlers/fishing_handlers');
-const { registerEventHandlers } = require('./game/handlers/event_handlers');
-const { registerAuctionHandlers } = require('./game/handlers/auction_handlers');
-const { registerBossRushHandlers } = require('./game/handlers/boss_rush_handlers');
-const { registerSeasonHandlers } = require('./game/handlers/season_handlers');
-const { registerFarmHandlers } = require('./game/handlers/farm_handlers');
-const { registerSkillTreeHandlers } = require('./game/handlers/skill_tree_handlers');
-const { registerMailHandlers } = require('./game/handlers/mail_handlers');
-const { registerCodexHandlers } = require('./game/handlers/codex_handlers');
-const { registerDailyShopHandlers } = require('./game/handlers/daily_shop_handlers');
-const { registerRunesHandlers } = require('./game/handlers/runes_handlers');
-const { registerBreedingHandlers } = require('./game/handlers/breeding_handlers');
-const { registerRelicHandlers } = require('./game/handlers/relic_handlers');
-const { registerTreasureMapHandlers } = require('./game/handlers/treasure_map_handlers');
-const { registerTrainingHandlers } = require('./game/handlers/training_handlers');
-const { registerPetBattleHandlers } = require('./game/handlers/pet_battle_handlers');
-const { registerExpeditionHandlers } = require('./game/handlers/expedition_handlers');
-const { registerRaidHandlers } = require('./game/handlers/raid_handlers');
-const { registerTransmutationHandlers } = require('./game/handlers/transmutation_handlers');
-const { registerJobsHandlers } = require('./game/handlers/jobs_handlers');
-const { registerBlackMarketHandlers } = require('./game/handlers/black_market_handlers');
-const { registerLeaderboardHandlers } = require('./game/handlers/leaderboard_handlers');
-const { registerCompanionHandlers } = require('./game/handlers/companion_handlers');
-const { registerWorldEventHandlers } = require('./game/handlers/world_event_handlers');
-const { registerPostofficeHandlers } = require('./game/handlers/postoffice_handlers');
-const { registerTransmogHandlers } = require('./game/handlers/transmog_handlers');
-const { registerFortuneHandlers } = require('./game/handlers/fortune_handlers');
-const { registerInsuranceHandlers } = require('./game/handlers/insurance_handlers');
-const { registerMiscHandlers } = require('./game/handlers/misc_handlers');
 // v1.90: 일기장 모듈 (생성 + 통합 + 핸들러 분리)
 const diary = require('./game/diary');
-const { registerDiaryHandlers } = require('./game/handlers/diary_handlers');
 
 // v1.91: 명상 모듈
 const meditation = require('./game/meditation');
-const { registerMeditationHandlers } = require('./game/handlers/meditation_handlers');
 
 // v1.92: 요리 모듈
 const cooking = require('./game/cooking');
-const { registerCookingHandlers } = require('./game/handlers/cooking_handlers');
 
 // v1.93: 별자리 모듈
 const constellation = require('./game/constellation');
-const { registerConstellationHandlers } = require('./game/handlers/constellation_handlers');
 
 // v1.94: 기상 모듈
 const weather = require('./game/weather');
-const { registerWeatherHandlers } = require('./game/handlers/weather_handlers');
 
 // v1.95: 보석 세공 모듈
 const gemcraft = require('./game/gemcraft');
-const { registerGemcraftHandlers } = require('./game/handlers/gemcraft_handlers');
 
 // v1.96: 신탁 모듈
 const oracle = require('./game/oracle');
-const { registerOracleHandlers } = require('./game/handlers/oracle_handlers');
 
 // v1.97: 채집 모듈
 const gathering = require('./game/gathering');
-const { registerGatheringHandlers } = require('./game/handlers/gathering_handlers');
 
 // v1.98: 제련 모듈
 const forge = require('./game/forge');
-const { registerForgeHandlers } = require('./game/handlers/forge_handlers');
 
 // v1.99: 위인 전당 모듈
 const legends = require('./game/legends');
-const { registerLegendsHandlers } = require('./game/handlers/legends_handlers');
 
 // v2.0 마일스톤: 보너스 집계 모듈 (v1.91~v1.99 active bonus 통합)
 const bonusAggregator = require('./game/bonus_aggregator');
-const { registerBonusHandlers } = require('./game/handlers/bonus_handlers');
 
 // v2.01: 변신 모듈
 const morph = require('./game/morph');
-const { registerMorphHandlers } = require('./game/handlers/morph_handlers');
 
 // v2.02: 차원문 모듈
 const waypoint = require('./game/waypoint');
-const { registerWaypointHandlers } = require('./game/handlers/waypoint_handlers');
 
 // v2.03: 친구/우정 모듈
 const friends = require('./game/friends');
-const { registerFriendsHandlers } = require('./game/handlers/friends_handlers');
 
 // v2.04: 프로필 카드 모듈
 const profile = require('./game/profile');
-const { registerProfileHandlers } = require('./game/handlers/profile_handlers');
 
 // v2.05: 카지노 모듈
 const casino = require('./game/casino');
-const { registerCasinoHandlers } = require('./game/handlers/casino_handlers');
 
 // v2.06: 이모트 모듈
 const emote = require('./game/emote');
-const { registerEmoteHandlers } = require('./game/handlers/emote_handlers');
 
 // v2.07: 미궁 모듈
 const labyrinth = require('./game/labyrinth');
-const { registerLabyrinthHandlers } = require('./game/handlers/labyrinth_handlers');
 
 // v2.08: 항해 모듈
 const sailing = require('./game/sailing');
-const { registerSailingHandlers } = require('./game/handlers/sailing_handlers');
 
 // v2.09: 유물 발굴 모듈
 const excavation = require('./game/excavation');
-const { registerExcavationHandlers } = require('./game/handlers/excavation_handlers');
 
 // v2.10: 꿈 모듈
 const dream = require('./game/dream');
-const { registerDreamHandlers } = require('./game/handlers/dream_handlers');
 
 // v2.11: 음악/연주 모듈
 const music = require('./game/music');
-const { registerMusicHandlers } = require('./game/handlers/music_handlers');
 
 // v2.12: 타로 모듈
 const tarot = require('./game/tarot');
-const { registerTarotHandlers } = require('./game/handlers/tarot_handlers');
 
 // v2.13: 부적 모듈
 const talisman = require('./game/talisman');
-const { registerTalismanHandlers } = require('./game/handlers/talisman_handlers');
 
 // v2.14: 소원의 우물 모듈
 const wishingWell = require('./game/wishing_well');
-const { registerWishingWellHandlers } = require('./game/handlers/wishing_well_handlers');
 
 // v2.15: 가면 모듈
 const mask = require('./game/mask');
-const { registerMaskHandlers } = require('./game/handlers/mask_handlers');
 
 // v2.16: 가문 문장 모듈
 const heraldry = require('./game/heraldry');
-const { registerHeraldryHandlers } = require('./game/handlers/heraldry_handlers');
 
 // v2.17: 차원 균열 모듈
 const rift = require('./game/rift');
-const { registerRiftHandlers } = require('./game/handlers/rift_handlers');
 
 // v2.18: 정원 모듈
 const garden = require('./game/garden');
-const { registerGardenHandlers } = require('./game/handlers/garden_handlers');
 
 // Phase 2 refactor: world 모듈에 데이터 + lazy getter 주입
 // FACTIONS / isNight / currentWeather 는 server.js 후반부에 declared 되므로
@@ -852,17 +793,12 @@ let arenaMatchIdCounter = 0;
 // 랭킹
 let rankings = { level:[], pvp:[], gold:[] };
 
-// extracted to game/combat.js (Phase 3a refactor)
 
-// extracted to game/combat.js (Phase 3c refactor)
 
-// extracted to game/combat.js (Phase 3c refactor)
 
-// extracted to game/combat.js (Phase 3d/3e refactor)
 
 // 주간 랭킹 보상 지급 (월요일 06:00 기준)
 let lastWeeklyRewardWeek = '';
-// extracted to game/combat.js (Phase 3d/3e refactor)
 let axes = {};
 let aoes = {};
 let monsters = {};
@@ -958,18 +894,14 @@ const pendingMails = {};
 let rogueMerchant = null; // { townId, deals:[], expiresAt }
 let nextRogueTime = Date.now() + 480000 + Math.random() * 420000;
 
-// extracted to game/combat.js (Phase 3a refactor)
 
-// extracted to game/combat.js (Phase 3a refactor)
 
 // function getYesterday/getWeekNumber = ... (v1.43: game/helpers.js로 이동)
 
-// extracted to game/combat.js (Phase 3b refactor)
 
 // ── 몬스터 스폰 (등급별 가중치) ──
 // pickMonsterTier / pickZoneTier / scaleMonster (v1.44: game/monster_spawn.js로 이동)
 
-// extracted to game/combat.js (Phase 3d/3e refactor)
 
 // 초기 몬스터 배치
 for (let i = 0; i < MAX_MONSTERS; i++) spawnMonster();
@@ -978,9 +910,7 @@ for (let i = 0; i < MAX_MONSTERS; i++) spawnMonster();
 let worldBoss = null;
 // const WORLD_BOSS_TYPES = ... (v1.37: game/data/world_data.js로 이동)
 
-// extracted to game/combat.js (Phase 3d/3e refactor)
 
-// extracted to game/combat.js (Phase 3d/3e refactor)
 
 // ── 던전 시스템 ── (v1.37: game/data/world_data.js로 이동)
 let activeDungeons = {}; // {instanceId: {dungeonId, players:[], currentStage, monstersLeft}}
@@ -1094,9 +1024,7 @@ const LEGACY_PERKS = [
 let contractBoard = []; // { id, creatorId, creatorName, type, target, reward, status, acceptedBy, expiresAt }
 let contractIdCounter = 0;
 
-// extracted to game/combat.js (Phase 3b refactor)
 
-// extracted to game/combat.js (Phase 3b refactor)
 
 // ── 존 미니보스 ──
 const ZONE_MINI_BOSSES = {
@@ -1113,8 +1041,6 @@ const ZONE_MINI_BOSSES = {
 let zoneBossTimers = {};
 
 // ── PvP 시즌/티어 ──
-// extracted to game/combat.js (Phase 3a refactor)
-// extracted to game/combat.js (Phase 3a refactor)
 let arenaSeasonStart = Date.now();
 
 // ── 존 위험 요소 ──
@@ -1157,7 +1083,6 @@ const FISH_TABLE = [
 let goldFeverEnd = 0;
 
 // ── 드롭 아이템 생성 ──
-// extracted to game/combat.js (Phase 3d/3e refactor)
 
 // ==========================================
 // Socket.IO 연결 처리
@@ -1230,6 +1155,16 @@ registerConnection(io, {
     get marketListings() { return marketListings; },
     set marketListings(v) { marketListings = v; },
     get townPrices() { return townPrices; },
+    // missing globals (Phase 5 bug fix)
+    friendLists, friendRequests, arenaQueue,
+    towerProgress, logWorldEvent,
+    get hasKing() { return hasKing; },
+    get arenaMatchIdCounter() { return arenaMatchIdCounter; },
+    set arenaMatchIdCounter(v) { arenaMatchIdCounter = v; },
+    get currentSeason() { return currentSeason; },
+    get contractIdCounter() { return contractIdCounter; },
+    set contractIdCounter(v) { contractIdCounter = v; },
+    factionState,
 });
 // ==========================================
 // 투사체 & 전투 로직
@@ -2231,43 +2166,33 @@ setInterval(() => {
 // ==========================================
 
 // 경매 만료 처리 — market_browse 호출 시 + 30초마다 cron
-// extracted to game/loops.js (Phase 4a refactor)
 
 // 패시브 스킬 적용 — 모든 플레이어 (봇 + 실제 유저) 대상
-// extracted to game/loops.js (Phase 4b refactor)
 
 // 인간 플레이어 자동 스킬 시전 (autoSkill 토글 시)
-// extracted to game/loops.js (Phase 4b refactor)
 
-// extracted to game/loops.js (Phase 4c refactor)
 
 // ==========================================
 // 경험치 & 레벨업
 // ==========================================
 
-// extracted to game/loops.js (Phase 4c refactor)
 
 // ==========================================
 // 충돌 처리
 // ==========================================
 
-// extracted to game/loops.js (Phase 4d refactor)
 
-// extracted to game/loops.js (Phase 4d refactor)
 
 // ==========================================
 // 사망 처리 (PK 카르마 시스템)
 // ==========================================
 
-// extracted to game/loops.js (Phase 4d refactor)
 
-// extracted to game/loops.js (Phase 4a refactor)
 
 // ==========================================
 // 동기화
 // ==========================================
 
-// extracted to game/loops.js (Phase 4a refactor)
 
 // ══════════════════════════════════════
 // 서버 안정성 시스템

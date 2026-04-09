@@ -102,7 +102,7 @@ function registerQuestMiscConnectionHandlers(socket, $) {
         // 던전/아레나/탑 진행 중 도주 차단
         if (p.inDungeon) { socket.emit('waypoint_result', { msg: '던전 내에서는 이동 불가' }); return; }
         if (p.arenaMatchId) { socket.emit('waypoint_result', { msg: '아레나/결투 중 이동 불가' }); return; }
-        if (towerProgress[playerId]) { socket.emit('waypoint_result', { msg: '무한의 탑 도전 중 이동 불가' }); return; }
+        if ($.towerProgress[playerId]) { socket.emit('waypoint_result', { msg: '무한의 탑 도전 중 이동 불가' }); return; }
         if (!p.waypoints) p.waypoints = ['aden']; // 기본 시작 마을
         if (!p.waypoints.includes(zoneId)) { socket.emit('waypoint_result', { msg: '미방문 지역' }); return; }
         const zone = ZONES[zoneId];
@@ -189,7 +189,7 @@ function registerQuestMiscConnectionHandlers(socket, $) {
         }
         clan.exp += 100;
         io.emit('server_msg', { msg: `[길드 레이드] ${p.clanName} 혈맹이 ${raid.name} 클리어!`, type: 'boss' });
-        logWorldEvent(`${p.clanName} — ${raid.name} 클리어`, 'boss');
+        $.logWorldEvent(`${p.clanName} — ${raid.name} 클리어`, 'boss');
     });
 
     // ── PvP 시즌 정보 ──
@@ -296,8 +296,8 @@ function registerQuestMiscConnectionHandlers(socket, $) {
     // --- map_ping ---
     socket.on('map_ping', (data) => {
         const p = players[playerId];
-        if (!p || !p.partyId || !parties[p.partyId]) return;
-        parties[p.partyId].members.forEach(mid => {
+        if (!p || !p.partyId || !$.parties[p.partyId]) return;
+        $.parties[p.partyId].members.forEach(mid => {
             io.to(mid).emit('map_ping', { name: p.displayName, x: Math.round(data.x), y: Math.round(data.y) });
         });
     });
@@ -349,7 +349,7 @@ function registerQuestMiscConnectionHandlers(socket, $) {
     socket.on('rift_enter', () => {
         const p = players[playerId];
         if (!p || !p.isAlive || p.level < 20) { socket.emit('rift_result', { msg: 'Lv.20 이상 필요' }); return; }
-        const theme = currentSeason.theme;
+        const theme = $.currentSeason.theme;
         if (!p._riftDepth) p._riftDepth = 0;
         p._riftDepth++;
         const depth = p._riftDepth;
@@ -359,7 +359,7 @@ function registerQuestMiscConnectionHandlers(socket, $) {
 
         socket.emit('rift_floor', { depth, theme: theme.name, color: theme.color, monsterHp, monsterAtk, reward });
         // 균열 리더보드 갱신
-        currentSeason.leaderboard[playerId] = Math.max(currentSeason.leaderboard[playerId] || 0, depth);
+        $.currentSeason.leaderboard[playerId] = Math.max($.currentSeason.leaderboard[playerId] || 0, depth);
         if (depth % 10 === 0) {
             io.emit('server_msg', { msg: `[균열] ${p.displayName}이(가) ${theme.name} ${depth}층 돌파!`, type: 'rare' });
         }
@@ -386,10 +386,10 @@ function registerQuestMiscConnectionHandlers(socket, $) {
 
     // --- get_rift_ranking ---
     socket.on('get_rift_ranking', () => {
-        const sorted = Object.entries(currentSeason.leaderboard)
+        const sorted = Object.entries($.currentSeason.leaderboard)
             .sort((a,b) => b[1] - a[1]).slice(0, 20)
             .map(([pid, depth], i) => ({ rank: i+1, name: players[pid]?.displayName || '?', depth }));
-        socket.emit('rift_ranking', { theme: currentSeason.theme.name, rankings: sorted });
+        socket.emit('rift_ranking', { theme: $.currentSeason.theme.name, rankings: sorted });
     });
 
     // ── 2. 룬 장착 ──
@@ -414,8 +414,8 @@ function registerQuestMiscConnectionHandlers(socket, $) {
         const p = players[playerId];
         const info = {};
         for (const [fId, f] of Object.entries(FACTIONS)) {
-            const zoneCount = Object.keys(factionState[fId]?.zones || {}).length;
-            info[fId] = { name: f.name, color: f.color, zones: zoneCount, kills: factionState[fId]?.kills || 0 };
+            const zoneCount = Object.keys($.factionState[fId]?.zones || {}).length;
+            info[fId] = { name: f.name, color: f.color, zones: zoneCount, kills: $.factionState[fId]?.kills || 0 };
         }
         socket.emit('faction_info', { factions: info, myFaction: p?.faction || null, myRep: p?.factionRep || 0 });
     });
@@ -465,16 +465,16 @@ function registerQuestMiscConnectionHandlers(socket, $) {
         const cost = Math.floor(reward * 1.1); // 10% 수수료
         if (p.gold < cost) { socket.emit('contract_result', { msg: `골드 부족 (${cost}G 필요 — 수수료 10%)` }); return; }
         // 동시 의뢰 수 제한 (스팸 방지)
-        const myOpen = contractBoard.filter(c => c.creatorId === playerId && c.status === 'open').length;
+        const myOpen = $.contractBoard.filter(c => c.creatorId === playerId && c.status === 'open').length;
         if (myOpen >= 5) { socket.emit('contract_result', { msg: '동시 의뢰 5개 한도 초과' }); return; }
         p.gold -= cost;
-        contractIdCounter++;
+        $.contractIdCounter++;
         const contract = {
-            id: contractIdCounter, creatorId: playerId, creatorName: p.displayName,
+            id: $.contractIdCounter, creatorId: playerId, creatorName: p.displayName,
             type: safeType, target: safeTarget, reward,
             status: 'open', acceptedBy: null, expiresAt: Date.now() + 3600000, // 1시간
         };
-        contractBoard.push(contract);
+        $.contractBoard.push(contract);
         savePlayer(p);
         socket.emit('contract_result', { msg: `의뢰 등록! "${safeType}" — ${reward}G 보상` });
         io.emit('server_msg', { msg: `[의뢰] ${p.displayName}의 새 의뢰: "${safeType}" (${reward}G)`, type: 'normal' });
@@ -485,7 +485,7 @@ function registerQuestMiscConnectionHandlers(socket, $) {
     socket.on('contract_accept', (contractId) => {
         const p = players[playerId];
         if (!p) return;
-        const c = contractBoard.find(x => x.id === contractId && x.status === 'open');
+        const c = $.contractBoard.find(x => x.id === contractId && x.status === 'open');
         if (!c) { socket.emit('contract_result', { msg: '의뢰 없음 또는 마감' }); return; }
         if (c.creatorId === playerId) { socket.emit('contract_result', { msg: '자기 의뢰 수락 불가' }); return; }
         c.status = 'accepted';
@@ -500,7 +500,7 @@ function registerQuestMiscConnectionHandlers(socket, $) {
     socket.on('contract_complete', (contractId) => {
         const p = players[playerId];
         if (!p) return;
-        const c = contractBoard.find(x => x.id === contractId && x.acceptedBy === playerId && x.status === 'accepted');
+        const c = $.contractBoard.find(x => x.id === contractId && x.acceptedBy === playerId && x.status === 'accepted');
         if (!c) { socket.emit('contract_result', { msg: '완료 불가' }); return; }
         // 악용 방지: 수락 후 최소 5분 경과 필요
         if (Date.now() - (c._acceptedAt || 0) < 300000) {
@@ -519,8 +519,8 @@ function registerQuestMiscConnectionHandlers(socket, $) {
     // --- get_contracts ---
     socket.on('get_contracts', () => {
         const now = Date.now();
-        contractBoard = contractBoard.filter(c => now < c.expiresAt && c.status !== 'completed');
-        socket.emit('contract_list', contractBoard.map(c => ({
+        $.contractBoard = $.contractBoard.filter(c => now < c.expiresAt && c.status !== 'completed');
+        socket.emit('contract_list', $.contractBoard.map(c => ({
             id: c.id, creator: c.creatorName, type: c.type, target: c.target,
             reward: c.reward, status: c.status, timeLeft: Math.floor((c.expiresAt - now)/60000),
         })));

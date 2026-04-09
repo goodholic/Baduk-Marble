@@ -63,22 +63,22 @@ function registerSocialConnectionHandlers(socket, $) {
         const p = players[playerId];
         if (!p || !players[targetId] || players[targetId].isBot) return;
         if (targetId === playerId) return;
-        if (!friendLists[playerId]) friendLists[playerId] = [];
-        if (friendLists[playerId].includes(targetId)) { socket.emit('friend_result', { msg: '이미 친구입니다' }); return; }
-        if (friendLists[playerId].length >= 50) { socket.emit('friend_result', { msg: '친구 최대 50명' }); return; }
+        if (!$.friendLists[playerId]) $.friendLists[playerId] = [];
+        if ($.friendLists[playerId].includes(targetId)) { socket.emit('friend_result', { msg: '이미 친구입니다' }); return; }
+        if ($.friendLists[playerId].length >= 50) { socket.emit('friend_result', { msg: '친구 최대 50명' }); return; }
 
-        if (!friendRequests[targetId]) friendRequests[targetId] = [];
+        if (!$.friendRequests[targetId]) $.friendRequests[targetId] = [];
         // 중복 요청 방지 (스팸 차단)
-        if (friendRequests[targetId].some(r => r.fromId === playerId)) {
+        if ($.friendRequests[targetId].some(r => r.fromId === playerId)) {
             socket.emit('friend_result', { msg: '이미 요청을 보냈습니다' });
             return;
         }
         // 받은 요청 한도 (스팸 차단)
-        if (friendRequests[targetId].length >= 30) {
+        if ($.friendRequests[targetId].length >= 30) {
             socket.emit('friend_result', { msg: '상대 받은 요청 한도 초과' });
             return;
         }
-        friendRequests[targetId].push({ fromId: playerId, fromName: p.displayName, time: Date.now() });
+        $.friendRequests[targetId].push({ fromId: playerId, fromName: p.displayName, time: Date.now() });
         io.to(targetId).emit('friend_request_received', { fromId: playerId, fromName: p.displayName });
         socket.emit('friend_result', { msg: `${players[targetId].displayName}에게 친구 요청 전송` });
     });
@@ -89,24 +89,24 @@ function registerSocialConnectionHandlers(socket, $) {
     socket.on('friend_accept', (fromId) => {
         const p = players[playerId];
         if (!p || !players[fromId]) return;
-        if (!friendRequests[playerId]) return;
-        const reqIdx = friendRequests[playerId].findIndex(r => r.fromId === fromId);
+        if (!$.friendRequests[playerId]) return;
+        const reqIdx = $.friendRequests[playerId].findIndex(r => r.fromId === fromId);
         if (reqIdx === -1) return;
-        friendRequests[playerId].splice(reqIdx, 1);
+        $.friendRequests[playerId].splice(reqIdx, 1);
 
-        if (!friendLists[playerId]) friendLists[playerId] = [];
-        if (!friendLists[fromId]) friendLists[fromId] = [];
+        if (!$.friendLists[playerId]) $.friendLists[playerId] = [];
+        if (!$.friendLists[fromId]) $.friendLists[fromId] = [];
         // 양쪽 한도 + 중복 검증
-        if (friendLists[playerId].length >= 50 || friendLists[fromId].length >= 50) {
+        if ($.friendLists[playerId].length >= 50 || $.friendLists[fromId].length >= 50) {
             socket.emit('friend_result', { msg: '친구 목록 한도 초과 (50명)' });
             return;
         }
-        if (friendLists[playerId].includes(fromId)) {
+        if ($.friendLists[playerId].includes(fromId)) {
             socket.emit('friend_result', { msg: '이미 친구입니다' });
             return;
         }
-        friendLists[playerId].push(fromId);
-        friendLists[fromId].push(playerId);
+        $.friendLists[playerId].push(fromId);
+        $.friendLists[fromId].push(playerId);
 
         socket.emit('friend_result', { msg: `${players[fromId]?.displayName || '?'}와 친구가 되었습니다!` });
         io.to(fromId).emit('friend_result', { msg: `${p.displayName}와 친구가 되었습니다!` });
@@ -116,9 +116,9 @@ function registerSocialConnectionHandlers(socket, $) {
 
     // --- friend_remove ---
     socket.on('friend_remove', (targetId) => {
-        if (!friendLists[playerId]) return;
-        friendLists[playerId] = friendLists[playerId].filter(f => f !== targetId);
-        if (friendLists[targetId]) friendLists[targetId] = friendLists[targetId].filter(f => f !== playerId);
+        if (!$.friendLists[playerId]) return;
+        $.friendLists[playerId] = $.friendLists[playerId].filter(f => f !== targetId);
+        if ($.friendLists[targetId]) $.friendLists[targetId] = $.friendLists[targetId].filter(f => f !== playerId);
         socket.emit('friend_result', { msg: '친구 삭제 완료' });
     });
 
@@ -126,12 +126,12 @@ function registerSocialConnectionHandlers(socket, $) {
 
     // --- get_friends ---
     socket.on('get_friends', () => {
-        const list = (friendLists[playerId] || []).map(fid => ({
+        const list = ($.friendLists[playerId] || []).map(fid => ({
             id: fid, name: players[fid]?.displayName || '?',
             level: players[fid]?.level || 0, className: players[fid]?.className || '?',
             online: !!players[fid]?.isAlive,
         }));
-        const requests = (friendRequests[playerId] || []).map(r => ({ fromId: r.fromId, fromName: r.fromName }));
+        const requests = ($.friendRequests[playerId] || []).map(r => ({ fromId: r.fromId, fromName: r.fromName }));
         socket.emit('friend_list', { friends: list, requests });
     });
 
@@ -204,7 +204,7 @@ function registerSocialConnectionHandlers(socket, $) {
 
     // --- get_ranking ---
     socket.on('get_ranking', () => {
-        updateRankings();
+        $.updateRankings();
         socket.emit('ranking_data', rankings);
     });
 
@@ -266,15 +266,15 @@ function registerSocialConnectionHandlers(socket, $) {
                 } catch (e) {
                     console.error('[DB] mail insert:', e.message);
                     // DB 실패 시 메모리 fallback
-                    if (!pendingMails[targetName]) pendingMails[targetName] = [];
-                    pendingMails[targetName].push({
+                    if (!$.pendingMails[targetName]) $.pendingMails[targetName] = [];
+                    $.pendingMails[targetName].push({
                         from: p.displayName,
                         itemId: validItemCount ? itemId : null,
                         itemCount: validItemCount ? itemCount : 0,
                         gold: validGold ? gold : 0,
                         timestamp: Date.now(),
                     });
-                    if (pendingMails[targetName].length > 50) pendingMails[targetName].shift();
+                    if ($.pendingMails[targetName].length > 50) $.pendingMails[targetName].shift();
                 }
             })();
             savePlayer(p);
@@ -576,9 +576,9 @@ function registerSocialConnectionHandlers(socket, $) {
         partyIdCounter++;
         const pid = 'party_' + partyIdCounter;
         p.partyId = pid;
-        parties[pid] = { leader: playerId, members: [playerId], name: p.displayName + '의 파티' };
+        $.parties[pid] = { leader: playerId, members: [playerId], name: p.displayName + '의 파티' };
         socket.emit('party_result', { success: true, msg: '파티 생성!' });
-        socket.emit('party_info', parties[pid]);
+        socket.emit('party_info', $.parties[pid]);
     });
 
     // ── 파티 초대 (근처 플레이어 자동) ──
@@ -587,7 +587,7 @@ function registerSocialConnectionHandlers(socket, $) {
     socket.on('party_invite_nearby', () => {
         const p = players[playerId];
         if (!p || !p.partyId) return;
-        const party = parties[p.partyId];
+        const party = $.parties[p.partyId];
         if (!party || party.leader !== playerId) return;
         if (party.members.length >= 5) { socket.emit('party_result', { success: false, msg: '파티 최대 5명' }); return; }
 
@@ -615,13 +615,13 @@ function registerSocialConnectionHandlers(socket, $) {
     socket.on('leave_party', () => {
         const p = players[playerId];
         if (!p || !p.partyId) return;
-        const party = parties[p.partyId];
+        const party = $.parties[p.partyId];
         if (!party) { p.partyId = null; return; }
 
         party.members = party.members.filter(m => m !== playerId);
 
         if (party.members.length === 0) {
-            delete parties[p.partyId];
+            delete $.parties[p.partyId];
         } else {
             // 리더가 떠나면 다음 사람이 리더
             if (party.leader === playerId) {
@@ -642,14 +642,14 @@ function registerSocialConnectionHandlers(socket, $) {
     socket.on('disband_party', () => {
         const p = players[playerId];
         if (!p || !p.partyId) return;
-        const party = parties[p.partyId];
+        const party = $.parties[p.partyId];
         if (!party || party.leader !== playerId) { socket.emit('party_result', { success: false, msg: '파티장만 해산 가능' }); return; }
 
         for (const mid of party.members) {
             if (players[mid]) players[mid].partyId = null;
             io.to(mid).emit('party_result', { success: true, msg: '파티가 해산되었습니다' });
         }
-        delete parties[p.partyId];
+        delete $.parties[p.partyId];
     });
 
     // ── 파티 정보 조회 ──
@@ -657,8 +657,8 @@ function registerSocialConnectionHandlers(socket, $) {
     // --- get_party_info ---
     socket.on('get_party_info', () => {
         const p = players[playerId];
-        if (!p || !p.partyId || !parties[p.partyId]) { socket.emit('party_info', null); return; }
-        const party = parties[p.partyId];
+        if (!p || !p.partyId || !$.parties[p.partyId]) { socket.emit('party_info', null); return; }
+        const party = $.parties[p.partyId];
         socket.emit('party_info', {
             ...party,
             memberNames: party.members.map(m => ({
@@ -676,7 +676,7 @@ function registerSocialConnectionHandlers(socket, $) {
     socket.on('party_enter_dungeon', (dungeonId) => {
         const p = players[playerId];
         if (!p || !p.partyId) { socket.emit('dungeon_result', { msg: '파티 필요' }); return; }
-        const party = parties[p.partyId];
+        const party = $.parties[p.partyId];
         if (!party || party.leader !== playerId) { socket.emit('dungeon_result', { msg: '파티장만 입장 가능' }); return; }
         const dungeon = DUNGEONS[dungeonId];
         if (!dungeon) { socket.emit('dungeon_result', { msg: '존재하지 않는 던전' }); return; }
@@ -691,7 +691,7 @@ function registerSocialConnectionHandlers(socket, $) {
 
         $.entityIdCounter++;
         const instanceId = 'dungeon_' + $.entityIdCounter;
-        activeDungeons[instanceId] = {
+        $.activeDungeons[instanceId] = {
             dungeonId, players: [...party.members], currentStage: 0,
             monstersLeft: dungeon.monsters[0].count,
             startTime: Date.now(), totalStages: dungeon.stages,

@@ -18,13 +18,13 @@ function registerCombatPvpConnectionHandlers(socket, $) {
         }
 
         if (p.team === 'peace') {
-            if (!hasKing) {
+            if (!$.hasKing) {
                 p.team = 'king_' + playerId;
                 p.isKing = true;
                 p.maxHp = Math.floor(p.maxHp * 1.8); // 3→1.8배
                 p.hp = p.maxHp;
                 p.dmgMulti *= 1.4; // 2→1.4배
-                hasKing = true;
+                $.hasKing = true;
             } else {
                 p.team = 'pvp_' + playerId;
                 p.maxHp = Math.floor(p.maxHp * 1.3); // 1.5→1.3배
@@ -32,7 +32,7 @@ function registerCombatPvpConnectionHandlers(socket, $) {
                 p.dmgMulti *= 1.3; // 1.2→1.3배
             }
         } else {
-            if (p.isKing) { hasKing = false; p.isKing = false; }
+            if (p.isKing) { $.hasKing = false; p.isKing = false; }
             p.team = 'peace';
             recalcStats(p); // 장비 보너스 포함 재계산
             p.dmgMulti = 1.0 + (p.level - 1) * 0.08;
@@ -172,8 +172,8 @@ function registerCombatPvpConnectionHandlers(socket, $) {
         delete p._pendingDuels[fromId];
 
         // 아레나 시스템 재사용
-        arenaMatchIdCounter++;
-        const matchId = 'duel_' + arenaMatchIdCounter;
+        $.arenaMatchIdCounter++;
+        const matchId = 'duel_' + $.arenaMatchIdCounter;
         const arenaZone = ZONES.arena;
         p.x = arenaZone.x + arenaZone.w - 10; p.y = arenaZone.y + arenaZone.h / 2;
         challenger.x = arenaZone.x + 10; challenger.y = arenaZone.y + arenaZone.h / 2;
@@ -185,7 +185,7 @@ function registerCombatPvpConnectionHandlers(socket, $) {
         io.to(playerId).emit('arena_start', { matchId, opponent: challenger.displayName, opponentClass: challenger.className });
         io.to(fromId).emit('arena_start', { matchId, opponent: p.displayName, opponentClass: p.className });
         io.emit('server_msg', { msg: `[결투] ${challenger.displayName} vs ${p.displayName} 결투 시작!`, type: 'rare' });
-        logWorldEvent(`결투: ${challenger.displayName} vs ${p.displayName}`, 'rare');
+        $.logWorldEvent(`결투: ${challenger.displayName} vs ${p.displayName}`, 'rare');
 
         // 3분 타임아웃 (아레나와 동일)
         setTimeout(() => {
@@ -195,7 +195,7 @@ function registerCombatPvpConnectionHandlers(socket, $) {
             const hp2 = players[match.player2]?.hp / (players[match.player2]?.maxHp||1) || 0;
             const winnerId = hp1 >= hp2 ? match.player1 : match.player2;
             const loserId = winnerId === match.player1 ? match.player2 : match.player1;
-            endArenaMatch(matchId, winnerId, loserId, '시간 초과 (HP 판정)');
+            $.endArenaMatch(matchId, winnerId, loserId, '시간 초과 (HP 판정)');
         }, 180000);
     });
 
@@ -288,7 +288,7 @@ function registerCombatPvpConnectionHandlers(socket, $) {
         // 던전 인스턴스 생성
         $.entityIdCounter++;
         const instanceId = 'dungeon_' + $.entityIdCounter;
-        activeDungeons[instanceId] = {
+        $.activeDungeons[instanceId] = {
             dungeonId, players: [playerId], currentStage: 0,
             monstersLeft: dungeon.monsters[0].count,
             startTime: Date.now(), totalStages: dungeon.stages,
@@ -307,7 +307,7 @@ function registerCombatPvpConnectionHandlers(socket, $) {
     socket.on('dungeon_kill', () => {
         const p = players[playerId];
         if (!p || !p.inDungeon) return;
-        const inst = activeDungeons[p.inDungeon];
+        const inst = $.activeDungeons[p.inDungeon];
         if (!inst) return;
         // 스팸 쓰로틀 (최소 200ms 간격)
         const nowMs = Date.now();
@@ -337,7 +337,7 @@ function registerCombatPvpConnectionHandlers(socket, $) {
                     io.emit('player_update', pp);
                 }
                 io.emit('server_msg', { msg: `${dungeon.name} 클리어!`, type: 'rare' });
-                delete activeDungeons[p.inDungeon];
+                delete $.activeDungeons[p.inDungeon];
             } else {
                 // 다음 스테이지
                 const nextMonsters = dungeon.monsters[inst.currentStage];
@@ -361,11 +361,11 @@ function registerCombatPvpConnectionHandlers(socket, $) {
         const p = players[playerId];
         if (!p || !p.isAlive) return;
         if (p.level < 10) { socket.emit('tower_result', { msg: 'Lv.10 이상 필요' }); return; }
-        if (towerProgress[playerId]) { socket.emit('tower_result', { msg: '이미 탑 도전 중' }); return; }
+        if ($.towerProgress[playerId]) { socket.emit('tower_result', { msg: '이미 탑 도전 중' }); return; }
         const startFloor = (p.towerHighest || 0) + 1;
         if (startFloor > INFINITE_TOWER.maxFloor) { socket.emit('tower_result', { msg: '100층 완전 클리어!' }); return; }
         const monsters = INFINITE_TOWER.getMonsters(startFloor);
-        towerProgress[playerId] = { currentFloor: startFloor, monstersLeft: monsters.count, startTime: Date.now() };
+        $.towerProgress[playerId] = { currentFloor: startFloor, monstersLeft: monsters.count, startTime: Date.now() };
         socket.emit('tower_enter', { floor: startFloor, maxFloor: INFINITE_TOWER.maxFloor, monstersLeft: monsters.count, tier: monsters.tier, monsterHp: monsters.hp });
     });
 
@@ -374,8 +374,8 @@ function registerCombatPvpConnectionHandlers(socket, $) {
     // --- tower_kill ---
     socket.on('tower_kill', () => {
         const p = players[playerId];
-        if (!p || !towerProgress[playerId]) return;
-        const tp = towerProgress[playerId];
+        if (!p || !$.towerProgress[playerId]) return;
+        const tp = $.towerProgress[playerId];
         // 스팸 쓰로틀 (최소 200ms 간격)
         const nowMs = Date.now();
         if (tp._lastKillAt && nowMs - tp._lastKillAt < 200) return;
@@ -402,7 +402,7 @@ function registerCombatPvpConnectionHandlers(socket, $) {
             if (nextFloor > INFINITE_TOWER.maxFloor) {
                 socket.emit('tower_result', { msg: `무한의 탑 완전 클리어! (${tp.currentFloor}층)` });
                 io.emit('server_msg', { msg: `${p.displayName}이(가) 무한의 탑 ${tp.currentFloor}층 클리어!`, type: 'rare' });
-                delete towerProgress[playerId];
+                delete $.towerProgress[playerId];
             } else {
                 const nextMonsters = INFINITE_TOWER.getMonsters(nextFloor);
                 tp.currentFloor = nextFloor;
@@ -423,9 +423,9 @@ function registerCombatPvpConnectionHandlers(socket, $) {
 
     // --- tower_leave ---
     socket.on('tower_leave', () => {
-        if (towerProgress[playerId]) {
-            socket.emit('tower_result', { msg: `${towerProgress[playerId].currentFloor}층에서 포기` });
-            delete towerProgress[playerId];
+        if ($.towerProgress[playerId]) {
+            socket.emit('tower_result', { msg: `${$.towerProgress[playerId].currentFloor}층에서 포기` });
+            delete $.towerProgress[playerId];
         }
     });
 
@@ -751,25 +751,25 @@ function registerCombatPvpConnectionHandlers(socket, $) {
         if (!p || !p.isAlive) return;
         if (p.level < 10) { socket.emit('arena_result', { msg: 'Lv.10 이상 필요' }); return; }
         if ((p.arenaCountToday || 0) >= 10) { socket.emit('arena_result', { msg: '일일 아레나 10회 초과' }); return; }
-        if (arenaQueue.includes(playerId)) { socket.emit('arena_result', { msg: '이미 대기 중' }); return; }
+        if ($.arenaQueue.includes(playerId)) { socket.emit('arena_result', { msg: '이미 대기 중' }); return; }
         // 이미 매치 중인지 체크
         for (const m of Object.values(arenaMatches)) {
             if (m.player1 === playerId || m.player2 === playerId) {
                 socket.emit('arena_result', { msg: '이미 매치 진행 중' }); return;
             }
         }
-        arenaQueue.push(playerId);
+        $.arenaQueue.push(playerId);
         socket.emit('arena_result', { msg: '아레나 대기열 참가! 상대 매칭 중...' });
 
         // 매칭 시도
-        if (arenaQueue.length >= 2) {
-            const p1Id = arenaQueue.shift();
-            const p2Id = arenaQueue.shift();
+        if ($.arenaQueue.length >= 2) {
+            const p1Id = $.arenaQueue.shift();
+            const p2Id = $.arenaQueue.shift();
             const p1 = players[p1Id], p2 = players[p2Id];
             if (!p1 || !p2 || !p1.isAlive || !p2.isAlive) return;
 
-            arenaMatchIdCounter++;
-            const matchId = 'arena_' + arenaMatchIdCounter;
+            $.arenaMatchIdCounter++;
+            const matchId = 'arena_' + $.arenaMatchIdCounter;
             const arenaZone = ZONES.arena;
             // 양 플레이어를 아레나로 이동
             p1.x = arenaZone.x + 10; p1.y = arenaZone.y + arenaZone.h / 2;
@@ -793,7 +793,7 @@ function registerCombatPvpConnectionHandlers(socket, $) {
                 const hp2Pct = mp2 ? mp2.hp / mp2.maxHp : 0;
                 const winnerId = hp1Pct >= hp2Pct ? match.player1 : match.player2;
                 const loserId = winnerId === match.player1 ? match.player2 : match.player1;
-                endArenaMatch(matchId, winnerId, loserId, '시간 초과 - HP 비율 판정');
+                $.endArenaMatch(matchId, winnerId, loserId, '시간 초과 - HP 비율 판정');
             }, 180000);
         }
     });
@@ -802,7 +802,7 @@ function registerCombatPvpConnectionHandlers(socket, $) {
 
     // --- arena_leave ---
     socket.on('arena_leave', () => {
-        arenaQueue = arenaQueue.filter(id => id !== playerId);
+        $.arenaQueue = $.arenaQueue.filter(id => id !== playerId);
         socket.emit('arena_result', { msg: '대기열 취소' });
     });
 

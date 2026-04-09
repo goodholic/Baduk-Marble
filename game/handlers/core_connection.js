@@ -245,8 +245,8 @@ function registerCoreConnectionHandlers(socket, $) {
             } catch (e) { console.error('[DB] mail deliver:', e.message); }
         })();
         // 2) 메모리 fallback (DB 실패 시 보관된 것들)
-        if (pendingMails[pInfo.displayName] && pendingMails[pInfo.displayName].length > 0) {
-            const mails = pendingMails[pInfo.displayName];
+        if ($.pendingMails[pInfo.displayName] && $.pendingMails[pInfo.displayName].length > 0) {
+            const mails = $.pendingMails[pInfo.displayName];
             let totalGold = 0, itemSummary = [];
             if (!pInfo.inventory) pInfo.inventory = {};
             for (const m of mails) {
@@ -256,7 +256,7 @@ function registerCoreConnectionHandlers(socket, $) {
                     itemSummary.push(`${m.itemId} x${m.itemCount}`);
                 }
             }
-            delete pendingMails[pInfo.displayName];
+            delete $.pendingMails[pInfo.displayName];
             capResources(pInfo);
             socket.emit('mail_delivered', {
                 count: mails.length,
@@ -632,25 +632,25 @@ function registerCoreConnectionHandlers(socket, $) {
     socket.on('disconnect', () => {
         if (players[playerId]) {
             const p = players[playerId];
-            if (p.isKing) hasKing = false;
+            if (p.isKing) $.hasKing = false;
             // 던전 인스턴스 정리
-            if (p.inDungeon && activeDungeons[p.inDungeon]) {
-                const inst = activeDungeons[p.inDungeon];
+            if (p.inDungeon && $.activeDungeons[p.inDungeon]) {
+                const inst = $.activeDungeons[p.inDungeon];
                 inst.players = inst.players.filter(pid => pid !== playerId);
-                if (inst.players.length === 0) delete activeDungeons[p.inDungeon];
+                if (inst.players.length === 0) delete $.activeDungeons[p.inDungeon];
             }
             // 낚시 타이머 정리
             if (p._fishTimer1) clearTimeout(p._fishTimer1);
             if (p._fishTimer2) clearTimeout(p._fishTimer2);
             // 무한의 탑 정리
-            if (towerProgress[playerId]) delete towerProgress[playerId];
+            if ($.towerProgress[playerId]) delete $.towerProgress[playerId];
             // 아레나 큐 정리
-            arenaQueue = arenaQueue.filter(id => id !== playerId);
+            $.arenaQueue = $.arenaQueue.filter(id => id !== playerId);
             // 진행 중 아레나 매치 즉시 포기 처리 (상대가 3분 대기하지 않도록)
             if (p.arenaMatchId && arenaMatches[p.arenaMatchId]) {
                 const match = arenaMatches[p.arenaMatchId];
                 const opponentId = match.player1 === playerId ? match.player2 : match.player1;
-                endArenaMatch(p.arenaMatchId, opponentId, playerId, '상대 이탈');
+                $.endArenaMatch(p.arenaMatchId, opponentId, playerId, '상대 이탈');
             }
             // 대기 중 거래/결투/용병 제안 정리 (상대 플레이어에 걸어둔 것도 제거)
             for (const otherId in players) {
