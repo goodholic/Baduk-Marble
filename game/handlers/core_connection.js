@@ -168,6 +168,7 @@ function registerCoreConnectionHandlers(socket, $) {
                         _wishTree: ext._wishTree || null,
                         _soulSystem: ext._soulSystem || null,
                         _timeDungeon: ext._timeDungeon || null,
+                        _mythicSummon: ext._mythicSummon || null,
                     });
                     if (pInfo.isAdvanced && pInfo.advancedClass) {
                         const adv = CLASS_ADVANCE[pInfo.baseClassName || pInfo.className];
