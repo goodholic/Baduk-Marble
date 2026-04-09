@@ -1143,6 +1143,12 @@
     // 글로벌 에러 핸들러 (크래시 방지)
     window.onerror = function(msg, url, line) { console.warn('[Error]', msg, 'at', line); return true; };
 
+    // XSS 방어: 사용자 입력을 HTML에 삽입하기 전 이스케이프
+    function escapeHtml(str) {
+      if (typeof str !== 'string') return String(str || '');
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+
     function setupSocketListeners() {
       window.socket.on('init', (data) => {
         try {
@@ -1398,10 +1404,10 @@
 
       // 도박 도전 수신 (라운드8 신규: offer/accept 패턴)
       window.socket.on('dice_incoming', (d) => {
-        showToast('🎲 ' + d.fromName + '님이 ' + d.bet + 'G 도박 신청! 30초 내 수락');
+        showToast('🎲 ' + escapeHtml(d.fromName) + '님이 ' + d.bet + 'G 도박 신청! 30초 내 수락');
         playSFX('hit');
         if (typeof showModal === 'function') {
-          showModal('주사위 도박 신청', '<p>'+d.fromName+'님이 '+d.bet+'G 판돈으로 도박을 신청했습니다.</p>',
+          showModal('주사위 도박 신청', '<p>'+escapeHtml(d.fromName)+'님이 '+d.bet+'G 판돈으로 도박을 신청했습니다.</p>',
             [
               { label:'수락', action:"window.socket.emit('dice_accept','"+d.fromId+"');closeModal();" },
               { label:'거절', action:"closeModal();" }
@@ -1631,7 +1637,7 @@
       // 친구 시스템
       window.socket.on('friend_result', (d) => showToast(d.msg));
       window.socket.on('friend_request_received', (d) => {
-        showModal('친구 요청', '<p><b style="color:#44aaff">'+d.fromName+'</b>님이 친구 요청을 보냈습니다.</p>', [
+        showModal('친구 요청', '<p><b style="color:#44aaff">'+escapeHtml(d.fromName)+'</b>님이 친구 요청을 보냈습니다.</p>', [
           {label:'수락', action:"window.socket.emit('friend_accept','"+d.fromId+"');closeModal();"},
           {label:'거절', type:'cancel', action:'closeModal()'}
         ]);
@@ -1663,8 +1669,8 @@
 
       // 귓속말
       window.socket.on('whisper_received', (d) => {
-        addCombatLog('[귓속말] ' + d.fromName + ': ' + d.msg, 'log-crit');
-        showToast('[귓] ' + d.fromName + ': ' + d.msg);
+        addCombatLog('[귓속말] ' + escapeHtml(d.fromName) + ': ' + escapeHtml(d.msg), 'log-crit');
+        showToast('[귓] ' + escapeHtml(d.fromName) + ': ' + escapeHtml(d.msg));
       });
       window.socket.on('whisper_sent', (d) => {
         addCombatLog('[귓속말 → ' + d.toName + '] ' + d.msg, 'normal');
@@ -2453,7 +2459,7 @@
         var html = '';
         list.forEach(c => {
           var skillsStr = c.skills && c.skills.length > 0 ? '<br><small style="color:#88f">스킬: '+c.skills.join(', ')+'</small>' : '';
-          html += '<div class="panel-item"><span class="name">['+c.name+'] Lv.'+c.level+' (EXP:'+c.exp+')<br><small style="color:#888">군주:'+c.leader+' ('+c.memberCount+'/'+c.maxMembers+'명)</small>'+skillsStr+'</span><button onclick="window.socket.emit(\'join_clan\',\''+c.name+'\')">가입</button></div>';
+          html += '<div class="panel-item"><span class="name">['+escapeHtml(c.name)+'] Lv.'+c.level+' (EXP:'+c.exp+')<br><small style="color:#888">군주:'+escapeHtml(c.leader)+' ('+c.memberCount+'/'+c.maxMembers+'명)</small>'+skillsStr+'</span><button onclick="window.socket.emit(\'join_clan\',\''+escapeHtml(c.name)+'\')">가입</button></div>';
         });
         el.innerHTML = html;
       });

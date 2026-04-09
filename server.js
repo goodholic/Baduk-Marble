@@ -321,6 +321,7 @@ loops.init({
     getIo: () => io,
     getMonsters: () => monsters,
     getAxes: () => axes,
+    getDrops: () => drops,
     getMarketListings: () => marketListings,
     setMarketListings: (v) => { marketListings = v; },
     get MARKET_FEE() { return MARKET_FEE; },
