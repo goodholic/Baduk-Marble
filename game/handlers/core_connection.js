@@ -170,6 +170,7 @@ function registerCoreConnectionHandlers(socket, $) {
                         _timeDungeon: ext._timeDungeon || null,
                         _mythicSummon: ext._mythicSummon || null,
                         _ancientRuins: ext._ancientRuins || null,
+                        _advGuild: ext._advGuild || null,
                     });
                     if (pInfo.isAdvanced && pInfo.advancedClass) {
                         const adv = CLASS_ADVANCE[pInfo.baseClassName || pInfo.className];
