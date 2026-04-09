@@ -1384,6 +1384,74 @@
       window.socket.on('unit_data', renderUnits);
       window.socket.on('ranking_data', renderRanking);
 
+      // ── 퀘스트 체인 길잡이 HUD ──
+      window.socket.on('quest_chain_next', function(q) {
+        var el = document.getElementById('quest-guide');
+        if (!q) { el.classList.add('qg-hidden'); return; }
+        el.classList.remove('qg-hidden', 'qg-complete');
+        var pct = q.goal > 0 ? Math.min(100, Math.floor(q.progress / q.goal * 100)) : 0;
+        el.innerHTML =
+          '<div class="qg-chapter">Chapter ' + q.chapter + '</div>' +
+          '<div class="qg-name">' + escapeHtml(q.name) + '</div>' +
+          '<div class="qg-desc">' + escapeHtml(q.desc) + '</div>' +
+          '<div class="qg-progress"><div class="qg-progress-fill" style="width:' + pct + '%"></div>' +
+          '<div class="qg-progress-text">' + q.progress + ' / ' + q.goal + '</div></div>' +
+          '<div class="qg-hint">' + escapeHtml(q.guide || '') + '</div>';
+      });
+      window.socket.on('quest_chain_progress', function(d) {
+        if (!d) return;
+        var fill = document.querySelector('#quest-guide .qg-progress-fill');
+        var text = document.querySelector('#quest-guide .qg-progress-text');
+        if (fill && text) {
+          var el = document.getElementById('quest-guide');
+          // quest goal을 기존 텍스트에서 추출
+          var parts = text.textContent.split('/');
+          var goal = parseInt(parts[1]) || 1;
+          var pct = Math.min(100, Math.floor(d.progress / goal * 100));
+          fill.style.width = pct + '%';
+          text.textContent = d.progress + ' / ' + goal;
+        }
+      });
+      window.socket.on('quest_chain_complete', function(d) {
+        var el = document.getElementById('quest-guide');
+        el.classList.add('qg-complete');
+        showToast('✨ 퀘스트 완료: ' + d.name + '!');
+        playSFX('levelup');
+        // 보상 자동 수령
+        window.socket.emit('quest_chain_claim', { questId: d.id });
+      });
+      window.socket.on('quest_chain_hidden_complete', function(d) {
+        showToast('🔮 숨겨진 퀘스트 발견 & 완료: ' + d.name + '!');
+        playSFX('boss');
+        window.socket.emit('quest_chain_claim', { questId: d.id, isHidden: true });
+      });
+      window.socket.on('quest_chain_claim_result', function(d) {
+        if (d.success) showToast('보상 수령: ' + d.questName);
+      });
+      window.socket.on('quest_chain_status', function(status) {
+        if (!status) return;
+        var html = '<div style="text-align:center;margin-bottom:8px"><b class="text-gold" style="font-size:14px">📜 메인 스토리</b></div>';
+        html += '<div style="margin-bottom:6px;color:#888;font-size:10px">완료: ' + status.totalCompleted + '/' + status.totalQuests + '</div>';
+        for (var ch in status.chapters) {
+          var c = status.chapters[ch];
+          html += '<div style="margin:4px 0;padding:4px;background:rgba(255,255,255,0.03);border-radius:4px">';
+          html += '<b style="color:#ffd700;font-size:11px">Chapter ' + ch + '</b> <span style="color:#888;font-size:9px">' + c.completed + '/' + c.total + '</span>';
+          html += '</div>';
+        }
+        if (status.hidden.length > 0) {
+          html += '<div style="margin-top:8px;color:#aa44ff;font-size:11px;font-weight:700">🔮 숨겨진 퀘스트</div>';
+          for (var i = 0; i < status.hidden.length; i++) {
+            var h = status.hidden[i];
+            html += '<div style="color:' + (h.completed ? '#44ff44' : h.discovered ? '#aaa' : '#555') + ';font-size:10px">' +
+              (h.completed ? '✅ ' : h.discovered ? '🔍 ' : '❓ ') + escapeHtml(h.name) +
+              (h.discovered && !h.completed ? ' (' + h.progress + '/' + h.goal + ')' : '') + '</div>';
+          }
+        }
+        showModal('스토리 퀘스트', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+      });
+      // 접속 시 현재 퀘스트 요청
+      setTimeout(function() { window.socket.emit('quest_chain_guide'); }, 2000);
+
       window.socket.on('player_die', (d) => {
         // 내가 죽으면 클래스 선택 다시 표시
         // Unity 측에서 처리하므로 여기서는 패스

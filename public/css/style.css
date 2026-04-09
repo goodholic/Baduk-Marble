@@ -257,6 +257,28 @@
     .panel-item button:active { transform:scale(0.96); }
     .panel-item small { color:#666; }
 
+    /* ═══ 퀘스트 길잡이 HUD ═══ */
+    #quest-guide {
+      position:absolute; top:90px; right:10px; width:260px;
+      background:rgba(10,10,25,0.92); backdrop-filter:blur(10px);
+      border:1px solid rgba(255,215,0,0.15); border-radius:10px;
+      padding:10px 12px; z-index:18; font-size:11px; color:#ddd;
+      box-shadow:0 4px 20px rgba(0,0,0,0.5); cursor:pointer;
+      transition: all 0.3s ease;
+    }
+    #quest-guide:hover { border-color:rgba(255,215,0,0.4); }
+    #quest-guide .qg-chapter { color:#888; font-size:9px; text-transform:uppercase; letter-spacing:1px; margin-bottom:2px; }
+    #quest-guide .qg-name { color:#ffd700; font-size:13px; font-weight:900; margin-bottom:4px; }
+    #quest-guide .qg-desc { color:#aaa; font-size:10px; margin-bottom:6px; line-height:1.4; }
+    #quest-guide .qg-progress { background:rgba(255,255,255,0.08); border-radius:4px; height:14px; overflow:hidden; position:relative; }
+    #quest-guide .qg-progress-fill { background:linear-gradient(90deg,#ffd700,#ff8800); height:100%; border-radius:4px; transition:width 0.5s ease; }
+    #quest-guide .qg-progress-text { position:absolute; top:0; left:0; right:0; text-align:center; font-size:9px; line-height:14px; color:#fff; font-weight:700; }
+    #quest-guide .qg-hint { color:#88ccff; font-size:9px; margin-top:4px; font-style:italic; }
+    #quest-guide .qg-reward { color:#44ff44; font-size:9px; margin-top:2px; }
+    #quest-guide.qg-complete { border-color:rgba(68,255,68,0.5); animation:qgPulse 1s ease infinite; }
+    @keyframes qgPulse { 0%,100%{box-shadow:0 0 8px rgba(68,255,68,0.2)} 50%{box-shadow:0 0 16px rgba(68,255,68,0.5)} }
+    #quest-guide.qg-hidden { display:none; }
+
     /* ═══ 알림 ═══ */
     #toast { position:absolute; top:70px; left:50%; transform:translateX(-50%); background:rgba(12,12,24,0.92); backdrop-filter:blur(12px); color:#ffd700; padding:10px 24px; border-radius:10px; z-index:30; display:none; font-size:13px; font-weight:700; border:1px solid rgba(255,215,0,0.2); box-shadow:0 4px 24px rgba(0,0,0,0.5),0 0 1px rgba(255,215,0,0.15); letter-spacing:0.5px; max-width:90%; text-align:center; animation:toastIn 0.3s ease; }
     @keyframes toastIn { 0%{opacity:0;transform:translateX(-50%) translateY(-10px)} 100%{opacity:1;transform:translateX(-50%) translateY(0)} }

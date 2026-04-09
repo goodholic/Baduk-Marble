@@ -20,6 +20,7 @@ const loops = require('./game/loops');
 const { registerConnection } = require('./game/handlers/connection');
 // Helper functions
 const serverHelpers = require('./game/server_helpers');
+const questChain = require('./game/quest_chain');
 const { handleRaidFinish, codexDiscover, finishBossRush, updateTownPrices, generateRandomOptions, logWorldEvent } = serverHelpers;
 const { expireMarketListings, destroyAxe, syncGameState, updatePassives, updatePlayerAutoSkills, updateBots, giveExp, handleCollisions, handleAoeDamage, handlePlayerDeath } = loops;
 // Phase 3 refactor: 전투/스폰/랭킹 모듈
@@ -307,6 +308,7 @@ combat.init({
     getSEASON_XP_MAP: () => SEASON_XP_MAP,
     getPlayers: () => players,
     getIo: () => io,
+    getQuestChain: () => questChain,
     // Phase 3d/3e
     ZONES, ZONE_MONSTERS, ZONE_MONSTER_NAMES, WORLD_BOSS_TYPES, TITLES,
     getELEMENTS: () => ELEMENTS,
@@ -528,6 +530,9 @@ async function savePlayer(player) {
         element: player.element || null,
         questProgress: player.questProgress || {},
         questCompleted: player.questCompleted || {},
+        _storyQuests: player._storyQuests || null,
+        _totalPlaytime: player._totalPlaytime || 0,
+        _totalGoldEarned: player._totalGoldEarned || 0,
     });
 
     try {
@@ -861,6 +866,7 @@ registerConnection(io, {
     createBot, createAutoArmy, alertArmy, executeThrow,
     generateRandomOptions, codexDiscover, handleRaidFinish, finishBossRush,
     SEASON_XP_MAP, ELEMENTS, FACTIONS, RUNES, RUNE_WORDS, TRAINING_DRILLS_NAMES,
+    questChain,
     // mutable primitives via getters
     get isNight() { return isNight; },
     get currentWeather() { return currentWeather; },

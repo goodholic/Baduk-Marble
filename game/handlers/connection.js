@@ -164,6 +164,7 @@ io.on("connection", (socket) => {
     registerHeraldryHandlers(socket, { io, players, playerId, savePlayer, heraldry });
     registerRiftHandlers(socket, { io, players, playerId, savePlayer, rift });
     registerGardenHandlers(socket, { io, players, playerId, savePlayer, garden });
+    registerQuestChainHandlers(socket, { io, players, playerId, savePlayer, questChain: $.questChain });
     registerMiscHandlers(socket, {
         io, players, playerId, savePlayer, MAX_GOLD,
         statistics, timeCapsule, invitation, honor, passport, aura, dashboard,

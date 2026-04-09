@@ -154,6 +154,9 @@ function registerCoreConnectionHandlers(socket, $) {
                         element: ext.element || ELEMENTS[Math.floor(Math.random() * ELEMENTS.length)],
                         questProgress: ext.questProgress || {},
                         questCompleted: ext.questCompleted || {},
+                        _storyQuests: ext._storyQuests || null,
+                        _totalPlaytime: ext._totalPlaytime || 0,
+                        _totalGoldEarned: ext._totalGoldEarned || 0,
                     });
                     if (pInfo.isAdvanced && pInfo.advancedClass) {
                         const adv = CLASS_ADVANCE[pInfo.baseClassName || pInfo.className];

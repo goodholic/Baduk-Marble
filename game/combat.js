@@ -60,6 +60,7 @@ let _EQUIPMENT_SLOTS = null, _EQUIP_STATS = null, _GRADE_INFO = null, _EQUIPMENT
 let _QUESTS = null, _seasonPass = null, _getPetEffect = null, _getTitleBonus = null, _codexDiscover = null;
 let _getCLASSES = null, _getRUNES = null, _getRUNE_WORDS = null, _getFACTIONS = null;
 let _getSEASON_XP_MAP = null, _getPlayers = null, _getIo = null;
+let _getQuestChain = null;
 // Phase 3d/3e deps
 let _ZONES = null, _ZONE_MONSTERS = null, _ZONE_MONSTER_NAMES = null, _WORLD_BOSS_TYPES = null;
 let _getELEMENTS = null, _TITLES = null;
@@ -89,6 +90,7 @@ function init(deps) {
     if (deps.getSEASON_XP_MAP)  _getSEASON_XP_MAP = deps.getSEASON_XP_MAP;
     if (deps.getPlayers)        _getPlayers = deps.getPlayers;
     if (deps.getIo)             _getIo = deps.getIo;
+    if (deps.getQuestChain)     _getQuestChain = deps.getQuestChain;
     // Phase 3d/3e
     if (deps.ZONES)             _ZONES = deps.ZONES;
     if (deps.ZONE_MONSTERS)     _ZONE_MONSTERS = deps.ZONE_MONSTERS;
@@ -363,6 +365,27 @@ function trackQuest(p, target, amount) {
     // v1.33: 도감 자동 발견 — explore_count 추적 시 현재 존을 zone 도감에 등록
     if (target === 'explore_count' && p.currentZone) {
         _codexDiscover(p, 'zone', p.currentZone);
+    }
+    // v2.19: 메인 스토리 퀘스트 체인 연동
+    if (_getQuestChain) {
+        const qc = _getQuestChain();
+        if (qc) {
+            const result = qc.updateProgress(p, target, amount);
+            if (result.completed.length > 0 || result.hiddenCompleted.length > 0) {
+                const io = _getIo();
+                for (const c of result.completed) {
+                    try { io.to(p.id).emit('quest_chain_complete', { id: c.id, name: c.quest.name, reward: c.quest.reward }); } catch(_) {}
+                }
+                for (const h of result.hiddenCompleted) {
+                    try { io.to(p.id).emit('quest_chain_hidden_complete', { id: h.id, name: h.quest.name, reward: h.quest.reward }); } catch(_) {}
+                }
+                // 다음 퀘스트 자동 안내
+                const next = qc.getNextQuest(p);
+                if (next) try { io.to(p.id).emit('quest_chain_next', next); } catch(_) {}
+            } else if (result.storyUpdated) {
+                try { _getIo().to(p.id).emit('quest_chain_progress', { id: p._storyQuests?.current, progress: p._storyQuests?.progress[p._storyQuests?.current] }); } catch(_) {}
+            }
+        }
     }
 }
 
