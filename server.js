@@ -30,6 +30,7 @@ const relicFusion = require('./game/relic_fusion');
 const skillWave = require('./game/skill_wave');
 const achievements = require('./game/achievements');
 const superBoss = require('./game/super_boss');
+const territoryWar = require('./game/territory_war');
 const { handleRaidFinish, codexDiscover, finishBossRush, updateTownPrices, generateRandomOptions, logWorldEvent } = serverHelpers;
 const { expireMarketListings, destroyAxe, syncGameState, updatePassives, updatePlayerAutoSkills, updateBots, giveExp, handleCollisions, handleAoeDamage, handlePlayerDeath } = loops;
 // Phase 3 refactor: 전투/스폰/랭킹 모듈
@@ -887,7 +888,7 @@ registerConnection(io, {
     createBot, createAutoArmy, alertArmy, executeThrow,
     generateRandomOptions, codexDiscover, handleRaidFinish, finishBossRush,
     SEASON_XP_MAP, ELEMENTS, FACTIONS, RUNES, RUNE_WORDS, TRAINING_DRILLS_NAMES,
-    questChain, bossSummon, weatherDungeon, pvpMatch, bountyHunter, raceSystem, relicFusion, skillWave, achievements, superBoss,
+    questChain, bossSummon, weatherDungeon, pvpMatch, bountyHunter, raceSystem, relicFusion, skillWave, achievements, superBoss, territoryWar,
     // mutable primitives via getters
     get isNight() { return isNight; },
     get currentWeather() { return currentWeather; },
@@ -1770,6 +1771,30 @@ setInterval(() => {
     // 주간 랭킹 보상 체크 (1분마다)
     if (tickCounter % (30 * 60) === 0) {
         checkWeeklyRankingRewards();
+    }
+
+    // v2.29: 전장 점령 틱 (매 초)
+    if (tickCounter % 30 === 0) {
+        const captureEvents = territoryWar.tickCapture(players);
+        for (const ev of captureEvents) {
+            io.emit('server_msg', {
+                msg: `[전장] ${ev.factionIcon} ${ev.factionName}이(가) ${ev.zoneName} 점령!`,
+                type: 'boss',
+            });
+            io.emit('territory_update', territoryWar.getStatus());
+        }
+    }
+    // v2.29: 전장 자원 생산 (5분마다)
+    if (tickCounter % (30 * 300) === 0) {
+        const rewards = territoryWar.produceResources(players);
+        if (rewards.length > 0) {
+            const factionTotals = {};
+            for (const r of rewards) {
+                if (!factionTotals[r.zone]) factionTotals[r.zone] = 0;
+                factionTotals[r.zone] += r.gold;
+                io.to(r.playerId).emit('territory_income', r);
+            }
+        }
     }
 
     // v2.28: 슈퍼 보스 스폰 + 타임아웃 (30초마다 체크)
