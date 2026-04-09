@@ -14,7 +14,7 @@ const httpRoutes = require('./server/routes');
 // Phase 2 refactor: 월드/지형 헬퍼 분리
 const world = require('./game/world');
 const { isOnRoad, isBlocked, isSlowTerrain, getZone, getNpcMsg } = world;
-// Phase 3a/3b/3c refactor: 전투 헬퍼 + 상수 + 데미지 + 챌린지 + 스탯/퀘스트 분리
+// Phase 3 refactor: 전투/스폰/랭킹 모듈
 const combat = require('./game/combat');
 const {
     MAX_GOLD, MAX_DIAMONDS, MAX_LEVEL, ARENA_TIERS,
@@ -22,6 +22,8 @@ const {
     calcDamage, getTodaysChallenge, getThisWeekChallenge,
     DAILY_CHALLENGES, WEEKLY_CHALLENGES,
     recalcStats, trackQuest,
+    spawnMonster, endArenaMatch, spawnWorldBoss, spawnDrop,
+    updateRankings, checkWeeklyRankingRewards,
 } = combat;
 
 // 게임 모듈
@@ -337,7 +339,7 @@ world.init({
     getIsNight: () => isNight,
     getCurrentWeather: () => currentWeather,
 });
-// Phase 3b/3c: combat 모듈에 데이터 + lazy getter 주입
+// Phase 3: combat 모듈에 데이터 + lazy getter 주입
 combat.init({
     ELEMENT_BONUS,
     getCurrentWeather: () => currentWeather,
@@ -351,6 +353,21 @@ combat.init({
     getSEASON_XP_MAP: () => SEASON_XP_MAP,
     getPlayers: () => players,
     getIo: () => io,
+    // Phase 3d/3e
+    ZONES, ZONE_MONSTERS, ZONE_MONSTER_NAMES, WORLD_BOSS_TYPES, TITLES,
+    getELEMENTS: () => ELEMENTS,
+    pickZoneTier, scaleMonster, logWorldEvent, getWeekNumber,
+    getIsNight: () => isNight,
+    getMonsters: () => monsters,
+    getDrops: () => drops,
+    getArenaMatches: () => arenaMatches,
+    getArenaRankings: () => arenaRankings,
+    getRankings: () => rankings,
+    nextEntityId: () => ++entityIdCounter,
+    getWorldBoss: () => worldBoss,
+    setWorldBoss: (v) => { worldBoss = v; },
+    getLastWeeklyRewardWeek: () => lastWeeklyRewardWeek,
+    setLastWeeklyRewardWeek: (v) => { lastWeeklyRewardWeek = v; },
 });
 
 // v1.54 헬퍼: 레이드 종료 시 보상 분배
@@ -783,91 +800,11 @@ let rankings = { level:[], pvp:[], gold:[] };
 
 // extracted to game/combat.js (Phase 3c refactor)
 
-function updateRankings() {
-    const oldLevelTop = rankings.level ? rankings.level.map(r => r.id) : [];
-    const realPlayers = Object.values(players).filter(p => !p.isBot && p.isAlive);
-    rankings.level = realPlayers.sort((a,b) => b.level - a.level).slice(0,10).map(p => ({
-        name: p.displayName, level: p.level, className: p.className, id: p.id
-    }));
-    // 랭킹 추월 알림
-    for (let i = 0; i < rankings.level.length; i++) {
-        const pid = rankings.level[i].id;
-        const oldIdx = oldLevelTop.indexOf(pid);
-        if (oldIdx > i && i < 5) {
-            io.to(pid).emit('rank_change', { type: 'level', newRank: i+1, oldRank: oldIdx+1 });
-            if (i === 0) io.emit('server_msg', { msg: `${rankings.level[i].name}이(가) 레벨 랭킹 1위 달성!`, type: 'rare' });
-        } else if (oldIdx === -1 && i < 10) {
-            io.to(pid).emit('rank_change', { type: 'level', newRank: i+1, oldRank: 0 });
-        }
-    }
-    rankings.pvp = realPlayers.sort((a,b) => (b.pvpWins||0) - (a.pvpWins||0)).slice(0,10).map(p => ({
-        name: p.displayName, kills: p.pvpWins||0, className: p.className, id: p.id
-    }));
-    rankings.gold = realPlayers.sort((a,b) => b.gold - a.gold).slice(0,10).map(p => ({
-        name: p.displayName, gold: p.gold, className: p.className, id: p.id
-    }));
-    // 아레나 랭킹
-    rankings.arena = Object.entries(arenaRankings)
-        .sort((a,b) => b[1].points - a[1].points)
-        .slice(0, 10)
-        .map(([pid, r], idx) => ({
-            rank: idx + 1, name: players[pid]?.displayName || '?',
-            className: players[pid]?.className || '?',
-            wins: r.wins, losses: r.losses, points: r.points, id: pid
-        }));
-}
+// extracted to game/combat.js (Phase 3d/3e refactor)
 
 // 주간 랭킹 보상 지급 (월요일 06:00 기준)
 let lastWeeklyRewardWeek = '';
-function checkWeeklyRankingRewards() {
-    const now = new Date();
-    const week = getWeekNumber();
-    if (now.getDay() === 1 && now.getHours() === 6 && lastWeeklyRewardWeek !== week) {
-        lastWeeklyRewardWeek = week;
-        updateRankings();
-
-        // 레벨 1위
-        if (rankings.level.length > 0) {
-            const topId = rankings.level[0].id;
-            const top = players[topId];
-            if (top) {
-                top.gold += 10000;
-                top.diamonds = (top.diamonds || 0) + 100;
-                // 주간 칭호 부여 (기존 주간 칭호 제거)
-                if (top.titles) top.titles = top.titles.filter(t => !TITLES[t]?.weekly);
-                if (!top.titles) top.titles = [];
-                top.titles.push('title_rank_level');
-                io.to(topId).emit('server_msg', { msg: '주간 레벨 1위 보상! +10000G, +100D, 칭호: 서버 최강자', type: 'rare' });
-            }
-        }
-
-        // PvP 1위
-        if (rankings.pvp.length > 0) {
-            const topId = rankings.pvp[0].id;
-            const top = players[topId];
-            if (top) {
-                top.gold += 5000;
-                top.diamonds = (top.diamonds || 0) + 80;
-                if (top.titles) top.titles = top.titles.filter(t => !TITLES[t]?.weekly);
-                if (!top.titles) top.titles = [];
-                top.titles.push('title_rank_pvp');
-                io.to(topId).emit('server_msg', { msg: '주간 PvP 1위 보상! +5000G, +80D, 칭호: 최강 전사', type: 'rare' });
-            }
-        }
-
-        // 상위 10위까지 보상
-        for (let i = 1; i < Math.min(10, rankings.level.length); i++) {
-            const p = players[rankings.level[i]?.id];
-            if (p) {
-                const reward = Math.floor(10000 / (i + 1));
-                p.gold += reward;
-                io.to(p.id).emit('server_msg', { msg: `주간 레벨 ${i+1}위 보상! +${reward}G`, type: 'normal' });
-            }
-        }
-
-        io.emit('server_msg', { msg: '주간 랭킹 보상이 지급되었습니다!', type: 'boss' });
-    }
-}
+// extracted to game/combat.js (Phase 3d/3e refactor)
 let axes = {};
 let aoes = {};
 let monsters = {};
@@ -974,58 +911,7 @@ let nextRogueTime = Date.now() + 480000 + Math.random() * 420000;
 // ── 몬스터 스폰 (등급별 가중치) ──
 // pickMonsterTier / pickZoneTier / scaleMonster (v1.44: game/monster_spawn.js로 이동)
 
-function spawnMonster() {
-    entityIdCounter++;
-    const mId = 'monster_' + entityIdCounter;
-
-    // 존 기반 스폰 (존별 몬스터 등급 배합)
-    const huntZoneEntries = Object.entries(ZONES).filter(([id, z]) => !z.safe && !z.isCastle && !z.isArena && ZONE_MONSTERS[id]);
-    const [zoneId, zone] = huntZoneEntries[Math.floor(Math.random() * huntZoneEntries.length)];
-    const tierKey = pickZoneTier(zoneId);
-    const zoneMidLvl = Math.floor((zone.lvl[0] + zone.lvl[1]) / 2);
-    const tier = scaleMonster(tierKey, zoneMidLvl);
-
-    const mx = zone.x + Math.random() * zone.w;
-    const my = zone.y + Math.random() * zone.h;
-
-    // 몬스터 고유 AI 타입
-    const AI_TYPES = { normal:'wander', elite:'charge', rare:'aoe', boss:'breath', legendary:'breath', mythic:'breath' };
-    // 존별 이름 적용
-    const zoneNames = ZONE_MONSTER_NAMES[zoneId];
-    const monsterName = (zoneNames && zoneNames[tierKey]) ? zoneNames[tierKey] : tier.name;
-
-    monsters[mId] = {
-        id: mId,
-        tier: tierKey,
-        name: monsterName,
-        x: mx, y: my,
-        hp: tier.hp, maxHp: tier.hp,
-        atk: tier.atk, def: tier.def,
-        color: tier.color,
-        isAlive: true,
-        element: ELEMENTS[Math.floor(Math.random() * ELEMENTS.length)],
-        zoneId,
-        aiType: AI_TYPES[tierKey] || 'wander',
-        expReward: tier.expReward,
-        goldReward: tier.goldReward,
-        lastSpecialAttack: 0,
-    };
-
-    // 밤 시간 강화 적용
-    if (isNight) {
-        monsters[mId].atk = Math.floor(monsters[mId].atk * 1.2);
-        monsters[mId].hp = Math.floor(monsters[mId].hp * 1.2);
-        monsters[mId].maxHp = Math.floor(monsters[mId].maxHp * 1.2);
-        monsters[mId].nightBuffed = true;
-    }
-
-    // 레어 몬스터 스폰 공지
-    if (tierKey === 'legendary' || tierKey === 'mythic') {
-        const spawnZoneName = ZONES[zoneId]?.name || zoneId;
-        io.emit('rare_spawn', { id: mId, name: monsterName, tier: tierKey, zoneId, zoneName: spawnZoneName });
-        io.emit('server_msg', { msg: `[희귀 출현] ${monsterName}이(가) ${spawnZoneName}에 나타났습니다!`, type: 'boss' });
-    }
-}
+// extracted to game/combat.js (Phase 3d/3e refactor)
 
 // 초기 몬스터 배치
 for (let i = 0; i < MAX_MONSTERS; i++) spawnMonster();
@@ -1034,82 +920,9 @@ for (let i = 0; i < MAX_MONSTERS; i++) spawnMonster();
 let worldBoss = null;
 // const WORLD_BOSS_TYPES = ... (v1.37: game/data/world_data.js로 이동)
 
-function endArenaMatch(matchId, winnerId, loserId, reason) {
-    const match = arenaMatches[matchId];
-    if (!match) return;
-    const winner = players[winnerId], loser = players[loserId];
+// extracted to game/combat.js (Phase 3d/3e refactor)
 
-    // 포인트 계산 (결투는 랭킹에 영향 안 줌)
-    if (!match.isDuel) {
-        if (!arenaRankings[winnerId]) arenaRankings[winnerId] = { wins:0, losses:0, points:1000 };
-        if (!arenaRankings[loserId]) arenaRankings[loserId] = { wins:0, losses:0, points:1000 };
-        arenaRankings[winnerId].wins++;
-        arenaRankings[loserId].losses++;
-        const prevWinTier = getArenaTier(arenaRankings[winnerId].points);
-        arenaRankings[winnerId].points += 25;
-        arenaRankings[loserId].points = Math.max(0, arenaRankings[loserId].points - 15);
-        const newWinTier = getArenaTier(arenaRankings[winnerId].points);
-        if (newWinTier.min > prevWinTier.min) {
-            io.to(winnerId).emit('tier_promotion', { tier: newWinTier.name, color: newWinTier.color });
-            io.emit('server_msg', { msg: `[아레나] ${winner?.displayName}이(가) ${newWinTier.name} 티어 승급!`, type: 'rare' });
-        }
-    }
-
-    // 보상
-    if (winner) {
-        winner.gold += 200;
-        winner.arenaCountToday = (winner.arenaCountToday || 0) + 1;
-        winner.hp = winner.maxHp; // HP 회복
-        delete winner.arenaMatchId;
-        // 마을로 귀환
-        winner.x = -480 + Math.random() * 40; winner.y = -480 + Math.random() * 40;
-        io.to(winnerId).emit('arena_end', { result: 'win', points: arenaRankings[winnerId].points, reward: 200, reason });
-        trackQuest(winner, 'pvp_win', 1);
-        trackQuest(winner, 'pvp_fight', 1);
-    }
-    if (loser) {
-        loser.arenaCountToday = (loser.arenaCountToday || 0) + 1;
-        loser.hp = loser.maxHp; // HP 회복
-        delete loser.arenaMatchId;
-        loser.x = -480 + Math.random() * 40; loser.y = -480 + Math.random() * 40;
-        io.to(loserId).emit('arena_end', { result: 'lose', points: arenaRankings[loserId].points, reason });
-        trackQuest(loser, 'pvp_fight', 1);
-    }
-
-    io.emit('server_msg', { msg: `[아레나] ${winner?.displayName || '?'} 승리! (${reason})`, type: 'normal' });
-    delete arenaMatches[matchId];
-}
-
-function spawnWorldBoss() {
-    if (worldBoss && worldBoss.isAlive) return; // 이미 보스 존재
-    const bossType = WORLD_BOSS_TYPES[Math.floor(Math.random() * WORLD_BOSS_TYPES.length)];
-    const zone = ZONES.dragon; // 용의 요람에 스폰
-    entityIdCounter++;
-    const bossId = 'worldboss_' + entityIdCounter;
-
-    monsters[bossId] = {
-        id: bossId,
-        tier: 'worldboss',
-        name: bossType.name,
-        x: zone.x + zone.w / 2,
-        y: zone.y + zone.h / 2,
-        hp: bossType.hp,
-        maxHp: bossType.hp,
-        atk: bossType.atk,
-        def: bossType.def,
-        color: bossType.color,
-        isAlive: true,
-        isWorldBoss: true,
-        expReward: bossType.expReward,
-        goldReward: bossType.goldReward,
-        damageContrib: {}, // 기여도 추적 {playerId: totalDamage}
-    };
-
-    worldBoss = { id: bossId, name: bossType.name, isAlive: true, spawnTime: Date.now() };
-    io.emit('server_msg', { msg: `[월드 보스] ${bossType.name}이(가) 용의 요람에 출현했습니다! 모든 전사여 모여라!`, type: 'boss' });
-    io.emit('world_boss_spawn', { id: bossId, name: bossType.name, hp: bossType.hp, maxHp: bossType.hp, x: monsters[bossId].x, y: monsters[bossId].y });
-    logWorldEvent(`월드 보스 ${bossType.name} 출현`, 'boss');
-}
+// extracted to game/combat.js (Phase 3d/3e refactor)
 
 // ── 던전 시스템 ── (v1.37: game/data/world_data.js로 이동)
 let activeDungeons = {}; // {instanceId: {dungeonId, players:[], currentStage, monstersLeft}}
@@ -1286,25 +1099,7 @@ const FISH_TABLE = [
 let goldFeverEnd = 0;
 
 // ── 드롭 아이템 생성 ──
-function spawnDrop(x, y, gold, monsterId) {
-    entityIdCounter++;
-    const dropId = 'drop_' + entityIdCounter;
-    drops[dropId] = {
-        id: dropId,
-        x, y, gold,
-        spawnTime: Date.now(),
-        pickupRadius: 2.0
-    };
-    io.emit('drop_spawn', drops[dropId]);
-
-    // 30초 후 자동 소멸
-    setTimeout(() => {
-        if (drops[dropId]) {
-            io.emit('drop_destroy', dropId);
-            delete drops[dropId];
-        }
-    }, 30000);
-}
+// extracted to game/combat.js (Phase 3d/3e refactor)
 
 // ==========================================
 // Socket.IO 연결 처리
