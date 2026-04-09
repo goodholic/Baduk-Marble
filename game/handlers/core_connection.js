@@ -162,6 +162,7 @@ function registerCoreConnectionHandlers(socket, $) {
                         _pvpMatch: ext._pvpMatch || null,
                         _bountyHunter: ext._bountyHunter || null,
                         _race: ext._race || null,
+                        _relicFusion: ext._relicFusion || null,
                     });
                     if (pInfo.isAdvanced && pInfo.advancedClass) {
                         const adv = CLASS_ADVANCE[pInfo.baseClassName || pInfo.className];

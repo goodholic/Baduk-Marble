@@ -74,6 +74,7 @@ const { registerWeatherDungeonHandlers } = require('./weather_dungeon_handlers')
 const { registerPvpMatchHandlers } = require('./pvp_match_handlers');
 const { registerBountyHunterHandlers } = require('./bounty_hunter_handlers');
 const { registerRaceHandlers } = require('./race_handlers');
+const { registerRelicFusionHandlers } = require('./relic_fusion_handlers');
 
 function registerConnection(io, $) {
 
@@ -174,6 +175,7 @@ io.on("connection", (socket) => {
     registerPvpMatchHandlers(socket, { io, players, playerId, savePlayer, pvpMatch: $.pvpMatch, trackQuest: $.trackQuest });
     registerBountyHunterHandlers(socket, { io, players, playerId, savePlayer, bountyHunter: $.bountyHunter });
     registerRaceHandlers(socket, { io, players, playerId, savePlayer, raceSystem: $.raceSystem });
+    registerRelicFusionHandlers(socket, { io, players, playerId, savePlayer, relicFusion: $.relicFusion });
     registerWeatherDungeonHandlers(socket, {
         io, players, playerId, savePlayer,
         weatherDungeon: $.weatherDungeon,
