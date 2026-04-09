@@ -28,6 +28,7 @@ const bountyHunter = require('./game/bounty_hunter');
 const raceSystem = require('./game/race_system');
 const relicFusion = require('./game/relic_fusion');
 const skillWave = require('./game/skill_wave');
+const achievements = require('./game/achievements');
 const { handleRaidFinish, codexDiscover, finishBossRush, updateTownPrices, generateRandomOptions, logWorldEvent } = serverHelpers;
 const { expireMarketListings, destroyAxe, syncGameState, updatePassives, updatePlayerAutoSkills, updateBots, giveExp, handleCollisions, handleAoeDamage, handlePlayerDeath } = loops;
 // Phase 3 refactor: 전투/스폰/랭킹 모듈
@@ -316,6 +317,7 @@ combat.init({
     getPlayers: () => players,
     getIo: () => io,
     getQuestChain: () => questChain,
+    getAchievements: () => achievements,
     // Phase 3d/3e
     ZONES, ZONE_MONSTERS, ZONE_MONSTER_NAMES, WORLD_BOSS_TYPES, TITLES,
     getELEMENTS: () => ELEMENTS,
@@ -550,6 +552,7 @@ async function savePlayer(player) {
         _race: player._race || null,
         _relicFusion: player._relicFusion || null,
         _skillWave: player._skillWave || null,
+        _achievements: player._achievements || null,
     });
 
     try {
@@ -883,7 +886,7 @@ registerConnection(io, {
     createBot, createAutoArmy, alertArmy, executeThrow,
     generateRandomOptions, codexDiscover, handleRaidFinish, finishBossRush,
     SEASON_XP_MAP, ELEMENTS, FACTIONS, RUNES, RUNE_WORDS, TRAINING_DRILLS_NAMES,
-    questChain, bossSummon, weatherDungeon, pvpMatch, bountyHunter, raceSystem, relicFusion, skillWave,
+    questChain, bossSummon, weatherDungeon, pvpMatch, bountyHunter, raceSystem, relicFusion, skillWave, achievements,
     // mutable primitives via getters
     get isNight() { return isNight; },
     get currentWeather() { return currentWeather; },

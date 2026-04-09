@@ -61,6 +61,7 @@ let _QUESTS = null, _seasonPass = null, _getPetEffect = null, _getTitleBonus = n
 let _getCLASSES = null, _getRUNES = null, _getRUNE_WORDS = null, _getFACTIONS = null;
 let _getSEASON_XP_MAP = null, _getPlayers = null, _getIo = null;
 let _getQuestChain = null;
+let _getAchievements = null;
 // Phase 3d/3e deps
 let _ZONES = null, _ZONE_MONSTERS = null, _ZONE_MONSTER_NAMES = null, _WORLD_BOSS_TYPES = null;
 let _getELEMENTS = null, _TITLES = null;
@@ -91,6 +92,7 @@ function init(deps) {
     if (deps.getPlayers)        _getPlayers = deps.getPlayers;
     if (deps.getIo)             _getIo = deps.getIo;
     if (deps.getQuestChain)     _getQuestChain = deps.getQuestChain;
+    if (deps.getAchievements)   _getAchievements = deps.getAchievements;
     // Phase 3d/3e
     if (deps.ZONES)             _ZONES = deps.ZONES;
     if (deps.ZONE_MONSTERS)     _ZONE_MONSTERS = deps.ZONE_MONSTERS;
@@ -384,6 +386,19 @@ function trackQuest(p, target, amount) {
                 if (next) try { io.to(p.id).emit('quest_chain_next', next); } catch(_) {}
             } else if (result.storyUpdated) {
                 try { _getIo().to(p.id).emit('quest_chain_progress', { id: p._storyQuests?.current, progress: p._storyQuests?.progress[p._storyQuests?.current] }); } catch(_) {}
+            }
+        }
+    }
+    // v2.27: 도전 과제 자동 연동
+    if (_getAchievements) {
+        const ach = _getAchievements();
+        if (ach) {
+            const achResults = ach.updateProgress(p, target, amount);
+            if (achResults.length > 0) {
+                const io = _getIo();
+                for (const ar of achResults) {
+                    try { io.to(p.id).emit('achievement_unlocked', { id: ar.id, name: ar.name, tier: ar.tier, tierName: ar.tierName }); } catch(_) {}
+                }
             }
         }
     }
