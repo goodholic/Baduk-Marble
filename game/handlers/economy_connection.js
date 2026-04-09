@@ -318,6 +318,7 @@ function registerEconomyConnectionHandlers(socket, $) {
 
     // --- market_browse ---
     socket.on('market_browse', (filter) => {
+        const p = players[playerId]; if (!p) return;
         expireMarketListings();
         let filtered = $.marketListings;
         if (filter && filter.category) {
@@ -456,6 +457,7 @@ function registerEconomyConnectionHandlers(socket, $) {
 
     // --- get_town_prices ---
     socket.on('get_town_prices', () => {
+        const p = players[playerId]; if (!p) return;
         socket.emit('town_prices', $.townPrices);
     });
 

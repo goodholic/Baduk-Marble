@@ -429,6 +429,7 @@ function registerCombatPvpConnectionHandlers(socket, $) {
 
     // --- tower_leave ---
     socket.on('tower_leave', () => {
+        const p = players[playerId]; if (!p) return;
         if ($.towerProgress[playerId]) {
             socket.emit('tower_result', { msg: `${$.towerProgress[playerId].currentFloor}층에서 포기` });
             delete $.towerProgress[playerId];

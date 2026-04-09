@@ -121,6 +121,7 @@ function registerSocialConnectionHandlers(socket, $) {
 
     // --- friend_remove ---
     socket.on('friend_remove', (targetId) => {
+        const p = players[playerId]; if (!p) return;
         if (!$.friendLists[playerId]) return;
         $.friendLists[playerId] = $.friendLists[playerId].filter(f => f !== targetId);
         if ($.friendLists[targetId]) $.friendLists[targetId] = $.friendLists[targetId].filter(f => f !== playerId);
@@ -131,6 +132,7 @@ function registerSocialConnectionHandlers(socket, $) {
 
     // --- get_friends ---
     socket.on('get_friends', () => {
+        const p = players[playerId]; if (!p) return;
         const list = ($.friendLists[playerId] || []).map(fid => ({
             id: fid, name: players[fid]?.displayName || '?',
             level: players[fid]?.level || 0, className: players[fid]?.className || '?',
@@ -158,6 +160,7 @@ function registerSocialConnectionHandlers(socket, $) {
 
     // --- get_online_players ---
     socket.on('get_online_players', () => {
+        const p = players[playerId]; if (!p) return;
         const list = [];
         for (const pid in players) {
             const pl = players[pid];
@@ -209,6 +212,7 @@ function registerSocialConnectionHandlers(socket, $) {
 
     // --- get_ranking ---
     socket.on('get_ranking', () => {
+        const p = players[playerId]; if (!p) return;
         $.updateRankings();
         socket.emit('ranking_data', rankings);
     });
@@ -407,6 +411,7 @@ function registerSocialConnectionHandlers(socket, $) {
 
     // --- get_clans ---
     socket.on('get_clans', () => {
+        const p = players[playerId]; if (!p) return;
         const list = Object.entries(clans).map(([name, c]) => ({
             name, memberCount: c.members.length, level: c.level, exp: c.exp,
             maxMembers: CLAN_MAX_MEMBERS[c.level] || 10,

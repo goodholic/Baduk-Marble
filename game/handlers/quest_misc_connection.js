@@ -69,6 +69,7 @@ function registerQuestMiscConnectionHandlers(socket, $) {
 
     // --- dismiss_unit ---
     socket.on('dismiss_unit', (unitId) => {
+        const p = players[playerId]; if (!p) return;
         const b = players[unitId];
         if (!b || !b.isBot || b.ownerId !== playerId) return;
         b.isAlive = false;
@@ -140,6 +141,7 @@ function registerQuestMiscConnectionHandlers(socket, $) {
 
     // --- get_world_events ---
     socket.on('get_world_events', () => {
+        const p = players[playerId]; if (!p) return;
         socket.emit('world_events', worldEventLog.slice(-20).reverse().map(e => ({
             time: Math.floor((Date.now() - e.time) / 60000), msg: e.msg, type: e.type
         })));
@@ -392,6 +394,7 @@ function registerQuestMiscConnectionHandlers(socket, $) {
 
     // --- get_rift_ranking ---
     socket.on('get_rift_ranking', () => {
+        const p = players[playerId]; if (!p) return;
         const sorted = Object.entries($.currentSeason.leaderboard)
             .sort((a,b) => b[1] - a[1]).slice(0, 20)
             .map(([pid, depth], i) => ({ rank: i+1, name: players[pid]?.displayName || '?', depth }));
