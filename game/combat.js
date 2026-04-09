@@ -237,6 +237,11 @@ function recalcStats(p) {
         }
     }
 
+    // 세트 보너스 달성 추적
+    if (setAtkMulti > 1 || setDefMulti > 1 || setExpBonus > 0) {
+        trackQuest(p, 'set_bonus', 1);
+    }
+
     // 펫 보너스
     let petAtkMulti = 1.0;
     const pet = _getPetEffect(p);
@@ -443,6 +448,7 @@ function endArenaMatch(matchId, winnerId, loserId, reason) {
         if (newWinTier.min > prevWinTier.min) {
             io.to(winnerId).emit('tier_promotion', { tier: newWinTier.name, color: newWinTier.color });
             io.emit('server_msg', { msg: `[아레나] ${winner?.displayName}이(가) ${newWinTier.name} 티어 승급!`, type: 'rare' });
+            if (winner) trackQuest(winner, 'arena_tier', ARENA_TIERS.indexOf(newWinTier) + 1);
         }
     }
 

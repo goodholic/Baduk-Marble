@@ -959,7 +959,10 @@ function handleCollisions() {
                     }
                     $.trackQuest(realOwner, 'kill_streak', ks.count); // 최대 스트릭 추적
 
-                    realOwner.gold += Math.floor(mobGoldReward * goldMulti);
+                    const earnedGold = Math.floor(mobGoldReward * goldMulti);
+                    realOwner.gold += earnedGold;
+                    realOwner._totalGoldEarned = (realOwner._totalGoldEarned || 0) + earnedGold;
+                    $.trackQuest(realOwner, 'total_gold', realOwner._totalGoldEarned);
                     giveExp(owner, Math.floor(mobExpReward * expMulti));
 
                     // 변신 처치 카운트
@@ -1014,6 +1017,7 @@ function handleCollisions() {
                             if (!factionState[realOwner.faction].zones[mob.zoneId]) factionState[realOwner.faction].zones[mob.zoneId] = 0;
                             factionState[realOwner.faction].zones[mob.zoneId]++;
                             realOwner.factionRep = (realOwner.factionRep || 0) + 1;
+                            $.trackQuest(realOwner, 'faction_rep', realOwner.factionRep);
                         }
                         // 진영 보너스 (ATK/DEF는 recalcStats에서 적용, EXP만 여기서)
                         const fb = FACTIONS[realOwner.faction];
@@ -1038,6 +1042,7 @@ function handleCollisions() {
                     // 황금 비 존 보너스 (골드 x3, EXP x1.5)
                     if (goldenRain && mob.zoneId === goldenRain.zoneId) {
                         goldMulti *= 3; expMulti *= 1.5;
+                        if (!realOwner.isBot) $.trackQuest(realOwner, 'golden_rain_kills', 1);
                     }
 
                     // 현상금 처치 체크

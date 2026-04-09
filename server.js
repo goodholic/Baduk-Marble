@@ -1436,6 +1436,10 @@ setInterval(() => {
         const newWeather = WEATHERS[Math.floor(Math.random() * WEATHERS.length)];
         if (newWeather.id !== currentWeather.id) {
             currentWeather = newWeather;
+            // 접속 중인 플레이어에게 날씨 경험 추적
+            for (const pid in players) {
+                if (players[pid] && !players[pid].isBot && players[pid].isAlive) trackQuest(players[pid], 'weather_count', 1);
+            }
             io.emit('weather_change', { id: newWeather.id, name: newWeather.name, effect: newWeather.effect });
             if (newWeather.id !== 'clear') {
                 io.emit('server_msg', { msg: `[날씨] ${newWeather.name} — ${newWeather.effect?.element ? newWeather.effect.element + ' 속성 강화' : '전투 환경 변화'}`, type: 'normal' });
@@ -1963,6 +1967,9 @@ setInterval(async () => {
                 if (!p) continue;
 
         if (!p.isBot && p.isAlive && p.deviceId && p.deviceId !== 'bot') {
+            // 플레이 시간 추적 (60초마다 60초 누적)
+            p._totalPlaytime = (p._totalPlaytime || 0) + 60;
+            trackQuest(p, 'playtime', p._totalPlaytime);
             await savePlayer(p);
             saved++;
         }
