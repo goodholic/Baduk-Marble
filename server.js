@@ -29,6 +29,7 @@ const raceSystem = require('./game/race_system');
 const relicFusion = require('./game/relic_fusion');
 const skillWave = require('./game/skill_wave');
 const achievements = require('./game/achievements');
+const superBoss = require('./game/super_boss');
 const { handleRaidFinish, codexDiscover, finishBossRush, updateTownPrices, generateRandomOptions, logWorldEvent } = serverHelpers;
 const { expireMarketListings, destroyAxe, syncGameState, updatePassives, updatePlayerAutoSkills, updateBots, giveExp, handleCollisions, handleAoeDamage, handlePlayerDeath } = loops;
 // Phase 3 refactor: 전투/스폰/랭킹 모듈
@@ -886,7 +887,7 @@ registerConnection(io, {
     createBot, createAutoArmy, alertArmy, executeThrow,
     generateRandomOptions, codexDiscover, handleRaidFinish, finishBossRush,
     SEASON_XP_MAP, ELEMENTS, FACTIONS, RUNES, RUNE_WORDS, TRAINING_DRILLS_NAMES,
-    questChain, bossSummon, weatherDungeon, pvpMatch, bountyHunter, raceSystem, relicFusion, skillWave, achievements,
+    questChain, bossSummon, weatherDungeon, pvpMatch, bountyHunter, raceSystem, relicFusion, skillWave, achievements, superBoss,
     // mutable primitives via getters
     get isNight() { return isNight; },
     get currentWeather() { return currentWeather; },
@@ -1769,6 +1770,29 @@ setInterval(() => {
     // 주간 랭킹 보상 체크 (1분마다)
     if (tickCounter % (30 * 60) === 0) {
         checkWeeklyRankingRewards();
+    }
+
+    // v2.28: 슈퍼 보스 스폰 + 타임아웃 (30초마다 체크)
+    if (tickCounter % (30 * 30) === 0) {
+        // 타임아웃 체크
+        if (superBoss.checkTimeout()) {
+            io.emit('server_msg', { msg: '[슈퍼 보스] 시간 초과! 보스가 사라졌다...', type: 'danger' });
+            io.emit('super_boss_timeout');
+        }
+        // 스폰 체크 (6/12/18/22시, 접속자 5명+, 비활성 시)
+        const hour = new Date().getHours();
+        const min = new Date().getMinutes();
+        const onlineCount = Object.values(players).filter(p => !p.isBot && p.isAlive).length;
+        if (!superBoss.getActiveBoss() && onlineCount >= 5 && min < 2 &&
+            superBoss.SUPER_BOSS_CONFIG.spawnSchedule.includes(hour)) {
+            const bossKeys = Object.keys(superBoss.SUPER_BOSSES);
+            const randomBoss = bossKeys[Math.floor(Math.random() * bossKeys.length)];
+            const result = superBoss.spawnSuperBoss(randomBoss);
+            if (result.success) {
+                io.emit('server_msg', { msg: result.spawnMsg, type: 'boss' });
+                io.emit('super_boss_spawn', superBoss.getStatus());
+            }
+        }
     }
 
     // v2.22: PvP 매칭 시도 (5초마다)

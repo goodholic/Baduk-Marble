@@ -77,6 +77,7 @@ const { registerRaceHandlers } = require('./race_handlers');
 const { registerRelicFusionHandlers } = require('./relic_fusion_handlers');
 const { registerSkillWaveHandlers } = require('./skill_wave_handlers');
 const { registerAchievementHandlers } = require('./achievement_handlers');
+const { registerSuperBossHandlers } = require('./super_boss_handlers');
 
 function registerConnection(io, $) {
 
@@ -180,6 +181,7 @@ io.on("connection", (socket) => {
     registerRelicFusionHandlers(socket, { io, players, playerId, savePlayer, relicFusion: $.relicFusion });
     registerSkillWaveHandlers(socket, { io, players, playerId, savePlayer, skillWave: $.skillWave });
     registerAchievementHandlers(socket, { io, players, playerId, savePlayer, achievements: $.achievements });
+    registerSuperBossHandlers(socket, { io, players, playerId, savePlayer, superBoss: $.superBoss, trackQuest: $.trackQuest });
     registerWeatherDungeonHandlers(socket, {
         io, players, playerId, savePlayer,
         weatherDungeon: $.weatherDungeon,
