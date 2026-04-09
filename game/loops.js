@@ -754,9 +754,910 @@ function giveExp(playerObj, amount) {
 }
 
 
+
+// Phase 4d: handleCollisions, handleAoeDamage, handlePlayerDeath
+
+function handleCollisions() {
+    const players = $.getPlayers();
+    const monsters = $.getMonsters();
+    const io = $.getIo();
+    const axes = $.getAxes();
+    const drops = $.getDrops();
+    const tickCounter = $.getTickCounter();
+    const isNight = $.getIsNight();
+    const SKILLS = $.getSKILLS();
+    const ZONES = $.ZONES;
+    const ZONE_MONSTERS = $.ZONE_MONSTERS;
+    const MONSTER_TIERS = $.MONSTER_TIERS;
+    const MONSTER_LORE = $.MONSTER_LORE;
+    const EQUIP_STATS = $.EQUIP_STATS;
+    const GRADE_INFO = $.GRADE_INFO;
+    const CLAN_SKILLS = $.CLAN_SKILLS;
+    const QUESTS = $.QUESTS;
+    const KARMA = $.KARMA;
+    const FACTIONS = $.getFACTIONS();
+    const RUNES = $.getRUNES();
+    const clans = $.getClans();
+    const worldBoss = $.getWorldBoss();
+    const meteorShower = $.getMeteorShower();
+    const goldenRain = $.getGoldenRain();
+    const goldFeverZone = $.getGoldFeverZone();
+    const goldFeverEnd = $.getGoldFeverEnd();
+    const treasureGoblin = $.getTreasureGoblin();
+    const zoneConquest = $.getZoneConquest();
+    const factionState = $.getFactionState();
+    const calcDamage = $.calcDamage;
+    const spawnDrop = $.spawnDrop;
+    const spawnMonster = $.spawnMonster;
+    const trackQuest = $.trackQuest;
+    const applyBuff = $.applyBuff;
+    const removeBuff = $.removeBuff;
+    const alertArmy = $.alertArmy;
+    const generateRandomOptions = $.generateRandomOptions;
+    const getZone = $.getZone;
+    const getWeekNumber = $.getWeekNumber;
+    const checkTitles = $.checkTitles;
+    const getThisWeekChallenge = $.getThisWeekChallenge;
+    const getTodaysChallenge = $.getTodaysChallenge;
+    const nextEntityId = $.nextEntityId;
+    for (const axeId in axes) {
+        const axe = axes[axeId];
+        const owner = players[axe.ownerId];
+        if (!owner) continue;
+
+        let axeDestroyed = false;
+
+        // 몬스터 충돌
+        for (const mId in monsters) {
+            const mob = monsters[mId];
+            if (!mob.isAlive) continue;
+
+            const dx = axe.x - mob.x, dy = axe.y - mob.y;
+            if (dx * dx + dy * dy < 1.0) {
+                // axe.dmg를 우선 사용 (executeThrow에서 계산된 값) — fallback으로 재계산
+                let damage = axe.dmg;
+                if (!Number.isFinite(damage) || damage <= 0) {
+                    const calc = calcDamage(owner.atk || 10, mob.def, owner.dmgMulti || 1, owner.critRate || 0.1, owner.element, mob.element);
+                    damage = calc.damage;
+                }
+                mob.hp -= damage;
+
+                // 월드보스 기여도 추적
+                if (mob.isWorldBoss && mob.damageContrib) {
+                    let realOwnerId = (owner.isBot && owner.ownerId) ? owner.ownerId : owner.id;
+                    mob.damageContrib[realOwnerId] = (mob.damageContrib[realOwnerId] || 0) + damage;
+                    // 보스 HP 바 업데이트
+                    if (tickCounter % 5 === 0) {
+                        // 보스 페이즈 전환
+                        const hpPct = mob.hp / mob.maxHp;
+                        if (!mob._phase) mob._phase = 'normal';
+                        if (hpPct <= 0.25 && mob._phase !== 'desperate') {
+                            mob._phase = 'desperate';
+                            mob.atk = Math.floor(mob.atk * 1.8);
+                            mob.aiType = 'aoe';
+                            io.emit('boss_phase', { id: mId, phase: 'desperate', msg: '보스가 필사적으로 발악합니다! ATK x1.8 + 광역 공격!' });
+                            io.emit('server_msg', { msg: `[월드 보스] 필사 페이즈! ATK 대폭 증가!`, type: 'danger' });
+                        } else if (hpPct <= 0.5 && mob._phase === 'normal') {
+                            mob._phase = 'enrage';
+                            mob.atk = Math.floor(mob.atk * 1.3);
+                            mob.aiType = 'breath';
+                            io.emit('boss_phase', { id: mId, phase: 'enrage', msg: '보스가 분노합니다! ATK x1.3 + 브레스!' });
+                            io.emit('server_msg', { msg: `[월드 보스] 분노 페이즈! 브레스 공격 시작!`, type: 'danger' });
+                        }
+                        io.emit('world_boss_update', { id: mId, hp: mob.hp, maxHp: mob.maxHp, phase: mob._phase });
+                    }
+                }
+
+                if (mob.hp <= 0) {
+                    mob.isAlive = false;
+
+                    // 월드보스 처치 시 기여도 기반 보상
+                    if (mob.isWorldBoss) {
+                        const totalDmg = Object.values(mob.damageContrib || {}).reduce((s, d) => s + d, 0);
+                        const sorted = Object.entries(mob.damageContrib || {}).sort((a,b) => b[1] - a[1]);
+                        io.emit('server_msg', { msg: `[월드 보스] ${mob.name} 처치 완료! MVP: ${players[sorted[0]?.[0]]?.displayName || '???'}`, type: 'boss' });
+                        // totalDmg가 0이면 (오직 DOT/poison으로 처치된 엣지케이스) NaN 보상 방지
+                        if (totalDmg <= 0) {
+                            const safeOwner = (owner.isBot && owner.ownerId && players[owner.ownerId]) ? players[owner.ownerId] : owner;
+                            safeOwner.gold += mob.goldReward || 0;
+                            giveExp(safeOwner, mob.expReward || 0);
+                            worldBoss = null;
+                            io.emit('world_boss_dead', { id: mId, name: mob.name });
+                            delete monsters[mId];
+                            destroyAxe(axeId);
+                            axeDestroyed = true;
+                            break;
+                        }
+
+                        for (const [pid, dmg] of sorted) {
+                            const p = players[pid];
+                            if (!p) continue;
+                            const ratio = dmg / totalDmg;
+                            const goldReward = Math.floor(mob.goldReward * ratio * 2);
+                            const expReward = Math.floor(mob.expReward * ratio * 2);
+                            p.gold += goldReward;
+                            giveExp(p, expReward);
+                            // MVP (1위)에게 전설 재료 보너스
+                            if (pid === sorted[0][0]) {
+                                if (!p.inventory) p.inventory = {};
+                                p.inventory['mat_dragon'] = (p.inventory['mat_dragon']||0) + 3;
+                                io.to(pid).emit('combat_log', { msg: `MVP 보너스! 드래곤 비늘 x3, ${goldReward}G, ${expReward} EXP` });
+                            } else {
+                                io.to(pid).emit('combat_log', { msg: `월드 보스 보상: ${goldReward}G, ${expReward} EXP (기여 ${Math.floor(ratio*100)}%)` });
+                            }
+                            // 상위 기여자 장비 드롭 기회
+                            if (ratio > 0.05 && Math.random() < ratio) {
+                                const bossDrops = ['equip_sword_4','equip_armor_4','equip_ring_3','equip_neck_3'];
+                                const dropItem = bossDrops[Math.floor(Math.random() * bossDrops.length)];
+                                if (!p.inventory) p.inventory = {};
+                                p.inventory[dropItem] = (p.inventory[dropItem]||0) + 1;
+                                const eName = EQUIP_STATS[dropItem]?.name || dropItem;
+                                io.to(pid).emit('combat_log', { msg: `${eName} 획득!` });
+                                io.emit('server_msg', { msg: `${p.displayName}이(가) 월드 보스에서 ${eName} 획득!`, type: 'rare' });
+                            }
+                            io.emit('player_update', p);
+                        }
+
+                        worldBoss = null;
+                        io.emit('world_boss_dead', { id: mId, name: mob.name });
+                        delete monsters[mId];
+                        destroyAxe(axeId);
+                        axeDestroyed = true;
+                        break;
+                    }
+
+                    const tier = MONSTER_TIERS[mob.tier];
+                    // 존 스케일링된 보상 사용 (없으면 기본 티어 보상)
+                    const mobExpReward = mob.expReward || tier.expReward;
+                    const mobGoldReward = mob.goldReward || tier.goldReward;
+
+                    let realOwner = (owner.isBot && owner.ownerId && players[owner.ownerId])
+                        ? players[owner.ownerId] : owner;
+
+                    // 존 보너스 + 혈맹 버프 + 장비 보너스 적용
+                    let goldMulti = 1, expMulti = 1;
+                    // 존 보너스 (몬스터가 위치한 존의 보너스)
+                    const mobZone = mob.zoneId && ZONE_MONSTERS[mob.zoneId];
+                    if (mobZone) {
+                        goldMulti += mobZone.goldBonus || 0;
+                        expMulti += mobZone.expBonus || 0;
+                    }
+                    // 혈맹 버프
+                    if (realOwner.clanName && clans[realOwner.clanName]) {
+                        const clanLv = clans[realOwner.clanName].level;
+                        if (clanLv >= 5) goldMulti += CLAN_SKILLS[5].multi;
+                        if (clanLv >= 3) expMulti += CLAN_SKILLS[3].multi;
+                        clans[realOwner.clanName].exp += 1;
+                    }
+                    // 장비 보너스
+                    goldMulti += (realOwner.equipGoldBonus || 0);
+                    expMulti += (realOwner.equipExpBonus || 0);
+                    // 밤 보너스 (+20% EXP)
+                    if (isNight) expMulti += 0.2;
+                    // 골드 피버 보너스 (해당 존 3배)
+                    if (goldFeverZone && mob.zoneId === goldFeverZone && Date.now() < goldFeverEnd) {
+                        goldMulti *= 3; expMulti *= 3;
+                    }
+                    // 킬 스트릭 보너스
+                    if (!realOwner._killStreak) realOwner._killStreak = { count:0, lastTime:0 };
+                    const ks = realOwner._killStreak;
+                    const ksNow = Date.now();
+                    if (ksNow - ks.lastTime < 10000) { ks.count++; } else { ks.count = 1; }
+                    ks.lastTime = ksNow;
+                    if (ks.count >= 100) { goldMulti *= 5; expMulti *= 5; }
+                    else if (ks.count >= 50) { goldMulti *= 3; expMulti *= 3; }
+                    else if (ks.count >= 25) { goldMulti *= 2; expMulti *= 2; }
+                    else if (ks.count >= 10) { goldMulti *= 1.5; expMulti *= 1.5; }
+                    // 스트릭 공지 (25/50/100)
+                    if (ks.count === 25 || ks.count === 50 || ks.count === 100) {
+                        io.emit('server_msg', { msg: `${realOwner.displayName}이(가) ${ks.count}킬 스트릭 달성!`, type: 'rare' });
+                    }
+                    if (ks.count % 10 === 0 && ks.count >= 10) {
+                        io.to(realOwner.id).emit('kill_streak_bonus', { count: ks.count, multi: goldMulti });
+                    }
+
+                    realOwner.gold += Math.floor(mobGoldReward * goldMulti);
+                    giveExp(owner, Math.floor(mobExpReward * expMulti));
+
+                    // 변신 처치 카운트
+                    if (!realOwner.morphKills) realOwner.morphKills = {};
+                    if (mob.tier === 'normal') realOwner.morphKills['slime'] = (realOwner.morphKills['slime']||0) + 1;
+                    if (mob.tier === 'elite') realOwner.morphKills['orc'] = (realOwner.morphKills['orc']||0) + 1;
+                    if (mob.tier === 'rare') realOwner.morphKills['darkknight'] = (realOwner.morphKills['darkknight']||0) + 1;
+                    if (mob.tier === 'boss' || mob.tier === 'legendary') realOwner.morphKills['dragon'] = (realOwner.morphKills['dragon']||0) + 1;
+
+                    // 몬스터 도감 기록
+                    if (!realOwner.bestiary) realOwner.bestiary = {};
+                    if (!realOwner.bestiary[mob.name]) {
+                        realOwner.bestiary[mob.name] = 1;
+                        // 몬스터 도감 로어 표시
+                        const lore = MONSTER_LORE[mob.name];
+                        if (lore) io.to(realOwner.id).emit('monster_lore', { name: mob.name, lore, tier: mob.tier });
+                        const discovered = Object.keys(realOwner.bestiary).length;
+                        if (discovered === 10) { realOwner.gold += 500; io.to(realOwner.id).emit('combat_log', { msg: '도감 10종 달성! +500G' }); }
+                        if (discovered === 25) { realOwner.gold += 1000; io.to(realOwner.id).emit('achievement_unlock', { name: '몬스터 학자', desc: '25종 처치', reward: {gold:1000} }); }
+                        if (discovered === 50) { realOwner.gold += 5000; realOwner.diamonds = (realOwner.diamonds||0) + 100; io.to(realOwner.id).emit('achievement_unlock', { name: '도감 마스터', desc: '50종 처치', reward: {gold:5000, diamonds:100} }); }
+                    } else {
+                        realOwner.bestiary[mob.name]++;
+                    }
+
+                    // 트레저 고블린 처치 보상
+                    if (mob.tier === 'treasure' && treasureGoblin) {
+                        const zoneGold = (ZONE_MONSTERS[mob.zoneId]?.goldBonus || 0) + 1;
+                        const goblinReward = Math.floor(500 * zoneGold);
+                        realOwner.gold += goblinReward;
+                        if (!realOwner.inventory) realOwner.inventory = {};
+                        realOwner.inventory['mat_dragon'] = (realOwner.inventory['mat_dragon']||0) + 1;
+                        io.emit('server_msg', { msg: `${realOwner.displayName}이(가) 보물 도깨비를 잡았다! +${goblinReward}G + 드래곤 비늘!`, type: 'boss' });
+                        treasureGoblin = null;
+                        nextTreasureTime = Date.now() + 180000 + Math.random() * 300000;
+                    }
+
+                    // 존 정복 킬 카운트
+                    if (mob.zoneId && realOwner.clanName) {
+                        if (!zoneConquest[mob.zoneId]) zoneConquest[mob.zoneId] = { kills: {}, lordClan: null };
+                        const zc = zoneConquest[mob.zoneId].kills;
+                        zc[realOwner.clanName] = (zc[realOwner.clanName] || 0) + 1;
+                    }
+                    // 존 정복 영주 보너스
+                    if (mob.zoneId && zoneConquest[mob.zoneId]?.lordClan === realOwner.clanName) {
+                        goldMulti += 0.15; expMulti += 0.15;
+                    }
+
+                    // 진영 킬 카운트
+                    if (realOwner.faction && mob.zoneId) {
+                        if (factionState[realOwner.faction]) {
+                            factionState[realOwner.faction].kills++;
+                            if (!factionState[realOwner.faction].zones[mob.zoneId]) factionState[realOwner.faction].zones[mob.zoneId] = 0;
+                            factionState[realOwner.faction].zones[mob.zoneId]++;
+                            realOwner.factionRep = (realOwner.factionRep || 0) + 1;
+                        }
+                        // 진영 보너스 (ATK/DEF는 recalcStats에서 적용, EXP만 여기서)
+                        const fb = FACTIONS[realOwner.faction];
+                        if (fb) {
+                            if (fb.bonus === 'exp') expMulti += fb.bonusValue;
+                        }
+                    }
+
+                    // 룬 드롭 (5% 확률)
+                    if (Math.random() < 0.05) {
+                        const runeKeys = Object.keys(RUNES);
+                        const droppedRune = runeKeys[Math.floor(Math.random() * runeKeys.length)];
+                        if (!realOwner.inventory) realOwner.inventory = {};
+                        realOwner.inventory[droppedRune] = (realOwner.inventory[droppedRune]||0) + 1;
+                        io.to(realOwner.id).emit('combat_log', { msg: `룬 [${droppedRune}] 획득!` });
+                    }
+
+                    // 유성우 존 보너스 (x2)
+                    if (meteorShower && mob.zoneId === meteorShower.zoneId) {
+                        goldMulti *= 2; expMulti *= 2;
+                    }
+                    // 황금 비 존 보너스 (골드 x3, EXP x1.5)
+                    if (goldenRain && mob.zoneId === goldenRain.zoneId) {
+                        goldMulti *= 3; expMulti *= 1.5;
+                    }
+
+                    // 현상금 처치 체크
+                    if (!realOwner.isBot && realOwner._activeBounty) {
+                        const bounty = realOwner._activeBounty;
+                        // (이건 PvP 킬에서 처리 — 몬스터 킬과 무관)
+                    }
+
+                    // 전설 몬스터 처치 특별 보상
+                    if (mob.tier === 'legendary') {
+                        if (!realOwner.inventory) realOwner.inventory = {};
+                        realOwner.inventory['mat_dragon'] = (realOwner.inventory['mat_dragon']||0) + 3;
+                        realOwner.inventory['mat_soul'] = (realOwner.inventory['mat_soul']||0) + 5;
+                        io.emit('server_msg', { msg: `${realOwner.displayName}이(가) ${mob.name}을(를) 처치! 전설 재료 획득!`, type: 'rare' });
+                    }
+
+                    // 퀘스트 추적
+                    trackQuest(realOwner, 'kill_monster', 1);
+                    if (mob.tier === 'elite' || mob.tier === 'rare' || mob.tier === 'boss' || mob.tier === 'legendary') trackQuest(realOwner, 'kill_elite', 1);
+                    if (mob.tier === 'boss' || mob.tier === 'legendary') trackQuest(realOwner, 'kill_boss', 1);
+                    trackQuest(realOwner, 'earn_gold', mobGoldReward);
+                    // 실시간 퀘스트 진행도 알림 (가장 가까운 미완료 퀘스트)
+                    if (!realOwner.isBot && realOwner.questProgress) {
+                        for (const [qId, q] of Object.entries(QUESTS)) {
+                            if ((q.type === 'daily' || q.type === 'main') && !(realOwner.questCompleted?.[qId])) {
+                                const prog = realOwner.questProgress[qId] || 0;
+                                if (prog > 0 && prog <= q.goal) {
+                                    io.to(realOwner.id).emit('quest_progress', { name: q.name, current: Math.min(prog, q.goal), goal: q.goal, remaining: Math.max(0, q.goal - prog) });
+                                    if (prog >= q.goal) {
+                                        io.to(realOwner.id).emit('server_msg', { msg: `[퀘스트] "${q.name}" 완료! 보상을 수령하세요!`, type: 'rare' });
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    // 주간 챌린지 진행도
+                    if (!realOwner.isBot) {
+                        const thisWeek = getWeekNumber();
+                        if (realOwner._weeklyChallengeWeek !== thisWeek) {
+                            realOwner._weeklyChallengeWeek = thisWeek;
+                            realOwner._weeklyChallengeProgress = 0;
+                            realOwner._weeklyChallengeClaimed = false;
+                        }
+                        const wch = getThisWeekChallenge();
+                        if (!realOwner._weeklyChallengeClaimed) {
+                            if (wch.target === 'kill_monster') realOwner._weeklyChallengeProgress = (realOwner._weeklyChallengeProgress||0) + 1;
+                            else if (wch.target === 'kill_legendary' && (mob.tier === 'legendary' || mob.tier === 'mythic')) realOwner._weeklyChallengeProgress = (realOwner._weeklyChallengeProgress||0) + 1;
+                            else if (wch.target === 'earn_gold') realOwner._weeklyChallengeProgress = (realOwner._weeklyChallengeProgress||0) + Math.floor(mobGoldReward * goldMulti);
+                        }
+                    }
+
+                    // 일일 챌린지 진행도 업데이트
+                    if (!realOwner.isBot && !realOwner._dailyChallengeClaimed) {
+                        const challenge = getTodaysChallenge();
+                        if (!realOwner._dailyChallengeProgress) realOwner._dailyChallengeProgress = 0;
+                        let shouldIncrement = false;
+                        if (challenge.target === 'kill_monster') {
+                            shouldIncrement = !challenge.zone || mob.zoneId === challenge.zone;
+                        } else if (challenge.target === 'kill_boss' && (mob.tier === 'boss' || mob.tier === 'legendary' || mob.tier === 'mythic')) {
+                            shouldIncrement = true;
+                        } else if (challenge.target === 'kill_elite' && (mob.tier === 'elite' || mob.tier === 'rare' || mob.tier === 'boss')) {
+                            shouldIncrement = true;
+                        } else if (challenge.target === 'kill_night' && isNight) {
+                            shouldIncrement = true;
+                        }
+                        if (shouldIncrement) {
+                            realOwner._dailyChallengeProgress++;
+                            if (realOwner._dailyChallengeProgress >= challenge.goal && !realOwner._dailyChallengeCompleted) {
+                                realOwner._dailyChallengeCompleted = true;
+                                io.to(realOwner.id).emit('server_msg', { msg: `[일일 챌린지] "${challenge.name}" 완료! 보상을 수령하세요!`, type: 'rare' });
+                            }
+                        }
+                    }
+
+                    // 재료 드롭 (인벤토리에 직접 추가)
+                    if (!realOwner.inventory) realOwner.inventory = {};
+                    if (mob.tier === 'normal' && Math.random() < 0.3) realOwner.inventory['mat_iron'] = (realOwner.inventory['mat_iron']||0) + 1;
+                    if (mob.tier === 'elite' && Math.random() < 0.4) realOwner.inventory['mat_magic'] = (realOwner.inventory['mat_magic']||0) + 1;
+                    if (mob.tier === 'rare' && Math.random() < 0.3) realOwner.inventory['mat_soul'] = (realOwner.inventory['mat_soul']||0) + 1;
+                    if (mob.tier === 'boss' && Math.random() < 0.2) realOwner.inventory['mat_dragon'] = (realOwner.inventory['mat_dragon']||0) + 1;
+                    if (Math.random() < 0.15) realOwner.inventory['pot_hp_s'] = (realOwner.inventory['pot_hp_s']||0) + 1;
+
+                    // 장��� 드롭 (등급별 확장)
+                    const equipDrops = {
+                        normal: [
+                            { id:'equip_sword_1', rate:0.05 }, { id:'equip_armor_1', rate:0.05 },
+                            { id:'equip_helm_1', rate:0.03 }, { id:'equip_glove_1', rate:0.03 },
+                            { id:'equip_boots_1', rate:0.03 },
+                        ],
+                        elite: [
+                            { id:'equip_sword_2', rate:0.08 }, { id:'equip_armor_2', rate:0.08 },
+                            { id:'equip_helm_2', rate:0.05 }, { id:'equip_glove_2', rate:0.05 },
+                            { id:'equip_boots_2', rate:0.05 }, { id:'equip_ring_1', rate:0.04 },
+                            { id:'equip_neck_1', rate:0.03 },
+                        ],
+                        rare: [
+                            { id:'equip_sword_3', rate:0.10 }, { id:'equip_armor_3', rate:0.10 },
+                            { id:'equip_helm_3', rate:0.07 }, { id:'equip_glove_3', rate:0.07 },
+                            { id:'equip_boots_3', rate:0.07 }, { id:'equip_ring_2', rate:0.05 },
+                            { id:'equip_neck_2', rate:0.04 },
+                        ],
+                        boss: [
+                            { id:'equip_sword_4', rate:0.04 }, { id:'equip_armor_4', rate:0.04 },
+                            { id:'equip_sword_3', rate:0.15 }, { id:'equip_armor_3', rate:0.15 },
+                            { id:'equip_ring_3', rate:0.05 }, { id:'equip_neck_3', rate:0.04 },
+                            { id:'equip_sword_5', rate:0.01 }, { id:'equip_armor_5', rate:0.01 },
+                        ],
+                        legendary: [
+                            { id:'equip_sword_5', rate:0.15 }, { id:'equip_armor_5', rate:0.15 },
+                            { id:'equip_sword_4', rate:0.30 }, { id:'equip_armor_4', rate:0.30 },
+                            { id:'equip_ring_3', rate:0.20 }, { id:'equip_neck_3', rate:0.15 },
+                        ],
+                    };
+                    const dropTable = equipDrops[mob.tier] || [];
+                    for (const d of dropTable) {
+                        const effectiveRate = d.rate * (1 + (realOwner.dropRateBonus || 0));
+                        if (Math.random() < effectiveRate) {
+                            const eqInfo = EQUIP_STATS[d.id];
+                            // 자동 분해 (일반 등급)
+                            if (realOwner.autoDismantle && eqInfo && eqInfo.grade === 'normal') {
+                                const dGold = Math.floor((eqInfo.atk + eqInfo.def) * 5 + 50);
+                                realOwner.gold += dGold;
+                                io.to(realOwner.id).emit('combat_log', { msg: (eqInfo.name||d.id) + ' 자동 분해! +' + dGold + 'G' });
+                                break;
+                            }
+                            realOwner.inventory[d.id] = (realOwner.inventory[d.id]||0) + 1;
+                            if (eqInfo) {
+                                const gradeInfo = GRADE_INFO[eqInfo.grade] || GRADE_INFO.normal;
+                                if (gradeInfo.randomOpts > 0) {
+                                    if (!realOwner.equipOptions) realOwner.equipOptions = {};
+                                    realOwner.equipOptions[d.id] = generateRandomOptions(gradeInfo.randomOpts);
+                                }
+                            }
+                            const eName = eqInfo?.name || d.id;
+                            const gradeColor = GRADE_INFO[eqInfo?.grade]?.color || '#ccc';
+                            io.to(realOwner.id).emit('combat_log', { msg: eName + ' 획득!', color: gradeColor });
+                            if (eqInfo?.grade === 'epic' || eqInfo?.grade === 'legendary') {
+                                io.to(realOwner.id).emit('rare_drop_celebration', { grade: eqInfo.grade, name: eName });
+                            }
+                            if (mob.tier === 'boss' || eqInfo?.grade === 'epic' || eqInfo?.grade === 'legendary') {
+                                io.emit('server_msg', { msg: `${realOwner.displayName}이(가) ${eName}을(를) 획득!`, type: 'rare' });
+                            }
+                            break;
+                        }
+                    }
+
+                    // 골드 드롭
+                    spawnDrop(mob.x, mob.y, Math.floor(mobGoldReward * 0.5), mId);
+
+                    // 크리티컬 루트 (5% 확률 — 반짝이 드롭)
+                    if (Math.random() < 0.05) {
+                        const critDropId = 'crit_loot_' + (++entityIdCounter);
+                        drops[critDropId] = {
+                            id: critDropId, x: mob.x, y: mob.y, gold: 0,
+                            type: 'critical_loot', spawnTime: Date.now(), pickupRadius: 5.0,
+                        };
+                        io.emit('drop_spawn', { ...drops[critDropId], isCritical: true });
+                        io.to(realOwner.id).emit('critical_loot', { dropId: critDropId, x: mob.x, y: mob.y });
+                        // 3초 후 소멸
+                        setTimeout(() => { if (drops[critDropId]) { io.emit('drop_destroy', critDropId); delete drops[critDropId]; } }, 3000);
+                    }
+
+                    const goldEarned = Math.floor(mobGoldReward * goldMulti);
+                    const expEarned = Math.floor(mobExpReward * expMulti);
+                    const expPct = Math.floor((realOwner.exp / getExpRequired(realOwner.level)) * 100);
+                    io.emit('monster_die', { id: mId, tier: mob.tier, killer: realOwner.id, zone: mob.zoneId, name: mob.name, goldEarned, expEarned, expPct });
+                    io.emit('player_update', realOwner);
+
+                    delete monsters[mId];
+                    spawnMonster();
+                    io.emit('monster_spawn', monsters['monster_' + entityIdCounter]);
+                } else {
+                    io.emit('monster_hit', { id: mId, hp: mob.hp, damage, maxHp: mob.maxHp });
+                }
+                destroyAxe(axeId);
+                axeDestroyed = true;
+                break;
+            }
+        }
+
+        if (axeDestroyed) continue;
+
+        // 플레이어 충돌
+        for (const targetId in players) {
+            const target = players[targetId];
+            if (targetId === axe.ownerId || !target.isAlive) continue;
+            if (owner.team === 'peace' && target.team === 'peace') continue;
+            if (owner.team === target.team) continue;
+            // 안전지대 보호: 피격자가 마을 안에 있으면 공격 무효
+            const targetZone = getZone(target.x, target.y);
+            if (targetZone && ZONES[targetZone.id]?.safe) continue;
+            // 공격자가 안전지대에서 공격하는 것도 차단
+            const ownerZone = getZone(owner.x, owner.y);
+            if (ownerZone && ZONES[ownerZone.id]?.safe) continue;
+
+            // 회피 판정
+            if (Math.random() < (target.dodgeRate || 0)) {
+                io.to(targetId).emit('dodge_event', { attackerName: owner.displayName || '적' });
+                continue;
+            }
+
+            const dx = axe.x - target.x, dy = axe.y - target.y;
+            if (dx * dx + dy * dy < 0.6 * 0.6) {
+                // 무적 상태 체크
+                if (target.activeBuffs && target.activeBuffs['divine_shield']) {
+                    destroyAxe(axeId);
+                    break;
+                }
+
+                let { damage, isCrit } = calcDamage(
+                    owner.atk || 10, target.def || 0, owner.dmgMulti, owner.critRate || 0.1, owner.element, target.element
+                );
+
+                // 철벽 방어 (데미지 감소) 체크
+                if (target.activeBuffs && target.activeBuffs['iron_wall']) {
+                    damage = Math.floor(damage * 0.3);
+                }
+
+                // 수호 오라 방어 보너스 체크
+                if (target.auraDefMulti && target.auraDefMulti > 1) {
+                    damage = Math.floor(damage / target.auraDefMulti);
+                }
+
+                // 은신 상태에서 공격 시 2배 데미지
+                if (owner.stealthNextAtkMulti && owner.activeBuffs && owner.activeBuffs['stealth']) {
+                    damage = Math.floor(damage * owner.stealthNextAtkMulti);
+                    removeBuff(owner, 'stealth');
+                    owner.stealthNextAtkMulti = 0;
+                }
+
+                target.hp -= damage;
+
+                // 어쌔신 독 바르기 패시브 (일반 공격 시 독 적용)
+                const ownerBaseClass = owner.baseClassName || owner.className;
+                const ownerSkills = SKILLS[ownerBaseClass];
+                if (ownerSkills) {
+                    const poisonPassive = ownerSkills.find(s => s.type === 'passive' && s.poisonDot);
+                    if (poisonPassive && (owner.level || 1) >= poisonPassive.level) {
+                        if (!target.activeBuffs) target.activeBuffs = {};
+                        applyBuff(target, 'poison');
+                    }
+                }
+
+                io.emit('player_hit', {
+                    id: targetId, hp: target.hp, damage, isCrit,
+                    attackerClass: owner.displayName
+                });
+
+                alertArmy(targetId, axe.ownerId);
+                destroyAxe(axeId);
+
+                if (target.hp <= 0) {
+                    handlePlayerDeath(target, targetId, owner, axe.ownerId);
+                }
+                break;
+            }
+        }
+    }
+}
+
+
+function handleAoeDamage() {
+    const players = $.getPlayers();
+    const monsters = $.getMonsters();
+    const io = $.getIo();
+    const aoes = $.getAoes();
+    const getBuffedStat = $.getBuffedStat;
+    const calcDamage = $.calcDamage;
+    const spawnDrop = $.spawnDrop;
+    const spawnMonster = $.spawnMonster;
+    const getZone = $.getZone;
+    const ZONES = $.ZONES;
+    const MONSTER_TIERS = $.MONSTER_TIERS;
+    const worldBoss = $.getWorldBoss();
+    const meteorShower = $.getMeteorShower();
+    const goldenRain = $.getGoldenRain();
+    const alertArmy = $.alertArmy;
+    const nextEntityId = $.nextEntityId;
+    for (const aoeId in aoes) {
+        const aoe = aoes[aoeId];
+        const owner = players[aoe.ownerId];
+        if (!owner) continue;
+
+        // 버프 적용된 공격력 (음식/물약/스킬 버프 반영)
+        const ownerAtk = getBuffedStat(owner, 'atk') || owner.atk || 10;
+
+        // 몬스터
+        for (const mId in monsters) {
+            const mob = monsters[mId];
+            if (!mob.isAlive) continue;
+            const dx = aoe.x - mob.x, dy = aoe.y - mob.y;
+            if (dx * dx + dy * dy <= aoe.radius * aoe.radius) {
+                const { damage } = calcDamage(ownerAtk, mob.def, owner.dmgMulti * 0.8, owner.critRate || 0.1, owner.element, mob.element, owner);
+                mob.hp -= damage;
+
+                // 월드보스 기여도 추적 (AOE도 포함)
+                if (mob.isWorldBoss && mob.damageContrib) {
+                    const realOwnerId = (owner.isBot && owner.ownerId) ? owner.ownerId : owner.id;
+                    mob.damageContrib[realOwnerId] = (mob.damageContrib[realOwnerId] || 0) + damage;
+                }
+
+                if (mob.hp <= 0) {
+                    mob.isAlive = false;
+                    let realOwner = (owner.isBot && owner.ownerId && players[owner.ownerId])
+                        ? players[owner.ownerId] : owner;
+
+                    // 월드보스: 기여도 기반 보상 + 일반 몬스터 리스폰 안 함
+                    if (mob.isWorldBoss) {
+                        const totalDmg = Object.values(mob.damageContrib || {}).reduce((s, d) => s + d, 0);
+                        const sorted = Object.entries(mob.damageContrib || {}).sort((a,b) => b[1] - a[1]);
+                        io.emit('server_msg', { msg: `[월드 보스] ${mob.name} 처치 완료! MVP: ${players[sorted[0]?.[0]]?.displayName || realOwner.displayName}`, type: 'boss' });
+                        if (totalDmg > 0) {
+                            for (const [pid, dmg] of sorted) {
+                                const pp = players[pid];
+                                if (!pp) continue;
+                                const ratio = dmg / totalDmg;
+                                pp.gold += Math.floor((mob.goldReward || 0) * ratio * 2);
+                                giveExp(pp, Math.floor((mob.expReward || 0) * ratio * 2));
+                                io.emit('player_update', pp);
+                            }
+                        } else {
+                            // damageContrib이 비어있으면 처치자에게 전체 보상
+                            realOwner.gold += mob.goldReward || 0;
+                            giveExp(realOwner, mob.expReward || 0);
+                        }
+                        worldBoss = null;
+                        io.emit('world_boss_dead', { id: mId, name: mob.name });
+                        delete monsters[mId];
+                        // 월드보스는 spawnMonster로 대체하지 않음
+                    } else {
+                        const tier = MONSTER_TIERS[mob.tier];
+                        if (tier) {
+                            // 월드 이벤트 보너스 (메테오/황금 비)
+                            let goldMulti = 1, expMulti = 1;
+                            if (meteorShower && mob.zoneId === meteorShower.zoneId) { goldMulti *= 2; expMulti *= 2; }
+                            if (goldenRain && mob.zoneId === goldenRain.zoneId) { goldMulti *= 3; expMulti *= 1.5; }
+
+                            realOwner.gold += Math.floor(tier.goldReward * goldMulti);
+                            giveExp(owner, Math.floor(tier.expReward * expMulti));
+                            spawnDrop(mob.x, mob.y, Math.floor(tier.goldReward * 0.5 * goldMulti), mId);
+                        }
+                        io.emit('monster_die', { id: mId, tier: mob.tier, killer: realOwner.id });
+                        io.emit('player_update', realOwner);
+                        delete monsters[mId];
+                        spawnMonster();
+                        io.emit('monster_spawn', monsters['monster_' + entityIdCounter]);
+                    }
+                } else {
+                    io.emit('monster_hit', { id: mId, hp: mob.hp, damage, maxHp: mob.maxHp });
+                }
+            }
+        }
+
+        // 플레이어
+        for (const targetId in players) {
+            const target = players[targetId];
+            if (!target.isAlive || targetId === aoe.ownerId) continue;
+            if (owner.team === 'peace' && target.team === 'peace') continue;
+            if (owner.team === target.team) continue;
+            // 안전지대 보호
+            const tgtZ = getZone(target.x, target.y);
+            if (tgtZ && ZONES[tgtZ.id]?.safe) continue;
+            // 무적 체크
+            if (target.activeBuffs && target.activeBuffs['divine_shield']) continue;
+            // 회피 판정
+            if (Math.random() < (target.dodgeRate || 0)) continue;
+
+            const dx = aoe.x - target.x, dy = aoe.y - target.y;
+            if (dx * dx + dy * dy <= aoe.radius * aoe.radius) {
+                let { damage } = calcDamage(ownerAtk, target.def || 0, owner.dmgMulti * 0.6, owner.critRate || 0.1, owner.element, target.element, owner);
+                // 철벽 방어 데미지 감소
+                if (target.activeBuffs && target.activeBuffs['iron_wall']) damage = Math.floor(damage * 0.3);
+                // 수호 오라 방어 보너스
+                if (target.auraDefMulti && target.auraDefMulti > 1) damage = Math.floor(damage / target.auraDefMulti);
+                target.hp -= damage;
+
+                io.emit('player_hit', { id: targetId, hp: target.hp, damage, isCrit: false });
+                alertArmy(targetId, aoe.ownerId);
+
+                if (target.hp <= 0) {
+                    handlePlayerDeath(target, targetId, owner, aoe.ownerId);
+                }
+            }
+        }
+    }
+}
+
+
+function handlePlayerDeath(target, targetId, owner, attackerId) {
+    const players = $.getPlayers();
+    const io = $.getIo();
+    const arenaMatches = $.getArenaMatches();
+    const clans = $.getClans();
+    const KARMA = $.KARMA;
+    const ZONES = $.ZONES;
+    const getPetEffect = $.getPetEffect;
+    const endArenaMatch = $.endArenaMatch;
+    const checkTitles = $.checkTitles;
+    const trackQuest = $.trackQuest;
+    const createBot = $.createBot;
+    const getExpRequired = $.getExpRequired;
+    const recalcStats = $.recalcStats;
+    const savePlayer = $.savePlayer;
+    // 자동 부활 체크 (펫 + 프레스티지)
+    if (!target.isBot) {
+        const petEff = getPetEffect(target);
+        const hasLegacyRevive = target.legacyPerks?.some(pk => pk.stat === 'autoRevive');
+        const canRevive = (petEff && petEff.effect === 'autoRevive') || hasLegacyRevive;
+        if (canRevive) {
+            const now = Date.now();
+            if (!target.lastAutoRevive || now - target.lastAutoRevive > 600000) {
+                target.lastAutoRevive = now;
+                const reviveHp = hasLegacyRevive ? 0.1 : 0.5; // 프레스티지: 10%, 펫: 50%
+                target.hp = Math.floor(target.maxHp * Math.max(reviveHp, petEff?.effect === 'autoRevive' ? 0.5 : 0));
+                if (target.hp < 1) target.hp = 1;
+                const source = (petEff?.effect === 'autoRevive') ? '천사 펫' : '환생 특성';
+                io.to(targetId).emit('combat_log', { msg: `${source}이(가) 당신을 부활시켰습니다! (HP ${Math.floor(target.hp/target.maxHp*100)}%)` });
+                io.emit('player_update', target);
+                return;
+            }
+        }
+    }
+
+    target.isAlive = false;
+
+    let realKiller = owner;
+    if (owner.isBot && owner.ownerId && players[owner.ownerId]) {
+        realKiller = players[owner.ownerId];
+    }
+
+    // 아레나 매치 종료 체크
+    if (target.arenaMatchId && arenaMatches[target.arenaMatchId]) {
+        const match = arenaMatches[target.arenaMatchId];
+        const winnerId = (match.player1 === targetId) ? match.player2 : match.player1;
+        target.isAlive = true; // 아레나에서는 실제 사망 안함
+        target.hp = 1;
+        endArenaMatch(target.arenaMatchId, winnerId, targetId, 'KO');
+        return; // 아레나는 별도 처리, 일반 사망 로직 스킵
+    }
+
+    realKiller.killCount++;
+    if (!target.isBot) {
+        realKiller.pvpWins = (realKiller.pvpWins || 0) + 1;
+        trackQuest(realKiller, 'pvp_win', 1);
+        trackQuest(realKiller, 'pvp_fight', 1);
+        checkTitles(realKiller);
+        // 현상금 처치 보상
+        if (realKiller._activeBounty && realKiller._activeBounty.targetId === targetId) {
+            const bounty = realKiller._activeBounty;
+            realKiller.gold += bounty.reward;
+            realKiller.diamonds = (realKiller.diamonds||0) + 50;
+            realKiller._activeBounty = null;
+            io.emit('server_msg', { msg: `[현상금] ${realKiller.displayName}이(가) ${target.displayName}의 현상금을 수령! +${bounty.reward}G +50D`, type: 'rare' });
+            io.to(realKiller.id).emit('bounty_result', { msg: `현상금 완료! +${bounty.reward}G +50D` });
+        }
+        // 카오틱 상자 드롭
+        if ((target.karma||0) >= 200) {
+            const chestGold = Math.floor(target.gold * 0.2);
+            let chestItem = null;
+            if (target.equipped) {
+                const slots = Object.keys(target.equipped).filter(s => target.equipped[s]);
+                if (slots.length > 0) {
+                    const rSlot = slots[Math.floor(Math.random() * slots.length)];
+                    chestItem = target.equipped[rSlot];
+                    delete target.equipped[rSlot];
+                    recalcStats(target);
+                }
+            }
+            const chestId = 'chaotic_chest_' + (++entityIdCounter);
+            drops[chestId] = {
+                id: chestId, x: target.x, y: target.y,
+                gold: chestGold, item: chestItem, spawnTime: Date.now(), pickupRadius: 3.0,
+                type: 'chaotic_chest'
+            };
+            setTimeout(() => { if (drops[chestId]) { io.emit('drop_destroy', chestId); delete drops[chestId]; } }, 30000);
+            io.emit('drop_spawn', drops[chestId]);
+            io.emit('server_msg', { msg: `[카오틱 상자] ${target.displayName}의 상자가 ${getZone(target.x,target.y)?.id||'필드'}에 나타났다!`, type: 'danger' });
+        }
+    }
+
+    // ── PK 카르마 판정 ──
+    let isPK = false;
+    // 혈맹 전쟁 중이면 PK 페널티 없음
+    const killerClan = realKiller.clanName && clans[realKiller.clanName];
+    const targetClan = target.clanName && clans[target.clanName];
+    const inClanWar = killerClan?.war?.target === target.clanName || targetClan?.war?.target === realKiller.clanName;
+
+    if (!target.isBot && target.team === 'peace' && !inClanWar) {
+        // 평화 모드 유저를 죽이면 PK (혈맹 전쟁 중 제외)
+        isPK = true;
+        realKiller.karma += KARMA.PK_PENALTY;
+        io.emit('pk_alert', {
+            killerId: realKiller.id,
+            killerName: realKiller.displayName,
+            victimId: targetId,
+            karma: realKiller.karma
+        });
+        io.emit('server_msg', { msg: `${realKiller.displayName}이(가) PK! 카르마: ${realKiller.karma}`, type: 'danger' });
+    }
+
+    // 카오틱 처치 시 보너스 보상
+    let goldReward = 50;
+    let expReward = 30;
+    if (target.karma >= KARMA.CHAOTIC_THRESHOLD) {
+        goldReward = Math.floor(goldReward * KARMA.BOUNTY_BONUS);
+        expReward = Math.floor(expReward * KARMA.BOUNTY_BONUS);
+    }
+
+    realKiller.gold += goldReward;
+    giveExp(realKiller, expReward);
+
+    // 왕의 5% 병사 탈취
+    let stolen = false;
+    if (realKiller.isKing && Math.random() < 0.05) {
+        stolen = true;
+        createBot(target, realKiller.team, realKiller.id);
+    }
+
+    // ── 카오틱 사망 페널티 ──
+    if (target.karma >= KARMA.CHAOTIC_THRESHOLD) {
+        const goldLoss = Math.floor(target.gold * KARMA.DEATH_GOLD_LOSS);
+        const expLoss = Math.floor(target.exp * KARMA.DEATH_EXP_LOSS);
+        target.gold = Math.max(0, target.gold - goldLoss);
+        target.exp = Math.max(0, target.exp - expLoss);
+
+        io.emit('chaotic_death_penalty', {
+            playerId: targetId,
+            goldLoss,
+            expLoss,
+            karma: target.karma
+        });
+    }
+
+    // 사망 패널티 (알비온 스타일 — 약탈)
+    const expLoss = Math.floor(getExpRequired(target.level) * 0.1);
+    target.exp = Math.max(0, (target.exp || 0) - expLoss);
+
+    // 인벤토리 아이템 30% 드롭 (약탈 가능)
+    if (target.inventory && !target.isBot) {
+        const droppedItems = [];
+        for (const [itemId, qty] of Object.entries(target.inventory)) {
+            const dropQty = Math.floor(qty * 0.3);
+            if (dropQty > 0) {
+                target.inventory[itemId] -= dropQty;
+                if (target.inventory[itemId] <= 0) delete target.inventory[itemId];
+                // 킬러에게 전달
+                if (!realKiller.inventory) realKiller.inventory = {};
+                realKiller.inventory[itemId] = (realKiller.inventory[itemId] || 0) + dropQty;
+                droppedItems.push(itemId + ' x' + dropQty);
+            }
+        }
+        if (droppedItems.length > 0) {
+            io.emit('server_msg', { msg: `${realKiller.displayName}이(가) ${target.displayName}에게서 아이템 약탈!`, type: 'danger' });
+        }
+    }
+
+    // 골드 50% 약탈
+    if (!target.isBot && target.gold > 0) {
+        const goldDrop = Math.floor(target.gold * 0.5);
+        target.gold -= goldDrop;
+        realKiller.gold += goldDrop;
+        io.to(realKiller.id).emit('combat_log', { msg: `${goldDrop}G 약탈!` });
+    }
+
+    if (target.karma >= KARMA.CHAOTIC_THRESHOLD) {
+        target.level = Math.max(1, target.level - 1);
+        target.exp = 0;
+    }
+    target.killCount = 0;
+    target.team = 'peace';
+    target.isKing = false;
+    target.targetId = null;
+
+    // 군대 소멸
+    for (const bId of Object.keys(players)) {
+        if (players[bId] && players[bId].isBot && players[bId].ownerId === targetId) {
+            players[bId].isAlive = false;
+            io.emit('player_die', { victimId: bId, attackerId, stolen: false });
+            delete players[bId];
+        }
+    }
+
+    savePlayer(target);
+    savePlayer(realKiller);
+
+    io.emit('player_update', target);
+    io.emit('player_update', realKiller);
+    io.emit('player_die', {
+        victimId: targetId, attackerId, stolen, isPK,
+        killerName: realKiller.displayName || '몬스터',
+        killerClass: realKiller.className || '',
+        killerLevel: realKiller.level || 0,
+        victimLevel: target.level || 0,
+        goldLost: Math.floor((target._deathGoldLost || 0)),
+    });
+
+    // ── 3초 후 자동 마을 리스폰 (실제 플레이어만) ──
+    if (!target.isBot) {
+        setTimeout(() => {
+            const p = players[targetId];
+            if (!p || p.isAlive) return; // 이미 부활했거나 접속 종료
+            recalcStats(p);
+            p.hp = p.maxHp;
+            p.isAlive = true;
+            // 시작 마을(아덴)로 이동
+            const startZone = ZONES.aden;
+            p.x = startZone.x + startZone.w / 2 + (Math.random() * 10 - 5);
+            p.y = startZone.y + startZone.h / 2 + (Math.random() * 10 - 5);
+            p.team = 'peace';
+            savePlayer(p);
+            io.emit('player_respawn', p);
+            io.to(targetId).emit('combat_log', { msg: '마을에서 부활했습니다.' });
+        }, 3000);
+    }
+}
+
+
 module.exports = {
     init,
     expireMarketListings, destroyAxe, syncGameState,
     updatePassives, updatePlayerAutoSkills,
     updateBots, giveExp,
+    handleCollisions, handleAoeDamage, handlePlayerDeath,
 };
