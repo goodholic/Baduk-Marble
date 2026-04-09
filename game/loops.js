@@ -965,6 +965,16 @@ function handleCollisions() {
                     $.trackQuest(realOwner, 'total_gold', realOwner._totalGoldEarned);
                     giveExp(owner, Math.floor(mobExpReward * expMulti));
 
+                    // v2.23: 사냥꾼 의뢰 진행
+                    if (!realOwner.isBot && $.bountyHunter) {
+                        const huntResults = $.bountyHunter.updateMissionProgress(realOwner, 'kill_monster', 1, {
+                            zone: mob.zoneId, monsterTier: mob.tier, isNight: isNight, weather: $.getCurrentWeather?.()?.id,
+                        });
+                        for (const hr of huntResults) {
+                            io.to(realOwner.id).emit('combat_log', { msg: `[사냥 의뢰] ${hr.name} 완료!` });
+                        }
+                    }
+
                     // v2.20: 소환석 드롭 (15% 확률)
                     if (!realOwner.isBot && Math.random() < 0.15) {
                         const stoneKeys = Object.keys($.SUMMON_STONES || {});
