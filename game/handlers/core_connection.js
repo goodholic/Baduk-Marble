@@ -149,6 +149,9 @@ function registerCoreConnectionHandlers(socket, $) {
                         _fishCount: ext._fishCount || 0,
                         maxArmy: ext.maxArmy || 30,
                         autoPotion: ext.autoPotion || false,
+                        mp: ext.mp || 100,
+                        maxMp: ext.maxMp || 100,
+                        element: ext.element || ELEMENTS[Math.floor(Math.random() * ELEMENTS.length)],
                         questProgress: ext.questProgress || {},
                         questCompleted: ext.questCompleted || {},
                     });

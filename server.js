@@ -614,6 +614,9 @@ async function savePlayer(player) {
         _fishCount: player._fishCount || 0,
         maxArmy: player.maxArmy || 30,
         autoPotion: player.autoPotion || false,
+        mp: player.mp || 100,
+        maxMp: player.maxMp || 100,
+        element: player.element || null,
         questProgress: player.questProgress || {},
         questCompleted: player.questCompleted || {},
     });
