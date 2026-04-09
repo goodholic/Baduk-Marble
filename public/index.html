@@ -1332,7 +1332,7 @@
         d.players.forEach(function(p, i) {
           var karmaBadge = p.karma >= 200 ? ' <span style="color:#ff4444">[PK]</span>' : '';
           var clanBadge = p.clan ? ' <span style="color:#aa44ff">[' + p.clan + ']</span>' : '';
-          html += '<tr style="border-bottom:1px solid #222"><td style="padding:4px;color:#ffd700">' + (i+1) + '</td><td style="padding:4px">' + p.name + karmaBadge + clanBadge + '</td><td style="padding:4px;color:#88ccff">' + p.level + '</td><td style="padding:4px">' + p.className + '</td><td style="padding:4px;color:#aaa">' + p.zone + '</td></tr>';
+          html += '<tr style="border-bottom:1px solid #222"><td style="padding:4px;color:#ffd700">' + (i+1) + '</td><td style="padding:4px">' + escapeHtml(p.name) + karmaBadge + clanBadge + '</td><td style="padding:4px;color:#88ccff">' + p.level + '</td><td style="padding:4px">' + p.className + '</td><td style="padding:4px;color:#aaa">' + p.zone + '</td></tr>';
         });
         html += '</tbody></table></div>';
         showModal('👥 온라인 플레이어', html, [{label:'닫기', type:'cancel', action:'closeModal()'}]);
@@ -1420,7 +1420,7 @@
         showToast('🪙 ' + d.sellerName + '님이 용병('+d.unitClass+')을 ' + d.price + 'G에 판매 제안! 60초 내 수락');
         playSFX('buy');
         if (typeof showModal === 'function') {
-          showModal('용병 구매 제안', '<p>'+d.sellerName+'님이 '+d.unitClass+' 용병을 '+d.price+'G에 판매합니다.</p>',
+          showModal('용병 구매 제안', '<p>'+escapeHtml(d.sellerName)+'님이 '+escapeHtml(d.unitClass)+' 용병을 '+d.price+'G에 판매합니다.</p>',
             [
               { label:'구매', action:"window.socket.emit('unit_buy_accept','"+d.unitId+"');closeModal();" },
               { label:'거절', action:"closeModal();" }
@@ -1577,7 +1577,7 @@
           var gradeColor = l.grade ? {'normal':'#ccc','uncommon':'#4c4','rare':'#48f','epic':'#a4f','legendary':'#f80'}[l.grade] || '#ccc' : '#ccc';
           html += '<div class="panel-item" style="border-left:3px solid '+gradeColor+'">';
           html += '<span class="name" style="color:'+gradeColor+'">'+l.itemName+'</span>';
-          html += '<small style="color:#888"> 판매: '+l.sellerName+' | '+l.timeLeft+'분 남음</small><br>';
+          html += '<small style="color:#888"> 판매: '+escapeHtml(l.sellerName)+' | '+l.timeLeft+'분 남음</small><br>';
           html += '<small>즉구: '+l.price+'G | 최고입찰: '+l.highestBid+'G</small>';
           html += '<button onclick="window.socket.emit(\'market_buy\','+l.id+')" style="margin-left:5px">구매</button>';
           html += '</div>';
@@ -1603,7 +1603,7 @@
         if (!el) return;
         var html = '<table style="width:100%;color:#eee;font-size:11px"><tr><th>#</th><th>이름</th><th>승</th><th>패</th><th>점수</th></tr>';
         list.forEach(r => {
-          html += '<tr><td>'+r.rank+'</td><td>'+r.name+'</td><td style="color:#4f4">'+r.wins+'</td><td style="color:#f44">'+r.losses+'</td><td style="color:#ff0">'+r.points+'</td></tr>';
+          html += '<tr><td>'+r.rank+'</td><td>'+escapeHtml(r.name)+'</td><td style="color:#4f4">'+r.wins+'</td><td style="color:#f44">'+r.losses+'</td><td style="color:#ff0">'+r.points+'</td></tr>';
         });
         html += '</table>';
         el.innerHTML = html;
@@ -1652,14 +1652,14 @@
         if (d.requests && d.requests.length > 0) {
           html += '<p style="color:#ffd700;font-size:11px">친구 요청:</p>';
           d.requests.forEach(r => {
-            html += '<div class="panel-item"><span class="name">' + r.fromName + '</span><button onclick="window.socket.emit(\'friend_accept\',\'' + r.fromId + '\')">수락</button></div>';
+            html += '<div class="panel-item"><span class="name">' + escapeHtml(r.fromName) + '</span><button onclick="window.socket.emit(\'friend_accept\',\'' + r.fromId + '\')">수락</button></div>';
           });
         }
         if (d.friends.length === 0) { html += '<p style="color:#888">친구가 없습니다</p>'; }
         else {
           d.friends.forEach(f => {
             var statusColor = f.online ? '#4f4' : '#888';
-            html += '<div class="panel-item"><span class="name" style="color:' + statusColor + '">' + f.name + ' Lv.' + f.level + ' (' + f.className + ')</span>';
+            html += '<div class="panel-item"><span class="name" style="color:' + statusColor + '">' + escapeHtml(f.name) + ' Lv.' + f.level + ' (' + f.className + ')</span>';
             html += '<button onclick="showModal(\'귓속말\',\'<p style=&quot;color:#888&quot;>'+f.name+'에게 보낼 메시지</p><input id=&quot;wh-msg&quot; maxlength=&quot;100&quot; style=&quot;width:100%;padding:8px;background:#222;color:#fff;border:1px solid #555;border-radius:4px;margin-top:8px&quot; autofocus>\',[{label:&quot;전송&quot;,action:&quot;var m=getModalInput(\\\'wh-msg\\\');if(m)window.socket.emit(\\\'whisper\\\',{targetId:\\\''+f.id+'\\\',msg:m});closeModal();&quot;},{label:&quot;취소&quot;,type:&quot;cancel&quot;,action:&quot;closeModal()&quot;}])" style="font-size:10px">귓말</button>';
             html += '</div>';
           });
@@ -1994,8 +1994,8 @@
         var html = '';
         list.forEach(function(b) {
           var clr = b.claimed ? '#888' : '#ff4444';
-          html += '<div class="panel-item" style="border-left:3px solid '+clr+'"><span class="name" style="color:'+clr+'">'+b.targetName+' <b style="color:#ffd700">'+b.reward+'G</b></span>';
-          if (!b.claimed) html += '<button onclick="window.socket.emit(\'claim_bounty\',\''+b.targetName+'\')">수락</button>';
+          html += '<div class="panel-item" style="border-left:3px solid '+clr+'"><span class="name" style="color:'+clr+'">'+escapeHtml(b.targetName)+' <b style="color:#ffd700">'+b.reward+'G</b></span>';
+          if (!b.claimed) html += '<button onclick="window.socket.emit(\'claim_bounty\',\''+escapeHtml(b.targetName)+'\')">수락</button>';
           else html += '<span style="color:#888;font-size:10px">수락됨</span>';
           html += '</div>';
         });
@@ -2101,7 +2101,7 @@
       window.socket.on('rift_result', (d) => { showToast(d.msg); playSFX('gold'); });
       window.socket.on('rift_ranking', (d) => {
         var html = '<p class="text-gold">' + d.theme + ' 랭킹</p>';
-        d.rankings.forEach(function(r) { html += '<div class="panel-item"><span class="text-sm">#'+r.rank+' '+r.name+'</span><span class="text-gold text-sm">'+r.depth+'층</span></div>'; });
+        d.rankings.forEach(function(r) { html += '<div class="panel-item"><span class="text-sm">#'+r.rank+' '+escapeHtml(r.name)+'</span><span class="text-gold text-sm">'+r.depth+'층</span></div>'; });
         document.getElementById('rift-info').innerHTML = html;
       });
       // 룬
@@ -2323,7 +2323,7 @@
       // 결투
       window.socket.on('duel_result', (d) => showToast(d.msg));
       window.socket.on('duel_incoming', (d) => {
-        showModal('결투 요청!', '<p style="text-align:center"><b class="text-gold" style="font-size:16px">⚔ 결투 요청!</b></p><p style="text-align:center;margin:8px 0"><span style="color:var(--c-red)">' + d.fromName + '</span> <span class="text-muted">Lv.' + d.fromLevel + ' ' + d.fromClass + '</span></p><p class="text-muted text-sm" style="text-align:center">수락하면 아레나에서 1:1 대결!</p>', [
+        showModal('결투 요청!', '<p style="text-align:center"><b class="text-gold" style="font-size:16px">⚔ 결투 요청!</b></p><p style="text-align:center;margin:8px 0"><span style="color:var(--c-red)">' + escapeHtml(d.fromName) + '</span> <span class="text-muted">Lv.' + d.fromLevel + ' ' + escapeHtml(d.fromClass) + '</span></p><p class="text-muted text-sm" style="text-align:center">수락하면 아레나에서 1:1 대결!</p>', [
           {label:'수락!', action:"window.socket.emit('duel_accept','"+d.fromId+"');closeModal();"},
           {label:'거절', type:'cancel', action:'closeModal()'}
         ]);
@@ -2430,7 +2430,7 @@
       // 몬스터 도감 로어
       window.socket.on('monster_lore', (d) => {
         var tierColors = {normal:'#88cc88',elite:'#ccaa44',rare:'#aa44cc',boss:'#ff4444',legendary:'#ff8800',mythic:'#ff00ff'};
-        showModal('새로운 발견!', '<div style="text-align:center"><div style="font-size:18px;color:'+(tierColors[d.tier]||'#fff')+'">'+d.name+'</div><p style="color:#ccc;font-size:12px;font-style:italic;margin-top:8px;line-height:1.6">"'+d.lore+'"</p><p class="text-muted text-xs" style="margin-top:6px">📖 도감에 기록되었습니다</p></div>',
+        showModal('새로운 발견!', '<div style="text-align:center"><div style="font-size:18px;color:'+(tierColors[d.tier]||'#fff')+'">'+escapeHtml(d.name)+'</div><p style="color:#ccc;font-size:12px;font-style:italic;margin-top:8px;line-height:1.6">"'+escapeHtml(d.lore)+'"</p><p class="text-muted text-xs" style="margin-top:6px">📖 도감에 기록되었습니다</p></div>',
           [{label:'확인', action:'closeModal()'}]);
         playSFX('buff');
       });
@@ -2483,7 +2483,7 @@
             if (typeof m === 'object') {
               var hpPct = Math.floor(m.hp/m.maxHp*100);
               var hpColor = hpPct > 50 ? '#4f4' : hpPct > 20 ? '#ff0' : '#f44';
-              html += (m.isLeader ? '★ ' : '  ') + m.name + ' Lv.' + m.level + ' <span style="color:'+hpColor+'">HP:'+hpPct+'%</span><br>';
+              html += (m.isLeader ? '★ ' : '  ') + escapeHtml(m.name) + ' Lv.' + m.level + ' <span style="color:'+hpColor+'">HP:'+hpPct+'%</span><br>';
             } else {
               html += '  ' + m + '<br>';
             }
@@ -2518,7 +2518,7 @@
       // 1:1 거래
       window.socket.on('trade_result', (d) => showToast(d.msg));
       window.socket.on('trade_incoming', (d) => {
-        showModal('거래 요청', '<p><b style="color:#ffd700">'+d.fromName+'</b>님이 거래를 요청합니다.</p><input id="trade-my-item" placeholder="보낼 아이템 ID (선택)" style="width:100%;padding:8px;background:#222;color:#fff;border:1px solid #555;border-radius:4px;margin-top:8px">', [
+        showModal('거래 요청', '<p><b style="color:#ffd700">'+escapeHtml(d.fromName)+'</b>님이 거래를 요청합니다.</p><input id="trade-my-item" placeholder="보낼 아이템 ID (선택)" style="width:100%;padding:8px;background:#222;color:#fff;border:1px solid #555;border-radius:4px;margin-top:8px">', [
           {label:'수락', action:"var item=getModalInput('trade-my-item');window.socket.emit('trade_accept',JSON.stringify({fromId:'"+d.fromId+"',myItem:item||'',theirItem:''}));closeModal();"},
           {label:'거절', type:'cancel', action:'closeModal()'}
         ]);
