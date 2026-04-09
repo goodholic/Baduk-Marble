@@ -81,6 +81,7 @@ const { registerSuperBossHandlers } = require('./super_boss_handlers');
 const { registerTerritoryWarHandlers } = require('./territory_war_handlers');
 const { registerWishTreeHandlers } = require('./wish_tree_handlers');
 const { registerSoulHandlers } = require('./soul_handlers');
+const { registerTimeDungeonHandlers } = require('./time_dungeon_handlers');
 
 function registerConnection(io, $) {
 
@@ -188,6 +189,7 @@ io.on("connection", (socket) => {
     registerTerritoryWarHandlers(socket, { io, players, playerId, savePlayer, territoryWar: $.territoryWar });
     registerWishTreeHandlers(socket, { io, players, playerId, savePlayer, wishTree: $.wishTree });
     registerSoulHandlers(socket, { io, players, playerId, savePlayer, soulSystem: $.soulSystem });
+    registerTimeDungeonHandlers(socket, { io, players, playerId, savePlayer, timeDungeon: $.timeDungeon, trackQuest: $.trackQuest });
     registerWeatherDungeonHandlers(socket, {
         io, players, playerId, savePlayer,
         weatherDungeon: $.weatherDungeon,
