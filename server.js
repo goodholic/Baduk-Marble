@@ -14,6 +14,11 @@ const httpRoutes = require('./server/routes');
 // Phase 2 refactor: 월드/지형 헬퍼 분리
 const world = require('./game/world');
 const { isOnRoad, isBlocked, isSlowTerrain, getZone, getNpcMsg } = world;
+// Phase 3a refactor: 순수 전투 헬퍼 + 상수 분리
+const {
+    MAX_GOLD, MAX_DIAMONDS, MAX_LEVEL, ARENA_TIERS,
+    getEnchantBonus, capResources, getArenaTier,
+} = require('./game/combat');
 
 // 게임 모듈
 const { RECIPES, handleCraft } = require('./game/craft');
@@ -753,17 +758,7 @@ let arenaMatchIdCounter = 0;
 // 랭킹
 let rankings = { level:[], pvp:[], gold:[] };
 
-function getEnchantBonus(enchantLevel) {
-    // 밸런스 조정: +1~3: +3%, +4~7: +5%, +8~10: +7%, +11~15: +10%
-    let bonus = 0;
-    for (let i = 1; i <= enchantLevel; i++) {
-        if (i <= 3)       bonus += 0.03;
-        else if (i <= 7)  bonus += 0.05;
-        else if (i <= 10) bonus += 0.07;
-        else              bonus += 0.10;
-    }
-    return bonus;
-}
+// extracted to game/combat.js (Phase 3a refactor)
 
 function recalcStats(p) {
     if (!p || p.isBot) return;
@@ -1127,15 +1122,9 @@ const pendingMails = {};
 let rogueMerchant = null; // { townId, deals:[], expiresAt }
 let nextRogueTime = Date.now() + 480000 + Math.random() * 420000;
 
-const MAX_GOLD = 999999999;
-const MAX_DIAMONDS = 9999999;
-const MAX_LEVEL = 99;
+// extracted to game/combat.js (Phase 3a refactor)
 
-function capResources(p) {
-    if (p.gold > MAX_GOLD) p.gold = MAX_GOLD;
-    if (p.diamonds > MAX_DIAMONDS) p.diamonds = MAX_DIAMONDS;
-    if (p.level > MAX_LEVEL) p.level = MAX_LEVEL;
-}
+// extracted to game/combat.js (Phase 3a refactor)
 
 // function getYesterday/getWeekNumber = ... (v1.43: game/helpers.js로 이동)
 
@@ -1462,19 +1451,8 @@ const ZONE_MINI_BOSSES = {
 let zoneBossTimers = {};
 
 // ── PvP 시즌/티어 ──
-const ARENA_TIERS = [
-    { name:'브론즈', min:0,    color:'#cd7f32' },
-    { name:'실버',  min:1100, color:'#c0c0c0' },
-    { name:'골드',  min:1300, color:'#ffd700' },
-    { name:'플래티넘', min:1500, color:'#44ddff' },
-    { name:'다이아몬드', min:1800, color:'#44aaff' },
-    { name:'마스터',  min:2200, color:'#ff4444' },
-];
-function getArenaTier(points) {
-    let tier = ARENA_TIERS[0];
-    for (const t of ARENA_TIERS) { if (points >= t.min) tier = t; }
-    return tier;
-}
+// extracted to game/combat.js (Phase 3a refactor)
+// extracted to game/combat.js (Phase 3a refactor)
 let arenaSeasonStart = Date.now();
 
 // ── 존 위험 요소 ──
