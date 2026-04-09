@@ -1,7 +1,7 @@
 {
-  "name": "board-game-server",
-  "version": "1.0.0",
-  "description": "19x19 Socket.io Multiplay Server",
+  "name": "autobattle-io",
+  "version": "2.29.0",
+  "description": "AutoBattle.io — Lineage-like Auto-Battle RPG Server",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
