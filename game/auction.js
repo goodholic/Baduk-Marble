@@ -63,6 +63,8 @@ function listAuction(player, itemId, itemName, startPrice, durationKey = 'medium
 }
 
 function placeBid(player, auctionId, bidAmount) {
+  bidAmount = Math.floor(bidAmount);
+  if (!Number.isFinite(bidAmount) || bidAmount <= 0) return { success: false, msg: '잘못된 입찰액' };
   const a = auctions[auctionId];
   if (!a || a.status !== 'active') return { success: false, msg: '존재하지 않거나 종료된 경매' };
   if (a.sellerId === player.id) return { success: false, msg: '자기 경매에는 입찰 불가' };

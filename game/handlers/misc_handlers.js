@@ -25,7 +25,9 @@ function registerMiscHandlers(socket, ctx) {
       socket.emit('capsule_result', { success: false, msg: '필수 정보 누락' });
       return;
     }
-    const result = timeCapsule.depositCapsule(p, data.tier, Number(data.gold));
+    const goldAmount = Math.floor(Number(data.gold));
+    if (!Number.isFinite(goldAmount) || goldAmount <= 0) { socket.emit('capsule_result', { success: false, msg: '유효한 골드 필요' }); return; }
+    const result = timeCapsule.depositCapsule(p, data.tier, goldAmount);
     if (result.success) { savePlayer(p); io.emit('player_update', p); }
     socket.emit('capsule_result', result);
   });

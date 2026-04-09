@@ -335,6 +335,7 @@ function registerInventoryConnectionHandlers(socket, $) {
     socket.on('fuse_equipment', (data) => {
         const p = players[playerId];
         if (!p) return;
+        if (!data || !data.item1 || !data.item2 || !data.item3) { socket.emit('fuse_result', { msg: '재료 정보 부족' }); return; }
         const { item1, item2, item3 } = data;
         if (!p.inventory) return;
         const items = [item1, item2, item3];
