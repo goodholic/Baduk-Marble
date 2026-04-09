@@ -130,6 +130,11 @@ function register(app, ctx) {
     app.get('/api/products', (req, res) => {
         res.json(ctx.DIAMOND_PRODUCTS);
     });
+
+    // 결제 클라이언트 키 API (하드코딩 방지)
+    app.get('/api/payment-key', (req, res) => {
+        res.json({ clientKey: process.env.TOSS_CLIENT_KEY || 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq' });
+    });
 }
 
 module.exports = { register };
