@@ -270,6 +270,7 @@ function registerQuestMiscConnectionHandlers(socket, $) {
         }
         capResources(p);
         p._weeklyChallengeClaimed = true;
+        trackQuest(p, 'weekly_all', 1); // 주간 챌린지 완료 실적 추적 (ach_weekly_all)
         savePlayer(p);
         socket.emit('challenge_result', { msg: `[주간] ${challenge.name} 완료! +${challenge.reward.gold}G ${challenge.reward.diamonds ? '+'+challenge.reward.diamonds+'D' : ''}${challenge.reward.item ? ' +'+challenge.reward.item+' x'+(challenge.reward.itemQty||1) : ''}` });
         io.emit('server_msg', { msg: `${p.displayName}이(가) 주간 챌린지 [${challenge.name}] 완료!`, type: 'rare' });
@@ -445,6 +446,7 @@ function registerQuestMiscConnectionHandlers(socket, $) {
         recalcStats(p);
         p.hp = p.maxHp;
 
+        trackQuest(p, 'prestige_count', 1);
         savePlayer(p);
         io.emit('server_msg', { msg: `[환생] ${p.displayName} ${p.prestigeLevel}차 환생! "${perk.name}" 획득!`, type: 'boss' });
         socket.emit('prestige_result', { msg: `${p.prestigeLevel}차 환생! "${perk.name}" — ${perk.desc}. 다시 Lv.1부터!`, perk });

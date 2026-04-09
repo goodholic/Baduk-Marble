@@ -530,6 +530,7 @@ function registerEconomyConnectionHandlers(socket, $) {
         const result = handleCraft(p, recipeId, io);
         if (result.success) {
             p.totalCrafts = (p.totalCrafts || 0) + 1;
+            trackQuest(p, 'craft_count', 1);
             checkTitles(p);
         }
         savePlayer(p);

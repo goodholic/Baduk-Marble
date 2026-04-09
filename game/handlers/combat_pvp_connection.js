@@ -338,6 +338,7 @@ function registerCombatPvpConnectionHandlers(socket, $) {
                         io.to(pid).emit('combat_log', { msg: `던전 보상: ${eName} 획득!` });
                     }
                     pp.inDungeon = null;
+                    trackQuest(pp, 'dungeon_clear', 1);
                     io.to(pid).emit('dungeon_clear', { name: dungeon.name, gold: rewards.gold, exp: rewards.exp });
                     io.emit('player_update', pp);
                 }
@@ -616,6 +617,7 @@ function registerCombatPvpConnectionHandlers(socket, $) {
             io.emit('server_msg', { msg: `${p.displayName}이(가) ${mob.name}을(를) 테이밍!`, type: 'morph' });
             sock.emit('tame_result', { success:true, msg: `${mob.name} 테이밍 성공! (${Math.floor(rate*100)}%)` });
             p.totalTamed = (p.totalTamed || 0) + 1;
+            trackQuest(p, 'tame_count', 1);
         } else {
             // 테이밍 실패 → 몬스터 화남 (플레이어에게 데미지)
             p.hp -= mob.atk || 10;
