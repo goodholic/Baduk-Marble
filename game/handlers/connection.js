@@ -75,6 +75,7 @@ const { registerPvpMatchHandlers } = require('./pvp_match_handlers');
 const { registerBountyHunterHandlers } = require('./bounty_hunter_handlers');
 const { registerRaceHandlers } = require('./race_handlers');
 const { registerRelicFusionHandlers } = require('./relic_fusion_handlers');
+const { registerSkillWaveHandlers } = require('./skill_wave_handlers');
 
 function registerConnection(io, $) {
 
@@ -176,6 +177,7 @@ io.on("connection", (socket) => {
     registerBountyHunterHandlers(socket, { io, players, playerId, savePlayer, bountyHunter: $.bountyHunter });
     registerRaceHandlers(socket, { io, players, playerId, savePlayer, raceSystem: $.raceSystem });
     registerRelicFusionHandlers(socket, { io, players, playerId, savePlayer, relicFusion: $.relicFusion });
+    registerSkillWaveHandlers(socket, { io, players, playerId, savePlayer, skillWave: $.skillWave });
     registerWeatherDungeonHandlers(socket, {
         io, players, playerId, savePlayer,
         weatherDungeon: $.weatherDungeon,
