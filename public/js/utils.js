@@ -1,5 +1,11 @@
 // Utility functions (extracted from index.html)
 
+    // XSS 방어: 사용자 입력을 HTML에 삽입하기 전 이스케이프
+    function escapeHtml(str) {
+      if (typeof str !== 'string') return String(str || '');
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+
     function addChatMsg(text, cls) {
       var log = document.getElementById('chat-log');
       var div = document.createElement('div');
