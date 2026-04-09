@@ -337,7 +337,7 @@ function trackQuest(p, target, amount) {
                 p.questProgress[qId] = p.level;
             } else if (target === 'army_count') {
                 let count = 0;
-                for (const bId in players) { if (players[bId].isBot && players[bId].ownerId === p.id && players[bId].isAlive) count++; }
+                for (const bId in players) { if (players[bId] && players[bId].isBot && players[bId].ownerId === p.id && players[bId].isAlive) count++; }
                 p.questProgress[qId] = count;
             } else {
                 p.questProgress[qId] = (p.questProgress[qId] || 0) + (amount || 1);
