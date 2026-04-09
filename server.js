@@ -32,6 +32,7 @@ const achievements = require('./game/achievements');
 const superBoss = require('./game/super_boss');
 const territoryWar = require('./game/territory_war');
 const wishTree = require('./game/wish_tree');
+const soulSystem = require('./game/soul_system');
 const { handleRaidFinish, codexDiscover, finishBossRush, updateTownPrices, generateRandomOptions, logWorldEvent } = serverHelpers;
 const { expireMarketListings, destroyAxe, syncGameState, updatePassives, updatePlayerAutoSkills, updateBots, giveExp, handleCollisions, handleAoeDamage, handlePlayerDeath } = loops;
 // Phase 3 refactor: 전투/스폰/랭킹 모듈
@@ -370,6 +371,7 @@ loops.init({
     get skillTree() { return skillTree; },
     SUMMON_STONES: bossSummon.SUMMON_STONES,
     bountyHunter,
+    soulSystem,
     getCurrentWeather: () => currentWeather,
     savePlayer: (p) => savePlayer(p),
     trackQuest,
@@ -557,6 +559,7 @@ async function savePlayer(player) {
         _skillWave: player._skillWave || null,
         _achievements: player._achievements || null,
         _wishTree: player._wishTree || null,
+        _soulSystem: player._soulSystem || null,
     });
 
     try {
@@ -890,7 +893,7 @@ registerConnection(io, {
     createBot, createAutoArmy, alertArmy, executeThrow,
     generateRandomOptions, codexDiscover, handleRaidFinish, finishBossRush,
     SEASON_XP_MAP, ELEMENTS, FACTIONS, RUNES, RUNE_WORDS, TRAINING_DRILLS_NAMES,
-    questChain, bossSummon, weatherDungeon, pvpMatch, bountyHunter, raceSystem, relicFusion, skillWave, achievements, superBoss, territoryWar, wishTree,
+    questChain, bossSummon, weatherDungeon, pvpMatch, bountyHunter, raceSystem, relicFusion, skillWave, achievements, superBoss, territoryWar, wishTree, soulSystem,
     // mutable primitives via getters
     get isNight() { return isNight; },
     get currentWeather() { return currentWeather; },

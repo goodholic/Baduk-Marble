@@ -965,6 +965,15 @@ function handleCollisions() {
                     $.trackQuest(realOwner, 'total_gold', realOwner._totalGoldEarned);
                     giveExp(owner, Math.floor(mobExpReward * expMulti));
 
+                    // v2.31: 영혼 흡수
+                    if (!realOwner.isBot && $.soulSystem) {
+                        const soulResult = $.soulSystem.absorbSoul(realOwner, mob.tier);
+                        if (soulResult.success) {
+                            io.to(realOwner.id).emit('soul_absorbed', { soul: soulResult.soul });
+                            io.to(realOwner.id).emit('combat_log', { msg: `${soulResult.soul.icon} ${soulResult.msg}` });
+                        }
+                    }
+
                     // v2.23: 사냥꾼 의뢰 진행
                     if (!realOwner.isBot && $.bountyHunter) {
                         const huntResults = $.bountyHunter.updateMissionProgress(realOwner, 'kill_monster', 1, {
