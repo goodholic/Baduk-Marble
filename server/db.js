@@ -48,6 +48,19 @@ async function initDB() {
         const [pingRows] = await pool.query('SELECT 1 AS ok');
         console.log(`[DB] ping OK (${pingRows[0]?.ok})`);
 
+        // 계정 테이블
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS accounts (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                username VARCHAR(20) NOT NULL UNIQUE,
+                password_hash VARCHAR(64) NOT NULL,
+                salt VARCHAR(16) NOT NULL,
+                device_id VARCHAR(255) NOT NULL UNIQUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_username (username)
+            )
+        `).catch(e => console.error('[DB] accounts table:', e.message));
+
         // 오프라인 우편함 테이블
         await pool.query(`
             CREATE TABLE IF NOT EXISTS mails (

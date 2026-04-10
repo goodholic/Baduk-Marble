@@ -165,6 +165,30 @@
     })();
     </script>
 
+    <!-- 로그인 화면 -->
+    <div id="login-screen" style="position:absolute;left:0;top:0;width:100%;height:100%;background:radial-gradient(ellipse at center,rgba(12,10,24,0.98),rgba(4,4,8,0.99));display:none;flex-direction:column;justify-content:center;align-items:center;z-index:25;overflow:hidden">
+      <div style="font-size:10px;color:#6644cc;letter-spacing:4px;margin-bottom:6px;font-family:'Cinzel','Noto Sans KR',serif;text-transform:uppercase">Enter The Realm</div>
+      <h1 style="background:linear-gradient(135deg,#ffd700,#ff8800);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:36px;font-family:'Cinzel Decorative','Cinzel',serif;letter-spacing:5px;margin-bottom:24px">AutoBattle.io</h1>
+      <div style="width:300px;background:rgba(10,10,20,0.9);border:1px solid rgba(255,215,0,0.1);border-radius:12px;padding:24px;z-index:1">
+        <div style="text-align:center;margin-bottom:16px">
+          <div id="login-tab-btns" style="display:flex;gap:4px;margin-bottom:16px">
+            <button onclick="switchLoginTab('login')" id="tab-login" class="btn btn-primary" style="flex:1;font-size:12px">로그인</button>
+            <button onclick="switchLoginTab('register')" id="tab-register" class="btn" style="flex:1;font-size:12px">회원가입</button>
+          </div>
+        </div>
+        <input id="login-id" type="text" placeholder="아이디" maxlength="20" style="width:100%;padding:10px 14px;margin-bottom:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,215,0,0.1);border-radius:8px;color:#fff;font-size:13px;outline:none" onkeydown="if(event.key==='Enter')document.getElementById('login-pw').focus()">
+        <input id="login-pw" type="password" placeholder="비밀번호" maxlength="30" style="width:100%;padding:10px 14px;margin-bottom:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,215,0,0.1);border-radius:8px;color:#fff;font-size:13px;outline:none" onkeydown="if(event.key==='Enter')doLogin()">
+        <div id="login-pw2-wrap" style="display:none">
+          <input id="login-pw2" type="password" placeholder="비밀번호 확인" maxlength="30" style="width:100%;padding:10px 14px;margin-bottom:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,215,0,0.1);border-radius:8px;color:#fff;font-size:13px;outline:none" onkeydown="if(event.key==='Enter')doLogin()">
+        </div>
+        <div id="login-msg" style="color:#ff4444;font-size:11px;margin-bottom:8px;min-height:16px;text-align:center"></div>
+        <button onclick="doLogin()" class="btn btn-primary" style="width:100%;padding:10px;font-size:14px" id="login-submit-btn">접속하기</button>
+        <label style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:11px;color:#888;cursor:pointer">
+          <input type="checkbox" id="login-remember" checked style="accent-color:#ffd700"> 아이디 저장
+        </label>
+      </div>
+    </div>
+
     <!-- 클래스 선택 — 판타지 테마 -->
     <div id="class-select">
       <div style="font-size:10px;color:#6644cc;letter-spacing:4px;margin-bottom:6px;font-family:'Cinzel','Noto Sans KR',serif;text-transform:uppercase">Choose Your Destiny</div>
@@ -649,7 +673,71 @@
     var bottomBar = document.querySelector("#bottom-bar");
     // currency-bar → status-bar로 변경됨
     var gameStarted = false;
-    var deviceId = localStorage.getItem('deviceId') || (()=>{ var id='dev_'+Math.random().toString(36).substr(2,9); localStorage.setItem('deviceId',id); return id; })();
+    var deviceId = null; // 로그인 후 설정됨
+    var loginMode = 'login'; // 'login' or 'register'
+
+    // 로그인 탭 전환
+    function switchLoginTab(mode) {
+      loginMode = mode;
+      document.getElementById('tab-login').className = mode === 'login' ? 'btn btn-primary' : 'btn';
+      document.getElementById('tab-register').className = mode === 'register' ? 'btn btn-primary' : 'btn';
+      document.getElementById('login-pw2-wrap').style.display = mode === 'register' ? 'block' : 'none';
+      document.getElementById('login-submit-btn').textContent = mode === 'login' ? '접속하기' : '회원가입';
+      document.getElementById('login-msg').textContent = '';
+    }
+
+    // 로그인/회원가입 실행
+    async function doLogin() {
+      var id = document.getElementById('login-id').value.trim();
+      var pw = document.getElementById('login-pw').value;
+      var msgEl = document.getElementById('login-msg');
+      if (!id || id.length < 2) { msgEl.textContent = '아이디를 2자 이상 입력하세요'; return; }
+      if (!pw || pw.length < 4) { msgEl.textContent = '비밀번호를 4자 이상 입력하세요'; return; }
+      if (loginMode === 'register') {
+        var pw2 = document.getElementById('login-pw2').value;
+        if (pw !== pw2) { msgEl.textContent = '비밀번호가 일치하지 않습니다'; return; }
+      }
+      msgEl.style.color = '#888'; msgEl.textContent = '접속 중...';
+      try {
+        var res = await fetch('/api/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: loginMode, username: id, password: pw })
+        });
+        var data = await res.json();
+        if (data.success) {
+          deviceId = data.deviceId;
+          if (document.getElementById('login-remember').checked) {
+            localStorage.setItem('saved_username', id);
+          } else {
+            localStorage.removeItem('saved_username');
+          }
+          localStorage.setItem('deviceId', deviceId);
+          document.getElementById('login-screen').style.display = 'none';
+          msgEl.textContent = '';
+          // Unity 로드 시작 (이미 로드 중이면 무시)
+          startGame();
+        } else {
+          msgEl.style.color = '#ff4444';
+          msgEl.textContent = data.msg || '로그인 실패';
+        }
+      } catch(e) {
+        msgEl.style.color = '#ff4444';
+        msgEl.textContent = '서버 연결 실패';
+      }
+    }
+
+    // 저장된 아이디 복원
+    (function() {
+      var saved = localStorage.getItem('saved_username');
+      if (saved) {
+        var idEl = document.getElementById('login-id');
+        if (idEl) idEl.value = saved;
+      }
+      // 로그인 화면 표시
+      var loginScreen = document.getElementById('login-screen');
+      if (loginScreen) loginScreen.style.display = 'flex';
+    })();
 
     var config = {
       dataUrl: "Build/WebGLBuild.data",

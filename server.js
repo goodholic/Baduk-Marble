@@ -535,6 +535,43 @@ app.post('/debug/client-error', (req, res) => {
     }
     res.json({ ok: true });
 });
+// ── 로그인/회원가입 API ──
+const crypto = require('crypto');
+function hashPw(pw, salt) { return crypto.createHash('sha256').update(pw + salt).digest('hex'); }
+
+app.post('/api/auth', async (req, res) => {
+    const { action, username, password } = req.body || {};
+    if (!username || !password || username.length < 2 || password.length < 4) {
+        return res.json({ success: false, msg: '아이디 2자/비밀번호 4자 이상 필요' });
+    }
+    const safeUser = username.replace(/[^a-zA-Z0-9가-힣_]/g, '').substring(0, 20);
+    try {
+        if (action === 'register') {
+            // 중복 체크
+            const [rows] = await pool.query('SELECT device_id FROM accounts WHERE username = ?', [safeUser]);
+            if (rows.length > 0) return res.json({ success: false, msg: '이미 사용 중인 아이디입니다' });
+            // 생성
+            const salt = crypto.randomBytes(8).toString('hex');
+            const hashed = hashPw(password, salt);
+            const devId = 'user_' + crypto.randomBytes(6).toString('hex');
+            await pool.query('INSERT INTO accounts (username, password_hash, salt, device_id, created_at) VALUES (?, ?, ?, ?, NOW())', [safeUser, hashed, salt, devId]);
+            console.log(`[Auth] New account: ${safeUser} → ${devId}`);
+            res.json({ success: true, deviceId: devId, msg: '회원가입 성공!' });
+        } else {
+            // 로그인
+            const [rows] = await pool.query('SELECT device_id, password_hash, salt FROM accounts WHERE username = ?', [safeUser]);
+            if (rows.length === 0) return res.json({ success: false, msg: '존재하지 않는 아이디입니다' });
+            const { device_id, password_hash, salt } = rows[0];
+            if (hashPw(password, salt) !== password_hash) return res.json({ success: false, msg: '비밀번호가 틀렸습니다' });
+            console.log(`[Auth] Login: ${safeUser} → ${device_id}`);
+            res.json({ success: true, deviceId: device_id });
+        }
+    } catch(e) {
+        console.error('[Auth] Error:', e.message);
+        res.json({ success: false, msg: '서버 오류' });
+    }
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 const PORT = process.env.PORT || 3000;
 const serverStartTime = Date.now();

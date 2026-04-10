@@ -794,8 +794,10 @@ public class GameManager : MonoBehaviour
             if (aimDir.magnitude > 0.1f) currentDir = aimDir;
         }
 
-        // Space 키 또는 마우스 좌클릭으로 수동 공격
-        bool attackPressed = Input.GetKeyDown(KeyCode.Space) || Input.GetMouseButtonDown(0);
+        // Space 키 또는 마우스 좌클릭으로 수동 공격 (UI 위가 아닐 때만)
+        bool mouseOverUI = UnityEngine.EventSystems.EventSystem.current != null
+            && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject();
+        bool attackPressed = Input.GetKeyDown(KeyCode.Space) || (Input.GetMouseButtonDown(0) && !mouseOverUI);
         if (attackPressed && Time.time - lastAttackTime >= attackCooldown)
         {
             // 마우스 방향으로 방향 업데이트 후 공격
