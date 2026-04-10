@@ -795,6 +795,8 @@ function handleCollisions() {
     const tickCounter = $.getTickCounter();
     const isNight = $.getIsNight();
     const SKILLS = $.getSKILLS();
+    const savePlayer = $.savePlayer;
+    const getExpRequired = $.getExpRequired;
     const ZONES = $.ZONES;
     const ZONE_MONSTERS = $.ZONE_MONSTERS;
     const MONSTER_TIERS = $.MONSTER_TIERS;
