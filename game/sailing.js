@@ -148,10 +148,8 @@ function arrive(player) {
   else if (encounter.type === 'pirate') { const stolen = Math.min(player.gold || 0, 200); player.gold -= stolen; bonus = -stolen; }
 
   s.voyages += 1;
+  if (!s.visitedIslands.includes(island.name)) s.visitedIslands.push(island.name);
   s.activeVoyage = null;
-  if (!s.visitedIslands.includes(s.activeVoyage?.islandId || island.name)) {
-    if (!s.visitedIslands.includes(island.name)) s.visitedIslands.push(island.name);
-  }
 
   const entry = {
     island: island.name,

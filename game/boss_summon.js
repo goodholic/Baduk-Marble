@@ -124,7 +124,7 @@ function evolve(player, creatureId1, creatureId2) {
     c1.nickname = SUMMONS[c1.summonId].name + ' ★'.repeat(c1.evolution);
 
     // c2 제거
-    s.creatures.splice(idx2 > idx1 ? idx2 : idx2, 1);
+    s.creatures.splice(idx2 > idx1 ? idx2 : idx1, 1);
     // active에서 c2 제거
     s.active = s.active.filter(id => id !== creatureId2);
 
