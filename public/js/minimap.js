@@ -61,6 +61,7 @@
       // 몬스터 (작은 점, 등급별 색상)
       var tierColors = { normal:'#ff4444', elite:'#ffaa44', rare:'#aa44ff', boss:'#ff0044', legendary:'#ff8800', mythic:'#ff00ff', worldboss:'#ff0000' };
       Object.values(lastSyncMonsters).forEach(m => {
+        if (!m || m.x == null || m.y == null) return;
         var p = mapToMinimap(m.x, m.y);
         var c = tierColors[m.tier] || '#ff4444';
         // 일반 몬스터 작게, 보스급 크게

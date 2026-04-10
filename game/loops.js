@@ -101,7 +101,7 @@ function syncGameState() {
     }
     // 삭제된 몬스터 정리
     for (const mId in prevMonsterSync) {
-        if (!monsters[mId]) { monsterDelta[mId] = null; delete prevMonsterSync[mId]; }
+        if (!monsters[mId]) { monsterDelta[mId] = { removed: true }; delete prevMonsterSync[mId]; }
     }
 
     // 각 실제 플레이어에게 sync 전송
