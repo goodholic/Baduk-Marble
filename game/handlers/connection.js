@@ -181,6 +181,7 @@ io.on("connection", (socket) => {
     // playerId를 $ 에 주입하여 sub-connection 핸들러에서 접근 가능하도록
     const $ctx = Object.create($);
     $ctx.playerId = playerId;
+    $ctx.io = io;
     registerCoreConnectionHandlers(socket, $ctx);
     registerInventoryConnectionHandlers(socket, $ctx);
     registerEconomyConnectionHandlers(socket, $ctx);
