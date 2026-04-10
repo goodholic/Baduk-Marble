@@ -901,7 +901,7 @@ function handleCollisions() {
                             const safeOwner = (owner.isBot && owner.ownerId && players[owner.ownerId]) ? players[owner.ownerId] : owner;
                             safeOwner.gold = Math.min(999999999, safeOwner.gold + mob.goldReward || 0);
                             giveExp(safeOwner, mob.expReward || 0);
-                            worldBoss = null;
+                            $.setWorldBoss(null);
                             io.emit('world_boss_dead', { id: mId, name: mob.name });
                             delete monsters[mId];
                             destroyAxe(axeId);
@@ -940,7 +940,7 @@ function handleCollisions() {
                             io.emit('player_update', p);
                         }
 
-                        worldBoss = null;
+                        $.setWorldBoss(null);
                         io.emit('world_boss_dead', { id: mId, name: mob.name });
                         delete monsters[mId];
                         destroyAxe(axeId);
@@ -1003,7 +1003,7 @@ function handleCollisions() {
                     realOwner.gold = Math.min(999999999, realOwner.gold + earnedGold);
                     realOwner._totalGoldEarned = (realOwner._totalGoldEarned || 0) + earnedGold;
                     $.trackQuest(realOwner, 'total_gold', realOwner._totalGoldEarned);
-                    giveExp(owner, Math.floor(mobExpReward * expMulti));
+                    giveExp(realOwner, Math.floor(mobExpReward * expMulti));
 
                     // v2.31: 영혼 흡수
                     if (!realOwner.isBot && $.soulSystem) {
@@ -1300,7 +1300,7 @@ function handleCollisions() {
 
                     // 크리티컬 루트 (5% 확률 — 반짝이 드롭)
                     if (Math.random() < 0.05) {
-                        const critDropId = 'crit_loot_' + (++entityIdCounter);
+                        const critDropId = 'crit_loot_' + (nextEntityId());
                         drops[critDropId] = {
                             id: critDropId, x: mob.x, y: mob.y, gold: 0,
                             type: 'critical_loot', spawnTime: Date.now(), pickupRadius: 5.0,
@@ -1374,7 +1374,6 @@ function handleCollisions() {
 
                     delete monsters[mId];
                     spawnMonster();
-                    io.emit('monster_spawn', monsters['monster_' + entityIdCounter]);
                 } else {
                     io.emit('monster_hit', { id: mId, hp: mob.hp, damage, maxHp: mob.maxHp });
                 }
@@ -1529,7 +1528,7 @@ function handleAoeDamage() {
                             realOwner.gold = Math.min(999999999, realOwner.gold + mob.goldReward || 0);
                             giveExp(realOwner, mob.expReward || 0);
                         }
-                        worldBoss = null;
+                        $.setWorldBoss(null);
                         io.emit('world_boss_dead', { id: mId, name: mob.name });
                         delete monsters[mId];
                         // 월드보스는 spawnMonster로 대체하지 않음
@@ -1542,14 +1541,13 @@ function handleAoeDamage() {
                             if (goldenRain && mob.zoneId === goldenRain.zoneId) { goldMulti *= 3; expMulti *= 1.5; }
 
                             realOwner.gold = Math.min(999999999, realOwner.gold + Math.floor(tier.goldReward * goldMulti));
-                            giveExp(owner, Math.floor(tier.expReward * expMulti));
+                            giveExp(realOwner, Math.floor(tier.expReward * expMulti));
                             spawnDrop(mob.x, mob.y, Math.floor(tier.goldReward * 0.5 * goldMulti), mId);
                         }
                         io.emit('monster_die', { id: mId, tier: mob.tier, killer: realOwner.id });
                         io.emit('player_update', realOwner);
                         delete monsters[mId];
                         spawnMonster();
-                        io.emit('monster_spawn', monsters['monster_' + entityIdCounter]);
                     }
                 } else {
                     io.emit('monster_hit', { id: mId, hp: mob.hp, damage, maxHp: mob.maxHp });
@@ -1672,7 +1670,7 @@ function handlePlayerDeath(target, targetId, owner, attackerId) {
                     recalcStats(target);
                 }
             }
-            const chestId = 'chaotic_chest_' + (++entityIdCounter);
+            const chestId = 'chaotic_chest_' + (nextEntityId());
             drops[chestId] = {
                 id: chestId, x: target.x, y: target.y,
                 gold: chestGold, item: chestItem, spawnTime: Date.now(), pickupRadius: 3.0,
