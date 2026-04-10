@@ -9,8 +9,8 @@
       --c-border: rgba(255,215,0,0.06); --c-border-gold: rgba(255,215,0,0.18);
       --c-arcane: #6644cc; --c-arcane-glow: rgba(102,68,204,0.4);
       /* 타이포그래피 */
-      --ff-title: 'Cinzel Decorative','Cinzel','Georgia',serif;
-      --ff-heading: 'Cinzel','Georgia',serif;
+      --ff-title: 'Cinzel Decorative','Cinzel','Noto Sans KR','Georgia',serif;
+      --ff-heading: 'Cinzel','Noto Sans KR','Georgia',serif;
       --ff-body: 'Noto Sans KR','Segoe UI',sans-serif;
       --fs-xs: 9px; --fs-sm: 11px; --fs-base: 12px; --fs-md: 13px; --fs-lg: 15px; --fs-xl: 18px; --fs-2xl: 24px;
       /* 간격 */
@@ -208,7 +208,7 @@
     #levelup-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:60; pointer-events:none; }
     #levelup-overlay.show { display:flex; justify-content:center; align-items:center; flex-direction:column; }
     #levelup-overlay .lvl-text { font-family:var(--ff-title); font-size:52px; font-weight:900; color:#ffd700; text-shadow:0 0 40px #ff8800,0 0 80px #ff4400,0 0 120px rgba(255,215,0,0.3); animation:lvlPop 0.6s ease-out; letter-spacing:4px; }
-    #levelup-overlay .lvl-sub { font-family:var(--ff-heading); font-size:16px; color:#d4cfc0; margin-top:10px; animation:lvlFade 2s ease-out forwards; letter-spacing:2px; }
+    #levelup-overlay .lvl-sub { font-family:var(--ff-body); font-size:16px; color:#d4cfc0; margin-top:10px; animation:lvlFade 2s ease-out forwards; letter-spacing:1px; }
     #levelup-overlay .lvl-flash { position:absolute; top:0; left:0; width:100%; height:100%; background:radial-gradient(circle,rgba(255,215,0,0.4),rgba(102,68,204,0.15),transparent); animation:flashOut 0.6s ease-out forwards; }
     @keyframes lvlPop { 0%{transform:scale(0.3);opacity:0} 50%{transform:scale(1.3)} 100%{transform:scale(1);opacity:1} }
     @keyframes lvlFade { 0%{opacity:1} 100%{opacity:0} }
@@ -217,7 +217,7 @@
     /* 존 진입 공지 */
     #zone-announce { display:none; position:fixed; top:25%; left:50%; transform:translateX(-50%); z-index:55; text-align:center; pointer-events:none; }
     #zone-announce.show { display:block; animation:zoneSlide 2.5s ease-out forwards; }
-    #zone-announce .zone-name { font-family:var(--ff-heading); font-size:34px; font-weight:900; text-shadow:0 0 30px rgba(0,0,0,0.9),0 0 60px rgba(102,68,204,0.2); letter-spacing:3px; }
+    #zone-announce .zone-name { font-family:var(--ff-body); font-size:34px; font-weight:900; text-shadow:0 0 30px rgba(0,0,0,0.9),0 0 60px rgba(102,68,204,0.2); letter-spacing:2px; }
     #zone-announce .zone-info { font-size:13px; color:#8a8470; margin-top:6px; letter-spacing:1px; }
     @keyframes zoneSlide { 0%{opacity:0;transform:translateX(-50%) translateY(20px)} 15%{opacity:1;transform:translateX(-50%) translateY(0)} 80%{opacity:1} 100%{opacity:0} }
 
@@ -269,7 +269,7 @@
     @keyframes panelIn { from{opacity:0;transform:translate(-50%,-50%) scale(0.92)} to{opacity:1;transform:translate(-50%,-50%) scale(1)} }
     .panel-header { display:flex; justify-content:space-between; align-items:center; padding:14px 18px; border-bottom:1px solid rgba(255,215,0,0.1); background:linear-gradient(90deg,rgba(255,215,0,0.06),rgba(102,68,204,0.03),transparent); position:relative; }
     .panel-header::after { content:''; position:absolute; bottom:-1px; left:18px; right:18px; height:1px; background:linear-gradient(90deg,transparent,rgba(255,215,0,0.2),transparent); }
-    .panel-header h2 { font-family:var(--ff-heading); font-size:16px; color:#ffd700; font-weight:700; letter-spacing:2px; text-shadow:0 0 12px rgba(255,215,0,0.2); }
+    .panel-header h2 { font-family:var(--ff-body); font-size:16px; color:#ffd700; font-weight:700; letter-spacing:1px; text-shadow:0 0 12px rgba(255,215,0,0.2); }
     .panel-close { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#666; font-size:14px; cursor:pointer; width:28px; height:28px; border-radius:6px; line-height:26px; text-align:center; transition:all 0.15s; }
     .panel-close:hover { background:rgba(255,68,68,0.8); color:#fff; border-color:transparent; }
     .panel-body { padding:12px 16px; }
@@ -293,7 +293,7 @@
     }
     #quest-guide:hover { border-color:rgba(255,215,0,0.4); }
     #quest-guide .qg-chapter { color:#888; font-size:9px; text-transform:uppercase; letter-spacing:1px; margin-bottom:2px; }
-    #quest-guide .qg-name { font-family:var(--ff-heading); color:#ffd700; font-size:13px; font-weight:900; margin-bottom:4px; letter-spacing:0.5px; }
+    #quest-guide .qg-name { font-family:var(--ff-body); color:#ffd700; font-size:13px; font-weight:900; margin-bottom:4px; letter-spacing:0.5px; }
     #quest-guide .qg-desc { color:#aaa; font-size:10px; margin-bottom:6px; line-height:1.4; }
     #quest-guide .qg-progress { background:rgba(255,255,255,0.08); border-radius:4px; height:14px; overflow:hidden; position:relative; }
     #quest-guide .qg-progress-fill { background:linear-gradient(90deg,#ffd700,#ff8800); height:100%; border-radius:4px; transition:width 0.5s ease; }
