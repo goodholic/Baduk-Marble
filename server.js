@@ -513,8 +513,29 @@ const io = socketIo(server, {
     cors: { origin: "*", methods: ["GET", "POST"] }
 });
 
-app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
+// 디버그 라우트 (static 보다 먼저 등록)
+app.get('/debug/logs', (req, res) => {
+    const buf = global._logBuffer || [];
+    const filter = req.query.filter || '';
+    const lines = filter ? buf.filter(l => l.includes(filter)) : buf;
+    res.type('text/plain').send(lines.join('\n') || '(no logs)');
+});
+app.get('/debug/client-errors', (req, res) => {
+    res.type('text/plain').send((global._clientErrors || []).join('\n') || '(no client errors)');
+});
+app.post('/debug/client-error', (req, res) => {
+    if (!global._clientErrors) global._clientErrors = [];
+    const { msg, stack } = req.body || {};
+    if (msg) {
+        const entry = `[${new Date().toISOString().slice(11,19)}][CLIENT] ${msg}${stack ? '\n  ' + stack.split('\n')[0] : ''}`;
+        global._clientErrors.push(entry);
+        if (global._clientErrors.length > 50) global._clientErrors.shift();
+        console.warn('[CLIENT-ERR]', msg);
+    }
+    res.json({ ok: true });
+});
+app.use(express.static(path.join(__dirname, 'public')));
 const PORT = process.env.PORT || 3000;
 const serverStartTime = Date.now();
 

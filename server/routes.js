@@ -19,30 +19,7 @@ const express = require('express');
 
 function register(app, ctx) {
     app.get('/health', (req, res) => res.send('AutoBattle.io Server Running'));
-
-    // ── 디버그: 서버 로그 (최근 200줄) ──
-    app.get('/debug/logs', (req, res) => {
-        const buf = global._logBuffer || [];
-        const filter = req.query.filter || '';
-        const lines = filter ? buf.filter(l => l.includes(filter)) : buf;
-        res.type('text/plain').send(lines.join('\n') || '(no logs)');
-    });
-
-    // ── 디버그: 클라이언트 에러 수신 ──
-    const _clientErrors = [];
-    app.post('/debug/client-error', express.json(), (req, res) => {
-        const { msg, stack, url } = req.body || {};
-        if (msg) {
-            const entry = `[${new Date().toISOString().slice(11,19)}][CLIENT] ${msg}${stack ? '\n  ' + stack.split('\n')[0] : ''}`;
-            _clientErrors.push(entry);
-            if (_clientErrors.length > 50) _clientErrors.shift();
-            console.warn('[CLIENT-ERR]', msg);
-        }
-        res.json({ ok: true });
-    });
-    app.get('/debug/client-errors', (req, res) => {
-        res.type('text/plain').send(_clientErrors.join('\n') || '(no client errors)');
-    });
+    // 디버그 라우트는 server.js에서 static 전에 직접 등록됨
 
     // 서버 상태 JSON 엔드포인트 (모니터링/대시보드)
     app.get('/status', (req, res) => {
