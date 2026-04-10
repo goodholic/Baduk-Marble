@@ -752,8 +752,7 @@ function registerSocialConnectionHandlers(socket, $) {
             if (member.level < dungeon.minLevel) { socket.emit('dungeon_result', { msg: `${member.displayName}: 레벨 ${dungeon.minLevel} 이상 필요` }); return; }
         }
 
-        $.entityIdCounter++;
-        const instanceId = 'dungeon_' + $.entityIdCounter;
+        const instanceId = 'dungeon_' + $.nextEntityId();
         $.activeDungeons[instanceId] = {
             dungeonId, players: [...party.members], currentStage: 0,
             monstersLeft: dungeon.monsters[0].count,

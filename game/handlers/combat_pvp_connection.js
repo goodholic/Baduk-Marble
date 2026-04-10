@@ -65,8 +65,7 @@ function registerCombatPvpConnectionHandlers(socket, $) {
         if (!p || !p.isAlive || p.team === 'peace' || (p.gold || 0) < 80) return;
 
         p.gold -= 80;
-        $.entityIdCounter++;
-        const towerId = 'tower_' + $.entityIdCounter;
+        const towerId = 'tower_' + $.nextEntityId();
         const tCls = CLASSES['GuardianTower'];
 
         players[towerId] = {
@@ -109,8 +108,7 @@ function registerCombatPvpConnectionHandlers(socket, $) {
 
         if (p.gold >= 150 && myArmyCount < 30) {
             p.gold -= 150;
-            $.entityIdCounter++;
-            const botId = 'bot_manual_' + $.entityIdCounter;
+            const botId = 'bot_manual_' + $.nextEntityId();
 
             const classNames = ['Assassin', 'Warrior', 'Knight', 'Mage', 'Cleric'];
             const randomClass = classNames[Math.floor(Math.random() * classNames.length)];
@@ -292,8 +290,7 @@ function registerCombatPvpConnectionHandlers(socket, $) {
         if (p.inDungeon) { socket.emit('dungeon_result', { msg: '이미 던전에 참가 중' }); return; }
 
         // 던전 인스턴스 생성
-        $.entityIdCounter++;
-        const instanceId = 'dungeon_' + $.entityIdCounter;
+        const instanceId = 'dungeon_' + $.nextEntityId();
         $.activeDungeons[instanceId] = {
             dungeonId, players: [playerId], currentStage: 0,
             monstersLeft: dungeon.monsters[0].count,
@@ -582,8 +579,7 @@ function registerCombatPvpConnectionHandlers(socket, $) {
 
             // 몬스터 → 용병 변환
             const tier = MONSTER_TIERS[mob.tier];
-            $.entityIdCounter++;
-            const botId = 'tamed_' + $.entityIdCounter;
+            const botId = 'tamed_' + $.nextEntityId();
             const cls = CLASSES['Warrior']; // 기본 워리어 베이스
             players[botId] = {
                 id: botId, deviceId: 'tamed',
@@ -613,7 +609,6 @@ function registerCombatPvpConnectionHandlers(socket, $) {
             delete monsters[monsterId];
             io.emit('monster_die', { id: monsterId, tier: mob.tier, killer: ownerId });
             spawnMonster();
-            io.emit('monster_spawn', monsters['monster_' + $.entityIdCounter]);
 
             io.emit('player_join', players[botId]);
             io.emit('server_msg', { msg: `${p.displayName}이(가) ${mob.name}을(를) 테이밍!`, type: 'morph' });

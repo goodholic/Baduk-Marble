@@ -244,8 +244,7 @@ function registerCoreConnectionHandlers(socket, $) {
                 } catch(e) {}
 
                 savedArmy.forEach(bot => {
-                    $.entityIdCounter++;
-                    const botId = 'bot_restored_' + $.entityIdCounter;
+                    const botId = 'bot_restored_' + $.nextEntityId();
                     const botCls = CLASSES[bot.className] || CLASSES['Warrior'];
                     players[botId] = {
                         id: botId, deviceId: 'bot',
