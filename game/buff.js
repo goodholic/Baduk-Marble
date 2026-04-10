@@ -68,7 +68,7 @@ function updateBuffs(player) {
     // DOT 데미지 (매초)
     if (buff.dot && buff.lastTick !== Math.floor(now / 1000)) {
       buff.lastTick = Math.floor(now / 1000);
-      player.hp += buff.dot; // dot is negative for damage
+      player.hp = Math.min(player.maxHp || 100, player.hp + buff.dot); // dot is negative for damage
       if (player.hp <= 0) player.hp = 1;
     }
   }

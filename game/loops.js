@@ -720,6 +720,7 @@ function giveExp(playerObj, amount) {
                         member.hp = member.maxHp;
                         member.dmgMulti += 0.08;
                         member.statPoints = (member.statPoints || 0) + 3;
+                        capResources(member);
                         io.emit('level_up', { id: member.id, level: member.level, className: member.displayName, statPoints: member.statPoints });
                         trackQuest(member, 'reach_level', 0);
                         savePlayer(member);
@@ -775,6 +776,8 @@ function giveExp(playerObj, amount) {
             }
         }
         savePlayer(target);
+    } else {
+        capResources(target);
     }
     io.emit('player_update', target);
 }
