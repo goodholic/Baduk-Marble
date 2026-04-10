@@ -1337,9 +1337,14 @@ public class GameManager : MonoBehaviour
         np.karma = data["karma"] != null ? (int)data["karma"] : 0;
         np.isAlive = alive;
 
-        // 클래스별 스프라이트 적용
+        // 클래스별 4방향 스프라이트 적용 (SpriteLoader)
+        SpriteLoader.ApplyClassSprites(newPlayer, np.className);
+        // fallback: 기존 에셋 스프라이트
         if (classSpriteNames.ContainsKey(np.className)) {
-            ApplySprite(newPlayer, classSpriteNames[np.className]);
+            // SpriteLoader가 실패한 경우에만 기존 방식 사용
+            SpriteRenderer sr = newPlayer.GetComponentInChildren<SpriteRenderer>();
+            if (sr != null && sr.sprite == null)
+                ApplySprite(newPlayer, classSpriteNames[np.className]);
         }
 
         // 가디언 타워 크기 조정
@@ -1402,13 +1407,17 @@ public class GameManager : MonoBehaviour
         nm.tier = data["tier"]?.ToString() ?? "normal";
         nm.monsterName = data["name"]?.ToString() ?? "슬라임";
 
-        // 등급별 스프라이트 적용
-        if (monsterSpriteNames.ContainsKey(nm.tier)) {
-            ApplySprite(mGo, monsterSpriteNames[nm.tier]);
-        } else {
+        // 몬스터 스프라이트 적용 (SpriteLoader → 이름/티어 기반)
+        SpriteLoader.ApplyMonsterSprite(mGo, nm.tier, nm.monsterName);
+        // fallback: 기존 에셋 스프라이트
+        {
             SpriteRenderer sr = mGo.GetComponentInChildren<SpriteRenderer>();
-            if (sr != null && tierColors.ContainsKey(nm.tier))
-                sr.color = tierColors[nm.tier];
+            if (sr != null && sr.sprite == null) {
+                if (monsterSpriteNames.ContainsKey(nm.tier))
+                    ApplySprite(mGo, monsterSpriteNames[nm.tier]);
+                else if (tierColors.ContainsKey(nm.tier))
+                    sr.color = tierColors[nm.tier];
+            }
         }
 
         if (nm.tier == "elite") mGo.transform.localScale *= 1.3f;
