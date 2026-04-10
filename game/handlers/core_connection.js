@@ -172,6 +172,42 @@ function registerCoreConnectionHandlers(socket, $) {
                         _ancientRuins: ext._ancientRuins || null,
                         _advGuild: ext._advGuild || null,
                         _magicLab: ext._magicLab || null,
+                        // v2.38~v2.56 시스템
+                        _moonSanctuary: ext._moonSanctuary || null,
+                        _weaponSoul: ext._weaponSoul || null,
+                        _fortress: ext._fortress || null,
+                        _astral: ext._astral || null,
+                        _cursedDungeon: ext._cursedDungeon || null,
+                        _fateDuel: ext._fateDuel || null,
+                        _spiritForge: ext._spiritForge || null,
+                        _colosseum: ext._colosseum || null,
+                        _dreamArch: ext._dreamArch || null,
+                        _constellWar: ext._constellWar || null,
+                        _forbiddenLib: ext._forbiddenLib || null,
+                        _beastColossus: ext._beastColossus || null,
+                        _caravan: ext._caravan || null,
+                        _memoryPalace: ext._memoryPalace || null,
+                        _demonThrone: ext._demonThrone || null,
+                        _celestialForge: ext._celestialForge || null,
+                        _livingGrimoire: ext._livingGrimoire || null,
+                        _worldSeed: ext._worldSeed || null,
+                        _fateWeaver: ext._fateWeaver || null,
+                        // pre-v2.37 시스템
+                        _grimoire: ext._grimoire || null,
+                        _bloodline: ext._bloodline || null,
+                        _soulContract: ext._soulContract || null,
+                        _ancientLang: ext._ancientLang || null,
+                        _divine: ext._divine || null,
+                        _pastLife: ext._pastLife || null,
+                        _mutationLog: ext._mutationLog || null,
+                        _cursedEquip: ext._cursedEquip || null,
+                        _alchemy: ext._alchemy || null,
+                        _golem: ext._golem || null,
+                        _hallRelics: ext._hallRelics || [],
+                        _spiritPact: ext._spiritPact || null,
+                        _mythicWeapon: ext._mythicWeapon || null,
+                        _dimTravel: ext._dimTravel || null,
+                        _riftDepth: ext._riftDepth || 0,
                     });
                     if (pInfo.isAdvanced && pInfo.advancedClass) {
                         const adv = CLASS_ADVANCE[pInfo.baseClassName || pInfo.className];
@@ -251,7 +287,7 @@ function registerCoreConnectionHandlers(socket, $) {
                     if (!pInfo.inventory) pInfo.inventory = {};
                     const idsToDelete = [];
                     for (const m of dbMails) {
-                        if (m.gold > 0) { pInfo.gold += m.gold; totalGold += m.gold; }
+                        if (m.gold > 0) { pInfo.gold = Math.min(999999999, pInfo.gold + m.gold); totalGold += m.gold; }
                         if (m.item_id && m.item_count > 0) {
                             pInfo.inventory[m.item_id] = (pInfo.inventory[m.item_id] || 0) + m.item_count;
                             itemSummary.push(`${m.item_id} x${m.item_count}`);
@@ -278,7 +314,7 @@ function registerCoreConnectionHandlers(socket, $) {
             let totalGold = 0, itemSummary = [];
             if (!pInfo.inventory) pInfo.inventory = {};
             for (const m of mails) {
-                if (m.gold > 0) { pInfo.gold += m.gold; totalGold += m.gold; }
+                if (m.gold > 0) { pInfo.gold = Math.min(999999999, pInfo.gold + m.gold); totalGold += m.gold; }
                 if (m.itemId && m.itemCount > 0) {
                     pInfo.inventory[m.itemId] = (pInfo.inventory[m.itemId] || 0) + m.itemCount;
                     itemSummary.push(`${m.itemId} x${m.itemCount}`);
@@ -315,7 +351,7 @@ function registerCoreConnectionHandlers(socket, $) {
             const streak = pInfo.attendance.streak;
             const attendReward = { gold: 50 * streak, diamonds: streak >= 7 ? 30 : 10, exp: 100 * streak };
             pInfo.gold += attendReward.gold;
-            pInfo.diamonds = (pInfo.diamonds || 0) + attendReward.diamonds;
+            pInfo.diamonds = Math.min(999999999, (pInfo.diamonds || 0) + attendReward.diamonds);
             giveExp(pInfo, attendReward.exp);
             socket.emit('attendance_reward', { streak, reward: attendReward, msg: `출석 ${streak}일차! +${attendReward.gold}G, +${attendReward.diamonds}D` });
             if (streak === 7) {

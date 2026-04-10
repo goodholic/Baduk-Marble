@@ -91,7 +91,7 @@ function visitZone(player, zoneId) {
       data.milestonesClaimed.push(m.count);
       // 보상 적용
       if (m.reward.gold) player.gold = Math.min(999999999, (player.gold || 0) + m.reward.gold);
-      if (m.reward.diamonds) player.diamonds = (player.diamonds || 0) + m.reward.diamonds;
+      if (m.reward.diamonds) player.diamonds = Math.min(999999999, (player.diamonds || 0) + m.reward.diamonds);
       if (m.reward.title) {
         if (!player.titles) player.titles = [];
         if (!player.titles.includes(m.reward.title)) player.titles.push(m.reward.title);

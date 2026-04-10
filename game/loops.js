@@ -1046,7 +1046,7 @@ function handleCollisions() {
                         const discovered = Object.keys(realOwner.bestiary).length;
                         if (discovered === 10) { realOwner.gold = Math.min(999999999, realOwner.gold + 500); io.to(realOwner.id).emit('combat_log', { msg: '도감 10종 달성! +500G' }); }
                         if (discovered === 25) { realOwner.gold = Math.min(999999999, realOwner.gold + 1000); io.to(realOwner.id).emit('achievement_unlock', { name: '몬스터 학자', desc: '25종 처치', reward: {gold:1000} }); }
-                        if (discovered === 50) { realOwner.gold = Math.min(999999999, realOwner.gold + 5000); realOwner.diamonds = (realOwner.diamonds||0) + 100; io.to(realOwner.id).emit('achievement_unlock', { name: '도감 마스터', desc: '50종 처치', reward: {gold:5000, diamonds:100} }); }
+                        if (discovered === 50) { realOwner.gold = Math.min(999999999, realOwner.gold + 5000); realOwner.diamonds = Math.min(999999999, (realOwner.diamonds || 0) + 100); io.to(realOwner.id).emit('achievement_unlock', { name: '도감 마스터', desc: '50종 처치', reward: {gold:5000, diamonds:100} }); }
                     } else {
                         realOwner.bestiary[mob.name]++;
                     }
@@ -1640,7 +1640,7 @@ function handlePlayerDeath(target, targetId, owner, attackerId) {
         if (realKiller._activeBounty && realKiller._activeBounty.targetId === targetId) {
             const bounty = realKiller._activeBounty;
             realKiller.gold = Math.min(999999999, realKiller.gold + bounty.reward);
-            realKiller.diamonds = (realKiller.diamonds||0) + 50;
+            realKiller.diamonds = Math.min(999999999, (realKiller.diamonds || 0) + 50);
             realKiller._activeBounty = null;
             io.emit('server_msg', { msg: `[현상금] ${realKiller.displayName}이(가) ${target.displayName}의 현상금을 수령! +${bounty.reward}G +50D`, type: 'rare' });
             io.to(realKiller.id).emit('bounty_result', { msg: `현상금 완료! +${bounty.reward}G +50D` });

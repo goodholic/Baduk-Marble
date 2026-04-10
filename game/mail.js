@@ -134,7 +134,7 @@ function claimAttachments(recipient, mailId) {
 
   const a = mail.attachments || {};
   if (a.gold) recipient.gold = Math.min(999999999, (recipient.gold || 0) + a.gold);
-  if (a.diamonds) recipient.diamonds = (recipient.diamonds || 0) + a.diamonds;
+  if (a.diamonds) recipient.diamonds = Math.min(999999999, (recipient.diamonds || 0) + a.diamonds);
   if (a.items) {
     if (!recipient.inventory) recipient.inventory = {};
     for (const [itemId, count] of Object.entries(a.items)) {

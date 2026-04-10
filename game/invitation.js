@@ -100,7 +100,7 @@ function checkMilestone(invitee, players) {
 
       // 양쪽 보상 지급
       if (milestone.inviterReward.gold) inviter.gold = Math.min(999999999, (inviter.gold || 0) + milestone.inviterReward.gold);
-      if (milestone.inviterReward.diamonds) inviter.diamonds = (inviter.diamonds || 0) + milestone.inviterReward.diamonds;
+      if (milestone.inviterReward.diamonds) inviter.diamonds = Math.min(999999999, (inviter.diamonds || 0) + milestone.inviterReward.diamonds);
       if (milestone.inviterReward.title) {
         if (!inviter.titles) inviter.titles = [];
         if (!inviter.titles.includes(milestone.inviterReward.title)) inviter.titles.push(milestone.inviterReward.title);
@@ -111,7 +111,7 @@ function checkMilestone(invitee, players) {
       }
 
       if (milestone.inviteeReward.gold) invitee.gold = Math.min(999999999, (invitee.gold || 0) + milestone.inviteeReward.gold);
-      if (milestone.inviteeReward.diamonds) invitee.diamonds = (invitee.diamonds || 0) + milestone.inviteeReward.diamonds;
+      if (milestone.inviteeReward.diamonds) invitee.diamonds = Math.min(999999999, (invitee.diamonds || 0) + milestone.inviteeReward.diamonds);
       if (milestone.inviteeReward.item) {
         if (!invitee.inventory) invitee.inventory = {};
         invitee.inventory[milestone.inviteeReward.item] = (invitee.inventory[milestone.inviteeReward.item] || 0) + 1;

@@ -34,7 +34,7 @@ function registerQuestMiscConnectionHandlers(socket, $) {
         if (!p.questCompleted) p.questCompleted = {};
         p.questCompleted[questId] = true;
         if (q.reward.gold) p.gold = Math.min(999999999, p.gold + q.reward.gold);
-        if (q.reward.diamonds) p.diamonds = (p.diamonds||0) + q.reward.diamonds;
+        if (q.reward.diamonds) p.diamonds = Math.min(999999999, (p.diamonds || 0) + q.reward.diamonds);
         if (q.reward.exp) giveExp(p, q.reward.exp);
         capResources(p);
 
@@ -188,7 +188,7 @@ function registerQuestMiscConnectionHandlers(socket, $) {
             const member = players[mid];
             if (!member) continue;
             member.gold = Math.min(999999999, member.gold + raid.reward.gold);
-            member.diamonds = (member.diamonds||0) + raid.reward.diamonds;
+            member.diamonds = Math.min(999999999, (member.diamonds || 0) + raid.reward.diamonds);
             giveExp(member, raid.reward.exp);
             capResources(member);
             io.to(mid).emit('raid_result', { msg: `${raid.name} 완료! +${raid.reward.gold}G +${raid.reward.exp}EXP +${raid.reward.diamonds}D` });
@@ -265,7 +265,7 @@ function registerQuestMiscConnectionHandlers(socket, $) {
         const challenge = getThisWeekChallenge();
         if ((p._weeklyChallengeProgress || 0) < challenge.goal) { socket.emit('challenge_result', { msg: `미완료 (${p._weeklyChallengeProgress||0}/${challenge.goal})` }); return; }
         p.gold = Math.min(999999999, p.gold + challenge.reward.gold);
-        if (challenge.reward.diamonds) p.diamonds = (p.diamonds||0) + challenge.reward.diamonds;
+        if (challenge.reward.diamonds) p.diamonds = Math.min(999999999, (p.diamonds || 0) + challenge.reward.diamonds);
         if (challenge.reward.item) {
             if (!p.inventory) p.inventory = {};
             p.inventory[challenge.reward.item] = (p.inventory[challenge.reward.item] || 0) + (challenge.reward.itemQty || 1);
@@ -289,7 +289,7 @@ function registerQuestMiscConnectionHandlers(socket, $) {
         if (p._dailyChallengeClaimed) { socket.emit('challenge_result', { msg: '오늘 이미 수령' }); return; }
         const challenge = getTodaysChallenge();
         p.gold = Math.min(999999999, p.gold + challenge.reward.gold);
-        if (challenge.reward.diamonds) p.diamonds = (p.diamonds||0) + challenge.reward.diamonds;
+        if (challenge.reward.diamonds) p.diamonds = Math.min(999999999, (p.diamonds || 0) + challenge.reward.diamonds);
         capResources(p);
         p._dailyChallengeCompleted = false;
         p._dailyChallengeProgress = 0;
@@ -382,7 +382,7 @@ function registerQuestMiscConnectionHandlers(socket, $) {
         const depth = p._riftDepth;
         const reward = { gold: 200 + depth * 100, exp: 500 + depth * 200, diamonds: depth % 5 === 0 ? depth * 2 : 0 };
         p.gold = Math.min(999999999, p.gold + reward.gold);
-        if (reward.diamonds) p.diamonds = (p.diamonds||0) + reward.diamonds;
+        if (reward.diamonds) p.diamonds = Math.min(999999999, (p.diamonds || 0) + reward.diamonds);
         giveExp(p, reward.exp);
         capResources(p);
         savePlayer(p);

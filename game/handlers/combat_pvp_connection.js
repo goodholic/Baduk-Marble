@@ -394,7 +394,7 @@ function registerCombatPvpConnectionHandlers(socket, $) {
             const reward = INFINITE_TOWER.getReward(tp.currentFloor);
             p.gold = Math.min(999999999, p.gold + reward.gold);
             giveExp(p, reward.exp);
-            if (reward.diamonds > 0) p.diamonds = (p.diamonds||0) + reward.diamonds;
+            if (reward.diamonds > 0) p.diamonds = Math.min(999999999, (p.diamonds || 0) + reward.diamonds);
             if (!p.inventory) p.inventory = {};
             for (const d of reward.drops) {
                 p.inventory[d] = (p.inventory[d]||0) + 1;
@@ -478,7 +478,7 @@ function registerCombatPvpConnectionHandlers(socket, $) {
             const gold = 1000 + Math.floor(Math.random() * 4000);
             const dia = 20 + Math.floor(Math.random() * 30);
             p.gold = Math.min(999999999, p.gold + gold);
-            p.diamonds = (p.diamonds||0) + dia;
+            p.diamonds = Math.min(999999999, (p.diamonds || 0) + dia);
             rewardMsg = `${gold}G + ${dia}D`;
         }
         socket.emit('box_result', { msg: `희귀 상자 오픈! ${rewardMsg}` });

@@ -121,7 +121,7 @@ function readFortune(player) {
   const streakReward = STREAK_BONUSES[f.streak] || null;
   if (streakReward) {
     if (streakReward.gold) player.gold = Math.min(999999999, (player.gold || 0) + streakReward.gold);
-    if (streakReward.diamonds) player.diamonds = (player.diamonds || 0) + streakReward.diamonds;
+    if (streakReward.diamonds) player.diamonds = Math.min(999999999, (player.diamonds || 0) + streakReward.diamonds);
   }
 
   // 스트릭 효과 배수 적용

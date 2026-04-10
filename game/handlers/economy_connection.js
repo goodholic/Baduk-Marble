@@ -157,7 +157,7 @@ function registerEconomyConnectionHandlers(socket, $) {
             return;
         }
         p.lastDailyReward = today;
-        p.diamonds = (p.diamonds || 0) + FREE_DIAMOND_SOURCES.daily_login;
+        p.diamonds = Math.min(999999999, (p.diamonds || 0) + FREE_DIAMOND_SOURCES.daily_login);
         p.gold = Math.min(999999999, p.gold + 500);
         savePlayer(p);
         socket.emit('daily_result', {
@@ -183,11 +183,11 @@ function registerEconomyConnectionHandlers(socket, $) {
         const SLOTS = [
             { weight: 35, label: '💰 100G',     apply: (pl) => { pl.gold = Math.min(999999999, pl.gold + 100); },                           tier:'common'  },
             { weight: 25, label: '💰 500G',     apply: (pl) => { pl.gold = Math.min(999999999, pl.gold + 500); },                           tier:'common'  },
-            { weight: 15, label: '💎 5',        apply: (pl) => { pl.diamonds = (pl.diamonds||0) + 5; },       tier:'rare'    },
+            { weight: 15, label: '💎 5',        apply: (pl) => { pl.diamonds = Math.min(999999999, (pl.diamonds || 0) + 5); },       tier:'rare'    },
             { weight: 10, label: '💰 2,000G',   apply: (pl) => { pl.gold = Math.min(999999999, pl.gold + 2000); },                          tier:'rare'    },
             { weight:  7, label: 'EXP +5%',     apply: (pl) => { giveExp(pl, Math.floor(getExpRequired(pl.level) * 0.05)); }, tier:'rare' },
             { weight:  5, label: '🍖 황금 수프', apply: (pl) => { if(!pl.inventory)pl.inventory={}; pl.inventory['food_atk']=(pl.inventory['food_atk']||0)+1; }, tier:'epic' },
-            { weight:  2, label: '💎 50',       apply: (pl) => { pl.diamonds = (pl.diamonds||0) + 50; },      tier:'epic'    },
+            { weight:  2, label: '💎 50',       apply: (pl) => { pl.diamonds = Math.min(999999999, (pl.diamonds || 0) + 50); },      tier:'epic'    },
             { weight:  1, label: '🐉 드래곤 비늘', apply: (pl) => { if(!pl.inventory)pl.inventory={}; pl.inventory['mat_dragon']=(pl.inventory['mat_dragon']||0)+1; }, tier:'legend' },
         ];
         const total = SLOTS.reduce((s, sl) => s + sl.weight, 0);
