@@ -7,6 +7,7 @@ function registerCoreConnectionHandlers(socket, $) {
         CLASS_ADVANCE, ZONES, EQUIPMENT_SLOTS, EQUIP_STATS, GRADE_INFO, ZONE_AMBIENCE, NPCS, getMountSpeed,
         TITLES, capResources, giveExp, executeThrow, arenaMatches, ELEMENTS, FACTIONS, getYesterday,
         getWeekNumber, MONSTER_TIERS, KARMA, ZONE_MONSTERS, ZONE_CONNECTIONS,
+        TERRAIN_BARRIERS, ROADS,
     } = $;
     // --- init_request ---
     socket.on('init_request', async (dataStr) => {
