@@ -81,7 +81,7 @@ const RECIPES = {
 function handleCraft(player, recipeId, io) {
   const recipe = RECIPES[recipeId];
   if (!recipe) return { success: false, msg: '알 수 없는 레시피' };
-  if (player.gold < recipe.gold) return { success: false, msg: `골드 부족 (${recipe.gold}G 필요)` };
+  if ((player.gold || 0) < recipe.gold) return { success: false, msg: `골드 부족 (${recipe.gold}G 필요)` };
   if (!player.inventory) player.inventory = {};
 
   // 재료 확인

@@ -309,7 +309,7 @@ function castGrimoire(player, grimoireId) {
     }
     if (cost.goldCost) {
         const loss = Math.floor(cost.goldCost * (1 - masteryBonus));
-        if (player.gold < loss) return { success: false, msg: `골드 부족 (${loss}G)` };
+        if ((player.gold || 0) < loss) return { success: false, msg: `골드 부족 (${loss}G)` };
         player.gold -= loss;
         penalties.push(`골드 -${loss}`);
     }

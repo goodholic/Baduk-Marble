@@ -251,7 +251,7 @@ function registerSocialConnectionHandlers(socket, $) {
 
         // 우편 비용 50G
         const mailCost = 50 + (gold > 0 ? Math.floor(gold * 0.01) : 0);
-        if (p.gold < mailCost) { socket.emit('mail_result', { msg: `우편 비용 ${mailCost}G 부족` }); return; }
+        if ((p.gold || 0) < mailCost) { socket.emit('mail_result', { msg: `우편 비용 ${mailCost}G 부족` }); return; }
         p.gold -= mailCost;
 
         // 오프라인이면 pendingMails에 보관
@@ -268,7 +268,7 @@ function registerSocialConnectionHandlers(socket, $) {
                 if (p.inventory[itemId] <= 0) delete p.inventory[itemId];
             }
             if (validGold) {
-                if (p.gold < gold) { p.gold = Math.min(999999999, p.gold + mailCost); socket.emit('mail_result', { msg: '골드 부족' }); return; }
+                if ((p.gold || 0) < gold) { p.gold = Math.min(999999999, p.gold + mailCost); socket.emit('mail_result', { msg: '골드 부족' }); return; }
                 p.gold -= gold;
             }
             // DB에 영속화 (서버 재시작에도 유지)
@@ -320,7 +320,7 @@ function registerSocialConnectionHandlers(socket, $) {
 
         // 골드 전송
         if (validGold) {
-            if (p.gold < gold) { socket.emit('mail_result', { msg: '골드 부족' }); return; }
+            if ((p.gold || 0) < gold) { socket.emit('mail_result', { msg: '골드 부족' }); return; }
             p.gold -= gold;
             target.gold = Math.min(999999999, target.gold + gold);
             io.to(targetId).emit('mail_received', { from: p.displayName, gold });
@@ -429,7 +429,7 @@ function registerSocialConnectionHandlers(socket, $) {
         if (p.clanName) { socket.emit('clan_result', { success: false, msg: '이미 혈맹 가입 중' }); return; }
         if (typeof clanName !== 'string' || clanName.length < 2 || clanName.length > 12) { socket.emit('clan_result', { success: false, msg: '이름 2~12자' }); return; }
         if (clans[clanName]) { socket.emit('clan_result', { success: false, msg: '이미 존재하는 혈맹' }); return; }
-        if (p.gold < 5000) { socket.emit('clan_result', { success: false, msg: '5000G 필요' }); return; }
+        if ((p.gold || 0) < 5000) { socket.emit('clan_result', { success: false, msg: '5000G 필요' }); return; }
 
         p.gold -= 5000;
         p.clanName = clanName;

@@ -104,7 +104,7 @@ function registerFishingHandlers(socket, ctx) {
       return;
     }
     if (rod.price.gold) {
-      if (p.gold < rod.price.gold) { socket.emit('fishing_result', { success: false, msg: '골드 부족' }); return; }
+      if ((p.gold || 0) < rod.price.gold) { socket.emit('fishing_result', { success: false, msg: '골드 부족' }); return; }
       p.gold -= rod.price.gold;
     }
     if (rod.price.diamonds) {

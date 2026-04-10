@@ -593,7 +593,7 @@ function registerCoreConnectionHandlers(socket, $) {
         const targetZone = ZONES[townId];
         if (!targetZone || !targetZone.safe) return;
         const cost = 100;
-        if (p.gold < cost) { socket.emit('npc_result', { msg: `이동 비용 ${cost}G 부족` }); return; }
+        if ((p.gold || 0) < cost) { socket.emit('npc_result', { msg: `이동 비용 ${cost}G 부족` }); return; }
         p.gold -= cost;
         p.x = targetZone.x + targetZone.w / 2;
         p.y = targetZone.y + targetZone.h / 2;

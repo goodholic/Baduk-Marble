@@ -62,7 +62,7 @@ function consumeFreeEntry(player) {
 
 function payEntry(player, currency = 'gold') {
   if (currency === 'gold') {
-    if (player.gold < BOSS_RUSH_CONFIG.goldEntryPrice) return { success: false, msg: '골드 부족' };
+    if ((player.gold || 0) < BOSS_RUSH_CONFIG.goldEntryPrice) return { success: false, msg: '골드 부족' };
     player.gold -= BOSS_RUSH_CONFIG.goldEntryPrice;
   } else {
     if ((player.diamonds || 0) < BOSS_RUSH_CONFIG.diamondEntryPrice) return { success: false, msg: '다이아 부족' };

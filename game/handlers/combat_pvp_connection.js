@@ -62,7 +62,7 @@ function registerCombatPvpConnectionHandlers(socket, $) {
     // --- build_tower ---
     socket.on('build_tower', () => {
         const p = players[playerId];
-        if (!p || !p.isAlive || p.team === 'peace' || p.gold < 80) return;
+        if (!p || !p.isAlive || p.team === 'peace' || (p.gold || 0) < 80) return;
 
         p.gold -= 80;
         $.entityIdCounter++;
@@ -563,7 +563,7 @@ function registerCombatPvpConnectionHandlers(socket, $) {
         const dist = Math.hypot(p.x - mob.x, p.y - mob.y);
         if (dist > 8) { sock.emit('tame_result', { success:false, msg:'너무 멀어요 (8 이내)' }); return; }
         const tameCost = TAME_COSTS[mob.tier] || 50;
-        if (p.gold < tameCost) { sock.emit('tame_result', { success:false, msg:`${tameCost}G 필요` }); return; }
+        if ((p.gold || 0) < tameCost) { sock.emit('tame_result', { success:false, msg:`${tameCost}G 필요` }); return; }
 
         p.gold -= tameCost;
         const rate = TAME_RATES[mob.tier] || 0.1;
@@ -647,7 +647,7 @@ function registerCombatPvpConnectionHandlers(socket, $) {
         if (!zone || !ZONES[zone.id]?.safe) { socket.emit('dice_result', { msg: '마을에서만 가능' }); return; }
         if (!tZone || tZone.id !== zone.id) { socket.emit('dice_result', { msg: '같은 마을에 있어야 합니다' }); return; }
         const betAmount = Math.max(100, Math.min(10000, bet));
-        if (p.gold < betAmount || target.gold < betAmount) { socket.emit('dice_result', { msg: '골드 부족' }); return; }
+        if ((p.gold || 0) < betAmount || target.gold < betAmount) { socket.emit('dice_result', { msg: '골드 부족' }); return; }
         if (!p._diceCount) p._diceCount = { hour: Math.floor(Date.now()/3600000), count: 0 };
         if (p._diceCount.hour !== Math.floor(Date.now()/3600000)) { p._diceCount = { hour: Math.floor(Date.now()/3600000), count: 0 }; }
         if (p._diceCount.count >= 5) { socket.emit('dice_result', { msg: '시간당 5회 제한 초과' }); return; }
@@ -679,7 +679,7 @@ function registerCombatPvpConnectionHandlers(socket, $) {
             socket.emit('dice_result', { msg: '같은 마을에 있어야 합니다' }); return;
         }
         const betAmount = offer.bet;
-        if (p.gold < betAmount || target.gold < betAmount) { socket.emit('dice_result', { msg: '골드 부족' }); return; }
+        if ((p.gold || 0) < betAmount || target.gold < betAmount) { socket.emit('dice_result', { msg: '골드 부족' }); return; }
         // 양쪽 시간당 카운트 차감
         if (!p._diceCount) p._diceCount = { hour: Math.floor(Date.now()/3600000), count: 0 };
         if (p._diceCount.hour !== Math.floor(Date.now()/3600000)) p._diceCount = { hour: Math.floor(Date.now()/3600000), count: 0 };

@@ -33,7 +33,7 @@ function listAuction(player, itemId, itemName, startPrice, durationKey = 'medium
   }
 
   const fee = Math.floor(startPrice * AUCTION_CONFIG.listingFeePct);
-  if (player.gold < fee) return { success: false, msg: `등록 수수료 ${fee}G 부족` };
+  if ((player.gold || 0) < fee) return { success: false, msg: `등록 수수료 ${fee}G 부족` };
 
   player.gold -= fee;
   if (!player.inventory || !player.inventory[itemId] || player.inventory[itemId] <= 0) {
@@ -74,7 +74,7 @@ function placeBid(player, auctionId, bidAmount) {
     ? Math.ceil(a.currentBid * (1 + AUCTION_CONFIG.minBidIncrementPct))
     : a.startPrice;
   if (bidAmount < minBid) return { success: false, msg: `최소 ${minBid}G 이상` };
-  if (player.gold < bidAmount) return { success: false, msg: '골드 부족' };
+  if ((player.gold || 0) < bidAmount) return { success: false, msg: '골드 부족' };
 
   // 이전 최고 입찰자에게 환불
   if (a.currentBidderId) {

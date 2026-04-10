@@ -22,7 +22,7 @@ function registerEconomyConnectionHandlers(socket, $) {
             }
             p.diamonds -= item.price;
         } else {
-            if (p.gold < item.price) {
+            if ((p.gold || 0) < item.price) {
                 socket.emit('shop_result', { success: false, msg: '골드가 부족합니다' });
                 return;
             }
@@ -261,7 +261,7 @@ function registerEconomyConnectionHandlers(socket, $) {
         if (idx === -1) { socket.emit('market_result', { msg: '매물 없음' }); return; }
         const listing = $.marketListings[idx];
         if (listing.sellerId === playerId) { socket.emit('market_result', { msg: '자기 매물 구매 불가' }); return; }
-        if (p.gold < listing.price) { socket.emit('market_result', { msg: '골드 부족' }); return; }
+        if ((p.gold || 0) < listing.price) { socket.emit('market_result', { msg: '골드 부족' }); return; }
 
         p.gold -= listing.price;
         if (!p.inventory) p.inventory = {};
@@ -291,7 +291,7 @@ function registerEconomyConnectionHandlers(socket, $) {
         const listing = $.marketListings.find(l => l.id === listingId);
         if (!listing) { socket.emit('market_result', { msg: '매물 없음' }); return; }
         if (listing.sellerId === playerId) { socket.emit('market_result', { msg: '자기 매물 입찰 불가' }); return; }
-        if (p.gold < bidAmount) { socket.emit('market_result', { msg: '골드 부족' }); return; }
+        if ((p.gold || 0) < bidAmount) { socket.emit('market_result', { msg: '골드 부족' }); return; }
 
         const highestBid = listing.bids.length > 0 ? listing.bids[listing.bids.length - 1].amount : 0;
         if (bidAmount <= highestBid) { socket.emit('market_result', { msg: `현재 최고 입찰가(${highestBid}G)보다 높아야 함` }); return; }
@@ -365,7 +365,7 @@ function registerEconomyConnectionHandlers(socket, $) {
         const deal = $.rogueMerchant.deals[dealIdx];
         if (!deal) return;
         if (deal.currency === 'diamond' && (p.diamonds||0) < deal.price) { socket.emit('rogue_result', { msg: '다이아 부족' }); return; }
-        if (deal.currency === 'gold' && p.gold < deal.price) { socket.emit('rogue_result', { msg: '골드 부족' }); return; }
+        if (deal.currency === 'gold' && (p.gold || 0) < deal.price) { socket.emit('rogue_result', { msg: '골드 부족' }); return; }
         if (deal.currency === 'diamond') p.diamonds -= deal.price; else p.gold -= deal.price;
         $.rogueMerchant.bought[dealIdx] = playerId;
         if (!p.inventory) p.inventory = {};
@@ -410,7 +410,7 @@ function registerEconomyConnectionHandlers(socket, $) {
             if (!$.townPrices[town] || !$.townPrices[town][goodsId]) return;
 
             const price = $.townPrices[town][goodsId].buyPrice * qty;
-            if (p.gold < price) { socket.emit('trade_goods_result', { success:false, msg:'골드 부족' }); return; }
+            if ((p.gold || 0) < price) { socket.emit('trade_goods_result', { success:false, msg:'골드 부족' }); return; }
 
             p.gold -= price;
             if (!p.inventory) p.inventory = {};

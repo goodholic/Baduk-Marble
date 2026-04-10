@@ -484,7 +484,7 @@ function registerQuestMiscConnectionHandlers(socket, $) {
         const safeTarget = (typeof data.target === 'string' ? data.target : '').slice(0, 30).replace(/</g,'&lt;').replace(/>/g,'&gt;');
         if (!safeType) return;
         const cost = Math.floor(reward * 1.1); // 10% 수수료
-        if (p.gold < cost) { socket.emit('contract_result', { msg: `골드 부족 (${cost}G 필요 — 수수료 10%)` }); return; }
+        if ((p.gold || 0) < cost) { socket.emit('contract_result', { msg: `골드 부족 (${cost}G 필요 — 수수료 10%)` }); return; }
         // 동시 의뢰 수 제한 (스팸 방지)
         const myOpen = $.contractBoard.filter(c => c.creatorId === playerId && c.status === 'open').length;
         if (myOpen >= 5) { socket.emit('contract_result', { msg: '동시 의뢰 5개 한도 초과' }); return; }
@@ -571,7 +571,7 @@ function registerQuestMiscConnectionHandlers(socket, $) {
         const p = players[playerId];
         if (!p) return;
         const cost = 500 + p.level * 100;
-        if (p.gold < cost) { socket.emit('stat_result', { success: false, msg: `골드 부족 (${cost}G 필요)` }); return; }
+        if ((p.gold || 0) < cost) { socket.emit('stat_result', { success: false, msg: `골드 부족 (${cost}G 필요)` }); return; }
         p.gold -= cost;
         // 스탯 포인트 반환
         const totalUsed = (p.bonusStr||0) + (p.bonusDex||0) + (p.bonusInt||0) + (p.bonusCon||0);

@@ -31,7 +31,7 @@ function handleEvolvePet(player, basePetId) {
   if (!player.inventory) player.inventory = {};
   for (const [mat, qty] of Object.entries(PET_EVOLVE_COST)) {
     if (mat === 'gold') {
-      if (player.gold < qty) return { success:false, msg:`골드 부족 (${qty}G 필요)` };
+      if ((player.gold || 0) < qty) return { success:false, msg:`골드 부족 (${qty}G 필요)` };
     } else {
       if ((player.inventory[mat] || 0) < qty) return { success:false, msg:`재료 부족: ${mat} ${qty}개 필요` };
     }
@@ -89,7 +89,7 @@ function handleBuyMount(player, mountId) {
   if (!mount) return { success:false, msg:'존재하지 않는 탈것' };
   if (mount.cost.drop) return { success:false, msg:'보스 드롭으로만 획득' };
 
-  if (mount.cost.gold && player.gold < mount.cost.gold) return { success:false, msg:'골드 부족' };
+  if (mount.cost.gold && (player.gold || 0) < mount.cost.gold) return { success:false, msg:'골드 부족' };
   if (mount.cost.diamonds && (player.diamonds||0) < mount.cost.diamonds) return { success:false, msg:'다이아 부족' };
 
   if (mount.cost.gold) player.gold -= mount.cost.gold;

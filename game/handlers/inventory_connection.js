@@ -232,7 +232,7 @@ function registerInventoryConnectionHandlers(socket, $) {
 
         // 강화 비용 (단계별 증가)
         const cost = curLevel < 3 ? (curLevel+1)*200 : curLevel < 7 ? (curLevel+1)*350 : curLevel < 10 ? (curLevel+1)*500 : (curLevel+1)*800;
-        if (p.gold < cost) { socket.emit('enchant_result', { success: false, msg: `골드 부족 (${cost}G 필요)` }); return; }
+        if ((p.gold || 0) < cost) { socket.emit('enchant_result', { success: false, msg: `골드 부족 (${cost}G 필요)` }); return; }
         p.gold -= cost;
 
         // 보호 주문서 사용 체크
@@ -352,7 +352,7 @@ function registerInventoryConnectionHandlers(socket, $) {
         const nextGrade = gradeOrder[curIdx + 1];
         const fuseCosts = { normal:500, uncommon:2000, rare:5000, epic:15000 };
         const cost = fuseCosts[grades[0]] || 500;
-        if (p.gold < cost) { socket.emit('fuse_result', { msg: `골드 부족 (${cost}G 필요)` }); return; }
+        if ((p.gold || 0) < cost) { socket.emit('fuse_result', { msg: `골드 부족 (${cost}G 필요)` }); return; }
         p.gold -= cost;
         // 재료 소모
         for (const it of items) { p.inventory[it]--; if (p.inventory[it] <= 0) delete p.inventory[it]; }
