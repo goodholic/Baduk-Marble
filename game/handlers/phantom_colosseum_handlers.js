@@ -11,7 +11,8 @@ function registerPhantomColosseumHandlers(socket, ctx) {
     socket.on('phantom_challenge', ({ phantomId, tier }) => {
         const p = players[playerId]; if (!p) return;
         if (typeof phantomId !== 'string') return;
-        const result = phantomColosseum.challenge(p, phantomId, tier || 'common');
+        const safeTier = (typeof tier === 'string') ? tier : 'common';
+        const result = phantomColosseum.challenge(p, phantomId, safeTier);
         if (result.success) {
             savePlayer(p);
             io.emit('server_msg', { msg: `[환영 투기장] ${p.displayName}이(가) ${result.tier.icon}${result.phantom.icon} ${result.phantom.name}에 도전!`, type: 'normal' });

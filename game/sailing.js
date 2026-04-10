@@ -141,9 +141,9 @@ function arrive(player) {
   // 조우
   const encounter = _rollEncounter();
   let bonus = 0;
-  if (encounter.type === 'treasure') { bonus = 500; player.gold += bonus; }
-  else if (encounter.type === 'merchant') { bonus = 200; player.gold += bonus; }
-  else if (encounter.type === 'mermaid') { bonus = 1000; player.gold += bonus; }
+  if (encounter.type === 'treasure') { bonus = 500; player.gold = Math.min(999999999, player.gold + bonus); }
+  else if (encounter.type === 'merchant') { bonus = 200; player.gold = Math.min(999999999, player.gold + bonus); }
+  else if (encounter.type === 'mermaid') { bonus = 1000; player.gold = Math.min(999999999, player.gold + bonus); }
   else if (encounter.type === 'kraken') { s.durability = Math.max(0, s.durability - 30); }
   else if (encounter.type === 'pirate') { const stolen = Math.min(player.gold || 0, 200); player.gold -= stolen; bonus = -stolen; }
 

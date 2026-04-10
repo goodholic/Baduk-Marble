@@ -78,7 +78,7 @@ function tryRegister(achievementId, player) {
 
   // 유물 부여
   if (!player._hallRelics) player._hallRelics = [];
-  if (ach.relic && !player._hallRelics.includes(ach.relic)) {
+  if (ach.relic && !player._hallRelics.includes(ach.relic) && player._hallRelics.length < 50) {
     player._hallRelics.push(ach.relic);
   }
 

@@ -71,7 +71,7 @@ function playSlot(player, bet) {
   }
 
   if (payout > 0) {
-    player.gold += payout;
+    player.gold = Math.min(999999999, player.gold + payout);
     c.totalWin += payout;
     if (payout > c.biggestWin) c.biggestWin = payout;
   }
@@ -107,7 +107,7 @@ function playDice(player, bet, guess) {
   else if (typeof guess === 'number' && guess === sum) { won = true; payout = v.bet * 8; }
 
   if (won) {
-    player.gold += payout;
+    player.gold = Math.min(999999999, player.gold + payout);
     c.totalWin += payout;
     if (payout > c.biggestWin) c.biggestWin = payout;
   }
@@ -132,7 +132,7 @@ function playCoin(player, bet, guess) {
   const won = result === guess;
   const payout = won ? Math.floor(v.bet * 1.95) : 0;
   if (won) {
-    player.gold += payout;
+    player.gold = Math.min(999999999, player.gold + payout);
     c.totalWin += payout;
     if (payout > c.biggestWin) c.biggestWin = payout;
   }

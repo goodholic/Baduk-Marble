@@ -74,7 +74,7 @@ function makeWish(player, amount) {
   let extra = null;
   if (wish.type === 'gold') {
     reward = Math.floor(amount * wish.mul);
-    player.gold += reward;
+    player.gold = Math.min(999999999, player.gold + reward);
   } else if (wish.type === 'item') {
     if (!player.fishInventory) player.fishInventory = {};
     player.fishInventory[wish.item] = (player.fishInventory[wish.item] || 0) + 1;

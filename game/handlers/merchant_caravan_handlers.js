@@ -23,7 +23,8 @@ function registerMerchantCaravanHandlers(socket, ctx) {
     socket.on('caravan_buy', ({ cityId, count }) => {
         const p = players[playerId]; if (!p) return;
         if (typeof cityId !== 'string') return;
-        const r = merchantCaravan.buyGoods(p, cityId, count || 1);
+        const n = (typeof count === 'number' && count > 0) ? Math.floor(count) : 1;
+        const r = merchantCaravan.buyGoods(p, cityId, n);
         if (r.success) savePlayer(p);
         socket.emit('caravan_result', r);
     });

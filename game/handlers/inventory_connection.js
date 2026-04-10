@@ -168,7 +168,7 @@ function registerInventoryConnectionHandlers(socket, $) {
             }
         }
         if (soldCount > 0) {
-            p.gold += totalGold;
+            p.gold = Math.min(999999999, p.gold + totalGold);
             capResources(p);
             savePlayer(p);
             socket.emit('bulk_sell_result', { msg: `${soldCount}개 장비 일괄 판매! +${totalGold}G`, count: soldCount, gold: totalGold });

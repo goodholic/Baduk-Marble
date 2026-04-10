@@ -133,7 +133,7 @@ function claimAttachments(recipient, mailId) {
   if (mail.expiresAt < Date.now()) return { success: false, msg: '만료된 메일' };
 
   const a = mail.attachments || {};
-  if (a.gold) recipient.gold = (recipient.gold || 0) + a.gold;
+  if (a.gold) recipient.gold = Math.min(999999999, (recipient.gold || 0) + a.gold);
   if (a.diamonds) recipient.diamonds = (recipient.diamonds || 0) + a.diamonds;
   if (a.items) {
     if (!recipient.inventory) recipient.inventory = {};

@@ -534,7 +534,7 @@ function endArenaMatch(matchId, winnerId, loserId, reason) {
 
     // 보상
     if (winner) {
-        winner.gold += 200;
+        winner.gold = Math.min(999999999, winner.gold + 200);
         winner.arenaCountToday = (winner.arenaCountToday || 0) + 1;
         winner.hp = winner.maxHp; // HP 회복
         delete winner.arenaMatchId;
@@ -672,7 +672,7 @@ function checkWeeklyRankingRewards() {
             const topId = rankings.level[0].id;
             const top = players[topId];
             if (top) {
-                top.gold += 10000;
+                top.gold = Math.min(999999999, top.gold + 10000);
                 top.diamonds = (top.diamonds || 0) + 100;
                 // 주간 칭호 부여 (기존 주간 칭호 제거)
                 if (top.titles) top.titles = top.titles.filter(t => !_TITLES[t]?.weekly);
@@ -687,7 +687,7 @@ function checkWeeklyRankingRewards() {
             const topId = rankings.pvp[0].id;
             const top = players[topId];
             if (top) {
-                top.gold += 5000;
+                top.gold = Math.min(999999999, top.gold + 5000);
                 top.diamonds = (top.diamonds || 0) + 80;
                 if (top.titles) top.titles = top.titles.filter(t => !_TITLES[t]?.weekly);
                 if (!top.titles) top.titles = [];
@@ -701,7 +701,7 @@ function checkWeeklyRankingRewards() {
             const p = players[rankings.level[i]?.id];
             if (p) {
                 const reward = Math.floor(10000 / (i + 1));
-                p.gold += reward;
+                p.gold = Math.min(999999999, p.gold + reward);
                 io.to(p.id).emit('server_msg', { msg: `주간 레벨 ${i+1}위 보상! +${reward}G`, type: 'normal' });
             }
         }

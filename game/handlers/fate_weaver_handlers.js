@@ -2,7 +2,7 @@
 function registerFateWeaverHandlers(socket, ctx) {
     const { io, players, playerId, savePlayer, fateWeaver } = ctx;
     socket.on('fweave_status', () => { const p = players[playerId]; if (!p) return; socket.emit('fweave_status', fateWeaver.getStatus(p)); });
-    socket.on('fweave_buy', ({ threadId, count }) => { const p = players[playerId]; if (!p) return; if (typeof threadId !== 'string') return; const r = fateWeaver.buyThread(p, threadId, count || 1); if (r.success) savePlayer(p); socket.emit('fweave_result', r); });
+    socket.on('fweave_buy', ({ threadId, count }) => { const p = players[playerId]; if (!p) return; if (typeof threadId !== 'string') return; const n = (typeof count === 'number' && count > 0) ? Math.floor(count) : 1; const r = fateWeaver.buyThread(p, threadId, n); if (r.success) savePlayer(p); socket.emit('fweave_result', r); });
     socket.on('fweave_weave', ({ targetId, threadId }) => {
         const p = players[playerId]; if (!p) return;
         if (typeof targetId !== 'string' || typeof threadId !== 'string') return;

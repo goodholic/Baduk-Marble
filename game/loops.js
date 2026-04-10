@@ -37,7 +37,7 @@ function expireMarketListings() {
                 }
                 const seller = players[l.sellerId];
                 if (seller) {
-                    seller.gold += Math.floor(winBid.amount * (1 - MARKET_FEE));
+                    seller.gold = Math.min(999999999, seller.gold + Math.floor(winBid.amount * (1 - MARKET_FEE)));
                     io.to(l.sellerId).emit('market_result', { msg: `${l.itemName} 낙찰 완료! +${Math.floor(winBid.amount * (1-MARKET_FEE))}G` });
                 }
             } else {
@@ -885,7 +885,7 @@ function handleCollisions() {
                         // totalDmg가 0이면 (오직 DOT/poison으로 처치된 엣지케이스) NaN 보상 방지
                         if (totalDmg <= 0) {
                             const safeOwner = (owner.isBot && owner.ownerId && players[owner.ownerId]) ? players[owner.ownerId] : owner;
-                            safeOwner.gold += mob.goldReward || 0;
+                            safeOwner.gold = Math.min(999999999, safeOwner.gold + mob.goldReward || 0);
                             giveExp(safeOwner, mob.expReward || 0);
                             worldBoss = null;
                             io.emit('world_boss_dead', { id: mId, name: mob.name });
@@ -901,7 +901,7 @@ function handleCollisions() {
                             const ratio = dmg / totalDmg;
                             const goldReward = Math.floor(mob.goldReward * ratio * 2);
                             const expReward = Math.floor(mob.expReward * ratio * 2);
-                            p.gold += goldReward;
+                            p.gold = Math.min(999999999, p.gold + goldReward);
                             giveExp(p, expReward);
                             $.trackQuest(p, 'worldboss_kill', 1);
                             // MVP (1위)에게 전설 재료 보너스
@@ -986,7 +986,7 @@ function handleCollisions() {
                     $.trackQuest(realOwner, 'kill_streak', ks.count); // 최대 스트릭 추적
 
                     const earnedGold = Math.floor(mobGoldReward * goldMulti);
-                    realOwner.gold += earnedGold;
+                    realOwner.gold = Math.min(999999999, realOwner.gold + earnedGold);
                     realOwner._totalGoldEarned = (realOwner._totalGoldEarned || 0) + earnedGold;
                     $.trackQuest(realOwner, 'total_gold', realOwner._totalGoldEarned);
                     giveExp(owner, Math.floor(mobExpReward * expMulti));
@@ -1044,9 +1044,9 @@ function handleCollisions() {
                         const lore = MONSTER_LORE[mob.name];
                         if (lore) io.to(realOwner.id).emit('monster_lore', { name: mob.name, lore, tier: mob.tier });
                         const discovered = Object.keys(realOwner.bestiary).length;
-                        if (discovered === 10) { realOwner.gold += 500; io.to(realOwner.id).emit('combat_log', { msg: '도감 10종 달성! +500G' }); }
-                        if (discovered === 25) { realOwner.gold += 1000; io.to(realOwner.id).emit('achievement_unlock', { name: '몬스터 학자', desc: '25종 처치', reward: {gold:1000} }); }
-                        if (discovered === 50) { realOwner.gold += 5000; realOwner.diamonds = (realOwner.diamonds||0) + 100; io.to(realOwner.id).emit('achievement_unlock', { name: '도감 마스터', desc: '50종 처치', reward: {gold:5000, diamonds:100} }); }
+                        if (discovered === 10) { realOwner.gold = Math.min(999999999, realOwner.gold + 500); io.to(realOwner.id).emit('combat_log', { msg: '도감 10종 달성! +500G' }); }
+                        if (discovered === 25) { realOwner.gold = Math.min(999999999, realOwner.gold + 1000); io.to(realOwner.id).emit('achievement_unlock', { name: '몬스터 학자', desc: '25종 처치', reward: {gold:1000} }); }
+                        if (discovered === 50) { realOwner.gold = Math.min(999999999, realOwner.gold + 5000); realOwner.diamonds = (realOwner.diamonds||0) + 100; io.to(realOwner.id).emit('achievement_unlock', { name: '도감 마스터', desc: '50종 처치', reward: {gold:5000, diamonds:100} }); }
                     } else {
                         realOwner.bestiary[mob.name]++;
                     }
@@ -1055,7 +1055,7 @@ function handleCollisions() {
                     if (mob.tier === 'treasure' && treasureGoblin) {
                         const zoneGold = (ZONE_MONSTERS[mob.zoneId]?.goldBonus || 0) + 1;
                         const goblinReward = Math.floor(500 * zoneGold);
-                        realOwner.gold += goblinReward;
+                        realOwner.gold = Math.min(999999999, realOwner.gold + goblinReward);
                         if (!realOwner.inventory) realOwner.inventory = {};
                         realOwner.inventory['mat_dragon'] = (realOwner.inventory['mat_dragon']||0) + 1;
                         io.emit('server_msg', { msg: `${realOwner.displayName}이(가) 보물 도깨비를 잡았다! +${goblinReward}G + 드래곤 비늘!`, type: 'boss' });
@@ -1256,7 +1256,7 @@ function handleCollisions() {
                             // 자동 분해 (일반 등급)
                             if (realOwner.autoDismantle && eqInfo && eqInfo.grade === 'normal') {
                                 const dGold = Math.floor((eqInfo.atk + eqInfo.def) * 5 + 50);
-                                realOwner.gold += dGold;
+                                realOwner.gold = Math.min(999999999, realOwner.gold + dGold);
                                 io.to(realOwner.id).emit('combat_log', { msg: (eqInfo.name||d.id) + ' 자동 분해! +' + dGold + 'G' });
                                 break;
                             }
@@ -1506,13 +1506,13 @@ function handleAoeDamage() {
                                 const pp = players[pid];
                                 if (!pp) continue;
                                 const ratio = dmg / totalDmg;
-                                pp.gold += Math.floor((mob.goldReward || 0) * ratio * 2);
+                                pp.gold = Math.min(999999999, pp.gold + Math.floor((mob.goldReward || 0) * ratio * 2));
                                 giveExp(pp, Math.floor((mob.expReward || 0) * ratio * 2));
                                 io.emit('player_update', pp);
                             }
                         } else {
                             // damageContrib이 비어있으면 처치자에게 전체 보상
-                            realOwner.gold += mob.goldReward || 0;
+                            realOwner.gold = Math.min(999999999, realOwner.gold + mob.goldReward || 0);
                             giveExp(realOwner, mob.expReward || 0);
                         }
                         worldBoss = null;
@@ -1527,7 +1527,7 @@ function handleAoeDamage() {
                             if (meteorShower && mob.zoneId === meteorShower.zoneId) { goldMulti *= 2; expMulti *= 2; }
                             if (goldenRain && mob.zoneId === goldenRain.zoneId) { goldMulti *= 3; expMulti *= 1.5; }
 
-                            realOwner.gold += Math.floor(tier.goldReward * goldMulti);
+                            realOwner.gold = Math.min(999999999, realOwner.gold + Math.floor(tier.goldReward * goldMulti));
                             giveExp(owner, Math.floor(tier.expReward * expMulti));
                             spawnDrop(mob.x, mob.y, Math.floor(tier.goldReward * 0.5 * goldMulti), mId);
                         }
@@ -1639,7 +1639,7 @@ function handlePlayerDeath(target, targetId, owner, attackerId) {
         // 현상금 처치 보상
         if (realKiller._activeBounty && realKiller._activeBounty.targetId === targetId) {
             const bounty = realKiller._activeBounty;
-            realKiller.gold += bounty.reward;
+            realKiller.gold = Math.min(999999999, realKiller.gold + bounty.reward);
             realKiller.diamonds = (realKiller.diamonds||0) + 50;
             realKiller._activeBounty = null;
             io.emit('server_msg', { msg: `[현상금] ${realKiller.displayName}이(가) ${target.displayName}의 현상금을 수령! +${bounty.reward}G +50D`, type: 'rare' });
@@ -1698,7 +1698,7 @@ function handlePlayerDeath(target, targetId, owner, attackerId) {
         expReward = Math.floor(expReward * KARMA.BOUNTY_BONUS);
     }
 
-    realKiller.gold += goldReward;
+    realKiller.gold = Math.min(999999999, realKiller.gold + goldReward);
     giveExp(realKiller, expReward);
 
     // 왕의 5% 병사 탈취
@@ -1750,7 +1750,7 @@ function handlePlayerDeath(target, targetId, owner, attackerId) {
     if (!target.isBot && target.gold > 0) {
         const goldDrop = Math.floor(target.gold * 0.5);
         target.gold -= goldDrop;
-        realKiller.gold += goldDrop;
+        realKiller.gold = Math.min(999999999, realKiller.gold + goldDrop);
         io.to(realKiller.id).emit('combat_log', { msg: `${goldDrop}G 약탈!` });
     }
 

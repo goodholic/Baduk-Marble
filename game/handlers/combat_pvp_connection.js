@@ -238,7 +238,7 @@ function registerCombatPvpConnectionHandlers(socket, $) {
             socket.emit('loot_result', { msg: `크리티컬 루트! ${eq.name} (${GRADE_INFO[eq.grade].name}) 획득!` });
             io.emit('server_msg', { msg: `${p.displayName}이(가) 크리티컬 루트로 ${eq.name} 획득!`, type: 'rare' });
         } else {
-            p.gold += 1000;
+            p.gold = Math.min(999999999, p.gold + 1000);
             socket.emit('loot_result', { msg: '크리티컬 루트! +1000G!' });
         }
         io.emit('drop_destroy', dropId);
@@ -329,7 +329,7 @@ function registerCombatPvpConnectionHandlers(socket, $) {
                 for (const pid of inst.players) {
                     const pp = players[pid];
                     if (!pp) continue;
-                    pp.gold += rewards.gold;
+                    pp.gold = Math.min(999999999, pp.gold + rewards.gold);
                     giveExp(pp, rewards.exp);
                     if (!pp.inventory) pp.inventory = {};
                     const dropItem = rewards.drops[Math.floor(Math.random() * rewards.drops.length)];
@@ -392,7 +392,7 @@ function registerCombatPvpConnectionHandlers(socket, $) {
         if (tp.monstersLeft <= 0) {
             // 층 클리어
             const reward = INFINITE_TOWER.getReward(tp.currentFloor);
-            p.gold += reward.gold;
+            p.gold = Math.min(999999999, p.gold + reward.gold);
             giveExp(p, reward.exp);
             if (reward.diamonds > 0) p.diamonds = (p.diamonds||0) + reward.diamonds;
             if (!p.inventory) p.inventory = {};
@@ -477,7 +477,7 @@ function registerCombatPvpConnectionHandlers(socket, $) {
             // 골드/다이아 40%
             const gold = 1000 + Math.floor(Math.random() * 4000);
             const dia = 20 + Math.floor(Math.random() * 30);
-            p.gold += gold;
+            p.gold = Math.min(999999999, p.gold + gold);
             p.diamonds = (p.diamonds||0) + dia;
             rewardMsg = `${gold}G + ${dia}D`;
         }
@@ -882,7 +882,7 @@ function registerCombatPvpConnectionHandlers(socket, $) {
         // 보상
         if (!p.inventory) p.inventory = {};
         p.inventory['goods_fish'] = (p.inventory['goods_fish'] || 0) + 1;
-        p.gold += caught.sell;
+        p.gold = Math.min(999999999, p.gold + caught.sell);
         capResources(p);
         const gradeColors = {common:'#ccc',uncommon:'#4c4',rare:'#48f',epic:'#a4f',legendary:'#f80'};
         socket.emit('fish_result', { msg: `${caught.name} 낚음! (+${caught.sell}G)`, name: caught.name, grade: caught.grade, color: gradeColors[caught.grade] });

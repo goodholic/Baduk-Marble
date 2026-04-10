@@ -99,7 +99,7 @@ function checkMilestone(invitee, players) {
       invitee.invitationMilestonesGiven.push(milestoneKey);
 
       // 양쪽 보상 지급
-      if (milestone.inviterReward.gold) inviter.gold = (inviter.gold || 0) + milestone.inviterReward.gold;
+      if (milestone.inviterReward.gold) inviter.gold = Math.min(999999999, (inviter.gold || 0) + milestone.inviterReward.gold);
       if (milestone.inviterReward.diamonds) inviter.diamonds = (inviter.diamonds || 0) + milestone.inviterReward.diamonds;
       if (milestone.inviterReward.title) {
         if (!inviter.titles) inviter.titles = [];
@@ -110,7 +110,7 @@ function checkMilestone(invitee, players) {
         inviter.inventory[milestone.inviterReward.item] = (inviter.inventory[milestone.inviterReward.item] || 0) + 1;
       }
 
-      if (milestone.inviteeReward.gold) invitee.gold = (invitee.gold || 0) + milestone.inviteeReward.gold;
+      if (milestone.inviteeReward.gold) invitee.gold = Math.min(999999999, (invitee.gold || 0) + milestone.inviteeReward.gold);
       if (milestone.inviteeReward.diamonds) invitee.diamonds = (invitee.diamonds || 0) + milestone.inviteeReward.diamonds;
       if (milestone.inviteeReward.item) {
         if (!invitee.inventory) invitee.inventory = {};

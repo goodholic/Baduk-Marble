@@ -259,16 +259,16 @@ function registerSocialConnectionHandlers(socket, $) {
             // 발신자 자원/아이템 차감
             if (itemId && validItemCount) {
                 if (!p.inventory || !p.inventory[itemId] || p.inventory[itemId] < itemCount) {
-                    p.gold += mailCost; // 환불
+                    p.gold = Math.min(999999999, p.gold + mailCost); // 환불
                     socket.emit('mail_result', { msg: '아이템 부족' }); return;
                 }
                 const eq = EQUIP_STATS[itemId];
-                if (eq && eq.bound) { p.gold += mailCost; socket.emit('mail_result', { msg: '귀속 아이템 거래 불가' }); return; }
+                if (eq && eq.bound) { p.gold = Math.min(999999999, p.gold + mailCost); socket.emit('mail_result', { msg: '귀속 아이템 거래 불가' }); return; }
                 p.inventory[itemId] -= itemCount;
                 if (p.inventory[itemId] <= 0) delete p.inventory[itemId];
             }
             if (validGold) {
-                if (p.gold < gold) { p.gold += mailCost; socket.emit('mail_result', { msg: '골드 부족' }); return; }
+                if (p.gold < gold) { p.gold = Math.min(999999999, p.gold + mailCost); socket.emit('mail_result', { msg: '골드 부족' }); return; }
                 p.gold -= gold;
             }
             // DB에 영속화 (서버 재시작에도 유지)
@@ -322,7 +322,7 @@ function registerSocialConnectionHandlers(socket, $) {
         if (validGold) {
             if (p.gold < gold) { socket.emit('mail_result', { msg: '골드 부족' }); return; }
             p.gold -= gold;
-            target.gold += gold;
+            target.gold = Math.min(999999999, target.gold + gold);
             io.to(targetId).emit('mail_received', { from: p.displayName, gold });
             socket.emit('mail_result', { msg: `${target.displayName}에게 ${gold}G 전송 완료!` });
         }
@@ -815,7 +815,7 @@ function registerSocialConnectionHandlers(socket, $) {
         // 실행
         unit.ownerId = playerId;
         unit.team = t.team;
-        if (offer.price > 0) { t.gold -= offer.price; p.gold += offer.price; }
+        if (offer.price > 0) { t.gold -= offer.price; p.gold = Math.min(999999999, p.gold + offer.price); }
         savePlayer(p); savePlayer(t);
         io.to(offer.sellerId).emit('trade_result', { success:true, msg:`용병 판매 완료! +${offer.price}G` });
         socket.emit('trade_result', { success:true, msg:`용병 구매 완료! -${offer.price}G` });

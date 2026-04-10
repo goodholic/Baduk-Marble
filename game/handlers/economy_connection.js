@@ -158,7 +158,7 @@ function registerEconomyConnectionHandlers(socket, $) {
         }
         p.lastDailyReward = today;
         p.diamonds = (p.diamonds || 0) + FREE_DIAMOND_SOURCES.daily_login;
-        p.gold += 500;
+        p.gold = Math.min(999999999, p.gold + 500);
         savePlayer(p);
         socket.emit('daily_result', {
             success: true,
@@ -181,10 +181,10 @@ function registerEconomyConnectionHandlers(socket, $) {
         }
         // 8개 슬롯, 가중치 합 100
         const SLOTS = [
-            { weight: 35, label: '💰 100G',     apply: (pl) => { pl.gold += 100; },                           tier:'common'  },
-            { weight: 25, label: '💰 500G',     apply: (pl) => { pl.gold += 500; },                           tier:'common'  },
+            { weight: 35, label: '💰 100G',     apply: (pl) => { pl.gold = Math.min(999999999, pl.gold + 100); },                           tier:'common'  },
+            { weight: 25, label: '💰 500G',     apply: (pl) => { pl.gold = Math.min(999999999, pl.gold + 500); },                           tier:'common'  },
             { weight: 15, label: '💎 5',        apply: (pl) => { pl.diamonds = (pl.diamonds||0) + 5; },       tier:'rare'    },
-            { weight: 10, label: '💰 2,000G',   apply: (pl) => { pl.gold += 2000; },                          tier:'rare'    },
+            { weight: 10, label: '💰 2,000G',   apply: (pl) => { pl.gold = Math.min(999999999, pl.gold + 2000); },                          tier:'rare'    },
             { weight:  7, label: 'EXP +5%',     apply: (pl) => { giveExp(pl, Math.floor(getExpRequired(pl.level) * 0.05)); }, tier:'rare' },
             { weight:  5, label: '🍖 황금 수프', apply: (pl) => { if(!pl.inventory)pl.inventory={}; pl.inventory['food_atk']=(pl.inventory['food_atk']||0)+1; }, tier:'epic' },
             { weight:  2, label: '💎 50',       apply: (pl) => { pl.diamonds = (pl.diamonds||0) + 50; },      tier:'epic'    },
@@ -270,7 +270,7 @@ function registerEconomyConnectionHandlers(socket, $) {
         // 판매자에게 수수료 제외 골드 지급
         const sellerGold = Math.floor(listing.price * (1 - MARKET_FEE));
         const seller = players[listing.sellerId];
-        if (seller) { seller.gold += sellerGold; savePlayer(seller); }
+        if (seller) { seller.gold = Math.min(999999999, seller.gold + sellerGold); savePlayer(seller); }
 
         $.marketListings.splice(idx, 1);
         socket.emit('market_result', { msg: `${listing.itemName} 구매 완료! (-${listing.price}G)` });
@@ -301,7 +301,7 @@ function registerEconomyConnectionHandlers(socket, $) {
             const prevBid = listing.bids[listing.bids.length - 1];
             const prevBidder = players[prevBid.bidderId];
             if (prevBidder) {
-                prevBidder.gold += prevBid.amount;
+                prevBidder.gold = Math.min(999999999, prevBidder.gold + prevBid.amount);
                 savePlayer(prevBidder);
                 io.emit('player_update', prevBidder);
             }
@@ -345,7 +345,7 @@ function registerEconomyConnectionHandlers(socket, $) {
         if (listing.bids && listing.bids.length > 0) {
             const lastBid = listing.bids[listing.bids.length - 1];
             const bidder = players[lastBid.bidderId];
-            if (bidder) { bidder.gold += lastBid.amount; savePlayer(bidder); io.emit('player_update', bidder); }
+            if (bidder) { bidder.gold = Math.min(999999999, bidder.gold + lastBid.amount); savePlayer(bidder); io.emit('player_update', bidder); }
         }
         // 아이템 반환
         if (!p.inventory) p.inventory = {};
@@ -443,7 +443,7 @@ function registerEconomyConnectionHandlers(socket, $) {
             const price = $.townPrices[town][goodsId].sellPrice * qty;
             p.inventory[goodsId] -= qty;
             if (p.inventory[goodsId] <= 0) delete p.inventory[goodsId];
-            p.gold += price;
+            p.gold = Math.min(999999999, p.gold + price);
             p.totalTradeProfit = (p.totalTradeProfit || 0) + price;
             trackQuest(p, 'trade_count', qty);
             checkTitles(p);

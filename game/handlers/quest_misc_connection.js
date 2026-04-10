@@ -33,7 +33,7 @@ function registerQuestMiscConnectionHandlers(socket, $) {
 
         if (!p.questCompleted) p.questCompleted = {};
         p.questCompleted[questId] = true;
-        if (q.reward.gold) p.gold += q.reward.gold;
+        if (q.reward.gold) p.gold = Math.min(999999999, p.gold + q.reward.gold);
         if (q.reward.diamonds) p.diamonds = (p.diamonds||0) + q.reward.diamonds;
         if (q.reward.exp) giveExp(p, q.reward.exp);
         capResources(p);
@@ -90,7 +90,7 @@ function registerQuestMiscConnectionHandlers(socket, $) {
         const sellPrices = { normal: 30, elite: 100, rare: 300, boss: 1000 };
         const price = sellPrices[b.tamedTier] || 50;
 
-        p.gold += price;
+        p.gold = Math.min(999999999, p.gold + price);
         b.isAlive = false;
         io.emit('player_die', { victimId: unitId, attackerId: playerId, stolen: false });
         delete players[unitId];
@@ -187,7 +187,7 @@ function registerQuestMiscConnectionHandlers(socket, $) {
         for (const mid of online) {
             const member = players[mid];
             if (!member) continue;
-            member.gold += raid.reward.gold;
+            member.gold = Math.min(999999999, member.gold + raid.reward.gold);
             member.diamonds = (member.diamonds||0) + raid.reward.diamonds;
             giveExp(member, raid.reward.exp);
             capResources(member);
@@ -264,7 +264,7 @@ function registerQuestMiscConnectionHandlers(socket, $) {
         if (p._weeklyChallengeClaimed) { socket.emit('challenge_result', { msg: '이번 주 이미 수령' }); return; }
         const challenge = getThisWeekChallenge();
         if ((p._weeklyChallengeProgress || 0) < challenge.goal) { socket.emit('challenge_result', { msg: `미완료 (${p._weeklyChallengeProgress||0}/${challenge.goal})` }); return; }
-        p.gold += challenge.reward.gold;
+        p.gold = Math.min(999999999, p.gold + challenge.reward.gold);
         if (challenge.reward.diamonds) p.diamonds = (p.diamonds||0) + challenge.reward.diamonds;
         if (challenge.reward.item) {
             if (!p.inventory) p.inventory = {};
@@ -288,7 +288,7 @@ function registerQuestMiscConnectionHandlers(socket, $) {
         // 이중 수령 방어 (이미 수령 시 차단)
         if (p._dailyChallengeClaimed) { socket.emit('challenge_result', { msg: '오늘 이미 수령' }); return; }
         const challenge = getTodaysChallenge();
-        p.gold += challenge.reward.gold;
+        p.gold = Math.min(999999999, p.gold + challenge.reward.gold);
         if (challenge.reward.diamonds) p.diamonds = (p.diamonds||0) + challenge.reward.diamonds;
         capResources(p);
         p._dailyChallengeCompleted = false;
@@ -381,7 +381,7 @@ function registerQuestMiscConnectionHandlers(socket, $) {
         if (!p || !p._riftDepth) return;
         const depth = p._riftDepth;
         const reward = { gold: 200 + depth * 100, exp: 500 + depth * 200, diamonds: depth % 5 === 0 ? depth * 2 : 0 };
-        p.gold += reward.gold;
+        p.gold = Math.min(999999999, p.gold + reward.gold);
         if (reward.diamonds) p.diamonds = (p.diamonds||0) + reward.diamonds;
         giveExp(p, reward.exp);
         capResources(p);
@@ -528,7 +528,7 @@ function registerQuestMiscConnectionHandlers(socket, $) {
             socket.emit('contract_result', { msg: `최소 5분 후 완료 가능 (${Math.ceil((300000-(Date.now()-(c._acceptedAt||0)))/60000)}분 남음)` }); return;
         }
         c.status = 'completed';
-        p.gold += c.reward;
+        p.gold = Math.min(999999999, p.gold + c.reward);
         capResources(p);
         savePlayer(p);
         socket.emit('contract_result', { msg: `의뢰 완료! +${c.reward}G` });

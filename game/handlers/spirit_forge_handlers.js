@@ -52,7 +52,8 @@ function registerSpiritForgeHandlers(socket, ctx) {
     socket.on('sforge_dissolve', ({ soulId, count }) => {
         const p = players[playerId]; if (!p) return;
         if (typeof soulId !== 'string') return;
-        const result = spiritForge.dissolveSoul(p, soulId, count || 1);
+        const n = (typeof count === 'number' && count > 0) ? Math.floor(count) : 1;
+        const result = spiritForge.dissolveSoul(p, soulId, n);
         if (result.success) savePlayer(p);
         socket.emit('sforge_result', result);
     });
