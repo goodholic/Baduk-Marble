@@ -72,6 +72,7 @@ const hallOfHeroes = require('./game/hall_of_heroes');
 const spiritPact = require('./game/spirit_pact');
 const mythicWeapon = require('./game/mythic_weapon');
 const dimensionTraveler = require('./game/dimension_traveler');
+const dragonRiding = require('./game/dragon_riding');
 const { handleRaidFinish, codexDiscover, finishBossRush, updateTownPrices, generateRandomOptions, logWorldEvent } = serverHelpers;
 const { expireMarketListings, destroyAxe, syncGameState, updatePassives, updatePlayerAutoSkills, updateBots, giveExp, handleCollisions, handleAoeDamage, handlePlayerDeath } = loops;
 // Phase 3 refactor: 전투/스폰/랭킹 모듈
@@ -984,7 +985,7 @@ registerConnection(io, {
     createBot, createAutoArmy, alertArmy, executeThrow,
     generateRandomOptions, codexDiscover, handleRaidFinish, finishBossRush,
     SEASON_XP_MAP, ELEMENTS, FACTIONS, RUNES, RUNE_WORDS, TRAINING_DRILLS_NAMES,
-    questChain, bossSummon, weatherDungeon, pvpMatch, bountyHunter, raceSystem, relicFusion, skillWave, achievements, superBoss, territoryWar, wishTree, soulSystem, timeDungeon, mythicSummon, ancientRuins, worldChronicle, advGuild, magicLab, moonSanctuary, weaponSoul, floatingFortress, astralProjection, cursedDungeon, fateDuel, spiritForge, phantomColosseum, dreamArchitect, constellationWar, forbiddenLibrary, beastColossus, merchantCaravan, memoryPalace, demonThrone, celestialForge, livingGrimoire, worldSeed, fateWeaver, forbiddenGrimoire, bloodline, soulContract, ancientLanguage, divineBlessing, pastLife, mutation, cursedEquipment, forbiddenAlchemy, golemCraft, hallOfHeroes, spiritPact, mythicWeapon, dimensionTraveler,
+    questChain, bossSummon, weatherDungeon, pvpMatch, bountyHunter, raceSystem, relicFusion, skillWave, achievements, superBoss, territoryWar, wishTree, soulSystem, timeDungeon, mythicSummon, ancientRuins, worldChronicle, advGuild, magicLab, moonSanctuary, weaponSoul, floatingFortress, astralProjection, cursedDungeon, fateDuel, spiritForge, phantomColosseum, dreamArchitect, constellationWar, forbiddenLibrary, beastColossus, merchantCaravan, memoryPalace, demonThrone, celestialForge, livingGrimoire, worldSeed, fateWeaver, forbiddenGrimoire, bloodline, soulContract, ancientLanguage, divineBlessing, pastLife, mutation, cursedEquipment, forbiddenAlchemy, golemCraft, hallOfHeroes, spiritPact, mythicWeapon, dimensionTraveler, dragonRiding,
     // mutable primitives via getters
     get isNight() { return isNight; },
     get currentWeather() { return currentWeather; },

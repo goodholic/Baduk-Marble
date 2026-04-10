@@ -120,6 +120,7 @@ const { registerHallHandlers } = require('./hall_handlers');
 const { registerSpiritPactHandlers } = require('./spirit_pact_handlers');
 const { registerMythicWeaponHandlers } = require('./mythic_weapon_handlers');
 const { registerDimensionHandlers } = require('./dimension_handlers');
+const { registerDragonRidingHandlers } = require('./dragon_riding_handlers');
 
 function registerConnection(io, $) {
 
@@ -266,6 +267,7 @@ io.on("connection", (socket) => {
     registerSpiritPactHandlers(socket, { io, players, playerId, savePlayer, spiritPact: $.spiritPact });
     registerMythicWeaponHandlers(socket, { io, players, playerId, savePlayer, mythicWeapon: $.mythicWeapon });
     registerDimensionHandlers(socket, { io, players, playerId, savePlayer, dimensionTraveler: $.dimensionTraveler });
+    registerDragonRidingHandlers(socket, { io, players, playerId, savePlayer, dragonRiding: $.dragonRiding });
     registerWeatherDungeonHandlers(socket, {
         io, players, playerId, savePlayer,
         weatherDungeon: $.weatherDungeon,
