@@ -831,6 +831,15 @@ function handleCollisions() {
     const getThisWeekChallenge = $.getThisWeekChallenge;
     const getTodaysChallenge = $.getTodaysChallenge;
     const nextEntityId = $.nextEntityId;
+    // 투사체 위치 업데이트 (서버 측 이동)
+    for (const axeId in axes) {
+        const axe = axes[axeId];
+        if (axe.dirX !== undefined && axe.speed) {
+            axe.x += axe.dirX * axe.speed * 0.05;
+            axe.y += axe.dirY * axe.speed * 0.05;
+        }
+    }
+
     for (const axeId in axes) {
         const axe = axes[axeId];
         const owner = players[axe.ownerId];
