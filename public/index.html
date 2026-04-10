@@ -176,10 +176,22 @@
             <button onclick="switchLoginTab('register')" id="tab-register" class="btn" style="flex:1;font-size:12px">회원가입</button>
           </div>
         </div>
-        <input id="login-id" type="text" placeholder="아이디" maxlength="20" style="width:100%;padding:10px 14px;margin-bottom:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,215,0,0.1);border-radius:8px;color:#fff;font-size:13px;outline:none" onkeydown="if(event.key==='Enter')document.getElementById('login-pw').focus()">
-        <input id="login-pw" type="password" placeholder="비밀번호" maxlength="30" style="width:100%;padding:10px 14px;margin-bottom:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,215,0,0.1);border-radius:8px;color:#fff;font-size:13px;outline:none" onkeydown="if(event.key==='Enter')doLogin()">
+        <input id="login-id" type="text" placeholder="아이디" maxlength="20" style="width:100%;padding:10px 14px;margin-bottom:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,215,0,0.1);border-radius:8px;color:#fff;font-size:13px;outline:none"
+          onfocus="if(window.myUnityInstance)window.myUnityInstance.SendMessage('GameManager','SetKeyCapture','false')"
+          onblur="if(window.myUnityInstance)window.myUnityInstance.SendMessage('GameManager','SetKeyCapture','true')"
+          onkeydown="event.stopPropagation();if(event.key==='Enter')document.getElementById('login-pw').focus()"
+          onkeyup="event.stopPropagation()" onkeypress="event.stopPropagation()">
+        <input id="login-pw" type="password" placeholder="비밀번호" maxlength="30" style="width:100%;padding:10px 14px;margin-bottom:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,215,0,0.1);border-radius:8px;color:#fff;font-size:13px;outline:none"
+          onfocus="if(window.myUnityInstance)window.myUnityInstance.SendMessage('GameManager','SetKeyCapture','false')"
+          onblur="if(window.myUnityInstance)window.myUnityInstance.SendMessage('GameManager','SetKeyCapture','true')"
+          onkeydown="event.stopPropagation();if(event.key==='Enter')doLogin()"
+          onkeyup="event.stopPropagation()" onkeypress="event.stopPropagation()">
         <div id="login-pw2-wrap" style="display:none">
-          <input id="login-pw2" type="password" placeholder="비밀번호 확인" maxlength="30" style="width:100%;padding:10px 14px;margin-bottom:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,215,0,0.1);border-radius:8px;color:#fff;font-size:13px;outline:none" onkeydown="if(event.key==='Enter')doLogin()">
+          <input id="login-pw2" type="password" placeholder="비밀번호 확인" maxlength="30" style="width:100%;padding:10px 14px;margin-bottom:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,215,0,0.1);border-radius:8px;color:#fff;font-size:13px;outline:none"
+          onfocus="if(window.myUnityInstance)window.myUnityInstance.SendMessage('GameManager','SetKeyCapture','false')"
+          onblur="if(window.myUnityInstance)window.myUnityInstance.SendMessage('GameManager','SetKeyCapture','true')"
+          onkeydown="event.stopPropagation();if(event.key==='Enter')doLogin()"
+          onkeyup="event.stopPropagation()" onkeypress="event.stopPropagation()">
         </div>
         <div id="login-msg" style="color:#ff4444;font-size:11px;margin-bottom:8px;min-height:16px;text-align:center"></div>
         <button onclick="doLogin()" class="btn btn-primary" style="width:100%;padding:10px;font-size:14px" id="login-submit-btn">접속하기</button>
