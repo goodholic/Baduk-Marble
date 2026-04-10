@@ -620,9 +620,18 @@
       }
       currentSubMenu = cat;
       var items = subMenuDefs[cat] || [];
-      el.innerHTML = items.map(item =>
-        '<button onclick="closeSubMenu();(' + item.action.toString() + ')()">' + item.label + '</button>'
-      ).join('');
+      el.innerHTML = '';
+      items.forEach(function(item) {
+        var btn = document.createElement('button');
+        btn.textContent = item.label;
+        btn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          closeSubMenu();
+          if (typeof item.action === 'function') item.action();
+          else if (typeof item.action === 'string') new Function(item.action)();
+        });
+        el.appendChild(btn);
+      });
       el.classList.add('show');
     }
 
