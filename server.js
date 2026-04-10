@@ -3,6 +3,14 @@
 // Node.js + Socket.IO + MySQL
 // ==========================================
 
+// 크래시 방지: unhandled rejection/exception 로깅
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[FATAL] Unhandled Rejection:', reason);
+});
+process.on('uncaughtException', (error) => {
+  console.error('[FATAL] Uncaught Exception:', error);
+});
+
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -520,6 +528,7 @@ httpRoutes.register(app, {
 // v2.51: 영웅의 전당 초기화
 hallOfHeroes.init({});
 
+console.log(`[AutoBattle.io] Starting server on port ${PORT}...`);
 server.listen(PORT, () => {
     console.log(`[AutoBattle.io] Server running on port ${PORT}`);
 });
@@ -527,7 +536,11 @@ server.listen(PORT, () => {
 // ==========================================
 // Database — server/db.js 로 추출됨 (Phase 1 refactor)
 // ==========================================
-initDB();
+initDB().then(() => {
+    console.log('[AutoBattle.io] DB init complete');
+}).catch(err => {
+    console.error('[AutoBattle.io] DB init failed (non-fatal):', err.message);
+});
 
 async function savePlayer(player) {
     if (!player || !player.deviceId || player.isBot) return;

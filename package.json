@@ -1,8 +1,11 @@
 {
   "name": "autobattle-io",
-  "version": "2.29.0",
+  "version": "2.57.0",
   "description": "AutoBattle.io — Lineage-like Auto-Battle RPG Server",
   "main": "server.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "start": "node server.js",
     "check": "node -c server.js && echo Syntax OK",
