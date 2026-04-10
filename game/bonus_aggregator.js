@@ -19,6 +19,7 @@ const BONUS_SOURCES = [
   { id:'heraldry',      label:'가문 문장',       module:'./heraldry' },
   { id:'rift',          label:'균열 가호',       module:'./rift' },
   { id:'garden',        label:'정원 만개',       module:'./garden' },
+  { id:'dragonRiding',  label:'드래곤 탑승',     module:'./dragon_riding' },
 ];
 
 // 모듈 lazy require — 로드 실패 시에도 안전

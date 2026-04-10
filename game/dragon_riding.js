@@ -346,9 +346,29 @@ function getPlayerDragons(player) {
   return Object.keys(player.dragons).map(t => getDragonInfo(player, t)).filter(Boolean);
 }
 
+// ── 보너스 집계 연동 ──
+function getActiveBonuses(player) {
+  if (!player.ridingDragon || !player.dragons) return {};
+  const dragon = player.dragons[player.ridingDragon];
+  if (!dragon) return {};
+  const dt = DRAGON_TYPES[player.ridingDragon];
+  if (!dt) return {};
+  const stage = GROWTH_STAGES[dragon.stageIndex];
+  const bonuses = {};
+  for (const [key, val] of Object.entries(dt.passive)) {
+    if (typeof val === 'number') {
+      bonuses[key] = +(val * stage.statMulti).toFixed(3);
+    }
+  }
+  // 친밀도 보너스 (전체 스탯)
+  if (dragon.bond >= 50) bonuses.allStats = +((dragon.bond - 50) * 0.001).toFixed(3);
+  return bonuses;
+}
+
 module.exports = {
   DRAGON_TYPES, EGG_SOURCES, GROWTH_STAGES, DRAGON_FOOD, FLIGHT_SKILLS,
   DRAGON_RAID_BOSSES, DRAGON_EQUIPMENT,
   init, hatchEgg, feedDragon, mountDragon, dismountDragon,
   useBreath, useFlightSkill, getDragonStats, getDragonInfo, getPlayerDragons,
+  getActiveBonuses,
 };

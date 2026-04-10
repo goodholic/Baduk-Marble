@@ -96,6 +96,14 @@ function getNpcMsg(npcType, player) {
     if (npc.type === 'appraise' && player.level >= 30) return '전설급 장비를 다뤄본 분이시군요! 어떤 보물을 가져오셨나요?';
     if (npc.type === 'collect' && player.gold > 50000) return '오, 부유한 모험가시군요! 특별한 거래를 제안할 수 있어요.';
     if (player.faction && npc.type === 'shop') return `${FACTIONS[player.faction]?.name} 소속이시군요! 진영 할인은 없지만 응원합니다!`;
+    // v2.57: 드래곤 라이딩 관련 대사
+    if (player.ridingDragon) {
+      if (npc.type === 'smith') return '드래곤에 탑승하신 채로...! 용의 비늘로 무기를 만들어 드릴까요?';
+      if (npc.type === 'healer') return '용기사시군요! 드래곤의 상처도 치료해드릴 수 있습니다.';
+      if (npc.type === 'shop') return '용기사님! 드래곤 먹이도 판매하고 있습니다. 관심 있으세요?';
+      return '하늘의 용기사시여! 당신의 용맹함에 경의를 표합니다.';
+    }
+    if (player.dragons && Object.keys(player.dragons).length >= 7) return '7마리의 드래곤을 거느리신 전설의 용기사시군요...!';
     if (player.prestigeLevel > 0) return `환생 ${player.prestigeLevel}차... 대단하시군요. 경의를 표합니다.`;
     // v1.28: 축제 이벤트 기간 중에는 30% 확률로 축제 인사
     const activeEvent = _festival.getActiveEvent();
