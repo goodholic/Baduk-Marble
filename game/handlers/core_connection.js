@@ -659,6 +659,7 @@ function registerCoreConnectionHandlers(socket, $) {
 
     // --- chat ---
     socket.on('chat', (msg) => {
+        console.log(`[Chat] ${playerId}: "${msg}" io=${!!io}`);
         const p = players[playerId];
         if (!p || typeof msg !== 'string' || msg.length > 100) return;
         // 레이트 리밋: 2초 윈도우 4메시지 → 초과 시 5초 뮤트
