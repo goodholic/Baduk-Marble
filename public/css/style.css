@@ -1,20 +1,28 @@
-    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&family=Cinzel:wght@400;700;900&family=Cinzel+Decorative:wght@700;900&display=swap');
     * { margin:0; padding:0; box-sizing:border-box; }
     :root {
-      /* 색상 시스템 */
-      --c-bg: #0a0a12; --c-bg-panel: rgba(10,10,20,0.94); --c-bg-card: rgba(255,255,255,0.04);
-      --c-gold: #ffd700; --c-gold-dim: rgba(255,215,0,0.15);
-      --c-text: #ddd; --c-text-muted: #888; --c-text-dim: #555;
-      --c-red: #ff4444; --c-green: #44ff44; --c-blue: #4488ff; --c-purple: #aa44ff; --c-orange: #ff8800;
-      --c-border: rgba(255,255,255,0.08); --c-border-gold: rgba(255,215,0,0.15);
+      /* 색상 시스템 — 다크 판타지 */
+      --c-bg: #080810; --c-bg-panel: rgba(8,8,16,0.96); --c-bg-card: rgba(255,255,255,0.03);
+      --c-gold: #ffd700; --c-gold-dim: rgba(255,215,0,0.12); --c-gold-glow: rgba(255,215,0,0.4);
+      --c-text: #d4cfc0; --c-text-muted: #8a8470; --c-text-dim: #555040;
+      --c-red: #ff4444; --c-green: #44ff88; --c-blue: #4488ff; --c-purple: #bb66ff; --c-orange: #ff8800;
+      --c-border: rgba(255,215,0,0.06); --c-border-gold: rgba(255,215,0,0.18);
+      --c-arcane: #6644cc; --c-arcane-glow: rgba(102,68,204,0.4);
       /* 타이포그래피 */
+      --ff-title: 'Cinzel Decorative','Cinzel','Georgia',serif;
+      --ff-heading: 'Cinzel','Georgia',serif;
+      --ff-body: 'Noto Sans KR','Segoe UI',sans-serif;
       --fs-xs: 9px; --fs-sm: 11px; --fs-base: 12px; --fs-md: 13px; --fs-lg: 15px; --fs-xl: 18px; --fs-2xl: 24px;
       /* 간격 */
       --sp-xs: 2px; --sp-sm: 4px; --sp-md: 8px; --sp-lg: 12px; --sp-xl: 16px;
       /* 둥글기 */
       --r-sm: 4px; --r-md: 8px; --r-lg: 12px; --r-xl: 16px;
       /* 글래스 */
-      --glass: rgba(10,10,20,0.88); --blur: blur(8px);
+      --glass: rgba(8,8,16,0.92); --blur: blur(10px);
+      /* 판타지 그라디언트 */
+      --grad-dark: linear-gradient(180deg,rgba(8,8,16,0.98),rgba(12,10,24,0.96));
+      --grad-gold: linear-gradient(135deg,#ffd700,#ff8800);
+      --grad-arcane: linear-gradient(135deg,#6644cc,#aa44ff);
     }
     /* 공통 버튼 */
     .btn { padding:var(--sp-md) var(--sp-xl); border:1px solid var(--c-border); border-radius:var(--r-md); background:var(--c-bg-card); color:var(--c-text); font-size:var(--fs-base); font-weight:700; cursor:pointer; transition:all 0.15s; }
@@ -35,7 +43,13 @@
     @keyframes spin { to { transform:rotate(360deg); } }
     @keyframes hpDangerPulse { 0%,100% { filter:brightness(1); box-shadow:0 0 0 rgba(255,0,0,0); } 50% { filter:brightness(1.4); box-shadow:0 0 8px rgba(255,0,0,0.7); } }
     .loading-text { color:var(--c-text-muted); font-size:var(--fs-sm); display:flex; align-items:center; gap:var(--sp-md); justify-content:center; padding:var(--sp-xl); }
-    body { overflow:hidden; background:var(--c-bg); display:flex; justify-content:center; align-items:center; height:100vh; width:100vw; font-family:'Noto Sans KR','Segoe UI',sans-serif; touch-action:none; }
+    body { overflow:hidden; background:var(--c-bg); display:flex; justify-content:center; align-items:center; height:100vh; width:100vw; font-family:var(--ff-body); touch-action:none; }
+    /* 판타지 배경 텍스처 (미묘한 노이즈) */
+    body::before { content:''; position:fixed; inset:0; background:radial-gradient(ellipse at 20% 50%,rgba(102,68,204,0.06),transparent 60%),radial-gradient(ellipse at 80% 30%,rgba(255,215,0,0.04),transparent 50%); pointer-events:none; z-index:0; }
+    /* 판타지 장식 코너 — 패널용 */
+    .panel::before, .panel::after { content:''; position:absolute; width:24px; height:24px; border-color:var(--c-gold); border-style:solid; opacity:0.4; pointer-events:none; z-index:1; }
+    .panel::before { top:-1px; left:-1px; border-width:2px 0 0 2px; border-radius:14px 0 0 0; }
+    .panel::after { bottom:-1px; right:-1px; border-width:0 2px 2px 0; border-radius:0 0 14px 0; }
     #unity-container { position:relative; width:100vw; max-height:100vh; aspect-ratio:16/9; }
     @media (min-aspect-ratio:16/9) { #unity-container { width:calc(100vh*(16/9)); height:100vh; } }
     #unity-canvas { width:100%; height:100%; display:block; outline:none; position:relative; z-index:1; }
@@ -78,16 +92,24 @@
     /* 연결 상태 표시 */
     #connection-status { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:200; display:none; background:rgba(0,0,0,0.9); color:#ff4444; padding:20px 40px; border-radius:var(--r-lg); font-size:16px; font-weight:bold; text-align:center; border:1px solid var(--c-red); }
 
-    /* ═══ 로딩 ═══ */
-    #loading-screen { position:absolute; left:0; top:0; width:100%; height:100%; background:radial-gradient(ellipse at center,#1a1a2e,#0a0a12); display:flex; flex-direction:column; justify-content:center; align-items:center; color:#fff; z-index:10; }
-    #loading-text { font-size:28px; margin-bottom:25px; font-weight:900; color:#ffd700; text-shadow:0 0 20px rgba(255,215,0,0.3); letter-spacing:3px; }
-    #progress-bar-bg { width:280px; height:8px; background:rgba(255,255,255,0.1); border-radius:4px; overflow:hidden; border:1px solid rgba(255,215,0,0.2); }
-    #progress-bar-fill { width:0%; height:100%; background:linear-gradient(90deg,#ffd700,#ffaa00); border-radius:4px; transition:width 0.2s; box-shadow:0 0 10px rgba(255,215,0,0.5); }
+    /* ═══ 로딩 — 마법진 판타지 ═══ */
+    #loading-screen { position:absolute; left:0; top:0; width:100%; height:100%; background:radial-gradient(ellipse at center,#12101e,#080810); display:flex; flex-direction:column; justify-content:center; align-items:center; color:#fff; z-index:10; overflow:hidden; }
+    #loading-screen::before { content:''; position:absolute; width:400px; height:400px; border:1px solid rgba(255,215,0,0.08); border-radius:50%; animation:magicCircle 20s linear infinite; }
+    #loading-screen::after { content:''; position:absolute; width:300px; height:300px; border:1px solid rgba(102,68,204,0.12); border-radius:50%; animation:magicCircle 15s linear infinite reverse; box-shadow:inset 0 0 60px rgba(102,68,204,0.05); }
+    @keyframes magicCircle { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+    #loading-text { font-family:var(--ff-title); font-size:32px; margin-bottom:25px; font-weight:900; color:#ffd700; text-shadow:0 0 30px rgba(255,215,0,0.4),0 0 60px rgba(255,215,0,0.15); letter-spacing:5px; z-index:1; }
+    #progress-bar-bg { width:300px; height:6px; background:rgba(255,255,255,0.06); border-radius:3px; overflow:hidden; border:1px solid rgba(255,215,0,0.15); z-index:1; position:relative; }
+    #progress-bar-fill { width:0%; height:100%; background:linear-gradient(90deg,#6644cc,#ffd700,#ff8800); border-radius:3px; transition:width 0.3s; box-shadow:0 0 12px rgba(255,215,0,0.6),0 0 30px rgba(102,68,204,0.3); }
+    /* 로딩 파티클 */
+    .loading-particle { position:absolute; width:2px; height:2px; background:#ffd700; border-radius:50%; animation:particleFloat 3s ease-in-out infinite; opacity:0.6; }
+    @keyframes particleFloat { 0%{transform:translateY(0) scale(1);opacity:0.6} 50%{transform:translateY(-80px) scale(1.5);opacity:0.3} 100%{transform:translateY(-160px) scale(0);opacity:0} }
 
-    /* ═══ 클래스 선택 ═══ */
-    #class-select { position:absolute; left:0; top:0; width:100%; height:100%; background:radial-gradient(ellipse at center,rgba(15,15,30,0.92),rgba(0,0,0,0.95)); display:none; flex-direction:column; justify-content:center; align-items:center; z-index:20; backdrop-filter:blur(4px); }
-    #class-select h1 { color:#ffd700; font-size:36px; margin-bottom:8px; font-weight:900; text-shadow:0 0 30px rgba(255,215,0,0.3); letter-spacing:4px; }
-    #class-select p.subtitle { color:#888; font-size:14px; margin-bottom:25px; }
+    /* ═══ 클래스 선택 — 판타지 테마 ═══ */
+    #class-select { position:absolute; left:0; top:0; width:100%; height:100%; background:radial-gradient(ellipse at center,rgba(12,10,24,0.96),rgba(4,4,8,0.98)); display:none; flex-direction:column; justify-content:center; align-items:center; z-index:20; backdrop-filter:blur(6px); overflow:hidden; }
+    #class-select::before { content:''; position:absolute; width:600px; height:600px; border:1px solid rgba(255,215,0,0.06); border-radius:50%; animation:magicCircle 25s linear infinite; }
+    #class-select::after { content:''; position:absolute; width:450px; height:450px; border:1px dashed rgba(102,68,204,0.08); border-radius:50%; animation:magicCircle 18s linear infinite reverse; }
+    #class-select h1 { font-family:var(--ff-title); color:#ffd700; font-size:38px; margin-bottom:6px; font-weight:900; text-shadow:0 0 40px rgba(255,215,0,0.4),0 0 80px rgba(255,215,0,0.15); letter-spacing:6px; z-index:1; }
+    #class-select p.subtitle { color:#8a8470; font-size:13px; margin-bottom:25px; font-family:var(--ff-heading); letter-spacing:2px; z-index:1; }
     .class-btn { width:420px; padding:var(--sp-xl) var(--sp-xl); margin:var(--sp-sm); border:1px solid var(--c-border); border-radius:var(--r-lg); background:var(--c-bg-card); color:#fff; cursor:pointer; transition:all 0.25s; text-align:left; position:relative; overflow:hidden; }
     .class-btn:hover { background:var(--c-gold-dim); border-color:var(--c-border-gold); transform:translateY(-2px); box-shadow:0 6px 20px rgba(255,215,0,0.1); }
     .class-btn:nth-child(2) { background-image:url('ui/btn_blue.png'); }
@@ -97,9 +119,9 @@
     .class-btn::before { content:''; position:absolute; top:0; left:-100%; width:100%; height:100%; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.15),transparent); transition:left 0.5s; }
     .class-btn:hover { transform:translateY(-3px) scale(1.02); box-shadow:0 10px 30px rgba(0,0,0,0.5); filter:brightness(1.15); }
     .class-btn:hover::before { left:100%; }
-    .class-btn .name { font-size:18px; font-weight:700; color:#ffd700; }
-    .class-btn .stats { font-size:12px; color:#8888aa; margin-top:3px; font-family:monospace; }
-    .class-btn .desc { font-size:13px; color:#aaa; margin-top:5px; }
+    .class-btn .name { font-size:18px; font-weight:700; color:#ffd700; font-family:var(--ff-heading); letter-spacing:1px; }
+    .class-btn .stats { font-size:11px; color:#8a8470; margin-top:3px; font-family:monospace; letter-spacing:0.5px; }
+    .class-btn .desc { font-size:12px; color:#a09880; margin-top:5px; line-height:1.5; }
 
     /* 모든 UI가 캔버스 위에서 클릭 가능하도록 */
     #status-bar, #bottom-bar, #sub-menu, #chat-box, #combat-log, #minimap-container,
@@ -108,10 +130,10 @@
       pointer-events: auto !important;
     }
 
-    /* ═══ 하단 메뉴바 — 모던 ═══ */
-    #bottom-bar { position:absolute; bottom:0; left:50%; transform:translateX(-50%); width:auto; max-width:600px; height:48px; background:linear-gradient(180deg,rgba(15,15,28,0.95),rgba(8,8,18,0.98)); backdrop-filter:blur(10px); display:none; z-index:15; border-top:1px solid rgba(255,215,0,0.12); border-radius:14px 14px 0 0; padding:0 6px; gap:2px; }
-    #bottom-bar .tab { flex:none; width:90px; height:40px; margin:3px 2px; border:none; border-radius:8px; background:linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02)); color:#ccc; font-size:12px; font-weight:700; cursor:pointer; transition:all 0.15s; letter-spacing:0.5px; border:1px solid rgba(255,255,255,0.06); }
-    #bottom-bar .tab:hover { background:linear-gradient(180deg,rgba(255,215,0,0.15),rgba(255,215,0,0.05)); color:#ffd700; border-color:rgba(255,215,0,0.2); transform:translateY(-2px); }
+    /* ═══ 하단 메뉴바 — 판타지 ═══ */
+    #bottom-bar { position:absolute; bottom:0; left:50%; transform:translateX(-50%); width:auto; max-width:600px; height:50px; background:linear-gradient(180deg,rgba(12,10,24,0.96),rgba(6,5,12,0.98)); backdrop-filter:blur(12px); display:none; z-index:15; border-top:1px solid rgba(255,215,0,0.1); border-radius:14px 14px 0 0; padding:0 6px; gap:2px; box-shadow:0 -4px 20px rgba(0,0,0,0.4),0 -1px 0 rgba(102,68,204,0.1); }
+    #bottom-bar .tab { flex:none; width:90px; height:40px; margin:3px 2px; border:none; border-radius:8px; background:linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01)); color:#b0a890; font-size:12px; font-weight:700; cursor:pointer; transition:all 0.2s; letter-spacing:0.5px; border:1px solid rgba(255,215,0,0.05); font-family:var(--ff-body); }
+    #bottom-bar .tab:hover { background:linear-gradient(180deg,rgba(255,215,0,0.12),rgba(102,68,204,0.08)); color:#ffd700; border-color:rgba(255,215,0,0.2); transform:translateY(-3px); box-shadow:0 4px 12px rgba(255,215,0,0.1); }
     #bottom-bar .tab:active { transform:scale(0.96); }
     #bottom-bar.show { display:flex; align-items:center; }
 
@@ -169,10 +191,12 @@
     .top-btn:hover { background:rgba(255,215,0,0.12); color:#ffd700; border-color:rgba(255,215,0,0.25); transform:scale(1.05); }
 
     /* ═══ 서브메뉴 — 모던 그리드 ═══ */
-    #sub-menu { position:absolute; bottom:50px; left:50%; transform:translateX(-50%); width:auto; max-width:520px; display:none; z-index:17; background:rgba(10,10,20,0.95); backdrop-filter:blur(12px); border:1px solid rgba(255,215,0,0.1); border-radius:12px; padding:8px 10px; box-shadow:0 -4px 20px rgba(0,0,0,0.5); }
+    #sub-menu { position:absolute; bottom:52px; left:50%; transform:translateX(-50%); width:auto; max-width:520px; display:none; z-index:17; background:rgba(8,8,16,0.96); backdrop-filter:blur(14px); border:1px solid rgba(255,215,0,0.08); border-radius:12px; padding:10px 12px; box-shadow:0 -4px 24px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,215,0,0.05); }
     #sub-menu.show { display:flex; flex-wrap:wrap; justify-content:center; gap:4px; }
-    #sub-menu button { flex:none; width:100px; padding:10px 6px; border:1px solid rgba(255,255,255,0.08); border-radius:8px; background:linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.01)); color:#ddd; font-size:12px; font-weight:700; cursor:pointer; transition:all 0.15s; text-shadow:0 1px 2px rgba(0,0,0,0.5); }
-    #sub-menu button:hover { background:linear-gradient(180deg,rgba(255,215,0,0.15),rgba(255,215,0,0.05)); color:#ffd700; border-color:rgba(255,215,0,0.25); transform:translateY(-2px); box-shadow:0 4px 12px rgba(255,215,0,0.1); }
+    #sub-menu button { flex:none; width:100px; padding:10px 6px; border:1px solid rgba(255,215,0,0.06); border-radius:8px; background:linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01)); color:#b0a890; font-size:12px; font-weight:700; cursor:pointer; transition:all 0.2s; text-shadow:0 1px 3px rgba(0,0,0,0.6); position:relative; overflow:hidden; }
+    #sub-menu button::before { content:''; position:absolute; top:0; left:-100%; width:100%; height:100%; background:linear-gradient(90deg,transparent,rgba(255,215,0,0.08),transparent); transition:left 0.4s; }
+    #sub-menu button:hover { background:linear-gradient(180deg,rgba(255,215,0,0.12),rgba(102,68,204,0.06)); color:#ffd700; border-color:rgba(255,215,0,0.2); transform:translateY(-2px); box-shadow:0 4px 16px rgba(255,215,0,0.1); }
+    #sub-menu button:hover::before { left:100%; }
 
     /* ═══ 미니맵 — 라운드 ═══ */
     #minimap-container { position:absolute; top:46px; left:8px; z-index:15; display:none; }
@@ -180,12 +204,12 @@
     #minimap { border:2px solid rgba(255,215,0,0.15); border-radius:12px; background:rgba(8,8,18,0.88); cursor:pointer; box-shadow:0 4px 20px rgba(0,0,0,0.6); }
     #minimap-zone { color:#ffd700; font-size:10px; text-align:center; margin-top:2px; text-shadow:0 1px 3px #000; font-weight:700; }
 
-    /* 레벨업 축하 */
+    /* 레벨업 축하 — 판타지 이펙트 */
     #levelup-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:60; pointer-events:none; }
     #levelup-overlay.show { display:flex; justify-content:center; align-items:center; flex-direction:column; }
-    #levelup-overlay .lvl-text { font-size:48px; font-weight:900; color:#ffd700; text-shadow:0 0 30px #ff8800,0 0 60px #ff4400; animation:lvlPop 0.6s ease-out; }
-    #levelup-overlay .lvl-sub { font-size:16px; color:#fff; margin-top:8px; animation:lvlFade 2s ease-out forwards; }
-    #levelup-overlay .lvl-flash { position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(255,215,0,0.3); animation:flashOut 0.5s ease-out forwards; }
+    #levelup-overlay .lvl-text { font-family:var(--ff-title); font-size:52px; font-weight:900; color:#ffd700; text-shadow:0 0 40px #ff8800,0 0 80px #ff4400,0 0 120px rgba(255,215,0,0.3); animation:lvlPop 0.6s ease-out; letter-spacing:4px; }
+    #levelup-overlay .lvl-sub { font-family:var(--ff-heading); font-size:16px; color:#d4cfc0; margin-top:10px; animation:lvlFade 2s ease-out forwards; letter-spacing:2px; }
+    #levelup-overlay .lvl-flash { position:absolute; top:0; left:0; width:100%; height:100%; background:radial-gradient(circle,rgba(255,215,0,0.4),rgba(102,68,204,0.15),transparent); animation:flashOut 0.6s ease-out forwards; }
     @keyframes lvlPop { 0%{transform:scale(0.3);opacity:0} 50%{transform:scale(1.3)} 100%{transform:scale(1);opacity:1} }
     @keyframes lvlFade { 0%{opacity:1} 100%{opacity:0} }
     @keyframes flashOut { 0%{opacity:1} 100%{opacity:0} }
@@ -193,8 +217,8 @@
     /* 존 진입 공지 */
     #zone-announce { display:none; position:fixed; top:25%; left:50%; transform:translateX(-50%); z-index:55; text-align:center; pointer-events:none; }
     #zone-announce.show { display:block; animation:zoneSlide 2.5s ease-out forwards; }
-    #zone-announce .zone-name { font-size:32px; font-weight:900; text-shadow:0 0 20px rgba(0,0,0,0.8); }
-    #zone-announce .zone-info { font-size:14px; color:#aaa; margin-top:4px; }
+    #zone-announce .zone-name { font-family:var(--ff-heading); font-size:34px; font-weight:900; text-shadow:0 0 30px rgba(0,0,0,0.9),0 0 60px rgba(102,68,204,0.2); letter-spacing:3px; }
+    #zone-announce .zone-info { font-size:13px; color:#8a8470; margin-top:6px; letter-spacing:1px; }
     @keyframes zoneSlide { 0%{opacity:0;transform:translateX(-50%) translateY(20px)} 15%{opacity:1;transform:translateX(-50%) translateY(0)} 80%{opacity:1} 100%{opacity:0} }
 
     /* 골드 변동 팝업 */
@@ -243,8 +267,9 @@
     .panel::-webkit-scrollbar-thumb { background:#444; border-radius:2px; }
     .panel.show { display:block; animation:panelIn 0.25s ease; }
     @keyframes panelIn { from{opacity:0;transform:translate(-50%,-50%) scale(0.92)} to{opacity:1;transform:translate(-50%,-50%) scale(1)} }
-    .panel-header { display:flex; justify-content:space-between; align-items:center; padding:12px 18px; border-bottom:1px solid rgba(255,215,0,0.1); background:linear-gradient(90deg,rgba(255,215,0,0.06),transparent); }
-    .panel-header h2 { font-size:16px; color:#ffd700; font-weight:700; letter-spacing:1px; }
+    .panel-header { display:flex; justify-content:space-between; align-items:center; padding:14px 18px; border-bottom:1px solid rgba(255,215,0,0.1); background:linear-gradient(90deg,rgba(255,215,0,0.06),rgba(102,68,204,0.03),transparent); position:relative; }
+    .panel-header::after { content:''; position:absolute; bottom:-1px; left:18px; right:18px; height:1px; background:linear-gradient(90deg,transparent,rgba(255,215,0,0.2),transparent); }
+    .panel-header h2 { font-family:var(--ff-heading); font-size:16px; color:#ffd700; font-weight:700; letter-spacing:2px; text-shadow:0 0 12px rgba(255,215,0,0.2); }
     .panel-close { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#666; font-size:14px; cursor:pointer; width:28px; height:28px; border-radius:6px; line-height:26px; text-align:center; transition:all 0.15s; }
     .panel-close:hover { background:rgba(255,68,68,0.8); color:#fff; border-color:transparent; }
     .panel-body { padding:12px 16px; }
@@ -268,7 +293,7 @@
     }
     #quest-guide:hover { border-color:rgba(255,215,0,0.4); }
     #quest-guide .qg-chapter { color:#888; font-size:9px; text-transform:uppercase; letter-spacing:1px; margin-bottom:2px; }
-    #quest-guide .qg-name { color:#ffd700; font-size:13px; font-weight:900; margin-bottom:4px; }
+    #quest-guide .qg-name { font-family:var(--ff-heading); color:#ffd700; font-size:13px; font-weight:900; margin-bottom:4px; letter-spacing:0.5px; }
     #quest-guide .qg-desc { color:#aaa; font-size:10px; margin-bottom:6px; line-height:1.4; }
     #quest-guide .qg-progress { background:rgba(255,255,255,0.08); border-radius:4px; height:14px; overflow:hidden; position:relative; }
     #quest-guide .qg-progress-fill { background:linear-gradient(90deg,#ffd700,#ff8800); height:100%; border-radius:4px; transition:width 0.5s ease; }
