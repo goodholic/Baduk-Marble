@@ -2,7 +2,7 @@
 
 function registerEconomyConnectionHandlers(socket, $) {
     const {
-        players, io, savePlayer, recalcStats, trackQuest, getZone, EQUIP_STATS, SHOP_ITEMS,
+        playerId, players, io, savePlayer, recalcStats, trackQuest, getZone, EQUIP_STATS, SHOP_ITEMS,
         FREE_DIAMOND_SOURCES, TRADEABLE_ITEMS, RECIPES, handleCraft, handleBuyPet, handleBuyMount, handleEvolvePet, checkTitles,
         MAX_GOLD, capResources, giveExp, getExpRequired, bountyBoard,
     } = $;

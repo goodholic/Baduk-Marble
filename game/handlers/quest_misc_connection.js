@@ -2,7 +2,7 @@
 
 function registerQuestMiscConnectionHandlers(socket, $) {
     const {
-        players, io, savePlayer, recalcStats, SKILLS, QUESTS, ZONES, EMOTES,
+        playerId, players, io, savePlayer, recalcStats, SKILLS, QUESTS, ZONES, EMOTES,
         ARENA_TIERS, capResources, getArenaTier, getTodaysChallenge, getThisWeekChallenge, giveExp, clans, arenaRankings,
         rankings, FACTIONS, getWeekNumber, ATTENDANCE_REWARDS, ZONE_MONSTER_NAMES, worldEventLog,
     } = $;

@@ -2,7 +2,7 @@
 
 function registerSocialConnectionHandlers(socket, $) {
     const {
-        players, io, savePlayer, pool, recalcStats, getZone, CLASS_ADVANCE, CLASS_AWAKEN, AWAKEN_SKILLS, EQUIP_STATS,
+        playerId, players, io, savePlayer, pool, recalcStats, getZone, CLASS_ADVANCE, CLASS_AWAKEN, AWAKEN_SKILLS, EQUIP_STATS,
         TRADEABLE_ITEMS, CLAN_LEVEL_EXP, CLAN_MAX_MEMBERS, CLAN_SKILLS, MAX_GOLD, clans, rankings, pendingMails,
         FACTIONS, DUNGEONS,
     } = $;

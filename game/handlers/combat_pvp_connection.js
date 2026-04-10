@@ -2,7 +2,7 @@
 
 function registerCombatPvpConnectionHandlers(socket, $) {
     const {
-        players, io, savePlayer, monsters, drops, recalcStats, getZone, CLASSES,
+        playerId, players, io, savePlayer, monsters, drops, recalcStats, getZone, CLASSES,
         ZONES, EQUIP_STATS, GRADE_INFO, TAME_RATES, TAME_COSTS, capResources, spawnMonster, giveExp,
         clans, arenaMatches, arenaRankings, MONSTER_TIERS, DUNGEONS,
     } = $;

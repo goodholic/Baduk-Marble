@@ -178,12 +178,15 @@ io.on("connection", (socket) => {
     });
 
     // ---- Category handlers (split from inline) ----
-    registerCoreConnectionHandlers(socket, $);
-    registerInventoryConnectionHandlers(socket, $);
-    registerEconomyConnectionHandlers(socket, $);
-    registerCombatPvpConnectionHandlers(socket, $);
-    registerSocialConnectionHandlers(socket, $);
-    registerQuestMiscConnectionHandlers(socket, $);
+    // playerId를 $ 에 주입하여 sub-connection 핸들러에서 접근 가능하도록
+    const $ctx = Object.create($);
+    $ctx.playerId = playerId;
+    registerCoreConnectionHandlers(socket, $ctx);
+    registerInventoryConnectionHandlers(socket, $ctx);
+    registerEconomyConnectionHandlers(socket, $ctx);
+    registerCombatPvpConnectionHandlers(socket, $ctx);
+    registerSocialConnectionHandlers(socket, $ctx);
+    registerQuestMiscConnectionHandlers(socket, $ctx);
 
     // ---- Module handlers (pre-existing) ----
     registerLotteryHandlers(socket, { io, players, playerId, savePlayer, trackQuest, MAX_GOLD, MAX_DIAMONDS, lottery });

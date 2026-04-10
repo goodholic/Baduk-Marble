@@ -2,7 +2,7 @@
 
 function registerInventoryConnectionHandlers(socket, $) {
     const {
-        players, io, savePlayer, recalcStats, trackQuest, getZone, EQUIPMENT_SLOTS, EQUIP_STATS,
+        playerId, players, io, savePlayer, recalcStats, trackQuest, getZone, EQUIPMENT_SLOTS, EQUIP_STATS,
         GRADE_INFO, TRADE_GOODS, TRADEABLE_ITEMS, applyBuff, MAX_GOLD, MAX_DIAMONDS, getEnchantBonus, capResources,
         generateRandomOptions, codexDiscover, handleRaidFinish, finishBossRush, clans, bossRushSessions, RUNES, RUNE_WORDS,
         BUFF_TYPES,
