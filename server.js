@@ -4,6 +4,20 @@
 // ==========================================
 
 // 크래시 방지: unhandled rejection/exception 로깅
+// ── 서버 로그 링 버퍼 (최근 200줄) ──
+global._logBuffer = [];
+const _logBuffer = global._logBuffer;
+const _LOG_MAX = 200;
+const _origLog = console.log, _origErr = console.error, _origWarn = console.warn;
+function _pushLog(level, args) {
+  const line = `[${new Date().toISOString().slice(11,19)}][${level}] ${args.map(a => typeof a === 'string' ? a : (a?.stack || JSON.stringify(a))).join(' ')}`;
+  _logBuffer.push(line);
+  if (_logBuffer.length > _LOG_MAX) _logBuffer.shift();
+}
+console.log = (...a) => { _pushLog('LOG', a); _origLog.apply(console, a); };
+console.error = (...a) => { _pushLog('ERR', a); _origErr.apply(console, a); };
+console.warn = (...a) => { _pushLog('WRN', a); _origWarn.apply(console, a); };
+
 process.on('unhandledRejection', (reason, promise) => {
   console.error('[FATAL] Unhandled Rejection:', reason);
 });

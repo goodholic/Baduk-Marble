@@ -6,6 +6,31 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>⚔️</text></svg>">
   <link rel="stylesheet" href="css/style.css">
+  <script>
+  // 클라이언트 에러 수집 → 서버 전송 + 화면 오버레이
+  (function(){
+    var errs=[], maxErrs=20;
+    function logErr(msg, stack){
+      var entry={msg:msg,stack:stack||'',t:new Date().toLocaleTimeString()};
+      errs.push(entry); if(errs.length>maxErrs) errs.shift();
+      try{fetch('/debug/client-error',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(entry)});}catch(e){}
+      updateOverlay();
+    }
+    window.onerror=function(m,u,l,c,e){logErr(m+(l?(' L'+l):''), e&&e.stack);};
+    window.onunhandledrejection=function(e){logErr('Unhandled: '+(e.reason&&e.reason.message||e.reason), e.reason&&e.reason.stack);};
+    function updateOverlay(){
+      var el=document.getElementById('debug-err-overlay');
+      if(!el){el=document.createElement('div');el.id='debug-err-overlay';
+        el.style.cssText='position:fixed;bottom:0;left:0;width:350px;max-height:180px;overflow-y:auto;background:rgba(0,0,0,0.85);color:#ff4444;font-size:10px;font-family:monospace;padding:4px 6px;z-index:9999;pointer-events:none;border-top:1px solid #ff4444;border-right:1px solid #ff4444;';
+        document.body.appendChild(el);
+      }
+      el.innerHTML=errs.map(function(e){return '<div style="border-bottom:1px solid #330000;padding:1px 0"><span style="color:#888">'+e.t+'</span> '+e.msg.substring(0,120)+'</div>';}).join('');
+      el.scrollTop=el.scrollHeight;
+    }
+    window._debugErrors=errs;
+    window._debugLogErr=logErr;
+  })();
+  </script>
 </head>
 <body>
   <div id="unity-container">
