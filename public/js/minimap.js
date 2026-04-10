@@ -152,7 +152,16 @@
     // sync에서 미니맵 데이터 수집
     function updateMinimapData(data) {
       if (data.players) lastSyncPlayers = data.players;
-      if (data.monsters) lastSyncMonsters = data.monsters;
+      if (data.monsters) {
+        for (var mId in data.monsters) {
+          lastSyncMonsters[mId] = data.monsters[mId];
+        }
+      }
+      if (data.removedMonsters) {
+        for (var i = 0; i < data.removedMonsters.length; i++) {
+          delete lastSyncMonsters[data.removedMonsters[i]];
+        }
+      }
       drawMinimap();
     }
 

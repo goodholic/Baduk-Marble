@@ -99,9 +99,10 @@ function syncGameState() {
             prevMonsterSync[mId] = { x: m.x, y: m.y, hp: m.hp };
         }
     }
-    // 삭제된 몬스터 정리
+    // 삭제된 몬스터 정리 — 별도 배열로 분리 (Unity JSON 파싱 호환)
+    const removedMonsters = [];
     for (const mId in prevMonsterSync) {
-        if (!monsters[mId]) { monsterDelta[mId] = { removed: true }; delete prevMonsterSync[mId]; }
+        if (!monsters[mId]) { removedMonsters.push(mId); delete prevMonsterSync[mId]; }
     }
 
     // 각 실제 플레이어에게 sync 전송
@@ -113,7 +114,7 @@ function syncGameState() {
         const playerCount = Object.values(players).filter(pp => !pp.isBot && pp.isAlive).length;
         const uptime = Math.floor((Date.now() - $.serverStartTime) / 1000);
         const syncData = {
-            players: {}, monsters: monsterDelta,
+            players: {}, monsters: monsterDelta, removedMonsters,
             isNight: $.getIsNight(), weather: $.getCurrentWeather().id,
             worldTime: $.getWorldTime(), playerCount, uptime,
         };
