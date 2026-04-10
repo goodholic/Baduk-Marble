@@ -765,7 +765,7 @@ public class GameManager : MonoBehaviour
             }
 
             players[myId].go.transform.rotation = Quaternion.identity;
-            FlipByDirection(players[myId].go, currentDir.x);
+            FlipByDirection(players[myId].go, currentDir.x, currentDir.y);
 
             JObject moveData = new JObject();
             moveData["x"] = players[myId].go.transform.position.x;
@@ -830,8 +830,7 @@ public class GameManager : MonoBehaviour
                 Vector3 oldPos = kvp.Value.go.transform.position;
                 Vector3 newPos = Vector3.Lerp(oldPos, kvp.Value.targetPos, Time.deltaTime * 10f);
                 kvp.Value.go.transform.position = newPos;
-                // 이동 방향에 따라 좌우 반전
-                FlipByDirection(kvp.Value.go, newPos.x - oldPos.x);
+                FlipByDirection(kvp.Value.go, newPos.x - oldPos.x, newPos.y - oldPos.y);
             }
         }
 
@@ -840,7 +839,7 @@ public class GameManager : MonoBehaviour
                 Vector3 oldPos = kvp.Value.go.transform.position;
                 Vector3 newPos = Vector3.Lerp(oldPos, kvp.Value.targetPos, Time.deltaTime * 5f);
                 kvp.Value.go.transform.position = newPos;
-                FlipByDirection(kvp.Value.go, newPos.x - oldPos.x);
+                FlipByDirection(kvp.Value.go, newPos.x - oldPos.x, newPos.y - oldPos.y);
             }
         }
 
@@ -852,8 +851,19 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    private void FlipByDirection(GameObject go, float deltaX)
+    private void FlipByDirection(GameObject go, float deltaX, float deltaY = 0f)
     {
+        // 4방향 시스템 우선 사용
+        SpriteAnimator anim = go.GetComponent<SpriteAnimator>();
+        if (anim != null && anim.use4Direction)
+        {
+            if (Mathf.Abs(deltaX) > 0.001f || Mathf.Abs(deltaY) > 0.001f)
+                anim.SetDirection(deltaX, deltaY);
+            else
+                anim.SetIdle();
+            return;
+        }
+        // Legacy: 좌우 flip만
         if (Mathf.Abs(deltaX) < 0.001f) return;
         SpriteRenderer sr = go.GetComponentInChildren<SpriteRenderer>();
         if (sr != null) sr.flipX = (deltaX < 0);
