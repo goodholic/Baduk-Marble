@@ -248,6 +248,14 @@ function updatePlayerAutoSkills() {
         const classSkills = SKILLS[baseClassName];
         if (!classSkills) continue;
 
+        // 각성 스킬 병합 (v2.38)
+        let allSkills = classSkills;
+        if (p.isAwakened && p.awakenedClass && $.getAwakenSkills) {
+            const awkSkills = $.getAwakenSkills();
+            const awkSkill = awkSkills && awkSkills[p.awakenedClass];
+            if (awkSkill) allSkills = classSkills.concat([awkSkill]);
+        }
+
         // 가장 가까운 적/몬스터 찾기
         let target = null, minDist = 9999;
         for (const mId in monsters) {
@@ -259,7 +267,7 @@ function updatePlayerAutoSkills() {
         if (!target) continue;
 
         // 스킬 자동 시전 (액티브만)
-        for (const skill of classSkills) {
+        for (const skill of allSkills) {
             if (skill.type === 'passive') continue;
             if (p.level < skill.level) continue;
             if (skill.mpCost && (p.mp || 0) < skill.mpCost) continue;
@@ -741,12 +749,30 @@ function giveExp(playerObj, amount) {
         target.statPoints = (target.statPoints || 0) + 3; // 레벨업 시 스탯 3포인트
         // v1.35: 특성 포인트 +1
         if (!target.isBot) skillTree.awardPoints(target, 1);
+        // v2.40: 별가루 +25
+        if (!target.isBot && $.constellation) $.constellation.earnStardust(target, 'level_up');
         io.emit('level_up', { id: target.id, level: target.level, className: target.displayName, statPoints: target.statPoints, maxHp: target.maxHp, atk: target.atk, def: target.def, maxExp: getExpRequired(target.level) });
         trackQuest(target, 'reach_level', 0);
 
         // Lv.20 전직 알림
         if (target.level === 20 && !target.isAdvanced) {
             io.to(target.id).emit('server_msg', { msg: '전직이 가능합니다! 메뉴에서 전직하세요.', type: 'rare' });
+        }
+        // v2.51: 영웅의 전당 — Lv.50 최초 달성
+        if (!target.isBot && target.level >= 50 && $.hallOfHeroes) {
+            const hallResult = $.hallOfHeroes.tryRegister('first_lv50', target);
+            if (hallResult) {
+                io.emit('server_msg', { msg: `🏆 [영웅의 전당] ${target.displayName}이(가) "${hallResult.achievement.name}" 달성! 서버 전체 버프 적용!`, type: 'legendary' });
+                io.emit('hall_achievement', { name: hallResult.achievement.name, icon: hallResult.achievement.icon, player: target.displayName, relic: hallResult.relic?.name });
+            }
+        }
+        // 골드 100만 체크
+        if (!target.isBot && (target.gold || 0) >= 1000000 && $.hallOfHeroes) {
+            const hallResult = $.hallOfHeroes.tryRegister('first_million_gold', target);
+            if (hallResult) {
+                io.emit('server_msg', { msg: `🏆 [영웅의 전당] ${target.displayName}이(가) "${hallResult.achievement.name}" 달성!`, type: 'legendary' });
+                savePlayer(target);
+            }
         }
         savePlayer(target);
     }
@@ -1101,6 +1127,32 @@ function handleCollisions() {
                     trackQuest(realOwner, 'kill_monster', 1);
                     if (mob.tier === 'elite' || mob.tier === 'rare' || mob.tier === 'boss' || mob.tier === 'legendary') trackQuest(realOwner, 'kill_elite', 1);
                     if (mob.tier === 'boss' || mob.tier === 'legendary') trackQuest(realOwner, 'kill_boss', 1);
+                    // 별가루 획득 (v2.40)
+                    if (!realOwner.isBot && $.constellation) {
+                        const sdSource = mob.tier === 'legendary' ? 'kill_legendary' : mob.tier === 'boss' ? 'kill_boss' : (mob.tier === 'elite' || mob.tier === 'rare') ? 'kill_elite' : null;
+                        if (sdSource) $.constellation.earnStardust(realOwner, sdSource);
+                    }
+                    // 신앙심 획득 (v2.45)
+                    if (!realOwner.isBot && $.divineBlessing) {
+                        const faithSource = mob.tier === 'legendary' ? 'kill_legendary' : mob.tier === 'boss' ? 'kill_boss' : null;
+                        if (faithSource) $.divineBlessing.earnFaith(realOwner, faithSource);
+                    }
+                    // 신화 무기 친밀도/경험치 (v2.53)
+                    if (!realOwner.isBot && $.mythicWeapon) {
+                        const mwResult = $.mythicWeapon.onCombat(realOwner, mob.tier);
+                        if (mwResult) {
+                            if (mwResult.dialogue) io.to(realOwner.id).emit('mythweapon_dialogue', { msg: mwResult.dialogue, leveledUp: mwResult.leveledUp });
+                            if (mwResult.leveledUp) savePlayer(realOwner);
+                        }
+                    }
+                    // 정령 경험치 (v2.52)
+                    if (!realOwner.isBot && $.spiritPact) {
+                        const spiritExp = mob.tier === 'legendary' ? 30 : mob.tier === 'boss' ? 15 : mob.tier === 'rare' ? 8 : mob.tier === 'elite' ? 4 : 1;
+                        const spiritLvUp = $.spiritPact.grantSpiritExp(realOwner, spiritExp);
+                        if (spiritLvUp?.leveledUp) {
+                            io.to(realOwner.id).emit('server_msg', { msg: `[정령] 정령 Lv.${spiritLvUp.level} 달성!`, type: 'rare' });
+                        }
+                    }
                     trackQuest(realOwner, 'earn_gold', mobGoldReward);
                     // 실시간 퀘스트 진행도 알림 (가장 가까운 미완료 퀘스트)
                     if (!realOwner.isBot && realOwner.questProgress) {
@@ -1245,10 +1297,65 @@ function handleCollisions() {
                         setTimeout(() => { if (drops[critDropId]) { io.emit('drop_destroy', critDropId); delete drops[critDropId]; } }, 3000);
                     }
 
+                    // 금지된 마법서 드롭 (v2.39)
+                    if (!realOwner.isBot && $.forbiddenGrimoire) {
+                        const grimDrop = $.forbiddenGrimoire.tryDropGrimoire(realOwner, mob.tier);
+                        if (grimDrop.dropped) {
+                            io.to(realOwner.id).emit('grimoire_drop', { name: grimDrop.grimoire.name, icon: grimDrop.grimoire.icon, tier: grimDrop.grimoire.tier });
+                            io.emit('server_msg', { msg: `[금서] ${realOwner.displayName}이(가) ${grimDrop.grimoire.icon} ${grimDrop.grimoire.name}을(를) 발견했다!`, type: 'legendary' });
+                            savePlayer(realOwner);
+                        }
+                    }
+
+                    // 영혼 파편 드롭 (v2.43)
+                    if (!realOwner.isBot && $.soulContract) {
+                        const soulDrops = $.soulContract.tryDropFragment(realOwner, mob.tier);
+                        for (const sd of soulDrops) {
+                            io.to(realOwner.id).emit('soul_fragment_drop', { name: sd.soul.name, icon: sd.soul.icon, tier: sd.soul.tier });
+                            io.emit('server_msg', { msg: `[영혼] ${realOwner.displayName}이(가) ${sd.soul.icon} ${sd.soul.name}의 영혼 파편을 획득!`, type: 'rare' });
+                            savePlayer(realOwner);
+                        }
+                    }
+
+                    // 고대 문자 드롭 (v2.44)
+                    if (!realOwner.isBot && $.ancientLanguage) {
+                        const glyphDrop = $.ancientLanguage.tryDropGlyph(realOwner, mob.tier);
+                        if (glyphDrop) {
+                            io.to(realOwner.id).emit('glyph_drop', { name: glyphDrop.glyph.name, icon: glyphDrop.glyph.icon });
+                            savePlayer(realOwner);
+                        }
+                    }
+
+                    // 변이체 처치 기록 (v2.47)
+                    if (!realOwner.isBot && mob.isMutant && mob.mutationId && $.mutation) {
+                        const mutKill = $.mutation.onMutantKill(realOwner, mob.mutationId);
+                        if (mutKill.newDiscovery) {
+                            io.emit('server_msg', { msg: `[변이 도감] ${realOwner.displayName}: ${mutKill.mutation.prefix} ${mutKill.mutation.name} 최초 발견!`, type: 'legendary' });
+                        }
+                        if (mutKill.dropItem) {
+                            io.to(realOwner.id).emit('mutation_drop', { name: mutKill.dropName, item: mutKill.dropItem });
+                        }
+                        savePlayer(realOwner);
+                    }
+
+                    // 저주 장비 드롭 + 정화 진행 (v2.48)
+                    if (!realOwner.isBot && $.cursedEquipment) {
+                        const cursedDrop = $.cursedEquipment.tryDropCursed(realOwner, mob.tier);
+                        if (cursedDrop.dropped) {
+                            io.to(realOwner.id).emit('cursed_drop', { name: cursedDrop.item.name, icon: cursedDrop.item.icon });
+                            io.emit('server_msg', { msg: `⚠️ ${realOwner.displayName}이(가) ${cursedDrop.item.icon} ${cursedDrop.item.name}을(를) 발견!`, type: 'legendary' });
+                            savePlayer(realOwner);
+                        }
+                        $.cursedEquipment.updateProgress(realOwner, 'kills', 1);
+                        if (mob.tier === 'boss' || mob.tier === 'legendary' || mob.tier === 'worldboss') {
+                            $.cursedEquipment.updateProgress(realOwner, 'bossKills', 1);
+                        }
+                    }
+
                     const goldEarned = Math.floor(mobGoldReward * goldMulti);
                     const expEarned = Math.floor(mobExpReward * expMulti);
                     const expPct = Math.floor((realOwner.exp / getExpRequired(realOwner.level)) * 100);
-                    io.emit('monster_die', { id: mId, tier: mob.tier, killer: realOwner.id, zone: mob.zoneId, name: mob.name, goldEarned, expEarned, expPct });
+                    io.emit('monster_die', { id: mId, tier: mob.tier, killer: realOwner.id, zone: mob.zoneId, name: mob.name, goldEarned, expEarned, expPct, isMutant: mob.isMutant, mutationName: mob.mutationName });
                     io.emit('player_update', realOwner);
 
                     delete monsters[mId];

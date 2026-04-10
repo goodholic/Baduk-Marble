@@ -309,6 +309,37 @@ function recalcStats(p) {
     const advAtk = ab.atk || 0, advDef = ab.def || 0, advHp = ab.hp || 0;
     const advCrit = ab.crit || 0, advDodge = ab.dodge || 0;
 
+    // ── 2차 각성 보너스 (v2.38) ──
+    const aw = p.awakenBonus || {};
+    const awkAtk = aw.atk || 0, awkDef = aw.def || 0, awkHp = aw.hp || 0;
+    const awkCrit = aw.crit || 0, awkDodge = aw.dodge || 0, awkSpd = aw.speed || 0;
+
+    // ── 고대 혈맹 보너스 (v2.42) ──
+    let blAtk = 0, blDef = 0, blHp = 0, blCrit = 0, blDodge = 0, blSpd = 0;
+    if (p._bloodline && p._bloodline.type && p._bloodline.stage > 0) {
+        try {
+            const bloodline = require('./bloodline');
+            const blBonus = bloodline.getPassiveBonuses(p);
+            blAtk = blBonus.atk || 0;
+            blDef = blBonus.def || 0;
+            blHp = (blBonus.maxHp || 0);
+            blCrit = blBonus.crit || 0;
+            blDodge = blBonus.evasion || 0;
+            blSpd = blBonus.spd || 0;
+        } catch(e) {}
+    }
+
+    // ── 저주 장비 보너스 (v2.48) ──
+    let cursedAtk = 0, cursedDef = 0;
+    if (p._cursedEquip) {
+        try {
+            const ce = require('./cursed_equipment');
+            const curseData = ce.getActiveCurses(p);
+            cursedAtk = curseData.statBonus.atk || 0;
+            cursedDef = curseData.statBonus.def || 0;
+        } catch(e) {}
+    }
+
     // ── 진영 보너스 ──
     let factionAtkMulti = 1, factionDefMulti = 1;
     if (p.faction && FACTIONS[p.faction]) {
@@ -323,14 +354,14 @@ function recalcStats(p) {
     const te = _getTitleBonus(p, 'expBonus'); if (te) titleExp = te;
 
     // ── 최종 스탯 계산 ──
-    p.atk = Math.floor((cls.atk + bonusAtk + setAtkBonus + runeAtk + legacyAtk + advAtk + str * 2) * petAtkMulti * setAtkMulti * factionAtkMulti * legacyAllMulti * (1 + titleAtk));
-    p.def = Math.floor((cls.def + bonusDef + setDefBonus + runeDef + legacyDef + advDef) * setDefMulti * factionDefMulti * legacyAllMulti);
-    p.equipBonusHp = bonusHp + con * 10 + setHpBonus + runeHp + legacyHp + advHp;
+    p.atk = Math.floor((cls.atk + bonusAtk + setAtkBonus + runeAtk + legacyAtk + advAtk + awkAtk + blAtk + cursedAtk + str * 2) * petAtkMulti * setAtkMulti * factionAtkMulti * legacyAllMulti * (1 + titleAtk));
+    p.def = Math.floor((cls.def + bonusDef + setDefBonus + runeDef + legacyDef + advDef + awkDef + blDef + cursedDef) * setDefMulti * factionDefMulti * legacyAllMulti);
+    p.equipBonusHp = bonusHp + con * 10 + setHpBonus + runeHp + legacyHp + advHp + awkHp + blHp;
     p.maxHp = (cls.maxHp || cls.hp || 100) + (p.level - 1) * 20 + p.equipBonusHp;
     p.dmgMulti = 1.0 + (p.level - 1) * 0.08 + int_ * 0.02;
-    p.critRate = (cls.critRate || 0.1) + bonusCrit + runeCrit + legacyCrit + advCrit + dex * 0.005;
-    p.dodgeRate = (cls.dodgeRate || 0) + bonusDodge + runeDodge + advDodge + dex * 0.003;
-    p.equipBonusSpd = bonusSpd + runeSpd + legacySpd;
+    p.critRate = (cls.critRate || 0.1) + bonusCrit + runeCrit + legacyCrit + advCrit + awkCrit + blCrit * 0.01 + dex * 0.005;
+    p.dodgeRate = (cls.dodgeRate || 0) + bonusDodge + runeDodge + advDodge + awkDodge + blDodge * 0.01 + dex * 0.003;
+    p.equipBonusSpd = bonusSpd + runeSpd + legacySpd + awkSpd + blSpd;
     p.equipExpBonus = bonusExp + setExpBonus + runeExp + legacyExpBonus + titleExp;
     p.equipGoldBonus = bonusGold + runeGold + legacyGoldBonus;
     p.dropRateBonus = runeDropRate + legacyDropRate;
@@ -455,6 +486,17 @@ function spawnMonster() {
         monsters[mId].maxHp = Math.floor(monsters[mId].maxHp * 1.2);
         monsters[mId].nightBuffed = true;
     }
+
+    // v2.47: 변이 체크
+    try {
+        const mutation = require('./mutation');
+        const mutResult = mutation.tryMutate(monsters[mId]);
+        if (mutResult) {
+            const spawnZoneName = _ZONES[zoneId]?.name || zoneId;
+            io.emit('server_msg', { msg: `[변이체] ${mutResult.mutation.prefix} ${monsters[mId].name}이(가) ${spawnZoneName}에 출현!`, type: mutResult.mutation.tier >= 3 ? 'legendary' : 'rare' });
+            io.emit('mutant_spawn', { id: mId, name: monsters[mId].name, tier: mutResult.mutation.tier, color: mutResult.mutation.color, zoneId });
+        }
+    } catch(e) {}
 
     // 레어 몬스터 스폰 공지
     if (tierKey === 'legendary' || tierKey === 'mythic') {

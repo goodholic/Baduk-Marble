@@ -509,6 +509,22 @@
         {label:'NPC 힐러', action:()=>window.socket.emit('interact_npc','힐러')},
         {label:'NPC 대장장이', action:()=>window.socket.emit('interact_npc','대장장이')},
         {label:'NPC 항해사', action:()=>window.socket.emit('interact_npc','항해사')},
+        {label:'📕 금서', action:()=>window.socket.emit('grimoire_status')},
+        {label:'🌌 별자리', action:()=>window.socket.emit('constellation_status')},
+        {label:'🔮 타로', action:()=>window.socket.emit('tarot_status')},
+        {label:'🩸 혈맹', action:()=>window.socket.emit('bloodline_status')},
+        {label:'👻 영혼계약', action:()=>window.socket.emit('soul_status')},
+        {label:'📜 고대어', action:()=>window.socket.emit('ancient_lang_status')},
+        {label:'🙏 신전', action:()=>window.socket.emit('divine_status')},
+        {label:'♻️ 전생', action:()=>window.socket.emit('pastlife_status')},
+        {label:'🧬 변이도감', action:()=>window.socket.emit('mutation_codex')},
+        {label:'⛓️ 저주장비', action:()=>window.socket.emit('cursed_status')},
+        {label:'⚗️ 연금술', action:()=>window.socket.emit('alchemy_status')},
+        {label:'⚙️ 골렘', action:()=>window.socket.emit('golem_status')},
+        {label:'🏆 전당', action:()=>window.socket.emit('hall_status')},
+        {label:'🧚 정령', action:()=>window.socket.emit('spirit_status')},
+        {label:'⚔️ 신화무기', action:()=>window.socket.emit('mythweapon_status')},
+        {label:'🌀 차원여행', action:()=>window.socket.emit('dim_status')},
         {label:'부스트!', action:()=>window.socket.emit('active_tap')},
       ],
       items: [
@@ -672,6 +688,7 @@
     // ── 스탯/전직/혈맹/파티 ──
     function addStat(stat) { window.socket.emit('add_stat', stat); }
     function classAdvance() { window.socket.emit('get_advance_options'); }
+    function classAwaken() { window.socket.emit('get_awaken_options'); }
     function createClan() {
       var name = document.getElementById('clan-name-input').value.trim();
       if (name) window.socket.emit('create_clan', name);

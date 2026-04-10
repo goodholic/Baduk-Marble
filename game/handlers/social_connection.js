@@ -2,7 +2,7 @@
 
 function registerSocialConnectionHandlers(socket, $) {
     const {
-        players, io, savePlayer, pool, recalcStats, getZone, CLASS_ADVANCE, EQUIP_STATS,
+        players, io, savePlayer, pool, recalcStats, getZone, CLASS_ADVANCE, CLASS_AWAKEN, AWAKEN_SKILLS, EQUIP_STATS,
         TRADEABLE_ITEMS, CLAN_LEVEL_EXP, CLAN_MAX_MEMBERS, CLAN_SKILLS, MAX_GOLD, clans, rankings, pendingMails,
         FACTIONS, DUNGEONS,
     } = $;
@@ -21,7 +21,7 @@ function registerSocialConnectionHandlers(socket, $) {
             }
         }
         socket.emit('profile_data', {
-            name: p.displayName, class: p.className, advancedClass: p.advancedClass,
+            name: p.displayName, class: p.className, advancedClass: p.advancedClass, awakenedClass: p.awakenedClass,
             level: p.level, prestige: p.prestigeLevel || 0,
             atk: p.atk, def: p.def, maxHp: p.maxHp, critRate: Math.floor((p.critRate||0)*100),
             dodgeRate: Math.floor((p.dodgeRate||0)*100), dmgMulti: (p.dmgMulti||1).toFixed(2),
@@ -370,6 +370,53 @@ function registerSocialConnectionHandlers(socket, $) {
         savePlayer(p);
         io.emit('server_msg', { msg: `${p.displayName} 전직! [${adv.displayName}]`, type: 'rare' });
         socket.emit('advance_result', { success: true, msg: `${adv.displayName}(으)로 전직 완료! — ${adv.desc}` });
+        io.emit('player_update', p);
+    });
+
+    // ── 2차 각성 (Lv.40, v2.38) ──
+
+    // --- get_awaken_options ---
+    socket.on('get_awaken_options', () => {
+        const p = players[playerId];
+        if (!p || !p.isAdvanced || p.isAwakened || p.level < 40) return;
+        const advClass = p.advancedClass;
+        const options = CLASS_AWAKEN[advClass];
+        if (!options) return;
+        socket.emit('awaken_options', options.map((o, i) => ({
+            idx: i, name: o.displayName, desc: o.desc, color: o.color,
+            passive: o.passive ? `[패시브] ${o.passive.name}: ${o.passive.desc}` : '',
+            skill: AWAKEN_SKILLS[o.name] ? `[각성기] ${AWAKEN_SKILLS[o.name].name}: ${AWAKEN_SKILLS[o.name].desc}` : '',
+            stats: `ATK+${o.bonusAtk||0} DEF+${o.bonusDef||0} HP+${o.bonusHp||0} CRIT+${Math.floor((o.bonusCrit||0)*100)}% 회피+${Math.floor((o.bonusDodge||0)*100)}% SPD+${o.bonusSpeed||0}`
+        })));
+    });
+
+    // --- class_awaken ---
+    socket.on('class_awaken', (choiceIdx) => {
+        const p = players[playerId];
+        if (!p || !p.isAdvanced || p.isAwakened || p.level < 40) {
+            socket.emit('awaken_result', { success: false, msg: p?.isAwakened ? '이미 각성함' : !p?.isAdvanced ? '1차 전직 필요' : 'Lv.40 필요' });
+            return;
+        }
+        const advClass = p.advancedClass;
+        const options = CLASS_AWAKEN[advClass];
+        if (!options) { socket.emit('awaken_result', { success: false, msg: '각성 불가' }); return; }
+        const idx = parseInt(choiceIdx) || 0;
+        const awk = options[Math.min(idx, options.length - 1)];
+        if (!awk) return;
+        p.isAwakened = true;
+        p.awakenedClass = awk.name;
+        p.displayName = awk.displayName;
+        p.awakenPassive = awk.passive || null;
+        p.awakenColor = awk.color || null;
+        p.awakenBonus = {
+            atk: awk.bonusAtk || 0, def: awk.bonusDef || 0, hp: awk.bonusHp || 0,
+            crit: awk.bonusCrit || 0, dodge: awk.bonusDodge || 0, speed: awk.bonusSpeed || 0
+        };
+        recalcStats(p);
+        p.hp = p.maxHp;
+        savePlayer(p);
+        io.emit('server_msg', { msg: `⚡ ${p.displayName} 각성! [${awk.displayName}] — ${awk.passive?.name || ''}`, type: 'legendary' });
+        socket.emit('awaken_result', { success: true, msg: `${awk.displayName}(으)로 각성 완료!\n${awk.passive ? '패시브: ' + awk.passive.name + ' — ' + awk.passive.desc : ''}`, color: awk.color });
         io.emit('player_update', p);
     });
 

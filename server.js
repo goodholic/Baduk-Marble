@@ -39,6 +39,39 @@ const ancientRuins = require('./game/ancient_ruins');
 const worldChronicle = require('./game/world_chronicle');
 const advGuild = require('./game/adventurer_guild');
 const magicLab = require('./game/magic_lab');
+const moonSanctuary = require('./game/moonlight_sanctuary');
+const weaponSoul = require('./game/weapon_soul');
+const floatingFortress = require('./game/floating_fortress');
+const astralProjection = require('./game/astral_projection');
+const cursedDungeon = require('./game/cursed_dungeon');
+const fateDuel = require('./game/fate_duel');
+const spiritForge = require('./game/spirit_forge');
+const phantomColosseum = require('./game/phantom_colosseum');
+const dreamArchitect = require('./game/dream_architect');
+const constellationWar = require('./game/constellation_war');
+const forbiddenLibrary = require('./game/forbidden_library');
+const beastColossus = require('./game/beast_colossus');
+const merchantCaravan = require('./game/merchant_caravan');
+const memoryPalace = require('./game/memory_palace');
+const demonThrone = require('./game/demon_throne');
+const celestialForge = require('./game/celestial_forge');
+const livingGrimoire = require('./game/living_grimoire');
+const worldSeed = require('./game/world_seed');
+const fateWeaver = require('./game/fate_weaver');
+const forbiddenGrimoire = require('./game/forbidden_grimoire');
+const bloodline = require('./game/bloodline');
+const soulContract = require('./game/soul_contract');
+const ancientLanguage = require('./game/ancient_language');
+const divineBlessing = require('./game/divine_blessing');
+const pastLife = require('./game/past_life');
+const mutation = require('./game/mutation');
+const cursedEquipment = require('./game/cursed_equipment');
+const forbiddenAlchemy = require('./game/forbidden_alchemy');
+const golemCraft = require('./game/golem_craft');
+const hallOfHeroes = require('./game/hall_of_heroes');
+const spiritPact = require('./game/spirit_pact');
+const mythicWeapon = require('./game/mythic_weapon');
+const dimensionTraveler = require('./game/dimension_traveler');
 const { handleRaidFinish, codexDiscover, finishBossRush, updateTownPrices, generateRandomOptions, logWorldEvent } = serverHelpers;
 const { expireMarketListings, destroyAxe, syncGameState, updatePassives, updatePlayerAutoSkills, updateBots, giveExp, handleCollisions, handleAoeDamage, handlePlayerDeath } = loops;
 // Phase 3 refactor: 전투/스폰/랭킹 모듈
@@ -109,7 +142,7 @@ const {
     EQUIP_DESCRIPTIONS,
 } = require('./game/data/equipment');
 // v1.40 Phase 4: 퀘스트/스킬/전직 데이터 추출 (server.js → game/data/quests.js)
-const { QUESTS, SKILLS, CLASS_ADVANCE } = require('./game/data/quests');
+const { QUESTS, SKILLS, CLASS_ADVANCE, CLASS_AWAKEN, AWAKEN_SKILLS } = require('./game/data/quests');
 const {
     CLASSES, ELEMENTS, RUNES, RUNE_WORDS, FACTIONS, LEGACY_PERKS,
     INFINITE_TOWER, RIFT_THEMES, ZONE_MINI_BOSSES, ZONE_HAZARDS,
@@ -363,6 +396,7 @@ loops.init({
     get serverStartTime() { return serverStartTime; },
     // Phase 4b
     getSKILLS: () => SKILLS,
+    getAwakenSkills: () => AWAKEN_SKILLS,
     getBuffedStat,
     spawnMonster,
     // Phase 4c
@@ -401,6 +435,16 @@ loops.init({
     alertArmy, generateRandomOptions, createBot, getWeekNumber,
     getThisWeekChallenge, getTodaysChallenge,
     nextEntityId: () => ++entityIdCounter,
+    constellation,
+    forbiddenGrimoire,
+    soulContract,
+    ancientLanguage,
+    divineBlessing,
+    mutation,
+    cursedEquipment,
+    hallOfHeroes,
+    spiritPact,
+    mythicWeapon,
 });
 
 // server_helpers init
@@ -471,6 +515,9 @@ httpRoutes.register(app, {
     serverStartTime,
     getMaxPlayers: () => MAX_PLAYERS,
 });
+
+// v2.51: 영웅의 전당 초기화
+hallOfHeroes.init({});
 
 server.listen(PORT, () => {
     console.log(`[AutoBattle.io] Server running on port ${PORT}`);
@@ -571,6 +618,39 @@ async function savePlayer(player) {
         _ancientRuins: player._ancientRuins || null,
         _advGuild: player._advGuild || null,
         _magicLab: player._magicLab || null,
+        _moonSanctuary: player._moonSanctuary || null,
+        _weaponSoul: player._weaponSoul || null,
+        _fortress: player._fortress || null,
+        _astral: player._astral || null,
+        _cursedDungeon: player._cursedDungeon || null,
+        _fateDuel: player._fateDuel || null,
+        _spiritForge: player._spiritForge || null,
+        _colosseum: player._colosseum || null,
+        _dreamArch: player._dreamArch || null,
+        _constellWar: player._constellWar || null,
+        _forbiddenLib: player._forbiddenLib || null,
+        _beastColossus: player._beastColossus || null,
+        _caravan: player._caravan || null,
+        _memoryPalace: player._memoryPalace || null,
+        _demonThrone: player._demonThrone || null,
+        _celestialForge: player._celestialForge || null,
+        _livingGrimoire: player._livingGrimoire || null,
+        _worldSeed: player._worldSeed || null,
+        _fateWeaver: player._fateWeaver || null,
+        _grimoire: player._grimoire || null,
+        _bloodline: player._bloodline || null,
+        _soulContract: player._soulContract || null,
+        _ancientLang: player._ancientLang || null,
+        _divine: player._divine || null,
+        _pastLife: player._pastLife || null,
+        _mutationLog: player._mutationLog || null,
+        _cursedEquip: player._cursedEquip || null,
+        _alchemy: player._alchemy || null,
+        _golem: player._golem || null,
+        _hallRelics: player._hallRelics || [],
+        _spiritPact: player._spiritPact || null,
+        _mythicWeapon: player._mythicWeapon || null,
+        _dimTravel: player._dimTravel || null,
     });
 
     try {
@@ -867,7 +947,7 @@ registerConnection(io, {
     bossRushSessions, activeDungeons, contractBoard, pendingMails,
     savePlayer, recalcStats, trackQuest, getZone,
     isOnRoad, isBlocked, isSlowTerrain, getNpcMsg,
-    CLASSES, SKILLS, QUESTS, CLASS_ADVANCE,
+    CLASSES, SKILLS, QUESTS, CLASS_ADVANCE, CLASS_AWAKEN, AWAKEN_SKILLS,
     EQUIPMENT_SLOTS, EQUIP_STATS, GRADE_INFO, EQUIPMENT_SETS,
     RANDOM_OPTIONS, EQUIP_DESCRIPTIONS,
     ZONES, ZONE_AMBIENCE, MONSTER_LORE, ZONE_CONNECTIONS, ZONE_MONSTERS, ZONE_MONSTER_NAMES,
@@ -904,7 +984,7 @@ registerConnection(io, {
     createBot, createAutoArmy, alertArmy, executeThrow,
     generateRandomOptions, codexDiscover, handleRaidFinish, finishBossRush,
     SEASON_XP_MAP, ELEMENTS, FACTIONS, RUNES, RUNE_WORDS, TRAINING_DRILLS_NAMES,
-    questChain, bossSummon, weatherDungeon, pvpMatch, bountyHunter, raceSystem, relicFusion, skillWave, achievements, superBoss, territoryWar, wishTree, soulSystem, timeDungeon, mythicSummon, ancientRuins, worldChronicle, advGuild, magicLab,
+    questChain, bossSummon, weatherDungeon, pvpMatch, bountyHunter, raceSystem, relicFusion, skillWave, achievements, superBoss, territoryWar, wishTree, soulSystem, timeDungeon, mythicSummon, ancientRuins, worldChronicle, advGuild, magicLab, moonSanctuary, weaponSoul, floatingFortress, astralProjection, cursedDungeon, fateDuel, spiritForge, phantomColosseum, dreamArchitect, constellationWar, forbiddenLibrary, beastColossus, merchantCaravan, memoryPalace, demonThrone, celestialForge, livingGrimoire, worldSeed, fateWeaver, forbiddenGrimoire, bloodline, soulContract, ancientLanguage, divineBlessing, pastLife, mutation, cursedEquipment, forbiddenAlchemy, golemCraft, hallOfHeroes, spiritPact, mythicWeapon, dimensionTraveler,
     // mutable primitives via getters
     get isNight() { return isNight; },
     get currentWeather() { return currentWeather; },
@@ -2078,6 +2158,16 @@ setInterval(() => {
 // ══════════════════════════════════════
 // 서버 안정성 시스템
 // ═══════��══════════════════════════════
+
+// ── 별자리 전쟁 단계 전환 (30초마다 체크) ──
+setInterval(() => {
+    const result = constellationWar.updateWarPhase();
+    if (result.changed) {
+        const phase = constellationWar.getWarState().phase;
+        const WAR_PHASES = { peace: '🕊️ 평화', mobilize: '📯 동원', battle: '⚔️ 전투', reward: '🏆 보상' };
+        io.emit('server_msg', { msg: `[별자리 전쟁] 단계 전환: ${WAR_PHASES[phase] || phase}`, type: 'rare' });
+    }
+}, 30000);
 
 // ── 주기적 자동 저장 (60초마다) ──
 setInterval(async () => {

@@ -696,7 +696,7 @@
         var gradeColors = {normal:'#ccc',uncommon:'#4c4',rare:'#48f',epic:'#a4f',legendary:'#f80'};
         var html = '<div style="text-align:center;margin-bottom:12px">';
         html += '<div class="text-gold" style="font-size:16px;font-weight:900">' + d.name + '</div>';
-        html += '<div class="text-muted text-sm">' + (d.advancedClass||d.class) + ' Lv.' + d.level;
+        html += '<div class="text-muted text-sm">' + (d.awakenedClass||d.advancedClass||d.class) + ' Lv.' + d.level;
         if (d.prestige > 0) html += ' <span style="color:#ff8800">★' + d.prestige + '</span>';
         html += '</div>';
         if (d.faction !== '없음') html += '<div class="text-sm" style="color:#88ccff">' + d.faction + ' (기여: ' + d.factionRep + ')</div>';
@@ -1301,6 +1301,1231 @@
 
       // 전직 결과
       window.socket.on('advance_result', (d) => { showToast(d.msg); if(d.success) playSFX('levelup'); });
+
+      // 2차 각성 선택 (v2.38)
+      window.socket.on('awaken_options', (options) => {
+        var html = '<p style="margin-bottom:10px;color:#ff8800;font-size:12px;font-weight:bold">⚡ Lv.40 2차 각성 — 궁극의 클래스로 진화하세요 (되돌릴 수 없음!)</p>';
+        var btns = options.map(function(o) {
+          return { label: o.name, action: "window.socket.emit('class_awaken'," + o.idx + ");closeModal();" };
+        });
+        btns.push({label:'취소',type:'cancel',action:'closeModal()'});
+        showModal('⚡ 2차 각성', html + options.map(function(o) {
+          return '<div class="card" style="margin-bottom:8px;border-left:3px solid '+(o.color||'#ffd700')+'">' +
+            '<b style="color:'+(o.color||'#ffd700')+';font-size:14px">' + o.name + '</b>' +
+            '<div class="text-sm text-muted" style="margin:3px 0">' + o.desc + '</div>' +
+            '<div class="text-xs" style="color:#aaa">' + o.stats + '</div>' +
+            (o.passive ? '<div class="text-xs" style="color:#ff8800;margin-top:4px">' + o.passive + '</div>' : '') +
+            (o.skill ? '<div class="text-xs" style="color:#ff4444;margin-top:2px">' + o.skill + '</div>' : '') +
+            '</div>';
+        }).join(''), btns);
+      });
+
+      // 각성 결과
+      window.socket.on('awaken_result', (d) => {
+        if (d.success) {
+          showToast('⚡ ' + d.msg);
+          playSFX('levelup'); playSFX('boss');
+        } else {
+          showToast(d.msg);
+        }
+      });
+
+      // ── 금지된 마법서 (v2.39) ──
+      window.socket.on('grimoire_status', (data) => {
+        var tierColors = {1:'#88ccff', 2:'#aa44ff', 3:'#ff4444'};
+        var tierNames = {1:'고대', 2:'금단', 3:'금기'};
+        var html = '<div style="margin-bottom:10px;text-align:center">' +
+          '<div style="color:#ff4400;font-size:14px;font-weight:bold">숙련도: ' + data.masteryName + ' (Lv.' + data.masteryLevel + ')</div>' +
+          '<div class="text-xs text-muted">EXP: ' + data.mastery + ' / ' + data.nextMasteryExp + ' | 대가 감소: ' + data.masteryBonus + '%</div>' +
+          '</div>';
+
+        // 수집된 마법서
+        var collected = data.grimoires.filter(function(g){ return g.collected; });
+        var uncollected = data.grimoires.filter(function(g){ return !g.collected; });
+
+        if (collected.length > 0) {
+          html += '<div style="margin-bottom:6px;color:#ffd700;font-size:12px;font-weight:bold">보유 마법서</div>';
+          collected.forEach(function(g) {
+            var borderColor = tierColors[g.tier] || '#888';
+            html += '<div class="card" style="margin-bottom:6px;border-left:3px solid '+borderColor+';padding:8px">' +
+              '<div style="display:flex;justify-content:space-between;align-items:center">' +
+              '<b style="color:'+borderColor+'">' + g.icon + ' ' + g.name + ' <span style="font-size:9px;opacity:0.7">['+tierNames[g.tier]+']</span></b>';
+            if (g.deciphered) {
+              if (g.cooldown > 0) {
+                html += '<span class="text-xs" style="color:#888">CD: '+g.cooldown+'초</span>';
+              } else {
+                html += '<button class="btn btn-sm" style="background:#ff4400;color:#fff;font-size:10px;padding:2px 8px" onclick="window.socket.emit(\'grimoire_cast\',\''+g.id+'\');closeModal();">시전</button>';
+              }
+            } else if (g.deciphering > 0) {
+              html += '<span class="text-xs" style="color:#ffd700">해독 중... '+g.deciphering+'초</span>' +
+                '<button class="btn btn-sm" style="font-size:10px;padding:2px 6px;margin-left:4px" onclick="window.socket.emit(\'grimoire_check_decipher\',\''+g.id+'\');">확인</button>';
+            } else {
+              html += '<button class="btn btn-sm" style="background:#6c5ce7;color:#fff;font-size:10px;padding:2px 8px" onclick="window.socket.emit(\'grimoire_decipher\',\''+g.id+'\');">해독</button>';
+            }
+            html += '</div>' +
+              '<div class="text-xs text-muted" style="margin-top:3px">' + g.desc + '</div>' +
+              '<div class="text-xs" style="color:#44ff44;margin-top:2px">효과: ' + g.effectDesc + '</div>' +
+              '<div class="text-xs" style="color:#ff6b6b;margin-top:1px">대가: ' + g.costDesc + '</div>' +
+              (g.lore ? '<div class="text-xs" style="color:#666;font-style:italic;margin-top:2px">"' + g.lore + '"</div>' : '') +
+              '</div>';
+          });
+        }
+
+        // 미발견 마법서 (이름만)
+        if (uncollected.length > 0) {
+          html += '<div style="margin-top:10px;margin-bottom:6px;color:#888;font-size:12px">미발견 마법서 (' + uncollected.length + '종)</div>';
+          uncollected.forEach(function(g) {
+            html += '<div class="text-xs" style="color:#555;margin:2px 0">' + g.icon + ' ??? ['+tierNames[g.tier]+'] — 몬스터 드롭으로 획득</div>';
+          });
+        }
+
+        showModal('📕 금지된 마법서', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+      });
+
+      window.socket.on('grimoire_result', (d) => showToast(d.msg));
+      window.socket.on('grimoire_decipher_result', (d) => {
+        if (d.completed) {
+          showToast(d.msg);
+          if (!d.failed) { playSFX('levelup'); }
+          window.socket.emit('grimoire_status');
+        } else if (d.remaining) {
+          showToast('해독 진행 중... ' + d.remaining + '초 남음');
+        }
+      });
+      window.socket.on('grimoire_cast_result', (d) => {
+        if (d.success) {
+          showToast(d.msg);
+          playSFX('boss');
+        } else {
+          showToast(d.msg);
+        }
+      });
+      window.socket.on('grimoire_drop', (d) => {
+        showToast(d.icon + ' 금서 발견: ' + d.name + '!');
+        playSFX('levelup');
+      });
+
+      // ── 운명의 별자리 (v2.40) ──
+      window.socket.on('constellation_status_result', (data) => {
+        var tierColors = {1:'#88ccff', 2:'#44aaff', 3:'#aa44ff', 4:'#ffd700'};
+        var html = '<div style="text-align:center;margin-bottom:10px">' +
+          '<div style="font-size:14px;color:#ffd700">✨ 별가루: <b>' + data.stardust + '</b></div>' +
+          '<div class="text-xs text-muted">노드: ' + data.totalNodesUnlocked + '/60' +
+          (data.grandMaster ? ' <span style="color:#ffd700">🌌 별의 지배자!</span>' : '') + '</div>' +
+          '</div>';
+
+        // 오늘의 별자리
+        var t = data.today;
+        html += '<div class="card" style="margin-bottom:8px;border:1px solid #ffd700;padding:8px;text-align:center">' +
+          '<div style="font-size:20px">' + t.icon + '</div>' +
+          '<div style="color:#ffd700;font-size:13px">' + t.name + ' (오늘)</div>' +
+          '<div class="text-xs text-muted">+' + t.value + ' ' + t.stat + ' (24시간)</div>';
+        if (data.observedToday) {
+          html += '<div class="text-xs" style="color:#44ff44;margin-top:4px">✓ 관측 완료</div>';
+        } else {
+          html += '<button class="btn btn-sm" style="margin-top:4px;background:#6c5ce7;color:#fff" onclick="window.socket.emit(\'constellation_observe\');closeModal();">관측하기 (+15 별가루)</button>';
+        }
+        html += '</div>';
+
+        // 활성 버프
+        if (data.activeBuff) {
+          html += '<div class="text-xs" style="color:#88ccff;margin-bottom:8px;text-align:center">' +
+            data.activeBuff.icon + ' 활성: +' + data.activeBuff.value + ' ' + data.activeBuff.stat +
+            ' (' + Math.ceil((data.activeBuff.expiresAt - Date.now()) / 3600000) + '시간 남음)</div>';
+        }
+
+        // 12궁 패시브 트리
+        html += '<div style="margin-top:8px;font-size:12px;color:#ffd700;font-weight:bold;margin-bottom:6px">12궁 패시브 트리</div>';
+        var zodiacOrder = ['aries','taurus','gemini','cancer','leo','virgo','libra','scorpio','sagittarius','capricorn','aquarius','pisces'];
+        var constMap = {};
+        data.allConstellations.forEach(function(c){ constMap[c.id] = c; });
+
+        zodiacOrder.forEach(function(zId) {
+          var zs = data.zodiacStatus[zId];
+          var info = constMap[zId];
+          if (!info || !zs) return;
+          var isComplete = zs.complete;
+          var borderColor = isComplete ? '#ffd700' : '#333';
+          html += '<div class="card" style="margin-bottom:4px;border-left:3px solid '+borderColor+';padding:6px">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center">' +
+            '<span style="color:'+(isComplete?'#ffd700':'#aaa')+';font-size:12px">' + info.icon + ' ' + info.name +
+            ' <span style="font-size:10px;color:#888">(' + zs.unlocked + '/' + zs.total + ')</span></span>';
+          if (isComplete && zs.completeBonus) {
+            html += '<span class="text-xs" style="color:#ffd700">' + zs.completeBonus.desc + '</span>';
+          }
+          html += '</div>';
+
+          // 노드들
+          html += '<div style="display:flex;gap:3px;margin-top:4px;flex-wrap:wrap">';
+          zs.nodes.forEach(function(n) {
+            var bg = n.unlocked ? '#2a5a2a' : n.available ? '#3a3a5a' : '#1a1a2a';
+            var color = n.unlocked ? '#44ff44' : n.available ? '#88ccff' : '#555';
+            var cursor = n.available && !n.unlocked ? 'pointer' : 'default';
+            var onClick = n.available && !n.unlocked
+              ? 'onclick="window.socket.emit(\'constellation_unlock\',\''+n.id+'\');closeModal();"'
+              : '';
+            var tierIcon = n.ultimate ? '⭐' : n.tier >= 3 ? '★' : '·';
+            html += '<div style="background:'+bg+';color:'+color+';font-size:9px;padding:3px 6px;border-radius:3px;cursor:'+cursor+';border:1px solid '+(n.unlocked?'#44ff44':n.available?'#88ccff':'#333')+'" title="'+n.name+': '+n.desc+' ('+n.cost+' 별가루)" '+onClick+'>' +
+              tierIcon + ' ' + n.name + (n.unlocked ? ' ✓' : n.available ? ' ['+n.cost+']' : '') + '</div>';
+          });
+          html += '</div></div>';
+        });
+
+        // 관측 도감
+        html += '<div style="margin-top:8px;font-size:11px;color:#888">관측 도감: ' + data.collectedCount + '/' + data.totalCount;
+        if (data.masterBonus) html += ' <span style="color:#ffd700">(별의 인도자 +' + data.masterBonus.value + ' 전 스탯)</span>';
+        html += '</div>';
+
+        showModal('🌌 운명의 별자리', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+      });
+
+      window.socket.on('constellation_result', (d) => {
+        showToast(d.msg);
+        if (d.success) playSFX('gold');
+      });
+
+      window.socket.on('constellation_unlock_result', (d) => {
+        if (d.success) {
+          showToast(d.msg);
+          playSFX('levelup');
+          window.socket.emit('constellation_status');
+        } else {
+          showToast(d.msg);
+        }
+      });
+
+      // ── 예언의 타로 (v2.41) ──
+      window.socket.on('tarot_status_result', (data) => {
+        var rarityColors = {rare:'#44aaff', epic:'#aa44ff', legendary:'#ffd700'};
+        var html = '<div style="text-align:center;margin-bottom:10px">' +
+          '<div style="font-size:14px;color:#aa44ff">🔮 ' + data.fateLine + '</div>' +
+          '<div class="text-xs text-muted">운명 점수: ' + data.fateScore + ' | 총 ' + data.readings + '회 점술</div>' +
+          '</div>';
+
+        // 오늘의 카드
+        if (!data.readToday) {
+          html += '<div style="text-align:center;margin:12px 0">' +
+            '<button class="btn" style="background:linear-gradient(135deg,#6c5ce7,#aa44ff);color:#fff;padding:10px 30px;font-size:14px" ' +
+            'onclick="window.socket.emit(\'tarot_read\');closeModal();">카드 뽑기 (3장)</button></div>';
+        } else if (data.lastReading) {
+          html += '<div style="display:flex;gap:6px;justify-content:center;margin:8px 0">';
+          var positions = ['과거','현재','미래'];
+          data.lastReading.cards.forEach(function(c, i) {
+            var borderColor = c.reversed ? '#ff4444' : '#44ff44';
+            html += '<div style="flex:1;background:#1a1a2e;border:2px solid '+borderColor+';border-radius:8px;padding:8px;text-align:center">' +
+              '<div class="text-xs" style="color:#888">' + positions[i] + '</div>' +
+              '<div style="font-size:24px;margin:4px 0">' + c.card.icon + '</div>' +
+              '<div style="font-size:11px;color:'+borderColor+'">' + c.card.name + '</div>' +
+              '<div class="text-xs" style="color:#aaa">' + (c.reversed ? '역: '+c.card.reversed : c.card.upright) + '</div>' +
+              '</div>';
+          });
+          html += '</div>';
+
+          // 활성 보너스
+          if (data.activeBonus && data.activeBonus.stats) {
+            var bonusText = Object.entries(data.activeBonus.stats).filter(function(e){return e[1]!==0;}).map(function(e){
+              return e[0] + (e[1]>0?'+':'')+e[1];
+            }).join(', ');
+            if (bonusText) html += '<div class="text-xs" style="color:#88ccff;text-align:center;margin:4px 0">카드 보너스: ' + bonusText + '</div>';
+          }
+
+          // 조합 보너스
+          if (data.comboBonus) {
+            html += '<div class="card" style="border:1px solid '+(rarityColors[data.comboBonus.rarity]||'#888')+';margin:6px 0;padding:6px;text-align:center">' +
+              '<div style="color:'+(rarityColors[data.comboBonus.rarity]||'#ffd700')+';font-size:13px">' + data.comboBonus.icon + ' ' + data.comboBonus.name + '</div>' +
+              '<div class="text-xs text-muted">' + Object.entries(data.comboBonus.bonus).map(function(e){return e[0]+'+'+e[1];}).join(', ') + '</div>' +
+              '</div>';
+          }
+
+          // 운명의 도전 / 역방향 수용 버튼
+          var actionHtml = '<div style="display:flex;gap:6px;justify-content:center;margin:8px 0">';
+          if (data.canGambit) {
+            actionHtml += '<button class="btn btn-sm" style="background:#ff8800;color:#fff" onclick="window.socket.emit(\'tarot_gambit\');closeModal();">🎲 운명의 도전</button>';
+          }
+          if (data.canReversedChallenge) {
+            actionHtml += '<button class="btn btn-sm" style="background:#8844aa;color:#fff" onclick="window.socket.emit(\'tarot_embrace_reversed\');closeModal();">🖤 역방향 수용</button>';
+          }
+          actionHtml += '</div>';
+          html += actionHtml;
+        }
+
+        // 역방향 보너스
+        if (data.reversedBonus && data.reversedBonus.stats) {
+          var rText = Object.entries(data.reversedBonus.stats).map(function(e){return e[0]+'+'+e[1];}).join(', ');
+          if (rText) html += '<div class="text-xs" style="color:#8844aa;text-align:center">역방향 보상: ' + rText + '</div>';
+        }
+
+        // 마일스톤
+        html += '<div style="margin-top:10px;font-size:12px;color:#ffd700;font-weight:bold;margin-bottom:4px">운명 마일스톤</div>';
+        data.milestones.forEach(function(m) {
+          var bg = m.claimed ? '#2a5a2a' : m.achieved ? '#3a3a5a' : '#1a1a2a';
+          var color = m.claimed ? '#44ff44' : m.achieved ? '#ffd700' : '#555';
+          html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 6px;background:'+bg+';border-radius:3px;margin:2px 0">' +
+            '<span style="color:'+color+';font-size:10px">' + m.icon + ' ' + m.name + ' ('+m.score+'점) — ' + m.desc + '</span>';
+          if (m.achieved && !m.claimed) {
+            html += '<button class="btn btn-sm" style="font-size:9px;padding:1px 6px;background:#ffd700;color:#000" onclick="window.socket.emit(\'tarot_claim_milestone\','+m.score+');closeModal();">수령</button>';
+          } else if (m.claimed) {
+            html += '<span class="text-xs" style="color:#44ff44">✓</span>';
+          }
+          html += '</div>';
+        });
+
+        // 발견된 조합
+        var triggeredCombos = data.allCombos.filter(function(c){return c.triggered;});
+        if (triggeredCombos.length > 0 || data.allCombos.length > 0) {
+          html += '<div style="margin-top:8px;font-size:12px;color:#aa44ff;font-weight:bold;margin-bottom:4px">카드 조합 (' + triggeredCombos.length + '/' + data.allCombos.length + ')</div>';
+          data.allCombos.forEach(function(c) {
+            var color = c.triggered ? (rarityColors[c.rarity]||'#888') : '#444';
+            html += '<div class="text-xs" style="color:'+color+';margin:1px 0">' +
+              c.icon + ' ' + (c.triggered ? c.name + ' — ' + c.desc : '??? [' + c.rarity + ']') +
+              (c.count > 0 ? ' ('+c.count+'회)' : '') + '</div>';
+          });
+        }
+
+        showModal('🔮 예언의 타로', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+      });
+
+      window.socket.on('tarot_result', (d) => {
+        if (d.success) {
+          showToast('🔮 ' + d.msg);
+          playSFX('gold');
+          window.socket.emit('tarot_status');
+        } else {
+          showToast(d.msg);
+        }
+      });
+
+      window.socket.on('tarot_gambit_result', (d) => {
+        if (d.success) {
+          showToast(d.msg);
+          if (d.won) playSFX('levelup');
+          else playSFX('boss');
+          window.socket.emit('tarot_status');
+        } else {
+          showToast(d.msg);
+        }
+      });
+
+      window.socket.on('tarot_embrace_result', (d) => {
+        if (d.success) {
+          showToast(d.msg);
+          playSFX('gold');
+          window.socket.emit('tarot_status');
+        } else {
+          showToast(d.msg);
+        }
+      });
+
+      window.socket.on('tarot_milestone_result', (d) => {
+        if (d.success) {
+          showToast(d.msg);
+          playSFX('levelup');
+          window.socket.emit('tarot_status');
+        } else {
+          showToast(d.msg);
+        }
+      });
+
+      // ── 고대 혈맹 (v2.42) ──
+      window.socket.on('bloodline_status_result', (data) => {
+        var html = '';
+
+        if (!data.hasBloodline) {
+          // 혈통 선택 화면
+          html += '<div style="text-align:center;margin-bottom:10px">' +
+            '<div style="color:#ff4400;font-size:14px;font-weight:bold">고대의 피가 깨어나려 한다...</div>' +
+            '<div class="text-xs text-muted">' + (data.canChoose ? '혈통을 선택하세요 (한 번 선택하면 변경 불가!)' : 'Lv.25 이상 필요') + '</div></div>';
+
+          var types = ['dragon','angel','demon','spirit'];
+          types.forEach(function(t) {
+            var b = data.available[t];
+            html += '<div class="card" style="margin-bottom:6px;border-left:3px solid '+b.color+';padding:8px;cursor:'+(data.canChoose?'pointer':'default')+'"' +
+              (data.canChoose ? ' onclick="window.socket.emit(\'bloodline_choose\',\''+t+'\');closeModal();"' : '') + '>' +
+              '<div style="display:flex;align-items:center;gap:8px">' +
+              '<span style="font-size:24px">'+b.icon+'</span>' +
+              '<div><b style="color:'+b.color+';font-size:13px">'+b.name+'</b>' +
+              '<div class="text-xs text-muted">'+b.desc+'</div>' +
+              '<div class="text-xs" style="color:#888;font-style:italic;margin-top:2px">"'+b.lore+'"</div></div></div></div>';
+          });
+        } else {
+          // 혈통 상태
+          html += '<div style="text-align:center;margin-bottom:10px">' +
+            '<div style="font-size:28px">'+data.icon+'</div>' +
+            '<div style="color:'+data.color+';font-size:16px;font-weight:bold">'+data.name+'</div>' +
+            '<div class="text-xs" style="color:#aaa">'+data.stageName+' ('+data.stage+'/3단계)</div>' +
+            '<div class="text-xs text-muted" style="margin-top:2px">'+data.stageDesc+'</div>' +
+            '<div class="text-xs" style="color:#888;margin-top:4px">상성: '+data.matchup+'</div>' +
+            '</div>';
+
+          // 변신
+          if (data.transformInfo) {
+            html += '<div class="card" style="margin-bottom:6px;border:1px solid '+data.color+';padding:6px;text-align:center">';
+            if (data.transformActive) {
+              html += '<div style="color:'+data.color+';font-size:12px">'+data.transformInfo.name+' 활성! ('+data.transformRemaining+'초)</div>';
+            } else if (data.canTransform) {
+              html += '<button class="btn" style="background:'+data.color+';color:#fff;width:100%" onclick="window.socket.emit(\'bloodline_transform\');closeModal();">'+data.transformInfo.name+' ('+data.transformInfo.duration+'초)</button>';
+            } else if (data.transformCdRemain > 0) {
+              html += '<div class="text-xs" style="color:#888">변신 쿨다운: '+data.transformCdRemain+'초</div>';
+            } else {
+              html += '<div class="text-xs" style="color:#555">3단계 각성 필요</div>';
+            }
+            html += '<div class="text-xs text-muted" style="margin-top:2px">'+data.transformInfo.desc+'</div></div>';
+          }
+
+          // 스킬
+          if (data.skills.length > 0) {
+            html += '<div style="font-size:11px;color:'+data.color+';font-weight:bold;margin:6px 0 4px">혈맹 스킬</div>';
+            data.skills.forEach(function(sk) {
+              var bg = sk.locked ? '#1a1a1a' : sk.available ? '#2a2a4a' : '#1a1a2a';
+              var color = sk.locked ? '#555' : sk.available ? data.color : '#888';
+              html += '<div style="display:flex;justify-content:space-between;align-items:center;background:'+bg+';padding:4px 8px;border-radius:4px;margin:2px 0">' +
+                '<div><span style="color:'+color+';font-size:11px">'+sk.name+'</span>' +
+                '<div class="text-xs" style="color:#888">'+sk.desc+' (CD:'+sk.cd+'초, MP:'+sk.mpCost+')</div></div>';
+              if (sk.available) {
+                html += '<button class="btn btn-sm" style="background:'+data.color+';color:#fff;font-size:9px;padding:2px 8px" onclick="window.socket.emit(\'bloodline_skill\','+sk.index+');closeModal();">시전</button>';
+              } else if (sk.cdRemain > 0) {
+                html += '<span class="text-xs" style="color:#888">'+sk.cdRemain+'초</span>';
+              } else if (sk.locked) {
+                html += '<span class="text-xs" style="color:#555">잠김</span>';
+              }
+              html += '</div>';
+            });
+          }
+
+          // 각성
+          if (data.nextStage) {
+            var ns = data.nextStage;
+            html += '<div style="margin-top:8px;border-top:1px solid #333;padding-top:6px">' +
+              '<div style="font-size:11px;color:#ffd700;font-weight:bold">다음 각성: '+ns.name+'</div>' +
+              '<div class="text-xs text-muted">Lv.'+ns.reqLevel+' | '+Object.entries(ns.cost).map(function(e){return e[0]+': '+e[1];}).join(', ')+'</div>' +
+              '<div class="text-xs" style="color:#aaa;margin-top:2px">'+ns.desc+'</div>';
+            if (data.canAwaken) {
+              html += '<button class="btn" style="width:100%;margin-top:4px;background:#ffd700;color:#000" onclick="window.socket.emit(\'bloodline_awaken\');closeModal();">각성!</button>';
+            }
+            html += '</div>';
+          }
+        }
+
+        showModal('🩸 고대 혈맹', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+      });
+
+      window.socket.on('bloodline_result', (d) => {
+        showToast(d.msg);
+        if (d.success) { playSFX('levelup'); window.socket.emit('bloodline_status'); }
+      });
+
+      window.socket.on('bloodline_skill_result', (d) => {
+        if (d.success) { showToast(d.msg); playSFX('boss'); }
+        else showToast(d.msg);
+      });
+
+      // ── 영혼 계약 (v2.43) ──
+      window.socket.on('soul_status_result', (data) => {
+        var tierColors = {1:'#88ccff', 2:'#aa44ff', 3:'#ff4400'};
+        var tierNames = {1:'필드', 2:'던전', 3:'월드'};
+        var html = '<div style="text-align:center;margin-bottom:8px">' +
+          '<div style="color:#aa44ff;font-size:14px;font-weight:bold">👻 영혼 계약</div>' +
+          '<div class="text-xs text-muted">계약: '+data.totalContracts+' | 소환: '+data.totalSummons+'회 | 총 '+data.totalSouls+'종</div></div>';
+
+        // 활성 소환수
+        if (data.activeSummon) {
+          var as = data.activeSummon;
+          html += '<div class="card" style="border:2px solid #ffd700;padding:6px;margin-bottom:8px;text-align:center">' +
+            '<div style="font-size:20px">'+as.icon+'</div>' +
+            '<div style="color:#ffd700;font-size:12px">'+as.name+' 소환 중 ('+as.remaining+'초)</div>' +
+            '<button class="btn btn-sm" style="background:#ff4400;color:#fff;margin-top:4px'+(as.skillCdRemain>0?';opacity:0.5':'')+'" ' +
+            (as.skillCdRemain>0?'disabled':'onclick="window.socket.emit(\'soul_skill\');closeModal();"') +
+            '>'+(as.skillCdRemain>0?'스킬 CD: '+as.skillCdRemain+'초':'스킬 발동!')+'</button></div>';
+        }
+
+        // 계약된 영혼
+        if (data.contracted.length > 0) {
+          html += '<div style="font-size:11px;color:#ffd700;font-weight:bold;margin-bottom:4px">계약된 영혼</div>';
+          data.contracted.forEach(function(c) {
+            html += '<div class="card" style="margin-bottom:4px;border-left:3px solid '+c.color+';padding:6px">' +
+              '<div style="display:flex;justify-content:space-between;align-items:center">' +
+              '<div><span style="color:'+c.color+';font-size:12px">'+c.icon+' '+c.name+' Lv.'+c.level+' <span class="text-xs" style="color:#888">['+tierNames[c.tier]+']</span></span>' +
+              '<div class="text-xs text-muted">'+c.desc+'</div>' +
+              '<div class="text-xs" style="color:#aaa">ATK:'+c.stats.atk+' DEF:'+c.stats.def+' HP:'+c.stats.hp+' (x'+c.multi+'%)</div>' +
+              '<div class="text-xs" style="color:#88ccff">스킬: '+c.skillName+' — '+c.skillDesc+'</div>' +
+              '<div class="text-xs" style="color:#888">EXP: '+c.exp+'/'+c.nextExp+'</div></div>';
+            if (!data.activeSummon) {
+              html += '<button class="btn btn-sm" style="background:#6c5ce7;color:#fff;font-size:9px" onclick="window.socket.emit(\'soul_summon\',\''+c.id+'\');closeModal();">소환</button>';
+            }
+            html += '</div></div>';
+          });
+        }
+
+        // 영혼 파편
+        if (data.fragments.length > 0) {
+          html += '<div style="font-size:11px;color:#aa44ff;font-weight:bold;margin:8px 0 4px">영혼 파편</div>';
+          data.fragments.forEach(function(f) {
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 6px;background:#1a1a2a;border-radius:3px;margin:2px 0">' +
+              '<span style="color:'+f.color+';font-size:10px">'+f.icon+' '+f.name+' ('+f.count+'/'+f.needed+')</span>';
+            if (f.canContract) {
+              html += '<button class="btn btn-sm" style="font-size:9px;padding:1px 6px;background:#ffd700;color:#000" onclick="window.socket.emit(\'soul_contract\',\''+f.id+'\');closeModal();">계약</button>';
+            } else if (f.contracted) {
+              html += '<button class="btn btn-sm" style="font-size:9px;padding:1px 6px" onclick="window.socket.emit(\'soul_feed\',\''+f.id+'\');closeModal();">강화</button>';
+            }
+            html += '</div>';
+          });
+        }
+
+        // 미발견
+        if (data.undiscovered.length > 0) {
+          html += '<div style="margin-top:6px;font-size:10px;color:#555">미발견: '+data.undiscovered.length+'종 — 보스/엘리트 처치 시 파편 드롭</div>';
+        }
+
+        showModal('👻 영혼 계약', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+      });
+
+      window.socket.on('soul_result', (d) => {
+        showToast(d.msg);
+        if (d.success) { playSFX('levelup'); window.socket.emit('soul_status'); }
+      });
+      window.socket.on('soul_skill_result', (d) => {
+        if (d.success) { showToast(d.msg); playSFX('boss'); }
+        else showToast(d.msg);
+      });
+      window.socket.on('soul_feed_result', (d) => {
+        showToast(d.msg);
+        if (d.success) window.socket.emit('soul_status');
+      });
+      window.socket.on('soul_fragment_drop', (d) => {
+        showToast(d.icon + ' 영혼 파편: ' + d.name);
+        playSFX('gold');
+      });
+
+      // ── 고대 언어 (v2.44) ──
+      window.socket.on('ancient_lang_status_result', (data) => {
+        var html = '<div style="text-align:center;margin-bottom:8px">' +
+          '<div style="color:#ffd700;font-size:14px;font-weight:bold">📜 '+data.masteryName+' (Lv.'+data.masteryLevel+')</div>' +
+          '<div class="text-xs text-muted">EXP: '+data.mastery+'/'+data.nextMasteryExp+' | 데미지 +'+data.masteryBonus+'% | 주문 '+data.discoveredCount+'/'+data.totalSpells+'</div></div>';
+
+        // 보유 문자
+        html += '<div style="display:flex;gap:4px;justify-content:center;margin:8px 0;flex-wrap:wrap">';
+        data.allGlyphs.forEach(function(g) {
+          html += '<div style="text-align:center;padding:6px 10px;background:'+(g.count>0?'#2a2a4a':'#1a1a1a')+';border:1px solid '+(g.count>0?g.color:'#333')+';border-radius:6px;min-width:50px">' +
+            '<div style="font-size:18px">'+g.icon+'</div>' +
+            '<div style="font-size:9px;color:'+(g.count>0?g.color:'#555')+'">'+g.name+'</div>' +
+            '<div style="font-size:12px;color:'+(g.count>0?'#fff':'#555')+';font-weight:bold">'+g.count+'</div></div>';
+        });
+        html += '</div>';
+
+        // 주문 조합 인터페이스
+        html += '<div style="margin:8px 0;padding:8px;background:#1a1a2e;border-radius:6px">' +
+          '<div style="font-size:11px;color:#ffd700;margin-bottom:4px">주문 조합 (2~4문자 선택)</div>' +
+          '<div id="spell-combo" style="display:flex;gap:4px;min-height:36px;background:#111;border-radius:4px;padding:4px;margin-bottom:6px;flex-wrap:wrap"></div>' +
+          '<div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:6px">';
+        data.allGlyphs.forEach(function(g) {
+          if (g.count <= 0) return;
+          html += '<button class="btn btn-sm" style="background:'+g.color+'22;color:'+g.color+';border:1px solid '+g.color+'" ' +
+            'onclick="window._addGlyph(\''+g.id+'\',\''+g.icon+'\',\''+g.color+'\')">' +
+            g.icon+' '+g.name+'</button>';
+        });
+        html += '</div>' +
+          '<div style="display:flex;gap:4px">' +
+          '<button class="btn btn-sm" style="flex:1;background:#6c5ce7;color:#fff" onclick="window._castSpell()">시전!</button>' +
+          '<button class="btn btn-sm" style="background:#444;color:#aaa" onclick="window._spellCombo=[];document.getElementById(\'spell-combo\').innerHTML=\'\'">초기화</button>' +
+          '</div></div>';
+
+        // 발견된 주문
+        if (data.discovered.length > 0) {
+          html += '<div style="font-size:11px;color:#ffd700;font-weight:bold;margin:6px 0 4px">발견된 주문 ('+data.discovered.length+')</div>';
+          data.discovered.forEach(function(s) {
+            var tierColor = s.tier===1?'#88ccff':s.tier===2?'#aa44ff':'#ffd700';
+            html += '<div class="card" style="margin-bottom:3px;border-left:2px solid '+tierColor+';padding:4px 6px">' +
+              '<div style="display:flex;justify-content:space-between">' +
+              '<span style="color:'+tierColor+';font-size:10px">'+s.icon+' '+s.name+'</span>' +
+              '<span class="text-xs" style="color:#888">'+s.castCount+'회'+(s.cdRemain>0?' CD:'+s.cdRemain+'초':'')+'</span></div>' +
+              '<div class="text-xs text-muted">'+s.desc+'</div></div>';
+          });
+        }
+
+        // 미발견
+        var undi = data.undiscoveredByTier;
+        if (undi[1]+undi[2]+undi[3] > 0) {
+          html += '<div class="text-xs" style="color:#555;margin-top:6px">미발견: 기본 '+undi[1]+'종 / 상위 '+undi[2]+'종 / 궁극 '+undi[3]+'종</div>';
+        }
+
+        showModal('📜 고대 언어', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+
+        // 조합 헬퍼
+        window._spellCombo = [];
+        window._addGlyph = function(id, icon, color) {
+          if (window._spellCombo.length >= 4) return;
+          window._spellCombo.push(id);
+          var el = document.getElementById('spell-combo');
+          if (el) el.innerHTML += '<span style="font-size:18px;padding:2px 6px;background:'+color+'22;border:1px solid '+color+';border-radius:4px">'+icon+'</span>';
+        };
+        window._castSpell = function() {
+          if (window._spellCombo.length >= 2) {
+            window.socket.emit('ancient_lang_cast', window._spellCombo);
+            closeModal();
+          } else {
+            showToast('2개 이상 문자를 선택하세요');
+          }
+        };
+      });
+
+      window.socket.on('ancient_lang_result', (d) => {
+        if (d.success) {
+          showToast(d.msg);
+          if (d.newDiscovery) playSFX('levelup');
+          else playSFX('boss');
+          window.socket.emit('ancient_lang_status');
+        } else {
+          showToast(d.msg);
+        }
+      });
+
+      window.socket.on('glyph_drop', (d) => {
+        showToast(d.icon + ' 고대 문자: ' + d.name);
+      });
+
+      // ── 신의 축복 (v2.45) ──
+      window.socket.on('divine_status_result', (data) => {
+        var html = '';
+
+        if (!data.hasGod) {
+          html += '<div style="text-align:center;margin-bottom:10px">' +
+            '<div style="color:#ffd700;font-size:14px">어떤 신에게 귀의하시겠습니까?</div>' +
+            '<div class="text-xs text-muted">신은 변경 가능하지만 신앙심 50% 감소</div></div>';
+          data.gods.forEach(function(g) {
+            html += '<div class="card" style="margin-bottom:6px;border-left:3px solid '+g.color+';padding:8px;cursor:pointer" onclick="window.socket.emit(\'divine_choose\',\''+g.id+'\');closeModal();">' +
+              '<div style="display:flex;align-items:center;gap:8px">' +
+              '<span style="font-size:24px">'+g.icon+'</span>' +
+              '<div><b style="color:'+g.color+';font-size:13px">'+g.name+'</b> <span class="text-xs" style="color:#888">['+g.domain+']</span>' +
+              '<div class="text-xs text-muted">'+g.desc+'</div>' +
+              '<div class="text-xs" style="color:#666;font-style:italic">'+g.lore+'</div></div></div></div>';
+          });
+        } else {
+          var g = data.god;
+          var fr = data.faithRank;
+          html += '<div style="text-align:center;margin-bottom:10px">' +
+            '<div style="font-size:28px">'+g.icon+'</div>' +
+            '<div style="color:'+g.color+';font-size:16px;font-weight:bold">'+g.name+'</div>' +
+            '<div style="color:#ffd700;font-size:12px">'+fr.icon+' '+fr.name+' (신앙: '+data.faith+')</div>' +
+            '<div class="text-xs" style="color:#888;font-style:italic">'+g.lore+'</div></div>';
+
+          // 기도 & 기적
+          html += '<div style="display:flex;gap:6px;margin:8px 0">';
+          if (data.prayer.canPray) {
+            html += '<button class="btn" style="flex:1;background:'+g.color+';color:#fff" onclick="window.socket.emit(\'divine_pray\');closeModal();">🙏 '+data.prayer.name+'</button>';
+          } else {
+            html += '<button class="btn" style="flex:1;opacity:0.5" disabled>🙏 기도 CD: '+data.prayer.cdRemain+'초</button>';
+          }
+          if (data.miracle.canUse) {
+            html += '<button class="btn" style="flex:1;background:linear-gradient(135deg,'+g.color+',#ffd700);color:#fff" onclick="window.socket.emit(\'divine_miracle\');closeModal();">⚡ '+data.miracle.name+'</button>';
+          } else {
+            html += '<button class="btn" style="flex:1;opacity:0.5" disabled>⚡ 기적'+(data.miracle.cdRemain>0?' CD:'+data.miracle.cdRemain+'초':' ('+data.miracle.faithCost+'신앙)')+'</button>';
+          }
+          html += '</div>';
+          html += '<div class="text-xs text-muted" style="text-align:center">기도: '+data.prayer.desc+' | 기적: '+data.miracle.desc+'</div>';
+
+          // 공양
+          html += '<div style="display:flex;gap:4px;margin:6px 0">' +
+            '<button class="btn btn-sm" style="flex:1;background:#333" onclick="window.socket.emit(\'divine_offering\',\'gold\');closeModal();">💰 골드 공양 (10,000G→+5)</button>' +
+            '<button class="btn btn-sm" style="flex:1;background:#333" onclick="window.socket.emit(\'divine_offering\',\'item\');closeModal();">💎 영혼석 공양 (+15)</button></div>';
+
+          // 패시브
+          html += '<div style="font-size:11px;color:'+g.color+';font-weight:bold;margin:8px 0 4px">신의 은총</div>';
+          data.unlockedPassives.forEach(function(p) {
+            html += '<div style="padding:2px 6px;background:#2a5a2a;border-radius:3px;margin:2px 0">' +
+              '<span class="text-xs" style="color:#44ff44">✓ '+p.name+' ('+p.faith+') — '+p.desc+'</span></div>';
+          });
+          if (data.nextPassive) {
+            html += '<div style="padding:2px 6px;background:#1a1a2a;border-radius:3px;margin:2px 0">' +
+              '<span class="text-xs" style="color:#888">🔒 '+data.nextPassive.name+' ('+data.nextPassive.faith+' 필요) — '+data.nextPassive.desc+'</span></div>';
+          }
+        }
+
+        showModal('🙏 신의 축복', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+      });
+
+      window.socket.on('divine_result', (d) => {
+        showToast(d.msg);
+        if (d.success) { playSFX('levelup'); window.socket.emit('divine_status'); }
+      });
+      window.socket.on('divine_miracle_result', (d) => {
+        if (d.success) { showToast(d.msg); playSFX('boss'); playSFX('levelup'); }
+        else showToast(d.msg);
+      });
+
+      // ── 환생의 기억 (v2.46) ──
+      window.socket.on('pastlife_status_result', (data) => {
+        var tierColors = {rare:'#44aaff',epic:'#aa44ff',legendary:'#ffd700'};
+        var html = '<div style="text-align:center;margin-bottom:8px">' +
+          '<div style="color:#aa44ff;font-size:14px;font-weight:bold">♻️ 환생의 기억</div>' +
+          '<div class="text-xs text-muted">전생: '+data.totalLives+'회 | 기억: '+data.memories.length+'종 | 슬롯: '+data.equippedCount+'/'+data.memorySlots +
+          (data.nextSlotAt ? ' ('+data.nextSlotAt+'회 환생 시 +1)' : ' (최대)') + '</div></div>';
+
+        // 보유 기억 (장착/해제)
+        if (data.memories.length > 0) {
+          html += '<div style="font-size:11px;color:#ffd700;font-weight:bold;margin-bottom:4px">보유 기억</div>';
+          data.memories.forEach(function(m) {
+            var bg = m.equipped ? '#2a3a2a' : '#1a1a2a';
+            var border = m.equipped ? '#44ff44' : '#333';
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 6px;background:'+bg+';border:1px solid '+border+';border-radius:4px;margin:2px 0">' +
+              '<div><span style="color:'+(m.color||'#aaa')+';font-size:11px">'+m.icon+' '+m.name+' <span style="color:#888;font-size:9px">x'+m.count+' ('+m.multi+'%)</span></span>' +
+              '<div class="text-xs text-muted">'+m.desc+' — '+m.stat+' +'+(typeof m.baseValue==='number'&&m.baseValue<1?Math.floor(m.baseValue*100)+'%':m.baseValue)+'</div></div>';
+            if (m.equipped) {
+              html += '<button class="btn btn-sm" style="font-size:9px;padding:1px 6px;background:#444" onclick="window.socket.emit(\'pastlife_unequip\',\''+m.id+'\');closeModal();">해제</button>';
+            } else {
+              html += '<button class="btn btn-sm" style="font-size:9px;padding:1px 6px;background:#6c5ce7;color:#fff" onclick="window.socket.emit(\'pastlife_equip\',\''+m.id+'\');closeModal();">장착</button>';
+            }
+            html += '</div>';
+          });
+        } else {
+          html += '<div class="text-xs text-muted" style="text-align:center;margin:12px 0">아직 전생의 기억이 없습니다.<br>Lv.50에서 환생하면 기억이 남습니다.</div>';
+        }
+
+        // 조합
+        html += '<div style="font-size:11px;color:#aa44ff;font-weight:bold;margin:8px 0 4px">기억 조합 ('+data.activeCombos.length+'/'+data.combos.length+')</div>';
+        data.combos.forEach(function(c) {
+          var color = c.active ? (tierColors[c.tier]||'#888') : c.hasAll ? '#888' : '#444';
+          var bg = c.active ? '#2a2a3a' : '#1a1a1a';
+          html += '<div style="padding:3px 6px;background:'+bg+';border-radius:3px;margin:2px 0;border-left:2px solid '+color+'">' +
+            '<div style="display:flex;justify-content:space-between">' +
+            '<span style="color:'+color+';font-size:10px">'+c.icon+' '+(c.active||c.hasAll?c.name:'???')+' <span style="color:#555">['+c.tier+']</span></span>' +
+            (c.active?'<span class="text-xs" style="color:#44ff44">활성</span>':'') + '</div>';
+          if (c.active || c.hasAll) {
+            html += '<div class="text-xs text-muted">'+c.desc+'</div>' +
+              '<div class="text-xs" style="color:#666">필요: '+c.memories.map(function(m){return m.icon+m.name;}).join(' + ')+'</div>';
+          } else {
+            html += '<div class="text-xs" style="color:#555">기억 조건 미충족</div>';
+          }
+          html += '</div>';
+        });
+
+        showModal('♻️ 환생의 기억', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+      });
+
+      window.socket.on('pastlife_result', (d) => {
+        showToast(d.msg);
+        if (d.success) { playSFX('gold'); window.socket.emit('pastlife_status'); }
+      });
+
+      // ── 몬스터 변이 도감 (v2.47) ──
+      window.socket.on('mutation_codex_result', (data) => {
+        var tierNames = {1:'원소', 2:'특성', 3:'전설'};
+        var tierColors = {1:'#44aaff', 2:'#aa44ff', 3:'#ffd700'};
+        var html = '<div style="text-align:center;margin-bottom:8px">' +
+          '<div style="color:#ff44ff;font-size:14px;font-weight:bold">🧬 변이 도감</div>' +
+          '<div class="text-xs text-muted">발견: '+data.discoveredCount+'/'+data.totalMutations+' ('+data.completionPct+'%) | 처치: '+data.totalMutantKills+'</div>';
+        if (data.completeBonus.active) {
+          html += '<div class="text-xs" style="color:#ffd700;margin-top:2px">🏆 '+data.completeBonus.name+': '+data.completeBonus.desc+'</div>';
+        }
+        html += '</div>';
+
+        // 도감 표시 (등급별)
+        [1,2,3].forEach(function(tier) {
+          var entries = data.codex.filter(function(c){return c.tier===tier;});
+          html += '<div style="font-size:11px;color:'+tierColors[tier]+';font-weight:bold;margin:6px 0 3px">'+tierNames[tier]+' 변이 ('+entries.filter(function(e){return e.discovered;}).length+'/'+entries.length+')</div>';
+          entries.forEach(function(c) {
+            var bg = c.discovered ? '#1a2a1a' : '#1a1a1a';
+            var color = c.discovered ? c.color : '#444';
+            html += '<div style="padding:4px 6px;background:'+bg+';border-left:2px solid '+color+';border-radius:3px;margin:2px 0">';
+            if (c.discovered) {
+              html += '<div style="display:flex;justify-content:space-between">' +
+                '<span style="color:'+c.color+';font-size:11px">'+c.prefix+' '+c.name+'</span>' +
+                '<span class="text-xs" style="color:#888">x'+c.killCount+'</span></div>' +
+                '<div class="text-xs text-muted">'+c.desc+'</div>' +
+                '<div class="text-xs" style="color:#ff8800">능력: '+c.abilityDesc+'</div>' +
+                '<div class="text-xs" style="color:#888">스탯: HP x'+c.statMulti.hp+' ATK x'+c.statMulti.atk+' DEF x'+(c.statMulti.def||1)+' | 드롭: '+c.dropName+'</div>';
+            } else {
+              html += '<span class="text-xs" style="color:#555">??? — 아직 발견되지 않은 변이체</span>';
+            }
+            html += '</div>';
+          });
+        });
+
+        showModal('🧬 변이 도감', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+      });
+
+      window.socket.on('mutation_drop', (d) => {
+        showToast('🧬 변이 아이템: ' + d.name);
+        playSFX('gold');
+      });
+
+      window.socket.on('mutant_spawn', (d) => {
+        showToast('⚠️ 변이체 출현: ' + d.name);
+        if (d.tier >= 3) playSFX('boss');
+      });
+
+      // ── 저주받은 장비 (v2.48) ──
+      window.socket.on('cursed_status_result', (data) => {
+        var html = '<div style="text-align:center;margin-bottom:8px">' +
+          '<div style="color:#ff4444;font-size:14px;font-weight:bold">⛓️ 저주받은 장비</div>' +
+          '<div class="text-xs text-muted">정화: '+data.purifiedCount+' | 미발견: '+data.undiscovered+'종</div></div>';
+
+        if (data.items.length === 0) {
+          html += '<div class="text-xs text-muted" style="text-align:center;margin:12px 0">아직 저주 장비를 발견하지 못했습니다.<br>보스/전설 몬스터에게서 드롭됩니다.</div>';
+        }
+
+        data.items.forEach(function(item) {
+          var borderColor = item.purified ? '#ffd700' : item.equipped ? '#ff4444' : '#666';
+          var bg = item.purified ? '#2a3a1a' : item.equipped ? '#3a1a1a' : '#1a1a2a';
+          html += '<div class="card" style="margin-bottom:6px;border-left:3px solid '+borderColor+';background:'+bg+';padding:8px">';
+
+          // 헤더
+          html += '<div style="display:flex;justify-content:space-between;align-items:center">' +
+            '<b style="color:'+borderColor+';font-size:12px">'+item.icon+' '+item.name+' ['+item.slot+']</b>';
+          if (item.purified) {
+            html += '<span class="text-xs" style="color:#ffd700">✨ 정화됨</span>';
+          } else if (item.equipped) {
+            html += '<span class="text-xs" style="color:#ff4444">⛓️ 저주 장착</span>';
+          } else {
+            html += '<button class="btn btn-sm" style="font-size:9px;padding:1px 6px;background:#ff4444;color:#fff" onclick="if(confirm(\'정말 장착하시겠습니까? 해제 불가!\')){window.socket.emit(\'cursed_equip\',\''+item.id+'\');closeModal();}">장착 (해제불가!)</button>';
+          }
+          html += '</div>';
+
+          // 스탯
+          html += '<div class="text-xs" style="color:#44ff44;margin-top:3px">ATK +'+item.stats.atk+' DEF +'+item.stats.def+'</div>';
+
+          // 저주
+          if (!item.purified) {
+            html += '<div class="text-xs" style="color:#ff6666;margin-top:2px">저주: '+item.curse.name+' — '+item.curse.desc+'</div>';
+          }
+
+          // 정화 진행도
+          if (item.equipped && !item.purified) {
+            html += '<div style="margin-top:4px;font-size:10px;color:#ffd700">정화 조건:</div>';
+            item.conditions.forEach(function(c) {
+              var pct = Math.min(100, Math.floor(c.current / c.goal * 100));
+              var barColor = pct >= 100 ? '#44ff44' : '#ffd700';
+              html += '<div style="display:flex;align-items:center;gap:4px;margin:1px 0">' +
+                '<span class="text-xs" style="color:#aaa;width:50px">'+c.name+'</span>' +
+                '<div style="flex:1;height:6px;background:#333;border-radius:3px"><div style="width:'+pct+'%;height:100%;background:'+barColor+';border-radius:3px"></div></div>' +
+                '<span class="text-xs" style="color:#888">'+c.current+'/'+c.goal+'</span></div>';
+            });
+            if (item.allMet) {
+              html += '<button class="btn" style="width:100%;margin-top:4px;background:linear-gradient(135deg,#ffd700,#ff8800);color:#000;font-size:12px" onclick="window.socket.emit(\'cursed_purify\',\''+item.id+'\');closeModal();">✨ 정화하기!</button>';
+            }
+          }
+
+          // 정화된 장비 정보
+          if (item.purified) {
+            html += '<div class="text-xs" style="color:#ffd700;margin-top:3px">→ '+item.purifiedName+': '+item.purifiedSpecial+'</div>';
+          }
+
+          // 로어
+          html += '<div class="text-xs" style="color:#555;font-style:italic;margin-top:2px">"'+item.lore+'"</div>';
+          html += '</div>';
+        });
+
+        showModal('⛓️ 저주받은 장비', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+      });
+
+      window.socket.on('cursed_result', (d) => {
+        showToast(d.msg);
+        if (d.success) { playSFX('levelup'); window.socket.emit('cursed_status'); }
+      });
+      window.socket.on('cursed_drop', (d) => {
+        showToast('⛓️ 저주 장비 발견: ' + d.icon + ' ' + d.name);
+        playSFX('boss');
+      });
+
+      // ── 금지된 연금술 (v2.49) ──
+      window.socket.on('alchemy_status_result', (data) => {
+        var tierColors = {1:'#88ccff',2:'#aa44ff',3:'#ff8800',4:'#ffd700'};
+        var html = '<div style="text-align:center;margin-bottom:8px">' +
+          '<div style="color:#ff8800;font-size:14px;font-weight:bold">⚗️ '+data.masteryName+' (Lv.'+data.masteryLevel+')</div>' +
+          '<div class="text-xs text-muted">EXP: '+data.mastery+'/'+data.nextMasteryExp+' | 성공률 +'+data.successBonus+'% | 레시피 '+data.discovered.length+'/'+data.totalRecipes+'</div></div>';
+
+        // 보유 재료
+        if (data.materials.length > 0) {
+          html += '<div style="display:flex;gap:3px;flex-wrap:wrap;margin:6px 0">';
+          data.materials.forEach(function(m) {
+            html += '<div style="background:#1a1a2e;border:1px solid #444;border-radius:4px;padding:3px 6px;font-size:10px;cursor:pointer" ' +
+              'onclick="window._addAlcIngr(\''+m.id+'\',\''+m.icon+'\',\''+m.name+'\')" title="클릭하여 추가">' +
+              m.icon+' '+m.name+' x'+m.count+'</div>';
+          });
+          html += '</div>';
+        } else {
+          html += '<div class="text-xs text-muted" style="margin:6px 0">재료 없음 — 변이 몬스터/보스에서 획득</div>';
+        }
+
+        // 조합 인터페이스
+        html += '<div style="margin:8px 0;padding:8px;background:#1a1a2e;border-radius:6px;border:1px solid #ff880044">' +
+          '<div style="font-size:11px;color:#ff8800;margin-bottom:4px">연금 가마솥 (2~4개 재료)</div>' +
+          '<div id="alc-pot" style="display:flex;gap:4px;min-height:36px;background:#111;border-radius:4px;padding:4px;margin-bottom:6px;flex-wrap:wrap"></div>' +
+          '<div style="display:flex;gap:4px">' +
+          '<button class="btn btn-sm" style="flex:1;background:#ff8800;color:#fff" onclick="window._alchBrew()">⚗️ 연성!</button>' +
+          '<button class="btn btn-sm" style="background:#444;color:#aaa" onclick="window._alcList=[];document.getElementById(\'alc-pot\').innerHTML=\'\'">비우기</button></div></div>';
+
+        // 발견된 레시피
+        if (data.discovered.length > 0) {
+          html += '<div style="font-size:11px;color:#ffd700;font-weight:bold;margin:6px 0 4px">발견된 레시피 ('+data.discovered.length+')</div>';
+          data.discovered.forEach(function(r) {
+            html += '<div class="card" style="margin-bottom:3px;border-left:2px solid '+(tierColors[r.tier]||'#888')+';padding:4px 6px">' +
+              '<div style="display:flex;justify-content:space-between">' +
+              '<span style="color:'+(tierColors[r.tier]||'#aaa')+';font-size:10px">'+r.icon+' '+r.name+' ('+r.successRate+'%)</span>' +
+              '<span class="text-xs" style="color:#888">'+r.craftCount+'회 | '+r.goldCost+'G</span></div>' +
+              '<div class="text-xs text-muted">→ '+r.result.name+': '+r.result.desc+'</div>' +
+              '<div class="text-xs" style="color:#666">재료: '+r.ingredients.map(function(i){return i.icon+i.name;}).join(' + ')+'</div></div>';
+          });
+        }
+
+        if (data.undiscoveredCount > 0) {
+          html += '<div class="text-xs" style="color:#555;margin-top:4px">미발견: '+data.undiscoveredCount+'종 — 다양한 조합을 실험하세요!</div>';
+        }
+
+        showModal('⚗️ 금지된 연금술', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+
+        // 조합 헬퍼
+        window._alcList = [];
+        window._addAlcIngr = function(id, icon, name) {
+          if (window._alcList.length >= 4) return;
+          window._alcList.push(id);
+          var el = document.getElementById('alc-pot');
+          if (el) el.innerHTML += '<span style="font-size:14px;padding:2px 6px;background:#ff880022;border:1px solid #ff8800;border-radius:4px">'+icon+' '+name+'</span>';
+        };
+        window._alchBrew = function() {
+          if (window._alcList.length >= 2) {
+            window.socket.emit('alchemy_brew', window._alcList);
+            closeModal();
+          } else {
+            showToast('2개 이상 재료를 넣으세요');
+          }
+        };
+      });
+
+      window.socket.on('alchemy_result', (d) => {
+        if (d.crafted) {
+          showToast('⚗️ ' + d.msg);
+          playSFX('levelup');
+          if (d.isNew) playSFX('boss');
+        } else if (d.failure) {
+          showToast('💥 ' + d.msg);
+          playSFX('boss');
+        } else if (d.unknown) {
+          showToast('⚗️ ' + d.msg);
+          playSFX('gold');
+        } else {
+          showToast(d.msg);
+        }
+        window.socket.emit('alchemy_status');
+      });
+
+      // ── 마법 인형 (v2.50) ──
+      window.socket.on('golem_status_result', (data) => {
+        var tierColors = {1:'#888',2:'#44aaff',3:'#aa44ff',4:'#ffd700'};
+        var slotNames = {head:'머리',body:'몸통',arms:'팔',legs:'다리'};
+        var html = '';
+
+        // 골렘 상태
+        if (data.assembled && data.golemStats) {
+          var gs = data.golemStats;
+          html += '<div style="text-align:center;margin-bottom:8px;padding:8px;background:#1a1a2e;border:2px solid '+gs.rankColor+';border-radius:8px">' +
+            '<div style="color:'+gs.rankColor+';font-size:16px;font-weight:bold">⚙️ '+gs.rankName+'</div>' +
+            '<div class="text-xs" style="color:#aaa">HP:'+gs.currentHp+'/'+gs.maxHp+' ATK:'+gs.atk+' DEF:'+gs.def+' SPD:'+gs.spd+'</div>' +
+            '<div class="text-xs" style="color:#888">AI: '+gs.aiDesc+' | 스탯 x'+gs.statMulti+'</div>' +
+            '<button class="btn btn-sm" style="margin-top:4px;background:'+(data.active?'#ff4444':'#44ff44')+';color:#fff" onclick="window.socket.emit(\'golem_toggle\');closeModal();">'+(data.active?'귀환':'소환')+'</button></div>';
+        }
+
+        // 파츠 슬롯
+        html += '<div style="font-size:12px;color:#ffd700;font-weight:bold;margin:6px 0 4px">파츠 조립</div>';
+        ['head','body','arms','legs'].forEach(function(slot) {
+          var info = data.parts[slot];
+          var eq = info.equipped;
+          html += '<div class="card" style="margin-bottom:4px;padding:6px">' +
+            '<div style="font-size:11px;color:#aaa;margin-bottom:3px">'+slotNames[slot]+': '+(eq ? '<span style="color:'+(tierColors[eq.tier]||'#888')+'">'+eq.icon+' '+eq.name+'</span>' : '<span style="color:#555">없음</span>')+'</div>' +
+            '<div style="display:flex;gap:3px;flex-wrap:wrap">';
+          info.available.forEach(function(p) {
+            var isEq = eq && eq.id === p.id;
+            html += '<button class="btn btn-sm" style="font-size:9px;padding:1px 5px;background:'+(isEq?'#2a5a2a':tierColors[p.tier]||'#333')+';color:#fff;border:1px solid '+(tierColors[p.tier]||'#555')+'" ' +
+              (isEq?'disabled':'onclick="window.socket.emit(\'golem_equip_part\',{slot:\''+slot+'\',partId:\''+p.id+'\'});closeModal();"') + ' title="'+p.desc+' | '+JSON.stringify(p.bonus).replace(/[{}"]/g,'')+'">'+p.icon+' '+p.name+(isEq?' ✓':'')+'</button>';
+          });
+          html += '</div></div>';
+        });
+
+        // 코어
+        html += '<div style="font-size:12px;color:#ff8800;font-weight:bold;margin:6px 0 4px">코어 (AI)</div>';
+        var coreEq = data.core.equipped;
+        html += '<div class="card" style="margin-bottom:4px;padding:6px">' +
+          '<div style="font-size:11px;color:#aaa;margin-bottom:3px">코어: '+(coreEq ? '<span style="color:'+(tierColors[coreEq.tier]||'#888')+'">'+coreEq.icon+' '+coreEq.name+'</span> — '+coreEq.aiDesc : '<span style="color:#555">없음</span>')+'</div>' +
+          '<div style="display:flex;gap:3px;flex-wrap:wrap">';
+        data.core.available.forEach(function(c) {
+          var isEq = coreEq && coreEq.id === c.id;
+          html += '<button class="btn btn-sm" style="font-size:9px;padding:1px 5px;background:'+(isEq?'#2a5a2a':tierColors[c.tier]||'#333')+';color:#fff;border:1px solid '+(tierColors[c.tier]||'#555')+'" ' +
+            (isEq?'disabled':'onclick="window.socket.emit(\'golem_equip_core\',\''+c.id+'\');closeModal();"') + ' title="'+c.aiDesc+'">'+c.icon+' '+c.name+(isEq?' ✓':'')+'</button>';
+        });
+        html += '</div></div>';
+
+        // 조립 버튼
+        if (!data.assembled) {
+          html += '<button class="btn" style="width:100%;margin-top:6px;background:linear-gradient(135deg,#ff8800,#ffd700);color:#000;font-size:14px" onclick="window.socket.emit(\'golem_assemble\');closeModal();">⚙️ 조립!</button>';
+        }
+
+        showModal('⚙️ 마법 인형', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+      });
+
+      window.socket.on('golem_result', (d) => {
+        showToast(d.msg);
+        if (d.success) { playSFX('levelup'); window.socket.emit('golem_status'); }
+      });
+
+      // ── 영웅의 전당 (v2.51) ──
+      window.socket.on('hall_status_result', (data) => {
+        var catNames = {growth:'성장',combat:'전투',collect:'수집',craft:'제작',economy:'경제'};
+        var html = '<div style="text-align:center;margin-bottom:8px">' +
+          '<div style="color:#ffd700;font-size:16px;font-weight:bold">🏆 영웅의 전당</div>' +
+          '<div class="text-xs text-muted">기록: '+data.claimedCount+'/'+data.totalAchievements+' | 내 유물: '+data.myRelicCount+'</div></div>';
+
+        // 서버 버프
+        var buffEntries = Object.entries(data.serverBuffs);
+        if (buffEntries.length > 0) {
+          html += '<div class="card" style="margin-bottom:8px;border:1px solid #ffd700;padding:6px;text-align:center">' +
+            '<div style="color:#ffd700;font-size:11px;font-weight:bold">서버 전체 버프 (전당 등록 보상)</div>' +
+            '<div class="text-xs" style="color:#44ff44">' + buffEntries.map(function(e){ return e[0]+' +'+(typeof e[1]==='number'&&e[1]<1?Math.floor(e[1]*100)+'%':e[1]); }).join(', ') + '</div></div>';
+        }
+
+        // 등록된 기록
+        if (data.records.length > 0) {
+          html += '<div style="font-size:11px;color:#ffd700;font-weight:bold;margin:4px 0">등록된 영웅</div>';
+          data.records.forEach(function(r) {
+            var bg = r.isMe ? '#2a3a1a' : '#1a1a2a';
+            var border = r.isMe ? '#ffd700' : '#444';
+            html += '<div style="padding:4px 6px;background:'+bg+';border-left:3px solid '+border+';border-radius:3px;margin:2px 0">' +
+              '<div style="display:flex;justify-content:space-between">' +
+              '<span style="color:#ffd700;font-size:10px">'+r.icon+' '+r.name+'</span>' +
+              '<span class="text-xs" style="color:'+(r.isMe?'#44ff44':'#888')+'">'+r.holder+(r.isMe?' (나)':'')+'</span></div>' +
+              '<div class="text-xs text-muted">'+r.desc+'</div>' +
+              '<div class="text-xs" style="color:#aaa">유물: '+r.relic.icon+' '+r.relic.name+' — '+r.relic.special+'</div></div>';
+          });
+        }
+
+        // 미등록 (도전 가능)
+        if (data.unclaimed.length > 0) {
+          html += '<div style="font-size:11px;color:#888;font-weight:bold;margin:8px 0 4px">미등록 업적 ('+data.unclaimed.length+')</div>';
+          data.unclaimed.forEach(function(u) {
+            html += '<div style="padding:3px 6px;background:#1a1a1a;border-radius:3px;margin:2px 0;border-left:2px solid #555">' +
+              '<span class="text-xs" style="color:#aaa">'+u.icon+' '+u.name+' — '+u.desc+'</span>' +
+              '<div class="text-xs" style="color:#666">보상: 서버 '+Object.entries(u.serverBuff).map(function(e){return e[0]+'+'+e[1];}).join(', ')+' + 유물 '+u.relic.icon+' '+u.relic.name+'</div></div>';
+          });
+        }
+
+        // 내 유물
+        if (data.myRelics.length > 0) {
+          html += '<div style="font-size:11px;color:#ff8800;font-weight:bold;margin:8px 0 4px">내 유물</div>';
+          data.myRelics.forEach(function(r) {
+            html += '<div class="card" style="margin-bottom:3px;border-left:3px solid '+r.color+';padding:4px 6px">' +
+              '<b style="color:'+r.color+';font-size:11px">'+r.icon+' '+r.name+'</b>' +
+              '<div class="text-xs text-muted">'+JSON.stringify(r.stats).replace(/[{}"]/g,'')+' | '+r.special+'</div></div>';
+          });
+        }
+
+        showModal('🏆 영웅의 전당', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+      });
+
+      window.socket.on('hall_achievement', (d) => {
+        showToast('🏆 ' + d.icon + ' ' + d.name + ' — ' + d.player + '! 유물: ' + (d.relic||''));
+        playSFX('boss'); playSFX('levelup');
+      });
+
+      // ── 정령 계약 (v2.52) ──
+      window.socket.on('spirit_status_result', (data) => {
+        var html = '<div style="text-align:center;margin-bottom:8px">' +
+          '<div style="color:#44ff88;font-size:14px;font-weight:bold">🧚 정령 계약</div>' +
+          '<div class="text-xs text-muted">계약: '+data.totalContracts+'/4 | 활성: '+(data.activeInfo?data.activeInfo.icon+' '+data.activeInfo.name:'없음')+'</div></div>';
+
+        // 기본 정령
+        html += '<div style="font-size:11px;color:#ffd700;font-weight:bold;margin:4px 0">원소 정령</div>';
+        data.baseSpirits.forEach(function(s) {
+          var bg = s.isActive ? '#1a3a1a' : s.contracted ? '#1a1a2a' : '#1a1a1a';
+          var border = s.isActive ? '#44ff44' : s.contracted ? s.color : '#333';
+          html += '<div class="card" style="margin-bottom:4px;border-left:3px solid '+border+';background:'+bg+';padding:6px">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center">' +
+            '<div><span style="color:'+s.color+';font-size:13px">'+s.icon+' '+s.name+'</span>' +
+            (s.contracted ? ' <span class="text-xs" style="color:#888">Lv.'+s.level+' ('+s.exp+'/'+s.nextExp+')</span>' : '') +
+            '<div class="text-xs text-muted">'+s.desc+'</div></div>';
+          if (!s.contracted) {
+            html += '<button class="btn btn-sm" style="font-size:9px;background:'+s.color+';color:#fff" onclick="window.socket.emit(\'spirit_contract\',\''+s.id+'\');closeModal();">계약</button>';
+          } else if (s.isActive) {
+            html += '<button class="btn btn-sm" style="font-size:9px;background:#ff4444;color:#fff" onclick="window.socket.emit(\'spirit_dismiss\');closeModal();">귀환</button>';
+          } else {
+            html += '<button class="btn btn-sm" style="font-size:9px;background:#44ff44;color:#000" onclick="window.socket.emit(\'spirit_summon\',{id:\''+s.id+'\',type:\'base\'});closeModal();">소환</button>';
+          }
+          html += '</div>';
+          // 스킬
+          if (s.contracted) {
+            html += '<div style="display:flex;gap:3px;margin-top:3px;flex-wrap:wrap">';
+            s.skills.forEach(function(sk) {
+              var color = sk.unlocked ? '#44ff44' : '#555';
+              html += '<span class="text-xs" style="color:'+color+';padding:1px 4px;background:#111;border-radius:2px" title="'+sk.desc+'">'+(sk.unlocked?'✓':'🔒')+' '+sk.name+' (Lv.'+sk.level+')</span>';
+            });
+            html += '</div>';
+          }
+          html += '</div>';
+        });
+
+        // 합체 정령
+        html += '<div style="font-size:11px;color:#ffd700;font-weight:bold;margin:8px 0 4px">상위 정령 (합체)</div>';
+        data.fusionSpirits.forEach(function(f) {
+          var bg = f.isActive ? '#2a2a1a' : f.fused ? '#1a1a2a' : '#1a1a1a';
+          var border = f.isActive ? '#ffd700' : f.fused ? f.color : '#333';
+          html += '<div class="card" style="margin-bottom:4px;border-left:3px solid '+border+';background:'+bg+';padding:6px">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center">' +
+            '<div><span style="color:'+f.color+';font-size:13px">'+f.icon+' '+f.name+'</span>' +
+            (f.fused ? ' <span class="text-xs" style="color:#888">Lv.'+f.level+'</span>' : '') +
+            '<div class="text-xs text-muted">'+f.desc+'</div>' +
+            '<div class="text-xs" style="color:#666">필요: '+f.fusionReq.map(function(r){return r.icon+r.name+(r.met?' ✓':' Lv.3 필요');}).join(' + ')+'</div></div>';
+          if (!f.fused && f.reqMet) {
+            html += '<button class="btn btn-sm" style="font-size:9px;background:'+f.color+';color:#fff" onclick="window.socket.emit(\'spirit_fuse\',\''+f.id+'\');closeModal();">합체!</button>';
+          } else if (f.fused && !f.isActive) {
+            html += '<button class="btn btn-sm" style="font-size:9px;background:#ffd700;color:#000" onclick="window.socket.emit(\'spirit_summon\',{id:\''+f.id+'\',type:\'fusion\'});closeModal();">소환</button>';
+          } else if (f.isActive) {
+            html += '<button class="btn btn-sm" style="font-size:9px;background:#ff4444;color:#fff" onclick="window.socket.emit(\'spirit_dismiss\');closeModal();">귀환</button>';
+          }
+          html += '</div>';
+          if (f.fused) {
+            html += '<div style="display:flex;gap:3px;margin-top:3px;flex-wrap:wrap">';
+            f.skills.forEach(function(sk) {
+              var color = sk.unlocked ? '#ffd700' : '#555';
+              html += '<span class="text-xs" style="color:'+color+';padding:1px 4px;background:#111;border-radius:2px">'+(sk.unlocked?'✓':'🔒')+' '+sk.name+'</span>';
+            });
+            html += '</div>';
+          }
+          html += '</div>';
+        });
+
+        showModal('🧚 정령 계약', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+      });
+
+      window.socket.on('spirit_result', (d) => {
+        showToast(d.msg);
+        if (d.success) { playSFX('levelup'); window.socket.emit('spirit_status'); }
+      });
+
+      // ── 신화 무기 각성 (v2.53) ──
+      window.socket.on('mythweapon_status_result', (data) => {
+        var html = '';
+        if (!data.hasWeapon) {
+          html += '<div style="text-align:center;margin-bottom:10px">' +
+            '<div style="color:#ffd700;font-size:14px;font-weight:bold">신화 무기를 선택하세요</div>' +
+            '<div class="text-xs text-muted">각성한 무기는 영혼이 깃들어 함께 성장합니다 (1회 선택)</div></div>';
+          data.available.forEach(function(w) {
+            html += '<div class="card" style="margin-bottom:6px;border-left:3px solid '+w.color+';padding:8px;cursor:pointer" onclick="window.socket.emit(\'mythweapon_awaken\',\''+w.id+'\');closeModal();">' +
+              '<div style="display:flex;align-items:center;gap:8px">' +
+              '<span style="font-size:24px">'+w.icon+'</span>' +
+              '<div><b style="color:'+w.color+';font-size:13px">'+w.name+'</b> <span class="text-xs" style="color:#888">['+w.personality+' | '+w.element+']</span>' +
+              '<div class="text-xs text-muted">'+w.desc+'</div>' +
+              '<div class="text-xs" style="color:#666;font-style:italic">'+w.lore+'</div>' +
+              '<div class="text-xs" style="color:#aaa">ATK +'+w.baseStats.atk+' DEF +'+(w.baseStats.def||0)+'</div></div></div></div>';
+          });
+        } else {
+          // 무기 상태
+          var br = data.bondRank;
+          html += '<div style="text-align:center;margin-bottom:8px">' +
+            '<div style="font-size:28px">'+data.icon+'</div>' +
+            '<div style="color:'+data.color+';font-size:16px;font-weight:bold">'+data.name+'</div>' +
+            '<div class="text-xs" style="color:#aaa">['+data.personality+'] Lv.'+data.level+' | '+data.element+'</div>' +
+            '<div style="margin-top:4px">' +
+            '<span style="color:'+data.color+';font-size:11px">친밀도: '+br.icon+' '+br.name+' ('+data.bond+'/100)</span>' +
+            '<div style="width:100%;height:6px;background:#333;border-radius:3px;margin-top:2px"><div style="width:'+data.bond+'%;height:100%;background:'+data.color+';border-radius:3px"></div></div></div>' +
+            '<div class="text-xs" style="color:#888;margin-top:2px">스탯 배율 x'+data.statMulti+' | EXP '+data.exp+'/'+data.nextExp+'</div></div>';
+
+          // 대화 버튼
+          html += '<button class="btn" style="width:100%;margin-bottom:8px;background:'+data.color+'44;color:'+data.color+';border:1px solid '+data.color+'" onclick="window.socket.emit(\'mythweapon_talk\');closeModal();">💬 대화하기 (친밀도 +3)</button>';
+
+          // 현재 패시브
+          var passives = Object.entries(data.passives).filter(function(e){return e[1]!==0;});
+          if (passives.length > 0) {
+            html += '<div class="text-xs" style="color:#44ff44;margin-bottom:6px">패시브: '+passives.map(function(e){return e[0]+'+'+(typeof e[1]==='number'&&e[1]<1?Math.floor(e[1]*100)+'%':e[1]);}).join(', ')+'</div>';
+          }
+
+          // 스킬
+          html += '<div style="font-size:11px;color:#ffd700;font-weight:bold;margin:4px 0">무기 스킬</div>';
+          data.skills.forEach(function(sk) {
+            var color = sk.unlocked ? data.color : '#555';
+            var bg = sk.unlocked ? '#1a2a1a' : '#1a1a1a';
+            html += '<div style="padding:4px 6px;background:'+bg+';border-left:2px solid '+color+';border-radius:3px;margin:2px 0">' +
+              '<span style="color:'+color+';font-size:10px">'+(sk.unlocked?'✓':'🔒')+' '+sk.name+' (친밀도 '+sk.bond+')</span>' +
+              '<div class="text-xs text-muted">'+sk.desc+'</div></div>';
+          });
+
+          // 킬 스택 (서리한)
+          if (data.killStacks !== undefined) {
+            html += '<div class="text-xs" style="color:#88ddff;margin-top:4px">영혼 수확: ATK +'+data.killStacks+'/40</div>';
+          }
+        }
+
+        showModal('⚔️ 신화 무기', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+      });
+
+      window.socket.on('mythweapon_result', (d) => {
+        showToast(d.msg);
+        if (d.success) { playSFX('boss'); playSFX('levelup'); window.socket.emit('mythweapon_status'); }
+      });
+      window.socket.on('mythweapon_talk_result', (d) => {
+        if (d.success) { showToast(d.msg); window.socket.emit('mythweapon_status'); }
+        else showToast(d.msg);
+      });
+      window.socket.on('mythweapon_dialogue', (d) => {
+        showToast(d.msg);
+        if (d.leveledUp) playSFX('levelup');
+      });
+
+      // ── 차원 여행자 (v2.54) ──
+      window.socket.on('dim_status_result', (data) => {
+        var html = '<div style="text-align:center;margin-bottom:8px">' +
+          '<div style="color:#aa44ff;font-size:14px;font-weight:bold">🌀 차원 여행자</div>' +
+          '<div class="text-xs text-muted">차원석: <b style="color:#ffd700">'+data.dimStones+'</b> | 클리어: '+data.totalClears+' | 입장: '+data.dailyEntries+'/'+data.maxEntries+'</div></div>';
+
+        // 현재 탐험 중
+        if (data.inDimension) {
+          var d = data.inDimension;
+          html += '<div class="card" style="border:2px solid '+d.dim.color+';padding:8px;margin-bottom:8px;text-align:center">' +
+            '<div style="color:'+d.dim.color+';font-size:13px">'+d.dim.icon+' '+d.dim.name+' 탐험 중!</div>' +
+            '<div class="text-xs">스테이지: '+d.stagesCleared+'/'+d.dim.stages+' | 경과: '+d.elapsed+'초/'+d.dim.timeLimitSec+'초</div>' +
+            '<div style="display:flex;gap:4px;margin-top:6px;justify-content:center">' +
+            '<button class="btn btn-sm" style="background:#44ff44;color:#000" onclick="window.socket.emit(\'dim_clear_stage\');closeModal();">스테이지 클리어!</button>' +
+            '<button class="btn btn-sm" style="background:#ff4444;color:#fff" onclick="window.socket.emit(\'dim_abandon\');closeModal();">포기</button></div></div>';
+        }
+
+        // 차원 목록
+        html += '<div style="font-size:11px;color:#ffd700;font-weight:bold;margin:4px 0">평행 차원</div>';
+        data.dimensions.forEach(function(dim) {
+          var bg = dim.canEnter ? '#1a1a2a' : '#1a1a1a';
+          html += '<div class="card" style="margin-bottom:4px;border-left:3px solid '+dim.color+';background:'+bg+';padding:6px">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center">' +
+            '<div><span style="color:'+dim.color+';font-size:12px">'+dim.icon+' '+dim.name+'</span> <span class="text-xs" style="color:#888">Lv.'+dim.minLevel+'+ | '+dim.stages+'스테이지 | '+dim.timeLimit+'초</span>' +
+            '<div class="text-xs text-muted">'+dim.desc+'</div>' +
+            '<div class="text-xs" style="color:#ff8800">룰: '+dim.rules+'</div>' +
+            (dim.clears>0 ? '<div class="text-xs" style="color:#44ff44">클리어: '+dim.clears+'회'+(dim.bestTime?' | 최고: '+dim.bestTime+'초':'')+'</div>' : '') +
+            '</div>';
+          if (dim.canEnter && !data.inDimension) {
+            html += '<button class="btn btn-sm" style="background:'+dim.color+';color:#fff;font-size:9px" onclick="window.socket.emit(\'dim_enter\',\''+dim.id+'\');closeModal();">입장</button>';
+          }
+          html += '</div></div>';
+        });
+
+        // 차원석 상점
+        html += '<div style="font-size:11px;color:#ffd700;font-weight:bold;margin:8px 0 4px">차원석 상점</div>';
+        data.shop.forEach(function(item) {
+          var bg = item.owned ? '#2a3a2a' : '#1a1a2a';
+          html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 6px;background:'+bg+';border-radius:3px;margin:2px 0">' +
+            '<span class="text-xs" style="color:'+(item.owned?'#44ff44':'#aaa')+'">'+item.icon+' '+item.name+' — '+item.desc+' <span style="color:#ffd700">['+item.price+'석]</span></span>';
+          if (item.canBuy) {
+            html += '<button class="btn btn-sm" style="font-size:9px;padding:1px 6px;background:#ffd700;color:#000" onclick="window.socket.emit(\'dim_buy\',\''+item.id+'\');closeModal();">구매</button>';
+          } else if (item.owned) {
+            html += '<span class="text-xs" style="color:#44ff44">✓</span>';
+          }
+          html += '</div>';
+        });
+
+        showModal('🌀 차원 여행자', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+      });
+
+      window.socket.on('dim_result', (d) => {
+        showToast(d.msg);
+        if (d.success) {
+          if (d.cleared) { playSFX('boss'); playSFX('levelup'); }
+          else playSFX('gold');
+          window.socket.emit('dim_status');
+        }
+      });
 
       // 혈맹
       window.socket.on('clan_result', (d) => showToast(d.msg));

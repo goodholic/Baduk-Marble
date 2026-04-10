@@ -450,9 +450,20 @@ function registerQuestMiscConnectionHandlers(socket, $) {
         p.hp = p.maxHp;
 
         trackQuest(p, 'prestige_count', 1);
+
+        // v2.46: 환생의 기억 생성
+        let pastLifeResult = null;
+        if ($.pastLife) {
+            pastLifeResult = $.pastLife.onPrestige(p);
+            if (pastLifeResult.gained.length > 0) {
+                const memNames = pastLifeResult.gained.map(g => g.icon + g.name).join(', ');
+                io.emit('server_msg', { msg: `[전생] ${p.displayName}: ${memNames} 기억 획득!`, type: 'rare' });
+            }
+        }
+
         savePlayer(p);
         io.emit('server_msg', { msg: `[환생] ${p.displayName} ${p.prestigeLevel}차 환생! "${perk.name}" 획득!`, type: 'boss' });
-        socket.emit('prestige_result', { msg: `${p.prestigeLevel}차 환생! "${perk.name}" — ${perk.desc}. 다시 Lv.1부터!`, perk });
+        socket.emit('prestige_result', { msg: `${p.prestigeLevel}차 환생! "${perk.name}" — ${perk.desc}. 다시 Lv.1부터!`, perk, pastLife: pastLifeResult });
         io.emit('player_update', p);
     });
 
