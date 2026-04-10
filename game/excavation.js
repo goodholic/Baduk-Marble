@@ -115,7 +115,7 @@ function sell(player, grade, count) {
   if ((e.collection[grade] || 0) < count) return { success:false, msg:'유물 부족' };
   e.collection[grade] -= count;
   const earned = def.value * count;
-  player.gold = (player.gold || 0) + earned;
+  player.gold = Math.min(999999999, (player.gold || 0) + earned);
   return { success:true, msg:`${def.name} ${count}개 판매 (+${earned}G)`, gold: earned };
 }
 

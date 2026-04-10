@@ -475,10 +475,10 @@ function registerCoreConnectionHandlers(socket, $) {
                         const pct = Math.floor(p.discoveredZones.length / total * 100);
                         socket.emit('zone_discovered', { zone: ZONES[curZone.id].name, discovered: p.discoveredZones.length, total, pct });
                         giveExp(p, 5);
-                        if (pct === 25) { p.gold += 1000; socket.emit('server_msg', { msg: '[탐험] 25% 달성! +1000G', type: 'rare' }); }
-                        if (pct === 50) { p.diamonds = (p.diamonds||0) + 50; socket.emit('server_msg', { msg: '[탐험] 50% 달성! +50D', type: 'rare' }); }
-                        if (pct === 75) { p.diamonds = (p.diamonds||0) + 100; socket.emit('server_msg', { msg: '[탐험] 75% 달성! +100D', type: 'rare' }); }
-                        if (pct >= 100) { io.emit('server_msg', { msg: `[탐험] ${p.displayName}이(가) 전 지역 탐험 완료!`, type: 'boss' }); }
+                        if (pct === 25) { p.gold = Math.min(999999999, (p.gold || 0) + 1000); savePlayer(p); socket.emit('server_msg', { msg: '[탐험] 25% 달성! +1000G', type: 'rare' }); }
+                        if (pct === 50) { p.diamonds = Math.min(999999999, (p.diamonds||0) + 50); savePlayer(p); socket.emit('server_msg', { msg: '[탐험] 50% 달성! +50D', type: 'rare' }); }
+                        if (pct === 75) { p.diamonds = Math.min(999999999, (p.diamonds||0) + 100); savePlayer(p); socket.emit('server_msg', { msg: '[탐험] 75% 달성! +100D', type: 'rare' }); }
+                        if (pct >= 100) { savePlayer(p); io.emit('server_msg', { msg: `[탐험] ${p.displayName}이(가) 전 지역 탐험 완료!`, type: 'boss' }); }
                     }
                 }
             }

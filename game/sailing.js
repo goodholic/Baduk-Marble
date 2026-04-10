@@ -136,7 +136,7 @@ function arrive(player) {
   const [lo, hi] = island.loot;
   let loot = lo + Math.floor(Math.random() * (hi - lo + 1));
   if (loot > ship.capacity) loot = ship.capacity; // 적재량 제한
-  player.gold = (player.gold || 0) + loot;
+  player.gold = Math.min(999999999, (player.gold || 0) + loot);
 
   // 조우
   const encounter = _rollEncounter();

@@ -120,7 +120,7 @@ function readFortune(player) {
   // 스트릭 보상
   const streakReward = STREAK_BONUSES[f.streak] || null;
   if (streakReward) {
-    if (streakReward.gold) player.gold = (player.gold || 0) + streakReward.gold;
+    if (streakReward.gold) player.gold = Math.min(999999999, (player.gold || 0) + streakReward.gold);
     if (streakReward.diamonds) player.diamonds = (player.diamonds || 0) + streakReward.diamonds;
   }
 

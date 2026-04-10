@@ -108,7 +108,7 @@ function claimMissionReward(player, jobId) {
     return { success: false, msg: '수령 가능한 보상 없음' };
   }
   const mission = JOBS[jobId].dailyMission;
-  player.gold = (player.gold || 0) + (mission.reward.gold || 0);
+  player.gold = Math.min(999999999, (player.gold || 0) + (mission.reward.gold || 0));
   player.exp = (player.exp || 0) + (mission.reward.exp || 0);
   job.missionRewardClaimed = true;
   // 부직업 EXP도 보너스로

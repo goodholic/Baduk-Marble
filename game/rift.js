@@ -113,7 +113,7 @@ function challenge(player) {
   // 승리
   r.cleared.push(wave.wave);
   r.score += wave.rewardScore;
-  player.gold = (player.gold || 0) + wave.rewardGold;
+  player.gold = Math.min(999999999, (player.gold || 0) + wave.rewardGold);
   if (r.score > r.bestScore) r.bestScore = r.score;
   if (r.currentWave < RIFT_WAVES.length) r.currentWave += 1;
 

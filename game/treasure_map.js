@@ -158,7 +158,7 @@ function digTreasure(player, mapId) {
   const itemCount = Math.floor(pool.itemCount[0] + Math.random() * (pool.itemCount[1] - pool.itemCount[0]));
 
   // 적용
-  player.gold = (player.gold || 0) + gold;
+  player.gold = Math.min(999999999, (player.gold || 0) + gold);
   if (diamonds) player.diamonds = (player.diamonds || 0) + diamonds;
   if (!player.inventory) player.inventory = {};
   player.inventory[itemId] = (player.inventory[itemId] || 0) + itemCount;

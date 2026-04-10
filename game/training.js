@@ -110,7 +110,7 @@ function performTraining(player, drillId) {
   player.trainingBonuses[drill.permStat] = (player.trainingBonuses[drill.permStat] || 0) + drill.permValue;
 
   // 골드/EXP 보상
-  player.gold = (player.gold || 0) + TRAINING_CONFIG.goldRewardPerDrill;
+  player.gold = Math.min(999999999, (player.gold || 0) + TRAINING_CONFIG.goldRewardPerDrill);
   player.exp = (player.exp || 0) + TRAINING_CONFIG.expRewardPerDrill;
 
   return {

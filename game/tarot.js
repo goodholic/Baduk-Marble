@@ -298,7 +298,7 @@ function embraceReversed(player) {
   const appliedBonuses = {};
   for (const reward of rewards) {
     if (reward.bonus.fateScore) t.fateScore += reward.bonus.fateScore;
-    if (reward.bonus.gold) player.gold = (player.gold || 0) + reward.bonus.gold;
+    if (reward.bonus.gold) player.gold = Math.min(999999999, (player.gold || 0) + reward.bonus.gold);
     if (reward.bonus.stardust && player.constellation) {
       player.constellation.stardust = (player.constellation.stardust || 0) + reward.bonus.stardust;
     }

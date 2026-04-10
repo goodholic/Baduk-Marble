@@ -134,7 +134,7 @@ function deliverPackage(player, contractId) {
   d.active.splice(idx, 1);
   d.completed++;
 
-  player.gold = (player.gold || 0) + contract.reward;
+  player.gold = Math.min(999999999, (player.gold || 0) + contract.reward);
   player.exp = (player.exp || 0) + contract.expReward;
 
   return {
@@ -154,7 +154,7 @@ function failDelivery(player, contractId, reason = '실패') {
   // 부분 보상
   if (!contract.package.fragile && !contract.package.valuable) {
     const partial = Math.floor(contract.reward * POSTOFFICE_CONFIG.failurePenalty);
-    player.gold = (player.gold || 0) + partial;
+    player.gold = Math.min(999999999, (player.gold || 0) + partial);
     return { success: true, partial, reason };
   }
   return { success: true, partial: 0, reason };

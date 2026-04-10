@@ -106,7 +106,7 @@ function consumeFreeBattle(player) {
 
 function applyBattleReward(player, won) {
   if (won) {
-    player.gold = (player.gold || 0) + PET_BATTLE_CONFIG.winRewardGold;
+    player.gold = Math.min(999999999, (player.gold || 0) + PET_BATTLE_CONFIG.winRewardGold);
     player.exp = (player.exp || 0) + PET_BATTLE_CONFIG.winRewardExp;
     player.petBattleWins = (player.petBattleWins || 0) + 1;
   } else {

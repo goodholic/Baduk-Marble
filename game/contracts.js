@@ -139,7 +139,7 @@ function trackContract(player, target, count = 1, extra = {}) {
     if (contract.progress >= contract.count) {
       // 완료 — 보상 지급
       const r = contract.reward;
-      if (r.gold) player.gold = (player.gold || 0) + r.gold;
+      if (r.gold) player.gold = Math.min(999999999, (player.gold || 0) + r.gold);
       if (r.exp) player.exp = (player.exp || 0) + r.exp;
       if (r.diamonds) player.diamonds = (player.diamonds || 0) + r.diamonds;
       if (r.item) {

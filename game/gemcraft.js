@@ -127,7 +127,7 @@ function sellGem(player, gemId) {
   const gradeMul = CUT_GRADES[gem.grade]?.multiplier || 1;
   const price = Math.round(50 * gradeMul * gradeMul);
   g.cut.splice(idx, 1);
-  player.gold = (player.gold || 0) + price;
+  player.gold = Math.min(999999999, (player.gold || 0) + price);
   return { success:true, msg:`${gem.name} 판매 (+${price}G)`, gold: price };
 }
 

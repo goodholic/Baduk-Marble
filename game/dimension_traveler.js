@@ -184,7 +184,7 @@ function completeDimension(player) {
   };
 
   dt.dimStones += rewards.dimStones;
-  player.gold = (player.gold || 0) + rewards.gold;
+  player.gold = Math.min(999999999, (player.gold || 0) + rewards.gold);
   player.exp = (player.exp || 0) + rewards.exp;
 
   // 특수 드롭

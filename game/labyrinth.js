@@ -140,7 +140,7 @@ function move(player, direction) {
   if (cell === 'treasure' && !l.visited[`treasure_${nx},${ny}`]) {
     l.visited[`treasure_${nx},${ny}`] = true;
     const gold = GOLD_REWARD.min + Math.floor(Math.random() * (GOLD_REWARD.max - GOLD_REWARD.min + 1));
-    player.gold = (player.gold || 0) + gold;
+    player.gold = Math.min(999999999, (player.gold || 0) + gold);
     l.rewards += gold;
     events.push({ type:'treasure', msg:`💰 보물! +${gold}G`, gold });
   } else if (cell === 'monster' && !l.visited[`monster_${nx},${ny}`]) {
@@ -156,7 +156,7 @@ function move(player, direction) {
   } else if (cell === 'exit') {
     l.cleared = true;
     const bonus = 1000;
-    player.gold = (player.gold || 0) + bonus;
+    player.gold = Math.min(999999999, (player.gold || 0) + bonus);
     l.rewards += bonus;
     events.push({ type:'exit', msg:`🚪 출구 도달! 클리어 보너스 +${bonus}G`, gold: bonus });
   }

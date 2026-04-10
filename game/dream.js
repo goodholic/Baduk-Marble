@@ -120,7 +120,7 @@ function choose(player, choiceId) {
   // 결과 적용
   const outcome = choice.outcome;
   if (outcome.gold) {
-    player.gold = (player.gold || 0) + outcome.gold;
+    player.gold = Math.min(999999999, (player.gold || 0) + outcome.gold);
   }
   if (outcome.stat && typeof outcome.value === 'number') {
     if (!player.dreamBonus) player.dreamBonus = {};

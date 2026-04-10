@@ -99,7 +99,7 @@ function harvestCrop(player, slotIdx) {
   }
   // 보상 지급
   const h = crop.harvest;
-  if (h.gold) player.gold = (player.gold || 0) + h.gold;
+  if (h.gold) player.gold = Math.min(999999999, (player.gold || 0) + h.gold);
   if (h.exp) player.exp = (player.exp || 0) + h.exp;
   if (!player.inventory) player.inventory = {};
   if (h.items) {

@@ -112,7 +112,7 @@ function withdrawCapsule(player, capsuleId) {
     payout = Math.floor(capsule.deposited * (1 - tier.earlyWithdrawPenalty));
   }
 
-  player.gold = (player.gold || 0) + payout;
+  player.gold = Math.min(999999999, (player.gold || 0) + payout);
   capsules.splice(idx, 1);
 
   return {

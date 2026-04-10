@@ -71,7 +71,7 @@ function visitZone(player, zoneId) {
   if (!zone.safe) firstVisitReward = { gold: 200, exp: 100 };
   if (zone.lvl && zone.lvl[0] >= 30) firstVisitReward = { gold: 500, exp: 300 };
 
-  player.gold = (player.gold || 0) + firstVisitReward.gold;
+  player.gold = Math.min(999999999, (player.gold || 0) + firstVisitReward.gold);
   player.exp = (player.exp || 0) + firstVisitReward.exp;
 
   // Region 완성 체크
@@ -90,7 +90,7 @@ function visitZone(player, zoneId) {
     if (data.stamps.length >= m.count && !data.milestonesClaimed.includes(m.count)) {
       data.milestonesClaimed.push(m.count);
       // 보상 적용
-      if (m.reward.gold) player.gold += m.reward.gold;
+      if (m.reward.gold) player.gold = Math.min(999999999, (player.gold || 0) + m.reward.gold);
       if (m.reward.diamonds) player.diamonds = (player.diamonds || 0) + m.reward.diamonds;
       if (m.reward.title) {
         if (!player.titles) player.titles = [];

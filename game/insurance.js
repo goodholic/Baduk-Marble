@@ -95,7 +95,7 @@ function claimEnhanceFail(player, equipId) {
   }
   // 강화 실패 시 보상: 골드 50% 환급 (프리미엄 기준)
   const refund = Math.floor(policy.premium * INSURANCE_CONFIG.enhanceFailPayoutPct);
-  player.gold = (player.gold || 0) + refund;
+  player.gold = Math.min(999999999, (player.gold || 0) + refund);
   ins.totalClaims++;
   return { success: true, payout: refund };
 }
