@@ -71,18 +71,21 @@ function init(io, players) { _io = io; _players = players; }
 
 function getOrCreate() {
   if (match && match.phase === 'active') return match;
+  // 이전 인터벌 정리
+  if (matchTick) { clearInterval(matchTick); matchTick = null; }
   match = {
     id: 'as_' + Date.now(),
     phase: 'active',
     startTime: Date.now(),
     wave: 0, lastWave: Date.now(),
     players: {},
-    gems: [],       // 바닥 경험치 보석
+    gems: [],
     monstersAlive: 0,
     totalKills: 0,
   };
-  if (matchTick) clearInterval(matchTick);
-  matchTick = setInterval(() => tick(), 1000);
+  matchTick = setInterval(() => {
+    try { tick(); } catch(e) { console.error('[AutoSurvival] tick error:', e.message); }
+  }, 1000);
   if (_io) _io.emit('server_msg', { msg: '🎮 오토배틀 서바이벌 시작! 이동만 하세요, 공격은 자동!', type: 'boss' });
   return match;
 }
@@ -362,34 +365,41 @@ function getStatus(playerId) {
 
 function registerHandlers(socket, playerId, players, io) {
   socket.on('as_join', () => {
-    const p = players[playerId];
-    if (!p) return;
-    const result = join(playerId, p.displayName || p.className);
-    socket.emit('as_joined', result);
+    try {
+      const p = players[playerId];
+      if (!p) return;
+      const result = join(playerId, p.displayName || p.className);
+      socket.emit('as_joined', result);
+    } catch(e) { console.error('[AS] join error:', e.message); }
   });
 
   socket.on('as_choices', () => {
-    socket.emit('as_choices', { choices: getChoices(playerId) });
+    try { socket.emit('as_choices', { choices: getChoices(playerId) }); }
+    catch(e) { socket.emit('as_choices', { choices: [] }); }
   });
 
   socket.on('as_select', (data) => {
-    const result = selectChoice(playerId, data.type, data.id);
-    socket.emit('as_selected', result);
-    if (result.success) socket.emit('as_status', getStatus(playerId));
+    try {
+      if (!data || !data.type || !data.id) return;
+      const result = selectChoice(playerId, data.type, data.id);
+      socket.emit('as_selected', result);
+      if (result.success) socket.emit('as_status', getStatus(playerId));
+    } catch(e) { console.error('[AS] select error:', e.message); }
   });
 
   socket.on('as_move', (data) => {
-    const p = match?.players[playerId];
+    if (!match || !match.players) return;
+    const p = match.players[playerId];
     if (!p || !p.alive) return;
-    p.x += (data.dx || 0) * p.spd * 0.5;
-    p.y += (data.dy || 0) * p.spd * 0.5;
-    // 맵 범위 제한
-    p.x = Math.max(-500, Math.min(500, p.x));
-    p.y = Math.max(-500, Math.min(500, p.y));
+    const dx = parseFloat(data?.dx) || 0;
+    const dy = parseFloat(data?.dy) || 0;
+    p.x = Math.max(-500, Math.min(500, p.x + dx * p.spd * 0.5));
+    p.y = Math.max(-500, Math.min(500, p.y + dy * p.spd * 0.5));
   });
 
   socket.on('as_status', () => {
-    socket.emit('as_status', getStatus(playerId));
+    try { socket.emit('as_status', getStatus(playerId)); }
+    catch(e) { socket.emit('as_status', null); }
   });
 }
 

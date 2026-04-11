@@ -608,14 +608,17 @@ function registerBattleRoyaleHandlers(socket, playerId) {
 }
 
 // 자동 개최 (5분마다)
+let _brAutoInterval = null;
 function startAutoSchedule() {
-  setInterval(() => {
-    if (brState.phase === 'idle') {
-      // 최소 접속자가 있을 때만
-      if (_brPlayers && Object.keys(_brPlayers).length >= BATTLE_ROYALE_CONFIG.minPlayers) {
-        startRegistration();
+  if (_brAutoInterval) clearInterval(_brAutoInterval);
+  _brAutoInterval = setInterval(() => {
+    try {
+      if (brState.phase === 'idle') {
+        if (_brPlayers && Object.keys(_brPlayers).length >= BATTLE_ROYALE_CONFIG.minPlayers) {
+          startRegistration();
+        }
       }
-    }
+    } catch(e) { console.error('[BR] auto error:', e.message); }
   }, 5 * 60 * 1000);
 }
 

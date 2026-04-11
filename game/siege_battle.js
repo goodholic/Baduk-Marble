@@ -215,8 +215,13 @@ function endSiegeBattle(siegeId, winner, reason, io) {
     });
   }
 
-  // 보상 처리는 호출자에서
-  setTimeout(() => delete activeSieges[siegeId], 10000);
+  // 안전한 정리 (중복 삭제 방지)
+  siege.phase = 'ended';
+  setTimeout(() => {
+    if (activeSieges[siegeId] && activeSieges[siegeId].phase === 'ended') {
+      delete activeSieges[siegeId];
+    }
+  }, 10000);
   return { ended: true, ...siege.result };
 }
 

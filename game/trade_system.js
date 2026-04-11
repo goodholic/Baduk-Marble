@@ -28,6 +28,7 @@ function getTradeState(player) {
 }
 
 function startTrade(player, routeId, quantity) {
+  if (!player) return { success: false, msg: '플레이어 없음' };
   const trade = getTradeState(player);
   if (trade.activeTrip) return { success: false, msg: '이미 교역 진행 중!' };
 
