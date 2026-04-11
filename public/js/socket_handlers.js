@@ -2733,6 +2733,118 @@
         else playSFX('gold');
       });
 
+      // ═══ SLG 뷰 + 무역 + 공성 관전 ═══
+      window.socket.on('slg_status', (d) => {
+        var html = '<div style="text-align:center;margin-bottom:10px">' +
+          '<p style="color:#ffd700;font-size:18px">🏰 SLG 모드</p>' +
+          '<p style="color:#888;font-size:11px">용병을 키우고, 교역하고, 성을 공략하라!</p></div>';
+        // 진급 가능
+        if (d.promotions && d.promotions.length > 0) {
+          html += '<h4 style="color:#ff8800;font-size:12px;margin:8px 0">🎖️ 진급 가능</h4>';
+          d.promotions.forEach(function(p) {
+            html += '<div class="panel-item" style="border-left:3px solid #ff8800"><span class="name">' + p.mercName + ' → <b style="color:#ff8800">' + p.icon + ' ' + p.name + '</b><br><small style="color:#888">Lv.' + p.lv + '+ | ' + p.cost.gold + 'G</small></span>' +
+              '<button class="btn btn-sm" onclick="window.socket.emit(\'slg_promote\',{uid:\'' + p.mercUid + '\',to:\'' + p.to + '\'});closeModal();">진급!</button></div>';
+          });
+        }
+        // 진화 가능
+        if (d.evolutions && d.evolutions.length > 0) {
+          html += '<h4 style="color:#aa44ff;font-size:12px;margin:8px 0">🧬 진화 가능</h4>';
+          d.evolutions.forEach(function(e, i) {
+            html += '<div class="panel-item" style="border-left:3px solid #aa44ff"><span class="name"><b style="color:#aa44ff">' + e.name + '</b><br><small style="color:#888">' + e.desc + ' | ' + e.cost.gold + 'G</small></span>' +
+              '<button class="btn btn-sm" onclick="window.socket.emit(\'slg_evolve\',' + i + ');closeModal();">진화!</button></div>';
+          });
+        }
+        // 버튼
+        html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px">' +
+          '<button class="btn" onclick="window.socket.emit(\'merc_status\');closeModal();">⚔️ 용병 관리</button>' +
+          '<button class="btn" onclick="window.socket.emit(\'trade_routes\');closeModal();">💰 무역</button>' +
+          '<button class="btn" onclick="window.socket.emit(\'merc_gacha\');closeModal();">🎴 소환 (30💎)</button>' +
+          '<button class="btn" onclick="window.socket.emit(\'house_status\');closeModal();">🏠 성 관리</button></div>';
+        showModal('🏰 SLG', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+      });
+
+      window.socket.on('slg_result', (d) => {
+        showToast(d.msg || (d.success ? '성공!' : '실패'));
+        if (d.success) playSFX('levelup');
+      });
+
+      // 무역 UI
+      window.socket.on('trade_routes', (d) => {
+        var html = '';
+        if (d.state.activeTrip) {
+          var arrival = d.arrival;
+          html += '<div style="border:1px solid #ffd700;border-radius:8px;padding:10px;margin-bottom:8px;background:rgba(255,215,0,0.05)">' +
+            '<p style="color:#ffd700">🐴 교역 진행 중!</p>' +
+            '<p style="color:#ddd;font-size:12px">' + d.state.activeTrip.route.goods + ' ×' + d.state.activeTrip.quantity + '</p>' +
+            (arrival && !arrival.arrived ? '<p style="color:#888;font-size:11px">도착까지: ' + arrival.remaining + '초</p><button class="btn btn-sm" onclick="window.socket.emit(\'trade_check\');closeModal();">도착 확인</button>' : '') +
+            '</div>';
+        }
+        html += '<div style="max-height:40vh;overflow-y:auto">';
+        d.routes.forEach(function(r) {
+          var profit = Math.floor((r.sell - r.buy) / r.buy * 100);
+          html += '<div class="panel-item" style="border-left:3px solid ' + (r.risk > 40 ? '#ff4444' : r.risk > 20 ? '#ff8800' : '#44ff44') + '">' +
+            '<span class="name">' + r.from + ' → ' + r.to + '<br><small style="color:#888">' + r.goods + ' | 매입 ' + r.buy + 'G → 매도 ' + r.sell + 'G | 이윤 ' + profit + '% | ⚠️' + r.risk + '%</small></span>' +
+            '<button class="btn btn-sm" onclick="window.socket.emit(\'trade_start\',{routeId:\'' + r.id + '\',quantity:5});closeModal();">출발</button></div>';
+        });
+        html += '</div>';
+        showModal('💰 무역 (거상)', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+      });
+
+      window.socket.on('trade_result', (d) => { showToast(d.msg); });
+      window.socket.on('trade_arrival', (d) => {
+        if (!d.arrived) { showToast('아직 이동 중... ' + d.remaining + '초 남음'); return; }
+        showModal('💰 교역 완료!', '<div style="text-align:center">' +
+          (d.robbed ? '<p style="color:#ff4444;font-size:16px">⚠️ 도적 습격!</p><p style="color:#888">물품 ' + d.lostGoods + '개 손실</p>' : '<p style="color:#44ff44;font-size:16px">✅ 안전 도착!</p>') +
+          '<p style="color:#ffd700;font-size:20px;margin:8px 0">' + (d.profit >= 0 ? '+' : '') + d.profit + 'G</p>' +
+          '<p style="color:#888">' + d.route + ' | ' + d.goods + '</p></div>',
+          [{label:'확인',action:'closeModal()'}]);
+        playSFX(d.profit > 0 ? 'gold' : 'die');
+      });
+
+      window.socket.on('trade_raid_result', (d) => {
+        if (d.lost) showToast('☠️ 캐러밴 약탈당함! ' + d.attackerName + '에게 ' + d.stolenGoods + '개 빼앗김');
+        else if (d.success) showToast('☠️ 약탈 성공! +' + d.stolenValue + 'G');
+        else showToast(d.msg);
+      });
+
+      // 공성 관전 채팅
+      window.socket.on('siege_chat_msg', (d) => {
+        addCombatLog('[공성] ' + d.from + ': ' + d.msg, 'log-gold');
+      });
+
+      // IO에서 용병 동료 표시
+      window.socket.on('as_joined', (d) => {
+        if (!d.success) return;
+        var allyMsg = '';
+        if (d.mercAllies && d.mercAllies.length > 0) {
+          allyMsg = ' 동료: ' + d.mercAllies.map(function(m){return m.icon+m.name;}).join(', ');
+        }
+        showToast('⚔️ 서바이벌 참가!' + allyMsg);
+        // 기존 로직 유지
+        window._asMode = true;
+        window._asTicker = setInterval(function() {
+          if (!window._asMode) return;
+          var dx = 0, dy = 0;
+          if (window._asKeys) { dx = window._asKeys.dx || 0; dy = window._asKeys.dy || 0; }
+          window.socket.emit('as_move', { dx, dy });
+        }, 100);
+        window._asKeys = { dx: 0, dy: 0 };
+        window._asKeyHandler = function(e) {
+          if (e.target.tagName === 'INPUT') return;
+          if (e.type === 'keydown') {
+            if (e.key === 'w' || e.key === 'ArrowUp') window._asKeys.dy = 1;
+            if (e.key === 's' || e.key === 'ArrowDown') window._asKeys.dy = -1;
+            if (e.key === 'a' || e.key === 'ArrowLeft') window._asKeys.dx = -1;
+            if (e.key === 'd' || e.key === 'ArrowRight') window._asKeys.dx = 1;
+          } else {
+            if (e.key === 'w' || e.key === 'ArrowUp' || e.key === 's' || e.key === 'ArrowDown') window._asKeys.dy = 0;
+            if (e.key === 'a' || e.key === 'ArrowLeft' || e.key === 'd' || e.key === 'ArrowRight') window._asKeys.dx = 0;
+          }
+        };
+        window.addEventListener('keydown', window._asKeyHandler);
+        window.addEventListener('keyup', window._asKeyHandler);
+      });
+
       // ═══ 오토배틀 서바이벌 ═══
       window.socket.on('as_joined', (d) => {
         if (!d.success) return;

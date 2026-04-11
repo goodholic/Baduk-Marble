@@ -150,4 +150,62 @@ function registerTradeHandlers(socket, playerId, players, io) {
   });
 }
 
-module.exports = { TRADE_ROUTES, CARAVAN_UPGRADES, registerTradeHandlers };
+// v3.0: 무역 중 PK — 다른 플레이어의 캐러밴 약탈!
+function raidCaravan(attackerId, targetId, players, io) {
+  const attacker = players[attackerId];
+  const target = players[targetId];
+  if (!attacker || !target) return { success: false, msg: '대상 없음' };
+
+  const trade = getTradeState(target);
+  if (!trade.activeTrip) return { success: false, msg: '상대가 교역 중이 아닙니다' };
+
+  // PK존에서만 가능
+  const pkZones = ['chaos','warzone','blood_arena','lawless'];
+  if (!pkZones.includes(attacker.zone)) return { success: false, msg: 'PK 허용 존에서만 가능' };
+
+  // 전투 (간소화 — 공격자 ATK vs 방어자 호위)
+  let defenseBonus = 0;
+  for (const upg of trade.upgrades) {
+    const u = CARAVAN_UPGRADES.find(c => c.id === upg);
+    if (u && u.effect.defense) defenseBonus += u.effect.defense;
+  }
+
+  const attackPower = attacker.atk || 25;
+  const defensePower = 10 + defenseBonus;
+  const success = attackPower > defensePower + Math.random() * 20;
+
+  if (success) {
+    // 약탈 성공! 상대 교역품의 50% 강탈
+    const trip = trade.activeTrip;
+    const stolenGoods = Math.ceil(trip.quantity * 0.5);
+    const stolenValue = stolenGoods * trip.route.sell;
+    trip.quantity -= stolenGoods;
+
+    attacker.gold = (attacker.gold || 0) + stolenValue;
+    attacker.karma = (attacker.karma || 0) + 150; // 카르마 증가
+
+    if (io) {
+      io.to(attackerId).emit('trade_raid_result', { success: true, stolenValue, stolenGoods, goods: trip.route.goods });
+      io.to(targetId).emit('trade_raid_result', { success: false, lost: true, stolenGoods, goods: trip.route.goods, attackerName: attacker.displayName });
+      io.emit('server_msg', { msg: '☠️ ' + (attacker.displayName||'') + '이(가) ' + (target.displayName||'') + '의 캐러밴을 약탈! ' + stolenValue + 'G 강탈!', type: 'danger' });
+    }
+
+    return { success: true, stolenValue, stolenGoods };
+  }
+
+  // 약탈 실패
+  if (io) io.to(attackerId).emit('trade_raid_result', { success: false, msg: '호위대에 의해 격퇴당했습니다!' });
+  return { success: false, msg: '약탈 실패! 호위가 강합니다.' };
+}
+
+function registerTradeHandlersV2(socket, playerId, players, io) {
+  registerTradeHandlers(socket, playerId, players, io);
+
+  socket.on('trade_raid', (targetName) => {
+    const target = Object.entries(players).find(([, p]) => p.displayName === targetName);
+    if (!target) { socket.emit('trade_result', { success: false, msg: '대상 없음' }); return; }
+    raidCaravan(playerId, target[0], players, io);
+  });
+}
+
+module.exports = { TRADE_ROUTES, CARAVAN_UPGRADES, registerTradeHandlers: registerTradeHandlersV2, raidCaravan };

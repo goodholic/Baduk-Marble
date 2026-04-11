@@ -220,6 +220,24 @@ function endSiegeBattle(siegeId, winner, reason, io) {
   return { ended: true, ...siege.result };
 }
 
+// 관전 + 채팅
+function siegeSpectate(siegeId, spectatorId) {
+  const siege = activeSieges[siegeId];
+  if (!siege) return { success: false };
+  if (!siege.spectators) siege.spectators = [];
+  if (!siege.spectators.includes(spectatorId)) siege.spectators.push(spectatorId);
+  return { success: true, msg: '공성전 관전 시작!' };
+}
+
+function siegeChat(siegeId, senderId, senderName, msg) {
+  const siege = activeSieges[siegeId];
+  if (!siege) return;
+  const chatMsg = { from: senderName, msg: msg.substring(0, 100), time: Date.now() };
+  // 공격자, 성주, 관전자 모두에게 전송
+  const targets = [siege.attackerId, siege.defenderId, ...(siege.spectators || [])];
+  return { targets, chatMsg };
+}
+
 function registerSiegeBattleHandlers(socket, playerId, players, io) {
   // 공성전 신청
   socket.on('siege_attack', (targetName) => {
@@ -239,6 +257,21 @@ function registerSiegeBattleHandlers(socket, playerId, players, io) {
       }
     }
   });
+
+  // 관전
+  socket.on('siege_spectate', (siegeId) => {
+    const result = siegeSpectate(siegeId, playerId);
+    socket.emit('siege_result', result);
+  });
+
+  // 관전 채팅
+  socket.on('siege_chat', (data) => {
+    const p = players[playerId];
+    const chatResult = siegeChat(data.siegeId, playerId, p?.displayName || '?', data.msg);
+    if (chatResult) {
+      chatResult.targets.forEach(tid => io.to(tid).emit('siege_chat_msg', chatResult.chatMsg));
+    }
+  });
 }
 
-module.exports = { startSiegeBattle, siegeMove, registerSiegeBattleHandlers };
+module.exports = { startSiegeBattle, siegeMove, siegeSpectate, siegeChat, registerSiegeBattleHandlers };

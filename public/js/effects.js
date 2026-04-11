@@ -922,6 +922,8 @@
           '<button class="btn" style="width:100%;margin:3px 0" onclick="window.socket.emit(\'evolve_pet\',\'pet_dragon\');closeModal();">미니 드래곤 → 고대 드래곤 (ATK+30%)</button>' +
           '<button class="btn" style="width:100%;margin:3px 0" onclick="window.socket.emit(\'evolve_pet\',\'pet_angel\');closeModal();">천사 → 세라핌 (자동 부활 강화)</button>' +
           '</div>',[{label:'닫기',type:'cancel',action:'closeModal()'}]);}},
+        {label:'🏰 SLG 모드', action:()=>{window.socket.emit('slg_status');}},
+        {label:'💰 무역', action:()=>{window.socket.emit('trade_routes');}},
         {label:'⚔️ 용병 관리', action:()=>{window.socket.emit('merc_status');}},
         {label:'🎴 용병 소환 (30💎)', action:()=>{window.socket.emit('merc_gacha');}},
         {label:'⚔️ 오토배틀 서바이벌', action:()=>{window.socket.emit('as_join');}},

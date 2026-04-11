@@ -91,23 +91,43 @@ function join(playerId, name, classId) {
   const m = getOrCreate();
   if (m.players[playerId]) return { success: true, session: getStatus(playerId) };
 
+  // v3.0: SLG 용병이 IO에서 동료로 참전!
+  let mercBonusAtk = 0, mercBonusDef = 0, mercBonusHp = 0;
+  let mercAllies = [];
+  try {
+    const mercSys = require('./mercenary_system');
+    const _p = _players && _players[playerId];
+    if (_p) {
+      const mercs = mercSys.getPlayerMercs(_p);
+      const party = mercs.roster.filter(m => mercs.party.includes(m.uid));
+      for (const merc of party.slice(0, 3)) { // 최대 3명 동료
+        mercBonusAtk += Math.floor(merc.atk * 0.2);
+        mercBonusDef += Math.floor(merc.def * 0.15);
+        mercBonusHp += Math.floor(merc.hp * 0.1);
+        mercAllies.push({ name: merc.name, icon: merc.icon, atk: merc.atk, skill: merc.skill.name });
+      }
+    }
+  } catch(e) {}
+
   m.players[playerId] = {
     id: playerId, name,
     level: 1, exp: 0, expToNext: 30,
-    hp: 120, maxHp: 120, def: 3, spd: 8,
+    hp: 120 + mercBonusHp, maxHp: 120 + mercBonusHp,
+    def: 3 + mercBonusDef, spd: 8,
     hpRegen: 0, luck: 0, magnet: CONFIG.gemMagnetBase,
-    dmgMult: 100, cdReduction: 0,
+    dmgMult: 100 + mercBonusAtk, cdReduction: 0,
     kills: 0, score: 0,
     alive: true, revive: 0,
-    weapons: [{ ...WEAPONS.sword, lv: 1 }], // 시작 무기: 회전 검
+    weapons: [{ ...WEAPONS.sword, lv: 1 }],
     passives: [],
+    mercAllies, // 용병 동료 정보
     x: Math.random() * 600 - 300,
     y: Math.random() * 600 - 300,
     pendingChoice: false,
     lastAutoAttack: {},
   };
 
-  return { success: true, session: getStatus(playerId), weapons: Object.values(WEAPONS).map(w => ({ id: Object.keys(WEAPONS).find(k => WEAPONS[k] === w), ...w })) };
+  return { success: true, session: getStatus(playerId), mercAllies, weapons: Object.values(WEAPONS).map(w => ({ id: Object.keys(WEAPONS).find(k => WEAPONS[k] === w), ...w })) };
 }
 
 function tick() {
