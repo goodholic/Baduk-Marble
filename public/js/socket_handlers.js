@@ -2679,6 +2679,88 @@
         playSFX('buff');
       });
 
+      // ═══ 전투 강화 시스템 ═══
+      // 궁극기 게이지
+      window.socket.on('ultimate_gauge', (d) => {
+        var gaugeEl = document.getElementById('ultimate-gauge');
+        var fillEl = document.getElementById('ult-gauge-fill');
+        var btnEl = document.getElementById('ult-btn');
+        if (!gaugeEl || !fillEl) return;
+        gaugeEl.classList.add('show');
+        var pct = Math.min(100, Math.floor(d.gauge / d.max * 100));
+        fillEl.style.width = pct + '%';
+        if (pct >= 100) {
+          btnEl.style.display = 'inline-block';
+          btnEl.textContent = '⚡ ' + (d.name || '궁극기');
+        } else {
+          btnEl.style.display = 'none';
+        }
+      });
+
+      // 궁극기 발동
+      window.socket.on('ultimate_activated', (d) => {
+        if (typeof showBossEntrance === 'function') {
+          showBossEntrance(d.name, '— ' + d.desc + ' —');
+        }
+        if (typeof showMagicCircle === 'function') showMagicCircle(d.animation || 'fire', 250);
+        if (typeof playSFX2 === 'function') playSFX2('boss_roar');
+        playSFX('boss'); playSFX('levelup');
+        // 화면 효과
+        document.getElementById('unity-container').classList.add('shake');
+        setTimeout(function(){ document.getElementById('unity-container').classList.remove('shake'); }, 800);
+        // 게이지 리셋
+        var fillEl = document.getElementById('ult-gauge-fill');
+        if (fillEl) fillEl.style.width = '0%';
+        var btnEl = document.getElementById('ult-btn');
+        if (btnEl) btnEl.style.display = 'none';
+      });
+
+      // 콤보 발동
+      window.socket.on('combo_triggered', (d) => {
+        var el = document.getElementById('combo-display');
+        if (!el) return;
+        el.style.display = 'block';
+        el.innerHTML = '<div class="combo-text" style="font-size:' + (d.name.length > 6 ? '28' : '36') + 'px;color:' + (d.color || '#ffd700') + '">' +
+          (d.icon || '⚔️') + ' ' + d.name + '</div>' +
+          '<div style="color:#fff;font-size:14px;margin-top:4px;opacity:0.8;animation:lvlFade 2s ease-out forwards">' + (d.msg || '') + '</div>';
+        playSFX('levelup');
+        if (typeof showHitSparks === 'function') showHitSparks(50, 40, d.animation || 'fire');
+        setTimeout(function() { el.style.display = 'none'; }, 2500);
+      });
+
+      // 상태이상 적용/해제
+      window.socket.on('status_effect_applied', (d) => {
+        addCombatLog(d.icon + ' ' + d.name + ' 상태이상! (' + d.duration + '초)', 'log-crit');
+        showToast(d.icon + ' ' + d.targetName + '에게 ' + d.name + ' 적용!');
+      });
+
+      window.socket.on('status_effects_update', (d) => {
+        var bar = document.getElementById('status-effects-bar');
+        if (!bar) return;
+        if (!d.effects || d.effects.length === 0) { bar.innerHTML = ''; return; }
+        bar.innerHTML = d.effects.map(function(e) {
+          var remaining = Math.max(0, Math.ceil((e.expiresAt - Date.now()) / 1000));
+          return '<div class="status-icon" style="background:' + e.color + '22;border-color:' + e.color + '44">' +
+            '<span>' + e.icon + '</span>' +
+            (e.stacks > 1 ? '<span class="status-stacks">x' + e.stacks + '</span>' : '') +
+            '<span class="status-timer">' + remaining + 's</span>' +
+            '</div>';
+        }).join('');
+      });
+
+      window.socket.on('status_dot_tick', (d) => {
+        if (d.damage > 0) {
+          showFloatingDamage(d.damage, false, d.icon, d.element || 'normal');
+        }
+      });
+
+      // 세트 효과 알림
+      window.socket.on('set_bonus_activated', (d) => {
+        showToast('✨ ' + d.setName + ' 세트 효과 발동! ' + d.desc);
+        if (typeof playSFX2 === 'function') playSFX2('enchant');
+        else playSFX('levelup');
+      });
+
       // ═══ NPC 대화 시스템 ═══
       window.socket.on('town_npc_list', (d) => {
         if (!d.npcs || d.npcs.length === 0) {

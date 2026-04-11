@@ -96,6 +96,7 @@ const mythicWeapon = require('./game/mythic_weapon');
 const dimensionTraveler = require('./game/dimension_traveler');
 const dragonRiding = require('./game/dragon_riding');
 const battleRoyale = require('./game/battle_royale');
+const combatEnhance = require('./game/combat_enhance');
 const { handleRaidFinish, codexDiscover, finishBossRush, updateTownPrices, generateRandomOptions, logWorldEvent } = serverHelpers;
 const { expireMarketListings, destroyAxe, syncGameState, updatePassives, updatePlayerAutoSkills, updateBots, giveExp, handleCollisions, handleAoeDamage, handlePlayerDeath } = loops;
 // Phase 3 refactor: 전투/스폰/랭킹 모듈

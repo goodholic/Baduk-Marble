@@ -603,6 +603,50 @@ function registerCoreConnectionHandlers(socket, $) {
     });
 
 
+    // ── 전투 강화 시스템 (v2.58) ──
+    const combatEnhance = (() => { try { return require('../combat_enhance'); } catch(e) { return null; } })();
+
+    // 궁극기 발동
+    socket.on('use_ultimate', () => {
+        const p = players[playerId];
+        if (!p || !p.isAlive || !combatEnhance) return;
+        const ult = combatEnhance.useUltimate(p);
+        if (!ult) { socket.emit('npc_result', { msg: '궁극기 게이지가 부족합니다!' }); return; }
+        // 주변 적에게 데미지
+        if (ult.aoe) {
+            for (const tid of Object.keys(players)) {
+                if (tid === playerId) continue;
+                const t = players[tid];
+                if (!t || !t.isAlive) continue;
+                const dx = (t.x||0) - (p.x||0), dy = (t.y||0) - (p.y||0);
+                if (Math.sqrt(dx*dx+dy*dy) > (ult.range||200)) continue;
+                if (t.isBot && t.ownerId === playerId) continue; // 자기 용병 제외
+                const dmg = Math.floor(ult.totalDamage * (0.8 + Math.random()*0.4));
+                t.hp = Math.max(0, (t.hp||0) - dmg);
+                io.emit('player_hit', { id: tid, damage: dmg, isCrit: true, skillName: ult.name, element: ult.element });
+                if (ult.effect) {
+                    const applied = combatEnhance.applyStatusEffect(t, ult.effect);
+                    if (applied) io.emit('status_effect_applied', { ...applied, targetName: t.displayName || t.className });
+                }
+            }
+        }
+        // 아군 힐
+        if (ult.allyHeal) {
+            for (const tid of Object.keys(players)) {
+                const t = players[tid];
+                if (!t || !t.isAlive || tid === playerId) continue;
+                if (!t.isBot || t.ownerId !== playerId) continue;
+                t.hp = Math.min(t.maxHp, t.hp + Math.floor(t.maxHp * ult.allyHeal));
+            }
+        }
+        // 자기 버프
+        if (ult.selfBuff && ult.selfBuff.invincible) {
+            p._invincibleUntil = Date.now() + ult.selfBuff.invincible * 1000;
+        }
+        io.emit('ultimate_activated', { id: playerId, name: ult.name, icon: ult.icon, desc: ult.desc, animation: ult.animation });
+        socket.emit('ultimate_gauge', { gauge: 0, max: combatEnhance.ULTIMATE_CONFIG.maxGauge, name: ult.name });
+    });
+
     // ── 신규 NPC 대화 시스템 (v2.58) ──
     const npcSystem = (() => { try { return require('../npc_system'); } catch(e) { return null; } })();
 

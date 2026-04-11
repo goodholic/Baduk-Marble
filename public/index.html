@@ -298,6 +298,20 @@
     <!-- 스킬 쿨타임 바 -->
     <div id="skill-cooldown-bar" style="position:fixed;bottom:52px;left:50%;transform:translateX(-50%);z-index:16;display:flex;gap:4px;pointer-events:none"></div>
 
+    <!-- 궁극기 게이지 -->
+    <div id="ultimate-gauge" style="display:none;position:fixed;bottom:95px;left:50%;transform:translateX(-50%);z-index:17;text-align:center;pointer-events:auto">
+      <div style="width:200px;height:8px;background:rgba(0,0,0,0.6);border-radius:4px;overflow:hidden;border:1px solid rgba(255,215,0,0.2)">
+        <div id="ult-gauge-fill" style="width:0%;height:100%;background:linear-gradient(90deg,#6644cc,#ffd700,#ff4400);border-radius:4px;transition:width 0.3s"></div>
+      </div>
+      <button id="ult-btn" onclick="if(window.socket)window.socket.emit('use_ultimate')" style="display:none;margin-top:4px;padding:6px 20px;background:linear-gradient(135deg,#ffd700,#ff4400);border:none;border-radius:8px;color:#fff;font-size:12px;font-weight:900;cursor:pointer;text-shadow:0 1px 3px rgba(0,0,0,0.5);animation:ultReady 1s ease-in-out infinite" title="궁극기 발동!">⚡ 궁극기</button>
+    </div>
+
+    <!-- 콤보 표시 -->
+    <div id="combo-display" style="display:none;position:fixed;top:40%;left:50%;transform:translate(-50%,-50%);z-index:55;text-align:center;pointer-events:none"></div>
+
+    <!-- 상태이상 아이콘 (적/내) -->
+    <div id="status-effects-bar" style="position:fixed;top:56px;left:15px;z-index:16;display:flex;gap:3px;flex-wrap:wrap;max-width:300px"></div>
+
     <!-- 도파민 UI 요소들 -->
     <div id="session-stats"><span id="ss-time">⏱ 0:00</span><span id="ss-kills">💀 0</span><span id="ss-gold">💰 +0G</span><span id="ss-deaths">☠ 0</span><span id="ss-online" style="color:#88ff88">👥 0</span></div>
     <div id="dps-meter">DPS: 0</div>
