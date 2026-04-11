@@ -2711,7 +2711,21 @@
           if (d.revived) showToast('👼 부활! HP 50% 회복');
           if (d.isCrit) showFloatingDamage(d.damage, true, 'CRIT', 'fire');
         }
-        if (d.session) updateSurvivalHUD(d.session);
+        if (d.session) {
+          updateSurvivalHUD(d.session);
+          // RPG: 장비 드롭 알림
+          if (d.session.droppedItem) {
+            var gc = {normal:'#888',uncommon:'#44cc44',rare:'#4488ff',epic:'#aa44ff',legendary:'#ff8800'};
+            showToast(d.session.droppedItem.icon + ' ' + d.session.droppedItem.name + ' 획득!');
+            if (d.session.droppedItem.grade === 'legendary') { playSFX('boss'); if (typeof celebrateRareDrop === 'function') celebrateRareDrop('legendary'); }
+            else if (d.session.droppedItem.grade === 'epic') playSFX('levelup');
+          }
+          // RPG: 스킬 해금 알림
+          if (d.session.newSkill) {
+            showToast('🆕 스킬 해금! ' + d.session.newSkill.icon + ' ' + d.session.newSkill.name + ' — ' + d.session.newSkill.desc);
+            playSFX('levelup');
+          }
+        }
       });
 
       window.socket.on('survival_tick', (d) => {
@@ -2729,6 +2743,16 @@
         if (d.session && d.session.monstersAlive > 0 && !d.session.pendingLevelUp) {
           window.socket.emit('survival_attack');
         }
+      });
+
+      // RPG: 스킬 결과
+      window.socket.on('survival_skill_result', (d) => {
+        if (d.skillUsed) {
+          showToast(d.icon + ' ' + d.skill + '!' + (d.kills ? ' (' + d.kills + '킬)' : '') + (d.buff ? ' ' + d.buff : '') + (d.heal ? ' HP+' + d.heal : ''));
+          if (typeof showMagicCircle === 'function') showMagicCircle('fire', 150);
+          playSFX('crit');
+        }
+        if (d.session) updateSurvivalHUD(d.session);
       });
 
       window.socket.on('survival_choices', (d) => {
@@ -2755,11 +2779,21 @@
         }
         var hpPct = s.maxHp > 0 ? Math.floor(s.hp/s.maxHp*100) : 0;
         var expPct = s.expToNext > 0 ? Math.floor(s.exp/s.expToNext*100) : 0;
-        el.innerHTML = '<span>🌊' + s.wave + '</span><span>Lv.<b style="color:#ffd700">' + s.level + '</b></span>' +
+        el.innerHTML = '<span>' + (s.classIcon||'') + '</span><span>🌊' + s.wave + '</span><span>Lv.<b style="color:#ffd700">' + s.level + '</b></span>' +
           '<span style="color:' + (hpPct>50?'#44ff44':hpPct>25?'#ffaa00':'#ff4444') + '">❤️' + s.hp + '/' + s.maxHp + '</span>' +
           '<span>⚔️' + s.atk + '</span><span>🛡️' + s.def + '</span>' +
           '<span>💀' + s.kills + '</span><span>👾' + s.monstersAlive + '</span>' +
           '<span style="color:#ffd700">💰' + s.gold + '</span>';
+        // 장비 아이콘
+        if (s.equipment && s.equipment.length > 0) {
+          el.innerHTML += '<span style="margin-left:4px;border-left:1px solid #444;padding-left:4px">' + s.equipment.map(function(e){return e.icon;}).join('') + '</span>';
+        }
+        // 스킬 버튼
+        if (s.skills && s.skills.length > 0) {
+          el.innerHTML += '<span style="margin-left:4px">' + s.skills.map(function(sk){
+            return '<button onclick="window.socket.emit(\'survival_use_skill\',\'' + sk.id + '\')" style="background:none;border:1px solid #ffd700;border-radius:4px;color:#fff;cursor:pointer;padding:1px 4px;font-size:12px;margin:0 1px" title="' + sk.name + '">' + sk.icon + '</button>';
+          }).join('') + '</span>';
+        }
         if (!s.alive) { el.remove(); }
       };
 
