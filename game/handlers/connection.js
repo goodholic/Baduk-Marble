@@ -382,6 +382,12 @@ io.on("connection", (socket) => {
         friendDuel.registerFriendDuelHandlers(socket, playerId, players, io);
     } catch(e) { /* ignore if not loaded */ }
 
+    // v2.60: 오토배틀 서바이벌 IO
+    try {
+        const autoSurvival = require('../auto_survival');
+        autoSurvival.registerHandlers(socket, playerId, players, io);
+    } catch(e) {}
+
     // v2.60: IO-RPG 코어
     try {
         const ioRpg = require('../io_rpg_core');

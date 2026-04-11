@@ -2687,6 +2687,124 @@
         playSFX('buff');
       });
 
+      // ═══ 오토배틀 서바이벌 ═══
+      window.socket.on('as_joined', (d) => {
+        if (!d.success) return;
+        showToast('⚔️ 오토배틀 서바이벌 참가! 이동만 하세요!');
+        window._asMode = true;
+        window._asTicker = setInterval(function() {
+          if (!window._asMode) return;
+          // 이동 입력 전송
+          var dx = 0, dy = 0;
+          if (window._asKeys) { dx = window._asKeys.dx || 0; dy = window._asKeys.dy || 0; }
+          window.socket.emit('as_move', { dx, dy });
+        }, 100);
+        // 키 입력
+        window._asKeys = { dx: 0, dy: 0 };
+        window._asKeyHandler = function(e) {
+          if (e.target.tagName === 'INPUT') return;
+          if (e.type === 'keydown') {
+            if (e.key === 'w' || e.key === 'ArrowUp') window._asKeys.dy = 1;
+            if (e.key === 's' || e.key === 'ArrowDown') window._asKeys.dy = -1;
+            if (e.key === 'a' || e.key === 'ArrowLeft') window._asKeys.dx = -1;
+            if (e.key === 'd' || e.key === 'ArrowRight') window._asKeys.dx = 1;
+          } else {
+            if (e.key === 'w' || e.key === 'ArrowUp' || e.key === 's' || e.key === 'ArrowDown') window._asKeys.dy = 0;
+            if (e.key === 'a' || e.key === 'ArrowLeft' || e.key === 'd' || e.key === 'ArrowRight') window._asKeys.dx = 0;
+          }
+        };
+        window.addEventListener('keydown', window._asKeyHandler);
+        window.addEventListener('keyup', window._asKeyHandler);
+      });
+
+      window.socket.on('as_status', (d) => {
+        if (!d) return;
+        var el = document.getElementById('as-hud');
+        if (!el) {
+          el = document.createElement('div');
+          el.id = 'as-hud';
+          el.style.cssText = 'position:fixed;top:4px;left:50%;transform:translateX(-50%);z-index:25;display:flex;gap:6px;font-size:10px;color:#ddd;background:linear-gradient(180deg,rgba(0,0,0,0.9),rgba(0,0,0,0.6));padding:6px 14px;border-radius:0 0 10px 10px;border:1px solid rgba(255,136,0,0.2);border-top:none';
+          document.body.appendChild(el);
+        }
+        var hpPct = d.maxHp > 0 ? Math.floor(d.hp/d.maxHp*100) : 0;
+        el.innerHTML =
+          '<span>🌊<b style="color:#ff8800">' + d.wave + '</b></span>' +
+          '<span>⏱<b style="color:' + (d.remaining<60?'#ff4444':'#ffd700') + '">' + Math.floor(d.remaining/60) + ':' + (d.remaining%60<10?'0':'') + d.remaining%60 + '</b></span>' +
+          '<span>Lv.<b style="color:#ffd700">' + d.level + '</b></span>' +
+          '<span style="color:' + (hpPct>50?'#44ff44':hpPct>25?'#ffaa00':'#ff4444') + '">❤️' + d.hp + '</span>' +
+          '<span>💀<b>' + d.kills + '</b></span>' +
+          '<span>👾' + d.monstersAlive + '</span>' +
+          '<span style="color:#ffd700">🏆' + d.score + '</span>' +
+          '<span style="border-left:1px solid #444;padding-left:4px">' + d.weapons.map(function(w){return '<span title="'+w.name+' Lv.'+w.lv+'">'+w.icon+'</span>';}).join('') + '</span>' +
+          (d.passives.length > 0 ? '<span>' + d.passives.map(function(p){return p.icon;}).join('') + '</span>' : '');
+
+        // 레벨업 체크
+        if (d.pendingChoice) window.socket.emit('as_choices');
+      });
+
+      window.socket.on('as_wave', (d) => {
+        showToast('🌊 웨이브 ' + d.wave + '! ' + d.monster.icon + (d.isBoss ? ' BOSS: ' + d.monster.name : ' ×' + d.count));
+        if (d.isBoss && typeof showBossEntrance === 'function') showBossEntrance(d.monster.name, '— 웨이브 ' + d.wave + ' BOSS —');
+        playSFX(d.isBoss ? 'boss' : 'hit');
+      });
+
+      window.socket.on('as_choices', (d) => {
+        if (!d.choices || d.choices.length === 0) return;
+        var html = '<p style="text-align:center;color:#ffd700;font-size:18px;margin-bottom:10px">⬆️ LEVEL UP!</p>';
+        d.choices.forEach(function(c) {
+          var border = c.type === 'weapon_new' ? '#ff8800' : c.type === 'weapon_up' ? '#44aaff' : '#44ff44';
+          var tag = c.type === 'weapon_new' ? '🆕 신규 무기' : c.type === 'weapon_up' ? '⬆️ 무기 강화' : '📊 패시브';
+          html += '<button class="btn" style="width:100%;margin:4px 0;text-align:left;border-left:3px solid ' + border + '" onclick="window.socket.emit(\'as_select\',{type:\'' + c.type + '\',id:\'' + c.id + '\'});closeModal();">' +
+            '<span style="font-size:18px;margin-right:6px">' + c.icon + '</span>' +
+            '<b>' + c.name + '</b> <span style="color:#888;font-size:9px">' + tag + '</span>' +
+            '<br><small style="color:#aaa">' + c.desc + '</small></button>';
+        });
+        showModal('', html, []);
+        playSFX('levelup');
+      });
+
+      window.socket.on('as_update', (d) => {
+        // 리더보드
+        var el = document.getElementById('as-leaderboard');
+        if (!el) {
+          el = document.createElement('div');
+          el.id = 'as-leaderboard';
+          el.style.cssText = 'position:fixed;top:36px;right:8px;z-index:18;font-size:10px;color:#ddd;background:rgba(0,0,0,0.6);padding:6px 10px;border-radius:8px;max-width:160px';
+          document.body.appendChild(el);
+        }
+        var medals = ['🥇','🥈','🥉'];
+        el.innerHTML = '<div style="color:#ff8800;font-size:9px;letter-spacing:1px;margin-bottom:2px">SURVIVAL</div>' +
+          (d.leaderboard || []).slice(0,5).map(function(p,i) {
+            return '<div style="display:flex;gap:4px;padding:1px 0;opacity:'+(p.alive?1:0.4)+'">' +
+              '<span style="width:14px">'+(medals[i]||(i+1))+'</span>' +
+              '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+p.name+'</span>' +
+              '<span style="color:#888">'+p.weaponCount+'🗡️</span>' +
+              '<span style="color:#ffd700">'+p.score+'</span></div>';
+          }).join('');
+      });
+
+      window.socket.on('as_end', (d) => {
+        window._asMode = false;
+        if (window._asTicker) clearInterval(window._asTicker);
+        if (window._asKeyHandler) { window.removeEventListener('keydown',window._asKeyHandler); window.removeEventListener('keyup',window._asKeyHandler); }
+        ['as-hud','as-leaderboard'].forEach(function(id){var e=document.getElementById(id);if(e)e.remove();});
+
+        var html = '<p style="text-align:center;color:#ffd700;font-size:20px;font-weight:900">🏆 서바이벌 종료!</p>' +
+          '<p style="text-align:center;color:#888">웨이브 ' + d.wave + ' | 총 ' + d.totalKills + '킬</p>';
+        var medals = ['🥇','🥈','🥉'];
+        (d.rankings||[]).forEach(function(r,i) {
+          html += '<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid #222;font-size:12px">' +
+            '<span style="width:24px;text-align:center;font-size:16px">'+(medals[i]||(i+1))+'</span>' +
+            '<span style="flex:1;color:#ddd;font-weight:bold">'+r.name+'</span>' +
+            '<span style="color:#888">Lv.'+r.level+'</span>' +
+            '<span>'+r.weapons+'</span>' +
+            '<span style="color:#ffd700;font-weight:bold">'+r.score+'</span></div>';
+        });
+        showModal('🏆', html, [{label:'확인',action:'closeModal()'}]);
+        if (typeof celebrateRareDrop === 'function') celebrateRareDrop('mythic');
+        playSFX('levelup');
+      });
+
       // ═══ IO-RPG 코어 ═══
       // 로그인 후 자동 매치 참가 프롬프트
       setTimeout(function() {
