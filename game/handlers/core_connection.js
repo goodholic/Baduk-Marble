@@ -817,6 +817,15 @@ function registerCoreConnectionHandlers(socket, $) {
             if ($.towerProgress[playerId]) delete $.towerProgress[playerId];
             // 아레나 큐 정리
             $.arenaQueue = $.arenaQueue.filter(id => id !== playerId);
+            // v2.58: 심층 던전 정리
+            if (p._deepDungeon) {
+                try { const dd = require('../deep_dungeon'); dd.activeDeepDungeons && delete dd.activeDeepDungeons[p._deepDungeon]; } catch(e) {}
+                p._deepDungeon = null;
+            }
+            // v2.58: 콤보/궁극기 트래커 정리 (메모리 누수 방지)
+            if (p._comboTracker) delete p._comboTracker;
+            // v2.58: 전설 변신 정리
+            if (p._legendaryMorph) delete p._legendaryMorph;
             // 진행 중 아레나 매치 즉시 포기 처리 (상대가 3분 대기하지 않도록)
             if (p.arenaMatchId && arenaMatches[p.arenaMatchId]) {
                 const match = arenaMatches[p.arenaMatchId];
