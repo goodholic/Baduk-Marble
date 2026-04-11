@@ -382,6 +382,12 @@ io.on("connection", (socket) => {
         friendDuel.registerFriendDuelHandlers(socket, playerId, players, io);
     } catch(e) { /* ignore if not loaded */ }
 
+    // v2.60: 서바이벌 IO 모드
+    try {
+        const survivalIo = require('../survival_io');
+        survivalIo.registerSurvivalHandlers(socket, playerId, players, io);
+    } catch(e) {}
+
     // v2.59: 출석 체크 핸들러
     try {
         const attendance = require('../attendance');

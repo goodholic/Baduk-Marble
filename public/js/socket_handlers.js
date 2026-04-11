@@ -2687,6 +2687,82 @@
         playSFX('buff');
       });
 
+      // ═══ 서바이벌 IO ═══
+      window.socket.on('survival_result', (d) => {
+        if (!d.success && d.msg) { showToast(d.msg); return; }
+        if (d.type === 'game_over') {
+          window._survivalMode = false;
+          if (window._survivalTicker) { clearInterval(window._survivalTicker); window._survivalTicker = null; }
+          showModal('💀 GAME OVER', '<div style="text-align:center">' +
+            '<p style="color:#ff4444;font-size:24px;font-weight:900">SCORE: ' + d.score + '</p>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0;font-size:13px">' +
+            '<div>🌊 웨이브 <b style="color:#ffd700">' + d.wave + '</b></div>' +
+            '<div>⚔️ 레벨 <b style="color:#ffd700">' + d.level + '</b></div>' +
+            '<div>💀 처치 <b style="color:#ff8800">' + d.kills + '</b></div>' +
+            '<div>⏱ 시간 <b style="color:#88ccff">' + Math.floor(d.time/60) + ':' + (d.time%60<10?'0':'') + d.time%60 + '</b></div></div>' +
+            '<div style="border-top:1px solid #333;padding-top:8px;margin-top:8px">' +
+            '<p style="color:#ffd700">💰 +' + d.rewards.gold + 'G ✨ +' + d.rewards.exp + 'EXP 💎 +' + d.rewards.diamonds + '</p></div>' +
+            '<p style="color:#888;font-size:10px;margin-top:6px">업그레이드 ' + d.upgrades.length + '개: ' + d.upgrades.map(function(u){return u.icon;}).join('') + '</p>' +
+            '</div>', [{label:'다시 도전!', action:"window.socket.emit('survival_start');closeModal();window._survivalMode=true;window._survivalTicker=setInterval(function(){if(window._survivalMode)window.socket.emit('survival_tick');},1000);"}, {label:'나가기', action:'closeModal()'}]);
+          if (typeof celebrateRareDrop === 'function') celebrateRareDrop(d.wave >= 20 ? 'mythic' : d.wave >= 10 ? 'legendary' : 'epic');
+          return;
+        }
+        if (d.killed) {
+          if (d.revived) showToast('👼 부활! HP 50% 회복');
+          if (d.isCrit) showFloatingDamage(d.damage, true, 'CRIT', 'fire');
+        }
+        if (d.session) updateSurvivalHUD(d.session);
+      });
+
+      window.socket.on('survival_tick', (d) => {
+        if (d.session) updateSurvivalHUD(d.session);
+        if (d.newWave) {
+          showToast('🌊 웨이브 ' + d.newWave.wave + '!' + (d.newWave.isBoss ? ' 👹 BOSS: ' + d.newWave.bossName : ' 적 ' + d.newWave.monsterCount + '체'));
+          if (d.newWave.isBoss) { playSFX('boss'); if (typeof showBossEntrance === 'function') showBossEntrance(d.newWave.bossName, '— 웨이브 ' + d.newWave.wave + ' —'); }
+          else playSFX('hit');
+        }
+        // 레벨업 체크
+        if (d.session && d.session.pendingLevelUp) {
+          window.socket.emit('survival_levelup_choices');
+        }
+        // 자동 공격 (서바이벌 모드에서)
+        if (d.session && d.session.monstersAlive > 0 && !d.session.pendingLevelUp) {
+          window.socket.emit('survival_attack');
+        }
+      });
+
+      window.socket.on('survival_choices', (d) => {
+        if (!d.choices || d.choices.length === 0) return;
+        var html = '<p style="text-align:center;color:#ffd700;font-size:16px;margin-bottom:10px">⬆️ LEVEL UP! 업그레이드 선택</p>';
+        d.choices.forEach(function(c) {
+          var catColor = c.cat === 'atk' ? '#ff6b6b' : c.cat === 'def' ? '#44aaff' : c.cat === 'ult' ? '#ff00ff' : '#ffd700';
+          html += '<button class="btn" style="width:100%;margin:4px 0;text-align:left;border-left:3px solid ' + catColor + '" onclick="window.socket.emit(\'survival_select_upgrade\',\'' + c.id + '\');closeModal();">' +
+            '<span style="font-size:18px;margin-right:8px">' + c.icon + '</span><b>' + c.name + '</b></button>';
+        });
+        showModal('', html, []);
+        playSFX('levelup');
+      });
+
+      window.updateSurvivalHUD = function(s) {
+        if (!s) return;
+        // 서바이벌 전용 HUD 업데이트
+        var el = document.getElementById('survival-hud');
+        if (!el) {
+          el = document.createElement('div');
+          el.id = 'survival-hud';
+          el.style.cssText = 'position:fixed;top:32px;left:50%;transform:translateX(-50%);z-index:20;display:flex;gap:12px;font-size:11px;color:#ddd;background:rgba(0,0,0,0.7);padding:4px 16px;border-radius:8px;border:1px solid rgba(255,215,0,0.2)';
+          document.body.appendChild(el);
+        }
+        var hpPct = s.maxHp > 0 ? Math.floor(s.hp/s.maxHp*100) : 0;
+        var expPct = s.expToNext > 0 ? Math.floor(s.exp/s.expToNext*100) : 0;
+        el.innerHTML = '<span>🌊' + s.wave + '</span><span>Lv.<b style="color:#ffd700">' + s.level + '</b></span>' +
+          '<span style="color:' + (hpPct>50?'#44ff44':hpPct>25?'#ffaa00':'#ff4444') + '">❤️' + s.hp + '/' + s.maxHp + '</span>' +
+          '<span>⚔️' + s.atk + '</span><span>🛡️' + s.def + '</span>' +
+          '<span>💀' + s.kills + '</span><span>👾' + s.monstersAlive + '</span>' +
+          '<span style="color:#ffd700">💰' + s.gold + '</span>';
+        if (!s.alive) { el.remove(); }
+      };
+
       // ═══ 출석 체크 ═══
       window.socket.on('attendance_status', (d) => {
         var html = '<div style="text-align:center;margin-bottom:10px">' +
