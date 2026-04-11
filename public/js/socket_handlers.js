@@ -2687,6 +2687,23 @@
         playSFX('buff');
       });
 
+      // ═══ 칭호 컬렉션 ═══
+      window.socket.on('title_collection', (d) => {
+        var html = '<p style="text-align:center;color:#888;font-size:11px;margin-bottom:8px">보유: ' + d.owned.length + '/' + d.all.length + '</p>';
+        d.all.forEach(function(t) {
+          html += '<div class="panel-item" style="border-left:3px solid ' + t.color + ';opacity:' + (t.owned ? 1 : 0.35) + '">' +
+            '<span class="name">' + t.icon + ' <b style="color:' + t.color + '">' + t.name + '</b>' +
+            (d.equipped === t.id ? ' <span style="color:#44ff44;font-size:9px">[장착중]</span>' : '') +
+            '<br><small style="color:#888">' + t.how + '</small>' +
+            (t.bonus ? '<br><small style="color:#ffd700">' + Object.entries(t.bonus).map(function(e){return e[0]+'+'+e[1];}).join(', ') + '</small>' : '') +
+            '</span>' +
+            (t.owned && d.equipped !== t.id ? '<button class="btn btn-sm" onclick="window.socket.emit(\'equip_title\',\'' + t.id + '\');closeModal();">장착</button>' : '') +
+            '</div>';
+        });
+        showModal('🏅 칭호 컬렉션', html, [{label:'닫기', type:'cancel', action:'closeModal()'}]);
+      });
+      window.socket.on('title_result', (d) => { showToast(d.msg); if (d.success) playSFX('equip'); });
+
       // ═══ 요일 이벤트 ═══
       window.socket.on('daily_event_status', (d) => {
         var html = '<div style="text-align:center">' +
