@@ -2687,6 +2687,50 @@
         playSFX('buff');
       });
 
+      // ═══ 랭크 시즌 ═══
+      window.socket.on('ranked_status', (d) => {
+        var pct = d.nextRank ? Math.floor((d.points - d.rank.minPts) / (d.nextRank.minPts - d.rank.minPts) * 100) : 100;
+        var html = '<div style="text-align:center;margin-bottom:12px">' +
+          '<span style="font-size:48px">' + d.rank.icon + '</span>' +
+          '<p style="color:' + d.rank.color + ';font-size:20px;font-weight:900;font-family:Cinzel,serif">' + d.rank.name + '</p>' +
+          '<p style="color:#ffd700;font-size:24px">' + d.points + ' <span style="color:#888;font-size:12px">RP</span></p>' +
+          (d.nextRank ? '<div style="margin:8px auto;width:80%;height:8px;background:#222;border-radius:4px;overflow:hidden"><div style="width:' + pct + '%;height:100%;background:linear-gradient(90deg,' + d.rank.color + ',' + d.nextRank.color + ');border-radius:4px"></div></div>' +
+          '<p style="color:#888;font-size:10px">다음: ' + d.nextRank.icon + ' ' + d.nextRank.name + ' (' + d.pointsToNext + 'RP 필요)</p>' : '<p style="color:#ffd700;font-size:12px">최고 랭크!</p>') +
+          '</div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center;margin:10px 0">' +
+          '<div><p style="color:#44ff44;font-size:18px;font-weight:bold">' + d.wins + '</p><p style="color:#888;font-size:10px">승리</p></div>' +
+          '<div><p style="color:#ff4444;font-size:18px;font-weight:bold">' + d.losses + '</p><p style="color:#888;font-size:10px">패배</p></div>' +
+          '<div><p style="color:#ffd700;font-size:18px;font-weight:bold">' + d.winRate + '%</p><p style="color:#888;font-size:10px">승률</p></div>' +
+          '</div>' +
+          '<p style="color:#888;font-size:10px;text-align:center">최고 랭크: ' + d.peakRank.icon + ' ' + d.peakRank.name + ' | 킬: ' + d.kills + '</p>';
+        showModal('🏅 랭크 시즌', html, [
+          {label:'🏆 리더보드', action:"window.socket.emit('ranked_leaderboard');closeModal();"},
+          {label:'닫기', type:'cancel', action:'closeModal()'}]);
+      });
+
+      window.socket.on('ranked_leaderboard', (d) => {
+        var html = '';
+        var medals = ['🥇','🥈','🥉'];
+        d.leaderboard.forEach(function(p, i) {
+          html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #222">' +
+            '<span style="width:24px;text-align:center;font-size:14px">' + (medals[i] || (i+1)) + '</span>' +
+            '<span style="font-size:16px">' + p.rank.icon + '</span>' +
+            '<span style="flex:1;color:#ddd;font-weight:bold;font-size:12px">' + p.name + ' <span style="color:#888;font-size:10px">Lv.' + p.level + '</span></span>' +
+            '<span style="color:' + p.rank.color + ';font-weight:bold;font-size:13px">' + p.points + '</span></div>';
+        });
+        if (d.leaderboard.length === 0) html = '<p style="text-align:center;color:#888">아직 랭커가 없습니다</p>';
+        showModal('🏆 시즌 리더보드', html, [{label:'닫기', type:'cancel', action:'closeModal()'}]);
+      });
+
+      window.socket.on('ranked_promotion', (d) => {
+        showModal('', '<div style="text-align:center"><span style="font-size:64px">' + d.icon + '</span>' +
+          '<p style="color:' + d.color + ';font-size:24px;font-weight:900;font-family:Cinzel,serif;margin:8px 0">' + d.name + '</p>' +
+          '<p style="color:#ffd700;font-size:14px">랭크 승급!</p></div>',
+          [{label:'멋지다!', action:'closeModal()'}]);
+        if (typeof celebrateRareDrop === 'function') celebrateRareDrop('legendary');
+        playSFX('levelup');
+      });
+
       // ═══ 미션 보드 ═══
       window.socket.on('mission_board', (d) => {
         var html = '<h4 style="color:#ffd700;margin:0 0 6px;font-size:12px">📋 일일 미션</h4>';

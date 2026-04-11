@@ -1482,6 +1482,17 @@ function handleCollisions() {
                         if (tutResult) io.to(realOwner.id).emit('tutorial_update', tutResult);
                     } catch(e) {}
 
+                    // v2.59: 랭크 시즌 포인트
+                    try {
+                        const ranked = require('./ranked_season');
+                        const action = (mob.tier === 'boss' || mob.tier === 'legendary' || mob.tier === 'mythic') ? 'boss_kill' : 'kill';
+                        const rResult = ranked.addSeasonPoints(realOwner, action);
+                        if (rResult.isPromotion) {
+                            io.emit('server_msg', { msg: rResult.rank.icon + ' ' + (realOwner.displayName||realOwner.className) + ' — ' + rResult.rank.name + ' 승급!', type: 'rare' });
+                            io.to(realOwner.id).emit('ranked_promotion', rResult.rank);
+                        }
+                    } catch(e) {}
+
                     // v2.59: 미션 진행 (킬)
                     try {
                         const dm = require('./daily_missions');
