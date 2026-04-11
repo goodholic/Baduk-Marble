@@ -2687,6 +2687,192 @@
         playSFX('buff');
       });
 
+      // ═══ IO-RPG 코어 ═══
+      // 로그인 후 자동 매치 참가 프롬프트
+      setTimeout(function() {
+        if (window.socket?.connected && !window._ioJoined) {
+          showModal('🎮 IO-RPG 매치', '<div style="text-align:center"><p style="color:#ffd700;font-size:18px">10분 매치에 참가!</p>' +
+            '<p style="color:#ddd;margin:8px 0">클래스를 선택하고 바로 전투!</p>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:12px 0">' +
+            '<button class="btn" onclick="window.socket.emit(\'io_join\',\'warrior\');closeModal();window._ioJoined=true;" style="border-left:3px solid #ff8800">⚔️ 워리어<br><small style="color:#888">밸런스형</small></button>' +
+            '<button class="btn" onclick="window.socket.emit(\'io_join\',\'assassin\');closeModal();window._ioJoined=true;" style="border-left:3px solid #ff4444">🗡️ 어쌔신<br><small style="color:#888">고공격</small></button>' +
+            '<button class="btn" onclick="window.socket.emit(\'io_join\',\'knight\');closeModal();window._ioJoined=true;" style="border-left:3px solid #4488ff">🛡️ 나이트<br><small style="color:#888">탱커</small></button>' +
+            '<button class="btn" onclick="window.socket.emit(\'io_join\',\'mage\');closeModal();window._ioJoined=true;" style="border-left:3px solid #aa44ff">🔮 메이지<br><small style="color:#888">광역</small></button>' +
+            '<button class="btn" onclick="window.socket.emit(\'io_join\',\'cleric\');closeModal();window._ioJoined=true;" style="border-left:3px solid #44ff88;grid-column:span 2">✨ 클레릭<br><small style="color:#888">힐러</small></button>' +
+            '</div></div>', []);
+        }
+      }, 5000);
+
+      window.socket.on('io_joined', (d) => {
+        if (!d.success) { showToast(d.msg); return; }
+        showToast(d.classInfo.icon + ' ' + d.classInfo.name + '(으)로 매치 참가!');
+        window._ioJoined = true;
+        // IO 틱 시작
+        window._ioTicker = setInterval(function() {
+          if (window._ioJoined) {
+            window.socket.emit('io_status');
+            window.socket.emit('io_pickup');
+          }
+        }, 800);
+      });
+
+      window.socket.on('io_status', (d) => {
+        if (!d) return;
+        // IO HUD
+        var el = document.getElementById('io-hud');
+        if (!el) {
+          el = document.createElement('div');
+          el.id = 'io-hud';
+          el.style.cssText = 'position:fixed;top:4px;left:50%;transform:translateX(-50%);z-index:25;display:flex;gap:8px;font-size:10px;color:#ddd;background:linear-gradient(180deg,rgba(0,0,0,0.85),rgba(0,0,0,0.6));padding:6px 16px;border-radius:0 0 10px 10px;border:1px solid rgba(255,215,0,0.15);border-top:none;backdrop-filter:blur(4px)';
+          document.body.appendChild(el);
+        }
+        var hpPct = d.maxHp > 0 ? Math.floor(d.hp/d.maxHp*100) : 0;
+        var expPct = d.expToNext > 0 ? Math.floor(d.exp/d.expToNext*100) : 0;
+        el.innerHTML =
+          '<span>' + (d.classIcon||'') + '</span>' +
+          '<span>⏱<b style="color:' + (d.matchRemaining < 60 ? '#ff4444' : '#ffd700') + '">' + Math.floor(d.matchRemaining/60) + ':' + (d.matchRemaining%60<10?'0':'') + d.matchRemaining%60 + '</b></span>' +
+          '<span>Lv.<b style="color:#ffd700">' + d.level + '</b></span>' +
+          '<span style="color:' + (hpPct>50?'#44ff44':hpPct>25?'#ffaa00':'#ff4444') + '">❤️' + d.hp + '</span>' +
+          '<span>⚔️' + d.atk + '</span>' +
+          '<span>🛡️' + d.def + '</span>' +
+          '<span>💀<b>' + d.kills + '</b></span>' +
+          '<span style="color:#ff6b6b">☠' + d.playerKills + '</span>' +
+          '<span style="color:#ffd700">💰' + d.gold + '</span>' +
+          '<span style="color:#ff8800">🏆' + d.score + '</span>';
+        // EXP 바
+        if (!document.getElementById('io-exp-bar')) {
+          var expBar = document.createElement('div');
+          expBar.id = 'io-exp-bar';
+          expBar.style.cssText = 'position:fixed;top:28px;left:20%;width:60%;height:4px;background:rgba(0,0,0,0.5);z-index:25;border-radius:2px';
+          expBar.innerHTML = '<div id="io-exp-fill" style="height:100%;background:linear-gradient(90deg,#6644cc,#aa44ff);border-radius:2px;transition:width 0.3s"></div>';
+          document.body.appendChild(expBar);
+        }
+        document.getElementById('io-exp-fill').style.width = expPct + '%';
+
+        // 장비 표시
+        if (d.equipment && d.equipment.length > 0) {
+          var eqEl = document.getElementById('io-equipment');
+          if (!eqEl) {
+            eqEl = document.createElement('div');
+            eqEl.id = 'io-equipment';
+            eqEl.style.cssText = 'position:fixed;bottom:55px;left:10px;z-index:20;display:flex;gap:3px;flex-wrap:wrap;max-width:200px';
+            document.body.appendChild(eqEl);
+          }
+          eqEl.innerHTML = d.equipment.map(function(e) {
+            var gc = {normal:'#888',uncommon:'#44cc44',rare:'#4488ff',epic:'#aa44ff',legendary:'#ff8800'};
+            return '<span style="font-size:14px;padding:2px 4px;border-radius:4px;border:1px solid ' + (gc[e.grade]||'#444') + ';background:rgba(0,0,0,0.5)" title="' + e.name + '">' + e.icon + '</span>';
+          }).join('');
+        }
+
+        // 레벨업 체크
+        if (d.pendingLevelUp) window.socket.emit('io_levelup_choices');
+
+        // 스킬 버튼
+        var skillEl = document.getElementById('io-skill-btn');
+        if (!skillEl) {
+          skillEl = document.createElement('button');
+          skillEl.id = 'io-skill-btn';
+          skillEl.style.cssText = 'position:fixed;right:20px;bottom:140px;z-index:20;width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,#6644cc,#aa44ff);border:2px solid rgba(255,215,0,0.4);color:#fff;font-size:20px;cursor:pointer;box-shadow:0 4px 15px rgba(100,50,200,0.4)';
+          skillEl.onclick = function() { window.socket.emit('io_skill'); };
+          document.body.appendChild(skillEl);
+        }
+        skillEl.textContent = d.classIcon || '⚡';
+      });
+
+      // 레벨업 선택
+      window.socket.on('io_choices', (d) => {
+        if (!d.choices || d.choices.length === 0) return;
+        var html = '<p style="text-align:center;color:#ffd700;font-size:18px;margin-bottom:10px">⬆️ LEVEL UP!</p>';
+        d.choices.forEach(function(c) {
+          html += '<button class="btn" style="width:100%;margin:4px 0;text-align:left;font-size:13px" onclick="window.socket.emit(\'io_upgrade\',\'' + c.id + '\');closeModal();">' +
+            '<span style="font-size:18px;margin-right:8px">' + c.icon + '</span><b>' + c.name + '</b></button>';
+        });
+        showModal('', html, []);
+        playSFX('levelup');
+      });
+
+      window.socket.on('io_upgrade_result', (d) => {
+        if (d.success && d.upgrade) showToast(d.upgrade.icon + ' ' + d.upgrade.name + ' 선택!');
+      });
+
+      // 스킬 결과
+      window.socket.on('io_skill_result', (d) => {
+        if (!d.success) { showToast(d.msg); return; }
+        showToast('⚡ ' + d.skill + '!' + (d.buff ? ' ' + d.buff : '') + (d.kills ? ' ' + d.kills + '킬!' : '') + (d.heal ? ' HP+' + d.heal : ''));
+        if (typeof showMagicCircle === 'function') showMagicCircle('fire', 150);
+        playSFX('crit');
+      });
+
+      // PvP 결과
+      window.socket.on('io_pvp_result', (d) => {
+        if (d.killed) {
+          showToast('☠ ' + d.victimName + ' 처치! +200점');
+          if (typeof showSlowMotion === 'function') showSlowMotion(500);
+          playSFX('boss');
+        }
+      });
+
+      // 장비 줍기
+      window.socket.on('io_pickup_result', (d) => {
+        if (d && d.picked) {
+          var gc = {normal:'#888',uncommon:'#44cc44',rare:'#4488ff',epic:'#aa44ff',legendary:'#ff8800'};
+          showToast(d.item.icon + ' ' + d.item.name + ' 획득!');
+          if (d.item.grade === 'legendary' || d.item.grade === 'epic') { playSFX('levelup'); if (typeof celebrateRareDrop === 'function') celebrateRareDrop(d.item.grade); }
+          else playSFX('gold');
+        }
+      });
+
+      // 리더보드
+      window.socket.on('io_leaderboard', (d) => {
+        var el = document.getElementById('io-leaderboard');
+        if (!el) {
+          el = document.createElement('div');
+          el.id = 'io-leaderboard';
+          el.style.cssText = 'position:fixed;top:36px;right:8px;z-index:18;font-size:10px;color:#ddd;background:rgba(0,0,0,0.6);padding:6px 10px;border-radius:8px;max-width:160px;backdrop-filter:blur(3px)';
+          document.body.appendChild(el);
+        }
+        var html = '<div style="color:#ffd700;font-size:9px;margin-bottom:3px;letter-spacing:1px">LEADERBOARD</div>';
+        (d.leaderboard || []).slice(0, 5).forEach(function(p, i) {
+          var medals = ['🥇','🥈','🥉'];
+          html += '<div style="display:flex;gap:4px;padding:1px 0;opacity:' + (p.alive ? 1 : 0.4) + '">' +
+            '<span style="width:14px">' + (medals[i] || (i+1)) + '</span>' +
+            '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + p.classIcon + p.name + '</span>' +
+            '<span style="color:#ffd700">' + p.score + '</span></div>';
+        });
+        el.innerHTML = html;
+      });
+
+      // 보스 스폰
+      window.socket.on('io_boss_spawn', (d) => {
+        if (typeof showBossEntrance === 'function') showBossEntrance(d.name, '— 서버 보스! 함께 공격! —');
+        showToast(d.icon + ' ' + d.name + ' 출현!');
+      });
+
+      // 매치 종료
+      window.socket.on('io_match_end', (d) => {
+        window._ioJoined = false;
+        if (window._ioTicker) { clearInterval(window._ioTicker); window._ioTicker = null; }
+        // HUD 제거
+        ['io-hud','io-exp-bar','io-equipment','io-skill-btn','io-leaderboard'].forEach(function(id) { var e = document.getElementById(id); if (e) e.remove(); });
+
+        var html = '<p style="text-align:center;color:#ffd700;font-size:20px;font-weight:900">🏆 매치 종료!</p>';
+        var medals = ['🥇','🥈','🥉'];
+        html += '<div style="margin:12px 0">';
+        (d.rankings || []).forEach(function(r, i) {
+          html += '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #222;font-size:12px">' +
+            '<span style="width:24px;text-align:center;font-size:16px">' + (medals[i]||(i+1)) + '</span>' +
+            '<span style="font-size:14px">' + r.classIcon + '</span>' +
+            '<span style="flex:1;color:#ddd;font-weight:bold">' + r.name + '</span>' +
+            '<span style="color:#888">Lv.' + r.level + '</span>' +
+            '<span style="color:#ff8800">' + r.kills + 'k</span>' +
+            '<span style="color:#ffd700;font-weight:bold">' + r.score + '</span></div>';
+        });
+        html += '</div>';
+        showModal('🏆 매치 결과', html, [{label:'다음 매치!', action:'closeModal();'}]);
+        if (typeof celebrateRareDrop === 'function') celebrateRareDrop('mythic');
+        playSFX('levelup');
+      });
+
       // ═══ 서바이벌 IO ═══
       window.socket.on('survival_result', (d) => {
         if (!d.success && d.msg) { showToast(d.msg); return; }
