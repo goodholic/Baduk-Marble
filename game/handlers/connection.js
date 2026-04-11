@@ -382,6 +382,12 @@ io.on("connection", (socket) => {
         friendDuel.registerFriendDuelHandlers(socket, playerId, players, io);
     } catch(e) { /* ignore if not loaded */ }
 
+    // v2.59: 미션 보드 핸들러
+    try {
+        const missions = require('../daily_missions');
+        missions.registerMissionHandlers(socket, playerId, players, io);
+    } catch(e) {}
+
     // v2.59: 가챠 소환 핸들러
     try {
         const gacha = require('../gacha_summon');

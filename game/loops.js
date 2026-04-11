@@ -1482,6 +1482,17 @@ function handleCollisions() {
                         if (tutResult) io.to(realOwner.id).emit('tutorial_update', tutResult);
                     } catch(e) {}
 
+                    // v2.59: 미션 진행 (킬)
+                    try {
+                        const dm = require('./daily_missions');
+                        const missionTarget = mob.tier === 'boss' || mob.tier === 'legendary' ? 'kill_boss' : mob.tier === 'elite' || mob.tier === 'rare' ? 'kill_elite' : 'kill';
+                        const updates = dm.progressMission(realOwner, missionTarget, 1);
+                        if (missionTarget !== 'kill') dm.progressMission(realOwner, 'kill', 1);
+                        if (updates.length > 0) {
+                            updates.forEach(u => io.to(realOwner.id).emit('mission_complete_notify', u));
+                        }
+                    } catch(e) {}
+
                     delete monsters[mId];
                     spawnMonster();
                 } else {

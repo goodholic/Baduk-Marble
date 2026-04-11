@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>AutoBattle.io — 판타지 RPG</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="AutoBattle.io — 리니지풍 실시간 멀티플레이 판타지 RPG. 350+ 에셋, 20+ 시스템, 무료 플레이!">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#080810;color:#d4cfc0;font-family:'Noto Sans KR',sans-serif;overflow-x:hidden}
+.hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;background:radial-gradient(ellipse at center,rgba(102,68,204,0.15),transparent 60%),radial-gradient(ellipse at 80% 20%,rgba(255,100,0,0.08),transparent 50%),#080810;padding:40px 20px}
+.hero h1{font-family:'Cinzel',serif;font-size:clamp(36px,8vw,72px);background:linear-gradient(135deg,#ffd700,#ff8800);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:6px;margin-bottom:16px}
+.hero .sub{color:#888;font-size:clamp(14px,2vw,18px);letter-spacing:2px;margin-bottom:32px}
+.play-btn{display:inline-block;padding:16px 48px;background:linear-gradient(135deg,#ffd700,#ff8800);color:#000;font-size:20px;font-weight:900;border-radius:12px;text-decoration:none;letter-spacing:2px;transition:all 0.2s;box-shadow:0 4px 20px rgba(255,136,0,0.4)}
+.play-btn:hover{transform:translateY(-3px);box-shadow:0 8px 30px rgba(255,136,0,0.6)}
+.features{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;max-width:1200px;margin:0 auto;padding:60px 20px}
+.feature{background:rgba(255,255,255,0.03);border:1px solid rgba(255,215,0,0.08);border-radius:16px;padding:32px;text-align:center;transition:all 0.2s}
+.feature:hover{border-color:rgba(255,215,0,0.2);transform:translateY(-4px);box-shadow:0 8px 24px rgba(0,0,0,0.3)}
+.feature .icon{font-size:48px;margin-bottom:12px}
+.feature h3{color:#ffd700;font-size:18px;margin-bottom:8px}
+.feature p{color:#888;font-size:13px;line-height:1.6}
+.stats{display:flex;justify-content:center;gap:40px;flex-wrap:wrap;padding:40px 20px;background:rgba(255,215,0,0.02)}
+.stat{text-align:center}
+.stat .num{font-family:'Cinzel',serif;font-size:36px;color:#ffd700;font-weight:900}
+.stat .label{color:#888;font-size:12px;margin-top:4px}
+footer{text-align:center;padding:40px;color:#444;font-size:12px;border-top:1px solid rgba(255,255,255,0.05)}
+</style>
+</head>
+<body>
+<div class="hero">
+  <div style="font-size:12px;color:#6644cc;letter-spacing:4px;margin-bottom:8px">ENTER THE REALM</div>
+  <h1>AutoBattle.io</h1>
+  <p class="sub">리니지풍 실시간 멀티플레이 판타지 RPG</p>
+  <a href="/" class="play-btn">⚔️ 지금 플레이</a>
+  <p style="color:#555;font-size:11px;margin-top:16px">무료 | 브라우저 즉시 플레이 | 회원가입 10초</p>
+</div>
+
+<div class="stats">
+  <div class="stat"><div class="num">20+</div><div class="label">게임 시스템</div></div>
+  <div class="stat"><div class="num">350+</div><div class="label">에셋</div></div>
+  <div class="stat"><div class="num">50+</div><div class="label">존</div></div>
+  <div class="stat"><div class="num">5</div><div class="label">클래스</div></div>
+  <div class="stat"><div class="num">∞</div><div class="label">모험</div></div>
+</div>
+
+<div class="features">
+  <div class="feature"><div class="icon">⚔️</div><h3>실시간 전투</h3><p>5개 클래스, 스킬 콤보, 상태이상, 궁극기. 화려한 이펙트와 함께 몬스터를 사냥하세요!</p></div>
+  <div class="feature"><div class="icon">🏰</div><h3>심층 던전</h3><p>10층 다층 던전, 함정, 보스 페이즈, 랜덤 이벤트. 매번 다른 경험!</p></div>
+  <div class="feature"><div class="icon">📖</div><h3>메인 스토리</h3><p>4막 12퀘스트. 심연의 군주를 봉인하고 세계를 구하는 서사시.</p></div>
+  <div class="feature"><div class="icon">🏟️</div><h3>배틀로얄</h3><p>20명 자유 전투! 안전지대 축소, 보급 상자, 최후의 1인!</p></div>
+  <div class="feature"><div class="icon">🐲</div><h3>드래곤 라이딩</h3><p>8종 드래곤 수집, 부화, 성장. 하늘을 날며 레이스!</p></div>
+  <div class="feature"><div class="icon">🏠</div><h3>하우징</h3><p>나만의 집 건설, 가구 배치, 자원 생산, 요새 방어전!</p></div>
+  <div class="feature"><div class="icon">👿</div><h3>전설 변신</h3><p>마왕, 대천사, 태고용으로 변신! 압도적인 전투력.</p></div>
+  <div class="feature"><div class="icon">🩸</div><h3>PvP 현상수배</h3><p>킬 스트릭으로 현상금이 올라간다! 전장 버프 선택.</p></div>
+  <div class="feature"><div class="icon">⭐</div><h3>가챠 소환</h3><p>영웅과 장비를 소환! 천장 시스템으로 전설 확정.</p></div>
+</div>
+
+<div style="text-align:center;padding:60px 20px">
+  <a href="/" class="play-btn" style="font-size:24px;padding:20px 60px">🎮 무료로 시작하기</a>
+</div>
+
+<footer>
+  <p>AutoBattle.io © 2026 | Unity WebGL + Node.js + Socket.IO</p>
+  <p style="margin-top:4px">Made with ❤️ and AI</p>
+</footer>
+</body>
+</html>

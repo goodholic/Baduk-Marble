@@ -2687,6 +2687,35 @@
         playSFX('buff');
       });
 
+      // ═══ 미션 보드 ═══
+      window.socket.on('mission_board', (d) => {
+        var html = '<h4 style="color:#ffd700;margin:0 0 6px;font-size:12px">📋 일일 미션</h4>';
+        d.daily.forEach(function(m) {
+          var pct = m.goal > 0 ? Math.floor(m.progress / m.goal * 100) : 0;
+          var done = m.progress >= m.goal;
+          html += '<div class="panel-item" style="border-left:3px solid ' + (m.claimed ? '#444' : done ? '#44ff44' : '#ffd700') + ';opacity:' + (m.claimed ? 0.4 : 1) + '">' +
+            '<span class="name">' + m.icon + ' ' + m.name + '<br><small style="color:#888">' + m.desc + ' (' + m.progress + '/' + m.goal + ')</small>' +
+            '<br><small style="color:#ffd700">' + (m.reward.gold ? m.reward.gold + 'G ' : '') + (m.reward.diamonds ? m.reward.diamonds + '💎 ' : '') + (m.reward.exp ? m.reward.exp + 'EXP' : '') + '</small></span>' +
+            (done && !m.claimed ? '<button class="btn btn-sm" onclick="window.socket.emit(\'mission_claim\',\'' + m.id + '\');closeModal();">수령</button>' : '') +
+            '</div>';
+        });
+        html += '<h4 style="color:#aa44ff;margin:12px 0 6px;font-size:12px">📋 주간 미션</h4>';
+        d.weekly.forEach(function(m) {
+          var done = m.progress >= m.goal;
+          html += '<div class="panel-item" style="border-left:3px solid ' + (m.claimed ? '#444' : done ? '#44ff44' : '#aa44ff') + ';opacity:' + (m.claimed ? 0.4 : 1) + '">' +
+            '<span class="name">' + m.icon + ' ' + m.name + '<br><small style="color:#888">' + m.desc + ' (' + m.progress + '/' + m.goal + ')</small>' +
+            '<br><small style="color:#ffd700">' + (m.reward.gold ? m.reward.gold + 'G ' : '') + (m.reward.diamonds ? m.reward.diamonds + '💎' : '') + '</small></span>' +
+            (done && !m.claimed ? '<button class="btn btn-sm" onclick="window.socket.emit(\'mission_claim\',\'' + m.id + '\');closeModal();">수령</button>' : '') +
+            '</div>';
+        });
+        showModal('📋 미션 보드', html, [{label:'닫기', type:'cancel', action:'closeModal()'}]);
+      });
+      window.socket.on('mission_claim_result', (d) => { showToast(d.msg); if (d.success) playSFX('gold'); });
+      window.socket.on('mission_complete_notify', (d) => {
+        showToast('✅ 미션 완료: ' + d.icon + ' ' + d.name + '! 보상을 수령하세요.');
+        playSFX('buff');
+      });
+
       // ═══ 가챠 소환 ═══
       window.socket.on('gacha_pool_list', (d) => {
         var html = '';
