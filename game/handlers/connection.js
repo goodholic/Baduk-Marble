@@ -382,6 +382,12 @@ io.on("connection", (socket) => {
         friendDuel.registerFriendDuelHandlers(socket, playerId, players, io);
     } catch(e) { /* ignore if not loaded */ }
 
+    // v2.59: 출석 체크 핸들러
+    try {
+        const attendance = require('../attendance');
+        attendance.registerAttendanceHandlers(socket, playerId, players, io);
+    } catch(e) {}
+
     // v2.59: 로그라이크 던전 핸들러
     try {
         const rogue = require('../roguelike_dungeon');

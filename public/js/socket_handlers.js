@@ -2687,6 +2687,47 @@
         playSFX('buff');
       });
 
+      // ═══ 출석 체크 ═══
+      window.socket.on('attendance_status', (d) => {
+        var html = '<div style="text-align:center;margin-bottom:10px">' +
+          '<p style="color:#ffd700;font-size:16px">📅 출석 ' + d.totalDays + '일째</p>' +
+          '<p style="color:#ff8800">🔥 연속 ' + d.streak + '일</p>' +
+          (d.nextStreak ? '<p style="color:#888;font-size:10px">다음 연속 보너스: ' + d.nextStreak.streak + '일 (' + d.nextStreak.msg + ')</p>' : '') +
+          '</div>';
+        // 캘린더 미니 그리드
+        html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin:8px 0">';
+        for (var i = 0; i < 30; i++) {
+          var day = i + 1;
+          var claimed = d.claimedDays.includes(day);
+          var special = d.calendar[i]?.special;
+          var bg = claimed ? '#2a4a2a' : special ? 'rgba(255,215,0,0.1)' : 'rgba(255,255,255,0.03)';
+          var border = special ? '1px solid rgba(255,215,0,0.3)' : '1px solid rgba(255,255,255,0.05)';
+          html += '<div style="text-align:center;padding:4px 2px;border-radius:4px;background:' + bg + ';border:' + border + ';font-size:9px;color:' + (claimed ? '#44ff44' : '#888') + '">' +
+            (claimed ? '✅' : day) + '</div>';
+        }
+        html += '</div>';
+        if (d.canClaim) {
+          html += '<button class="btn btn-primary" onclick="window.socket.emit(\'attendance_checkin\');closeModal();" style="width:100%;margin-top:8px;font-size:14px">📅 출석 체크!</button>';
+        } else {
+          html += '<p style="text-align:center;color:#888;margin-top:8px">오늘 이미 출석했습니다 ✅</p>';
+        }
+        showModal('📅 출석 체크', html, [{label:'닫기', type:'cancel', action:'closeModal()'}]);
+      });
+      window.socket.on('attendance_result', (d) => {
+        if (!d.success) { showToast(d.msg); return; }
+        var msg = '📅 ' + d.day + '일째 출석! 💰+' + (d.reward.gold||0) + 'G';
+        if (d.reward.diamonds) msg += ' 💎+' + d.reward.diamonds;
+        if (d.isSpecial) msg += ' ⭐특별보상!';
+        showToast(msg);
+        playSFX(d.isSpecial ? 'levelup' : 'gold');
+        if (d.streakBonus) {
+          setTimeout(function() {
+            showToast('🔥 ' + d.streakBonus.msg + ' 💰+' + (d.streakBonus.bonus.gold||0) + 'G' + (d.streakBonus.bonus.diamonds ? ' 💎+' + d.streakBonus.bonus.diamonds : ''));
+            playSFX('levelup');
+          }, 1500);
+        }
+      });
+
       // ═══ 로그라이크 던전 ═══
       window.socket.on('rogue_result', (d) => {
         if (!d.success) { showToast(d.msg || '실패'); return; }
