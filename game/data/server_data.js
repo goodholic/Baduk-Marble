@@ -2,41 +2,42 @@
 // CLASSES, RUNES, FACTIONS, LEGACY_PERKS, etc.
 
 const CLASSES = {
+    // v2.58 밸런스 패치: 클래스 재조정
     'Assassin': {
         displayName: '어쌔신',
-        maxHp: 145, atk: 35, def: 8,  speed: 20,
-        critRate: 0.20, dodgeRate: 0.15,
+        maxHp: 160, atk: 38, def: 8,  speed: 22,    // HP 145→160, ATK 35→38, SPD 20→22
+        critRate: 0.22, dodgeRate: 0.18,              // CRIT 20→22%, DODGE 15→18%
         aoe: false, projSpeed: 40, projLife: 80,
         desc: '빠른 속도와 높은 크리티컬로 적을 암살',
         autoSkill: 'shadowStrike'
     },
     'Warrior': {
         displayName: '워리어',
-        maxHp: 200, atk: 28, def: 16, speed: 12,
-        critRate: 0.10, dodgeRate: 0.05,
+        maxHp: 220, atk: 30, def: 18, speed: 13,     // HP 200→220, ATK 28→30, DEF 16→18
+        critRate: 0.12, dodgeRate: 0.06,              // CRIT 10→12%
         aoe: false, projSpeed: 18, projLife: 1200,
         desc: '균형 잡힌 공방, 안정적인 전투력',
         autoSkill: 'powerStrike'
     },
     'Knight': {
         displayName: '나이트',
-        maxHp: 350, atk: 22, def: 28, speed: 10,
-        critRate: 0.05, dodgeRate: 0.02,
+        maxHp: 380, atk: 20, def: 32, speed: 10,     // HP 350→380, DEF 28→32, ATK 22→20
+        critRate: 0.05, dodgeRate: 0.03,              // DODGE 2→3%
         aoe: false, projSpeed: 14, projLife: 800,
         desc: '철벽 방어, 아군을 지키는 탱커',
         autoSkill: 'shieldBash'
     },
     'Mage': {
         displayName: '메이지',
-        maxHp: 110, atk: 24, def: 6,  speed: 9,
-        critRate: 0.15, dodgeRate: 0.10,
+        maxHp: 140, atk: 26, def: 7,  speed: 10,     // HP 110→140, ATK 24→26, SPD 9→10
+        critRate: 0.18, dodgeRate: 0.08,              // CRIT 15→18%, DODGE 10→8%
         aoe: true, projSpeed: 0, projLife: 2500,
         desc: '강력한 광역 마법으로 전장을 지배',
-        autoSkill: 'meteor' // 메테오: 넓은 범위 폭발
+        autoSkill: 'meteor'
     },
     'GuardianTower': {
         displayName: '가디언 타워',
-        maxHp: 600, atk: 35, def: 25, speed: 0,
+        maxHp: 650, atk: 35, def: 28, speed: 0,      // HP 600→650, DEF 25→28
         critRate: 0.05, dodgeRate: 0,
         aoe: false, projSpeed: 22, projLife: 800,
         desc: '고정 방어탑, 영역 수호',
@@ -44,9 +45,10 @@ const CLASSES = {
     },
     'Cleric': {
         displayName: '클레릭',
-        maxHp: 170, atk: 22, def: 14, speed: 11,
-        critRate: 0.08, dodgeRate: 0.05,
+        maxHp: 200, atk: 18, def: 16, speed: 11,     // HP 170→200, ATK 22→18(힐러), DEF 14→16
+        critRate: 0.06, dodgeRate: 0.05,              // CRIT 8→6%
         aoe: false, projSpeed: 22, projLife: 700,
+        healAura: 0.03,                                // 신규: 주변 아군 HP 3%/초 회복
         desc: '신성한 빛으로 공격하며 주변 아군을 자동 치유',
         autoSkill: 'holyLight'
     }
