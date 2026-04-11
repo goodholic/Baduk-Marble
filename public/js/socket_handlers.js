@@ -2763,6 +2763,57 @@
         if (!s.alive) { el.remove(); }
       };
 
+      // ═══ 코옵 서바이벌 ═══
+      window.socket.on('coop_result', (d) => { showToast(d.msg || (d.success ? '성공!' : '실패')); });
+      window.socket.on('coop_player_joined', (d) => {
+        showToast('👤 ' + d.name + '님 참가! (' + d.players.length + '명)');
+      });
+      window.socket.on('coop_started', (d) => {
+        showToast('🎮 코옵 서바이벌 시작!');
+        window._coopRoom = d.roomId;
+        window._coopMode = true;
+        // 코옵 자동 공격
+        window._coopTicker = setInterval(function() {
+          if (window._coopMode && window._coopRoom) window.socket.emit('coop_attack', window._coopRoom);
+        }, 600);
+      });
+      window.socket.on('coop_wave', (d) => {
+        showToast('🌊 웨이브 ' + d.wave + '!' + (d.isBoss ? ' 👹 ' + d.bossName : ' 적 ' + d.monsterCount + '체'));
+        if (d.isBoss && typeof showBossEntrance === 'function') showBossEntrance(d.bossName, '— 코옵 웨이브 ' + d.wave + ' —');
+      });
+      window.socket.on('coop_update', (d) => {
+        if (!d) return;
+        // 코옵 HUD
+        var el = document.getElementById('survival-hud');
+        if (!el) { el = document.createElement('div'); el.id = 'survival-hud'; el.style.cssText = 'position:fixed;top:32px;left:50%;transform:translateX(-50%);z-index:20;display:flex;gap:8px;font-size:10px;color:#ddd;background:rgba(0,0,0,0.7);padding:4px 12px;border-radius:8px;border:1px solid rgba(255,215,0,0.2)'; document.body.appendChild(el); }
+        el.innerHTML = '<span>🌊' + d.wave + '</span><span>👾' + d.monstersAlive + '</span><span>💀' + d.totalKills + '</span><span>⏱' + d.time + 's</span>' +
+          d.players.map(function(p) { return '<span style="color:' + (p.alive?'#44ff44':'#ff4444') + '">' + p.name + ' Lv.' + p.level + ' (' + p.kills + 'k)</span>'; }).join('');
+        // 레벨업 체크
+        var me = d.players.find(function(p) { return p.id === myPlayerId; });
+        // 레벨업은 coop_attack_result에서 처리
+      });
+      window.socket.on('coop_attack_result', (d) => {
+        if (d && d.killed && d.isCrit) showFloatingDamage(d.damage, true, 'CRIT', 'fire');
+        if (d && !d.playerAlive) showToast('💀 사망! 부활 대기...');
+      });
+      window.socket.on('coop_end', (d) => {
+        window._coopMode = false;
+        if (window._coopTicker) { clearInterval(window._coopTicker); window._coopTicker = null; }
+        var el = document.getElementById('survival-hud'); if (el) el.remove();
+        var html = '<p style="text-align:center;color:#ffd700;font-size:18px">🏆 코옵 클리어!</p>' +
+          '<p style="text-align:center;color:#888">웨이브 ' + d.wave + ' | 총 ' + d.totalKills + '킬 | ' + Math.floor(d.time/60) + '분</p>' +
+          '<div style="margin-top:10px">';
+        d.results.forEach(function(r, i) {
+          html += '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid #222;font-size:11px">' +
+            '<span style="width:20px;text-align:center;color:#ffd700">' + (i+1) + '</span>' +
+            '<span style="flex:1;color:' + (r.alive?'#44ff44':'#ff4444') + '">' + r.name + '</span>' +
+            '<span>Lv.' + r.level + '</span><span>' + r.kills + '킬</span><span style="color:#ffd700">' + r.score + '점</span></div>';
+        });
+        html += '</div>';
+        showModal('🏆 코옵 서바이벌', html, [{label:'확인', action:'closeModal()'}]);
+        if (typeof celebrateRareDrop === 'function') celebrateRareDrop('legendary');
+      });
+
       // ═══ 출석 체크 ═══
       window.socket.on('attendance_status', (d) => {
         var html = '<div style="text-align:center;margin-bottom:10px">' +

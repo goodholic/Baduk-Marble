@@ -364,4 +364,298 @@ function registerSurvivalHandlers(socket, playerId, players, io) {
   });
 }
 
-module.exports = { registerSurvivalHandlers, SURVIVAL_CONFIG };
+// ═══ 멀티플레이어 코옵 서바이벌 ═══
+const coopRooms = {};
+let coopIdCounter = 0;
+
+function createCoopRoom(hostId, hostName, className) {
+  const roomId = 'coop_' + (++coopIdCounter);
+  coopRooms[roomId] = {
+    id: roomId,
+    host: hostId,
+    players: {},
+    wave: 0,
+    monstersAlive: 0,
+    totalKills: 0,
+    startTime: null,
+    phase: 'waiting', // waiting → active → ended
+    lastWaveTime: 0,
+    maxPlayers: 4,
+  };
+  joinCoopRoom(roomId, hostId, hostName, className);
+  return { success: true, roomId, msg: '코옵 방 생성! 코드: ' + roomId };
+}
+
+function joinCoopRoom(roomId, playerId, playerName, className) {
+  const room = coopRooms[roomId];
+  if (!room) return { success: false, msg: '방을 찾을 수 없습니다' };
+  if (room.phase !== 'waiting') return { success: false, msg: '이미 게임 진행 중' };
+  if (Object.keys(room.players).length >= room.maxPlayers) return { success: false, msg: '정원 초과 (최대 ' + room.maxPlayers + '명)' };
+
+  room.players[playerId] = {
+    name: playerName,
+    className,
+    level: 1, exp: 0, expToNext: 30,
+    hp: SURVIVAL_CONFIG.startHp,
+    maxHp: SURVIVAL_CONFIG.startHp,
+    atk: SURVIVAL_CONFIG.startAtk,
+    def: SURVIVAL_CONFIG.startDef,
+    critRate: 5, dodge: 0, hpRegen: 0, lifesteal: 0,
+    multishot: 0, shield: 0, revive: 0,
+    kills: 0, alive: true,
+    upgrades: [],
+    pendingLevelUp: false,
+  };
+
+  return { success: true, roomId, players: getCoopPlayerList(roomId) };
+}
+
+function startCoopGame(roomId, io) {
+  const room = coopRooms[roomId];
+  if (!room || room.phase !== 'waiting') return { success: false };
+  if (Object.keys(room.players).length < 1) return { success: false, msg: '최소 1명 필요' };
+
+  room.phase = 'active';
+  room.startTime = Date.now();
+  room.lastWaveTime = Date.now();
+  room.wave = 0;
+
+  if (io) {
+    for (const pid of Object.keys(room.players)) {
+      io.to(pid).emit('coop_started', { roomId, players: getCoopPlayerList(roomId) });
+    }
+    io.emit('server_msg', { msg: '🎮 코옵 서바이벌 시작! ' + Object.values(room.players).map(p => p.name).join(', '), type: 'boss' });
+  }
+
+  return { success: true };
+}
+
+function tickCoopRoom(roomId, io) {
+  const room = coopRooms[roomId];
+  if (!room || room.phase !== 'active') return null;
+
+  const elapsed = Math.floor((Date.now() - room.startTime) / 1000);
+
+  // HP 재생
+  for (const p of Object.values(room.players)) {
+    if (p.alive && p.hpRegen > 0) p.hp = Math.min(p.maxHp, p.hp + p.hpRegen);
+  }
+
+  // 웨이브 체크
+  let newWave = null;
+  const timeSinceWave = (Date.now() - room.lastWaveTime) / 1000;
+  if (timeSinceWave >= SURVIVAL_CONFIG.waveInterval && room.wave < SURVIVAL_CONFIG.maxWave) {
+    room.wave++;
+    room.lastWaveTime = Date.now();
+    const isBoss = room.wave % SURVIVAL_CONFIG.bossEveryWave === 0;
+    const playerCount = Object.values(room.players).filter(p => p.alive).length;
+    const monsterCount = Math.floor((3 + room.wave * 1.5) * (1 + playerCount * 0.3)); // 인원수에 비례
+    room.monstersAlive += monsterCount;
+
+    newWave = { wave: room.wave, isBoss, monsterCount, bossName: isBoss ? getWaveBossName(room.wave) : null };
+
+    if (io) {
+      for (const pid of Object.keys(room.players)) {
+        io.to(pid).emit('coop_wave', newWave);
+      }
+    }
+  }
+
+  // 전원 사망 체크
+  const aliveCount = Object.values(room.players).filter(p => p.alive).length;
+  if (aliveCount === 0 && room.wave > 0) {
+    return endCoopGame(roomId, io);
+  }
+
+  // 상태 브로드캐스트
+  if (io && elapsed % 2 === 0) {
+    const status = getCoopStatus(roomId);
+    for (const pid of Object.keys(room.players)) {
+      io.to(pid).emit('coop_update', status);
+    }
+  }
+
+  return { tick: true };
+}
+
+function coopAttack(roomId, playerId) {
+  const room = coopRooms[roomId];
+  if (!room || room.phase !== 'active') return null;
+  const player = room.players[playerId];
+  if (!player || !player.alive || player.pendingLevelUp) return null;
+  if (room.monstersAlive <= 0) return null;
+
+  // 전투
+  const isBossWave = room.wave % SURVIVAL_CONFIG.bossEveryWave === 0;
+  const enemyMult = isBossWave && room.monstersAlive <= 1 ? 3 : 1;
+  const enemyAtk = Math.floor((5 + room.wave * 3) * enemyMult * Math.pow(SURVIVAL_CONFIG.monsterScaling.atkMult, room.wave));
+  const enemyDef = Math.floor((2 + room.wave) * enemyMult);
+
+  const isCrit = Math.random() * 100 < player.critRate;
+  const shots = 1 + (player.multishot || 0);
+  let totalDmg = 0;
+  for (let i = 0; i < shots; i++) {
+    totalDmg += Math.max(1, Math.floor(player.atk * (isCrit ? 2 : 1) - enemyDef * 0.3));
+  }
+
+  // 킬
+  room.monstersAlive--;
+  room.totalKills++;
+  player.kills++;
+
+  // EXP
+  const expGain = SURVIVAL_CONFIG.expPerKill + room.wave * 2;
+  player.exp += expGain;
+  if (player.exp >= player.expToNext) {
+    player.exp -= player.expToNext;
+    player.level++;
+    player.expToNext = Math.floor(player.expToNext * SURVIVAL_CONFIG.expScaling);
+    player.pendingLevelUp = true;
+    player.hp = Math.min(player.maxHp, player.hp + Math.floor(player.maxHp * 0.1));
+  }
+
+  // 흡혈
+  if (player.lifesteal > 0) player.hp = Math.min(player.maxHp, player.hp + Math.floor(totalDmg * player.lifesteal / 100));
+
+  // 적 반격
+  const dodged = Math.random() * 100 < player.dodge;
+  if (!dodged) {
+    let dmg = Math.max(1, enemyAtk - Math.floor(player.def * 0.4));
+    if (player.shield > 0) { player.shield -= dmg; if (player.shield < 0) { dmg = -player.shield; player.shield = 0; } else dmg = 0; }
+    player.hp -= dmg;
+  }
+
+  if (player.hp <= 0) {
+    if (player.revive > 0) { player.revive--; player.hp = Math.floor(player.maxHp * 0.5); }
+    else { player.alive = false; }
+  }
+
+  return { killed: true, damage: totalDmg, isCrit, playerHp: player.hp, playerAlive: player.alive };
+}
+
+function coopSelectUpgrade(roomId, playerId, upgradeId) {
+  const room = coopRooms[roomId];
+  if (!room) return { success: false };
+  const player = room.players[playerId];
+  if (!player || !player.pendingLevelUp) return { success: false };
+
+  const upgrade = UPGRADES.find(u => u.id === upgradeId);
+  if (!upgrade) return { success: false };
+
+  for (const [key, val] of Object.entries(upgrade.effect)) {
+    if (key === 'maxHp') { player.maxHp += val; player.hp += val; }
+    else if (key === 'bomb') { room.monstersAlive = Math.max(0, room.monstersAlive - (5 + room.wave)); room.totalKills += 5; player.kills += 5; }
+    else if (player[key] !== undefined) player[key] += (typeof val === 'boolean' ? 1 : val);
+  }
+  player.upgrades.push({ id: upgrade.id, name: upgrade.name, icon: upgrade.icon });
+  player.pendingLevelUp = false;
+
+  return { success: true, upgrade };
+}
+
+function endCoopGame(roomId, io) {
+  const room = coopRooms[roomId];
+  if (!room) return null;
+  room.phase = 'ended';
+
+  const elapsed = Math.floor((Date.now() - room.startTime) / 1000);
+  const results = Object.entries(room.players).map(([pid, p]) => ({
+    id: pid, name: p.name, level: p.level, kills: p.kills,
+    alive: p.alive, upgrades: p.upgrades.length,
+    score: p.kills * 10 + room.wave * 100 + p.level * 50,
+  })).sort((a, b) => b.score - a.score);
+
+  if (io) {
+    for (const pid of Object.keys(room.players)) {
+      io.to(pid).emit('coop_end', { wave: room.wave, totalKills: room.totalKills, time: elapsed, results });
+    }
+    io.emit('server_msg', { msg: '🏆 코옵 서바이벌 종료! 웨이브 ' + room.wave + ', 총 ' + room.totalKills + '킬', type: 'boss' });
+  }
+
+  setTimeout(() => { delete coopRooms[roomId]; }, 10000);
+  return { type: 'game_over', wave: room.wave, results };
+}
+
+function getCoopPlayerList(roomId) {
+  const room = coopRooms[roomId];
+  if (!room) return [];
+  return Object.entries(room.players).map(([pid, p]) => ({
+    id: pid, name: p.name, level: p.level, hp: p.hp, maxHp: p.maxHp,
+    kills: p.kills, alive: p.alive, className: p.className,
+  }));
+}
+
+function getCoopStatus(roomId) {
+  const room = coopRooms[roomId];
+  if (!room) return null;
+  return {
+    roomId, phase: room.phase, wave: room.wave, monstersAlive: room.monstersAlive,
+    totalKills: room.totalKills,
+    time: room.startTime ? Math.floor((Date.now() - room.startTime) / 1000) : 0,
+    players: getCoopPlayerList(roomId),
+  };
+}
+
+function getCoopRoomList() {
+  return Object.values(coopRooms)
+    .filter(r => r.phase === 'waiting')
+    .map(r => ({ id: r.id, host: r.players[r.host]?.name || '?', playerCount: Object.keys(r.players).length, maxPlayers: r.maxPlayers }));
+}
+
+// 핸들러 확장
+const _origRegister = registerSurvivalHandlers;
+function registerSurvivalHandlersV2(socket, playerId, players, io) {
+  _origRegister(socket, playerId, players, io);
+
+  socket.on('coop_create', () => {
+    const p = players[playerId];
+    if (!p) return;
+    const result = createCoopRoom(playerId, p.displayName || p.className, p.className);
+    socket.emit('coop_result', result);
+  });
+
+  socket.on('coop_join', (roomId) => {
+    const p = players[playerId];
+    if (!p) return;
+    const result = joinCoopRoom(roomId, playerId, p.displayName || p.className, p.className);
+    socket.emit('coop_result', result);
+    if (result.success && io) {
+      for (const pid of Object.keys(coopRooms[roomId]?.players || {})) {
+        io.to(pid).emit('coop_player_joined', { name: p.displayName, players: result.players });
+      }
+    }
+  });
+
+  socket.on('coop_start', (roomId) => {
+    const room = coopRooms[roomId];
+    if (!room || room.host !== playerId) return;
+    const result = startCoopGame(roomId, io);
+    if (result.success) {
+      // 코옵 틱 시작
+      const tickInterval = setInterval(() => {
+        const r = tickCoopRoom(roomId, io);
+        if (!r || r.type === 'game_over') clearInterval(tickInterval);
+      }, 1000);
+    }
+  });
+
+  socket.on('coop_attack', (roomId) => {
+    const result = coopAttack(roomId, playerId);
+    if (result) socket.emit('coop_attack_result', result);
+  });
+
+  socket.on('coop_upgrade', (data) => {
+    const result = coopSelectUpgrade(data.roomId, playerId, data.upgradeId);
+    socket.emit('coop_upgrade_result', result);
+  });
+
+  socket.on('coop_rooms', () => {
+    socket.emit('coop_rooms', { rooms: getCoopRoomList() });
+  });
+
+  socket.on('coop_status', (roomId) => {
+    socket.emit('coop_status', getCoopStatus(roomId));
+  });
+}
+
+module.exports = { registerSurvivalHandlers: registerSurvivalHandlersV2, SURVIVAL_CONFIG };
