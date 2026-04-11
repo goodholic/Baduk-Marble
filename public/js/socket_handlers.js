@@ -645,6 +645,10 @@
           if (now - lastKillTime < 5000) { killStreak++; } else { killStreak = 1; }
           lastKillTime = now;
           showKillStreak(killStreak);
+          // v2.59: 멀티킬 + 오버킬 연출
+          if (typeof showMultiKill === 'function') showMultiKill();
+          if (d.goldEarned > 500 && typeof showOverkill === 'function') showOverkill(d.goldEarned);
+          if ((d.tier === 'boss' || d.tier === 'legendary' || d.tier === 'mythic') && typeof showSlowMotion === 'function') showSlowMotion(800);
           // 골드/EXP 플로팅 숫자
           if (d.goldEarned) showFloatingDamage('+' + d.goldEarned + 'G', false, null);
           if (d.expEarned) {
@@ -2677,6 +2681,34 @@
           {label:'거절', type:'cancel', action:'closeModal()'}
         ]);
         playSFX('buff');
+      });
+
+      // ═══ 펫 진화 ═══
+      window.socket.on('pet_evo_status', (d) => {
+        var html = '';
+        if (!d.hasPet) {
+          html = '<p style="text-align:center;color:#888">펫이 없습니다. 펫을 먼저 획득하세요!</p>';
+        } else {
+          html = '<div style="text-align:center;margin-bottom:10px">' +
+            '<span style="font-size:36px">' + d.current.icon + '</span>' +
+            '<p style="color:#ffd700;font-size:16px">' + d.current.name + ' <span style="color:#888">(★' + d.current.stage + ')</span></p>' +
+            '<p style="color:#888;font-size:10px">' + Object.entries(d.current.stats).map(function(e){return e[0]+': +'+e[1];}).join(', ') + '</p></div>';
+          if (d.canEvolve && d.nextForm) {
+            html += '<div style="text-align:center;border-top:1px solid #333;padding-top:10px">' +
+              '<p style="color:#ff8800">→ ' + d.nextForm.icon + ' ' + d.nextForm.name + '</p>' +
+              '<p style="color:#888;font-size:10px">비용: ' + (d.evolveCost.gold||0) + 'G, ' + (d.evolveCost.kills||0) + '킬' + (d.evolveCost.item ? ', ' + d.evolveCost.item : '') + '</p>' +
+              '<button class="btn btn-primary" onclick="window.socket.emit(\'pet_evolve\',\'' + d.current.id + '\');closeModal();" style="margin-top:8px">🌟 진화!</button></div>';
+          } else {
+            html += '<p style="text-align:center;color:#ffd700;margin-top:8px">✨ 최종 진화 완료!</p>';
+          }
+        }
+        showModal('🌟 펫 진화', html, [{label:'닫기', type:'cancel', action:'closeModal()'}]);
+      });
+      window.socket.on('pet_evo_result', (d) => {
+        if (!d.success) { showToast(d.msg); return; }
+        showToast(d.msg);
+        if (typeof celebrateRareDrop === 'function') celebrateRareDrop('legendary');
+        playSFX('levelup');
       });
 
       // ═══ 친구 대전 ═══

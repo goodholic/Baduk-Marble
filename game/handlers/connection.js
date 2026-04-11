@@ -381,6 +381,12 @@ io.on("connection", (socket) => {
         const friendDuel = require('../friend_duel');
         friendDuel.registerFriendDuelHandlers(socket, playerId, players, io);
     } catch(e) { /* ignore if not loaded */ }
+
+    // v2.59: 펫 진화 핸들러
+    try {
+        const petEvo = require('../pet_evolution');
+        petEvo.registerPetEvolutionHandlers(socket, playerId, players, io);
+    } catch(e) { /* ignore if not loaded */ }
 });
 }
 

@@ -914,7 +914,8 @@
         {label:'🔊 사운드', action:()=>window.openAudioSettings()},
         {label:'⚔️ 자동 스킬 토글', action:()=>window.socket.emit('toggle_auto_skill')},
         {label:'⚔️ 자동 장착', action:()=>{showModal('⚔️ 장비 자동 최적화','<p class="text-gold">인벤토리에서 슬롯별 최고 등급 장비를 자동으로 장착합니다.</p><p class="text-muted text-sm">기준: 등급 → 강화 레벨 → ATK+DEF 합계</p><p class="text-muted text-sm">레벨 제한을 만족하는 장비만 후보로 선정됩니다.</p>',[{label:'자동 장착!',action:"window.socket.emit('auto_equip_best');closeModal();"},{label:'취소',type:'cancel',action:'closeModal()'}]);}},
-        {label:'🐾 펫 진화', action:()=>{showModal('🐾 펫 진화','<p class="text-gold">기본 펫을 상위 진화체로 업그레이드합니다.</p><p class="text-muted text-sm">비용: 드래곤 비늘 x10 + 영혼석 x20 + 50,000G</p><div style="margin-top:10px">' +
+        {label:'🌟 펫 진화 (신규)', action:()=>{window.socket.emit('pet_evo_status');}},
+        {label:'🐾 펫 진화 (구)', action:()=>{showModal('🐾 펫 진화','<p class="text-gold">기본 펫을 상위 진화체로 업그레이드합니다.</p><p class="text-muted text-sm">비용: 드래곤 비늘 x10 + 영혼석 x20 + 50,000G</p><div style="margin-top:10px">' +
           '<button class="btn" style="width:100%;margin:3px 0" onclick="window.socket.emit(\'evolve_pet\',\'pet_slime\');closeModal();">미니 슬라임 → 슬라임 킹 (HP+8%)</button>' +
           '<button class="btn" style="width:100%;margin:3px 0" onclick="window.socket.emit(\'evolve_pet\',\'pet_wolf\');closeModal();">아기 늑대 → 다이어 울프 (ATK+18%)</button>' +
           '<button class="btn" style="width:100%;margin:3px 0" onclick="window.socket.emit(\'evolve_pet\',\'pet_fairy\');closeModal();">요정 → 대요정 (EXP+30%)</button>' +
@@ -1118,6 +1119,57 @@
       playSFX('hit');
       var btn = document.getElementById('attack-btn');
       if (btn) { btn.style.transform = 'scale(0.85)'; btn.style.filter = 'brightness(1.5)'; setTimeout(() => { btn.style.transform = 'scale(1)'; btn.style.filter = ''; }, 120); }
+    }
+
+    // ── 전투 화려 연출 (v2.59) ──
+    // 멀티킬 연출
+    var _multiKillCount = 0, _multiKillTimer = null;
+    function showMultiKill() {
+      _multiKillCount++;
+      if (_multiKillTimer) clearTimeout(_multiKillTimer);
+      _multiKillTimer = setTimeout(function() { _multiKillCount = 0; }, 4000);
+
+      if (_multiKillCount < 2) return;
+      var names = ['','','더블 킬!','트리플 킬!','쿼드라 킬!','펜타 킬!','헥사 킬!','갓라이크!!!'];
+      var colors = ['','','#ffd700','#ff8800','#ff4444','#ff00ff','#00ffff','#ffffff'];
+      var idx = Math.min(_multiKillCount, names.length - 1);
+
+      var el = document.createElement('div');
+      el.style.cssText = 'position:fixed;top:30%;left:50%;transform:translate(-50%,-50%);z-index:70;font-family:Cinzel,serif;font-size:' + (28 + _multiKillCount * 4) + 'px;font-weight:900;color:' + colors[idx] + ';text-shadow:0 0 20px currentColor,0 0 40px currentColor;pointer-events:none;animation:comboPop 2s ease-out forwards;letter-spacing:4px';
+      el.textContent = names[idx];
+      document.body.appendChild(el);
+      setTimeout(function() { el.remove(); }, 2000);
+
+      if (_multiKillCount >= 5) {
+        document.getElementById('unity-container').classList.add('shake');
+        setTimeout(function() { document.getElementById('unity-container').classList.remove('shake'); }, 500);
+      }
+      playSFX(_multiKillCount >= 4 ? 'boss' : 'levelup');
+    }
+
+    // 오버킬 연출 (큰 데미지)
+    function showOverkill(damage) {
+      if (damage < 200) return;
+      var el = document.createElement('div');
+      var size = Math.min(48, 20 + Math.floor(damage / 100) * 4);
+      el.style.cssText = 'position:fixed;top:35%;left:50%;transform:translate(-50%,-50%);z-index:65;font-size:' + size + 'px;font-weight:900;color:#ff0000;text-shadow:0 0 30px #ff0000,0 4px 8px rgba(0,0,0,0.8);pointer-events:none;animation:comboPop 1.5s ease-out forwards;font-family:Cinzel,serif';
+      el.textContent = '💥 OVERKILL! ' + damage;
+      document.body.appendChild(el);
+      setTimeout(function() { el.remove(); }, 1500);
+    }
+
+    // 화면 슬로우 모션 효과 (보스 처치 시)
+    function showSlowMotion(duration) {
+      var container = document.getElementById('unity-container');
+      container.style.transition = 'filter 0.2s';
+      container.style.filter = 'contrast(1.3) saturate(1.5)';
+      setTimeout(function() {
+        container.style.filter = 'brightness(1.5) contrast(1.2)';
+        setTimeout(function() {
+          container.style.transition = 'filter 1s';
+          container.style.filter = '';
+        }, duration || 500);
+      }, 200);
     }
 
     // ── NPC 대화 ──
