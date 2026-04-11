@@ -382,6 +382,12 @@ io.on("connection", (socket) => {
         friendDuel.registerFriendDuelHandlers(socket, playerId, players, io);
     } catch(e) { /* ignore if not loaded */ }
 
+    // v3.0: 무역 시스템
+    try {
+        const trade = require('../trade_system');
+        trade.registerTradeHandlers(socket, playerId, players, io);
+    } catch(e) {}
+
     // v3.0: 공성전 IO 전투
     try {
         const siegeBattle = require('../siege_battle');

@@ -39,6 +39,20 @@ const MERCENARIES = [
   // ── 신화 (전설 중의 전설) ──
   { id: 'merc_bahamut',  name: '용왕 바하무트', icon: '🐲', grade: 5, role: '전사', atk: 100, def: 60, hp: 1000, spd: 15, skill: { name: '멸망의 브레스', dmg: 10.0, aoe: true, cd: 35, desc: '전체 10배!' } },
   { id: 'merc_god_of_war',name:'전쟁의 신',  icon: '⚡', grade: 5, role: '전사',   atk: 90, def: 50, hp: 800, spd: 20, skill: { name: '천둥 심판', dmg: 8.0, stun: 3, aoe: true, cd: 30, desc: '전체 8배+스턴' } },
+
+  // ── v3.0 추가 용병 ──
+  // 고급
+  { id: 'merc_berserker', name: '광전사',     icon: '😤', grade: 1, role: '전사',   atk: 24, def: 4,  hp: 130, spd: 11, skill: { name: '분노', dmg: 3.0, selfDmg: 20, cd: 8, desc: '3배, 자해 20' } },
+  { id: 'merc_bard',      name: '음유시인',   icon: '🎵', grade: 1, role: '치유',   atk: 8,  def: 7,  hp: 95,  spd: 10, skill: { name: '전투가', buffAll: 'atk+15%', cd: 15, desc: '아군 ATK+15%' } },
+  // 희귀
+  { id: 'merc_ninja',     name: '닌자',       icon: '🥷', grade: 2, role: '암살',   atk: 32, def: 5,  hp: 85,  spd: 18, skill: { name: '분신술', summon: 2, cd: 16, desc: '분신 2체' } },
+  { id: 'merc_necro',     name: '강령술사',   icon: '💀', grade: 2, role: '마법',   atk: 26, def: 7,  hp: 100, spd: 8,  skill: { name: '해골 소환', summon: 4, cd: 20, desc: '해골 4체 소환' } },
+  { id: 'merc_valkyrie',  name: '발키리',     icon: '🦢', grade: 2, role: '전사',   atk: 28, def: 16, hp: 180, spd: 12, skill: { name: '창 돌진', dmg: 3.5, pierce: true, cd: 10, desc: '관통 3.5배' } },
+  // 영웅
+  { id: 'merc_phoenix',   name: '불사조 기사',icon: '🔥', grade: 3, role: '전사',   atk: 38, def: 20, hp: 350, spd: 13, skill: { name: '불사', revive: true, cd: 60, desc: '사망 시 부활' } },
+  { id: 'merc_frost_queen',name:'서리 여왕',  icon: '❄️', grade: 3, role: '마법',   atk: 44, def: 12, hp: 180, spd: 10, skill: { name: '절대영도', dmg: 5.5, aoe: true, stun: 3, cd: 22, desc: '전체 빙결+5.5배' } },
+  // 전설
+  { id: 'merc_celestial',  name: '천상의 기사',icon: '✨', grade: 4, role: '전사',  atk: 60, def: 40, hp: 550, spd: 14, skill: { name: '신성 심판', dmg: 7.0, aoe: true, heal: 100, cd: 28, desc: '7배+아군힐' } },
 ];
 
 // ═══ 용병 장비 (용병 전용) ═══

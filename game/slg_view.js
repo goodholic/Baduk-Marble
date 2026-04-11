@@ -39,6 +39,13 @@ const EVOLUTION_RECIPES = [
   { name: '흑마법사 진화', inputs: ['merc_wizard','merc_wizard'],                   output: 'merc_warlock', cost: { gold: 12000 }, desc: '마법사 2명 → 흑마법사' },
   { name: '드래곤나이트',  inputs: ['merc_knight','merc_paladin','merc_dragon_egg'],output: 'merc_dragon_knight', cost: { gold: 50000 }, desc: '기사+성기사+용알 → 드래곤나이트' },
   { name: '죽음의 기사',   inputs: ['merc_warlock','merc_shadow_lord'],             output: 'merc_death_knight', cost: { gold: 100000 }, desc: '흑마+그림자 → 죽음의 기사' },
+  // v3.0 추가 진화
+  { name: '닌자 진화',     inputs: ['merc_rogue','merc_ranger'],                   output: 'merc_ninja',    cost: { gold: 10000 }, desc: '도적+레인저 → 닌자' },
+  { name: '발키리 진화',   inputs: ['merc_knight','merc_acolyte','merc_archer'],    output: 'merc_valkyrie', cost: { gold: 15000 }, desc: '기사+사제+궁수 → 발키리' },
+  { name: '불사조 기사',   inputs: ['merc_paladin','merc_phoenix_feather'],         output: 'merc_phoenix',  cost: { gold: 40000 }, desc: '성기사+불사조깃털 → 불사조 기사' },
+  { name: '서리 여왕',     inputs: ['merc_warlock','merc_wizard','merc_wizard'],    output: 'merc_frost_queen',cost:{ gold: 45000 }, desc: '흑마+마법사×2 → 서리 여왕' },
+  { name: '천상의 기사',   inputs: ['merc_dragon_knight','merc_seraph'],            output: 'merc_celestial',cost: { gold: 150000 }, desc: '드래곤나이트+세라핌 → 천상의 기사' },
+  { name: '용왕',          inputs: ['merc_dragon_knight','merc_dragon_knight','merc_celestial'], output: 'merc_bahamut', cost: { gold: 500000 }, desc: '드래곤×2+천상 → 바하무트!' },
 ];
 
 // ── SLG 이벤트 (기존 이벤트 연동) ──
@@ -63,6 +70,9 @@ const SIEGE_PLACEMENT = {
     { id: 'bomb_trap',    name: '폭탄 함정',   icon: '💣', dmg: 200, cost: 2000, desc: '대폭발' },
     { id: 'arrow_tower',  name: '화살 탑',     icon: '🏹', dmg: 30,  rate: 2, cost: 3000, desc: '자동 사격' },
     { id: 'magic_barrier',name: '마법 장벽',   icon: '🔮', hp: 500,  cost: 4000, desc: '통로 차단' },
+    { id: 'slow_trap',    name: '감속 덫',     icon: '🕸️', slow: 50, cost: 600,  desc: '이동속도 -50%' },
+    { id: 'teleport_trap',name: '텔레포트 함정',icon: '🌀', cost: 3000, desc: '시작점으로 강제 이동' },
+    { id: 'summon_trap',  name: '소환 함정',   icon: '👹', summon: 3, cost: 5000, desc: '해골 3체 소환' },
   ],
   // 공성전 맵 구조
   mapLayout: {
