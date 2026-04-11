@@ -357,6 +357,12 @@ io.on("connection", (socket) => {
         const housing = require('../housing');
         housing.registerHousingHandlers(socket, playerId, players, io);
     } catch(e) { /* ignore if not loaded */ }
+
+    // v2.58: 드래곤 관리 & 레이스 핸들러
+    try {
+        const dragonRace = require('../dragon_race');
+        dragonRace.registerDragonHandlers(socket, playerId, players, io);
+    } catch(e) { /* ignore if not loaded */ }
 });
 }
 

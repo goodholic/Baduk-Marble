@@ -2679,6 +2679,99 @@
         playSFX('buff');
       });
 
+      // ═══ 드래곤 관리 & 레이스 ═══
+      window.socket.on('dragon_list', (d) => {
+        var html = '';
+        if (d.mounted) html += '<div style="text-align:center;color:#ffd700;margin-bottom:8px">🐲 현재 탑승 중: ' + d.mounted + ' <button class="btn btn-sm" onclick="window.socket.emit(\'dragon_dismount\');closeModal();">하차</button></div>';
+
+        if (d.owned.length === 0) {
+          html += '<p style="text-align:center;color:#888;margin:16px 0">보유한 드래곤이 없습니다.<br><small>보스 드롭으로 드래곤 알을 획득하세요!</small></p>';
+        } else {
+          html += '<h4 style="color:#ffd700;margin:0 0 6px;font-size:12px">내 드래곤 (' + d.owned.length + ')</h4>';
+          d.owned.forEach(function(dr) {
+            var hpPct = dr.stats.hp > 0 ? 100 : 0;
+            html += '<div class="panel-item" style="border-left:3px solid ' + (dr.color||'#ffd700') + '">' +
+              '<span class="name">' + (dr.icon||'🐲') + ' ' + dr.name + ' <span style="color:#888">Lv.' + dr.level + ' [' + dr.stageName + ']</span>' +
+              '<br><small style="color:#aaa">ATK:' + dr.stats.atk + ' DEF:' + dr.stats.def + ' SPD:' + dr.stats.spd + ' | ' + dr.passiveDesc + '</small></span>' +
+              '<div style="display:flex;gap:3px;flex-direction:column">' +
+              '<button class="btn btn-sm" onclick="window.socket.emit(\'dragon_mount\',\'' + dr.type + '\');closeModal();" style="font-size:9px">탑승</button>' +
+              '<button class="btn btn-sm" onclick="window.socket.emit(\'dragon_feed\',{dragonType:\'' + dr.type + '\',foodId:\'dragon_meat\'});closeModal();" style="font-size:9px">먹이</button>' +
+              '</div></div>';
+          });
+        }
+
+        // 도감
+        html += '<h4 style="color:#888;margin:12px 0 6px;font-size:11px">드래곤 도감 (8종)</h4>';
+        html += '<div style="max-height:25vh;overflow-y:auto">';
+        d.allTypes.forEach(function(dt) {
+          var owned = d.owned.find(function(o){return o.type===dt.id;});
+          var rarityColors = {rare:'#4488ff',epic:'#aa44ff',legendary:'#ff8800',mythic:'#ff00ff'};
+          html += '<div style="padding:4px 0;border-bottom:1px solid #222;opacity:' + (owned?1:0.4) + '">' +
+            '<span style="font-size:11px">' + dt.icon + ' <b style="color:' + (rarityColors[dt.rarity]||'#ccc') + '">' + dt.name + '</b>' +
+            ' <span style="color:#888;font-size:9px">[' + dt.rarity + ']</span></span>' +
+            '<div style="font-size:9px;color:#aaa;margin-left:20px">' + dt.breathDesc + '</div></div>';
+        });
+        html += '</div>';
+
+        showModal('🐲 드래곤 관리', html, [{label:'닫기', type:'cancel', action:'closeModal()'}]);
+      });
+
+      window.socket.on('dragon_result', (d) => {
+        showToast((d.success ? '✅ ' : '❌ ') + d.msg);
+        if (d.success && d.action === 'mount') playSFX('levelup');
+        if (d.success && d.action === 'hatch') { playSFX('levelup'); if (typeof celebrateRareDrop === 'function') celebrateRareDrop('legendary'); }
+        if (d.success && d.action === 'breath') { if (typeof playSFX2 === 'function') playSFX2('fireball'); if (typeof showMagicCircle === 'function') showMagicCircle('fire', 200); }
+      });
+
+      // 드래곤 레이스
+      window.socket.on('dragon_race_status', (d) => {
+        var html = '';
+        if (d.phase === 'idle') {
+          html = '<div style="text-align:center"><p style="color:#ffd700;font-size:16px">🏁 드래곤 레이스</p>' +
+            '<p class="text-muted" style="margin:8px 0">드래곤을 타고 하늘을 질주하라! (유룡 이상 필요)</p>' +
+            '<button class="btn btn-primary" onclick="window.socket.emit(\'dragon_race_start_manual\');closeModal();" style="margin-top:8px">레이스 개최</button></div>';
+        } else if (d.phase === 'registration') {
+          html = '<div style="text-align:center"><p style="color:#ff8800;font-size:16px">🏁 참가 등록 중!</p>' +
+            '<p class="text-gold">' + d.playerCount + '/' + d.maxPlayers + '</p>' +
+            '<button class="btn btn-primary" onclick="window.socket.emit(\'dragon_race_register\');closeModal();" style="margin-top:8px;font-size:14px">🐲 참가 등록 (1,000G)</button></div>';
+        } else if (d.phase === 'active') {
+          html = '<div><p style="text-align:center;color:#ffd700;font-size:14px">🏁 레이스 진행 중!</p>';
+          d.players.sort(function(a,b){return b.position-a.position;}).forEach(function(p, i) {
+            var pct = Math.floor(p.position / d.distance * 100);
+            html += '<div style="margin:4px 0"><div style="display:flex;justify-content:space-between;font-size:11px;color:#ddd"><span>' + (i+1) + '. ' + p.name + '</span><span>' + p.dragon + ' SPD:' + p.speed + '</span></div>' +
+              '<div style="width:100%;height:8px;background:#222;border-radius:4px;overflow:hidden"><div style="width:' + pct + '%;height:100%;background:linear-gradient(90deg,#ffd700,#ff4400);border-radius:4px;transition:width 0.5s"></div></div></div>';
+          });
+          html += '</div>';
+        }
+        showModal('🏁 드래곤 레이스', html, [{label:'닫기', type:'cancel', action:'closeModal()'}]);
+      });
+
+      window.socket.on('dragon_race_start', (d) => {
+        if (typeof showBossEntrance === 'function') showBossEntrance('DRAGON RACE', '— ' + d.playerCount + '명의 기수가 출발한다! —');
+      });
+
+      window.socket.on('dragon_race_obstacle', (d) => {
+        addCombatLog('[레이스] ' + d.name + ': ' + d.msg, 'log-crit');
+      });
+
+      window.socket.on('dragon_race_end', (d) => {
+        var html = '<div style="text-align:center;margin-bottom:8px"><p style="color:#ffd700;font-size:18px;font-weight:900">🏆 레이스 결과</p></div>';
+        html += '<div style="max-height:40vh;overflow-y:auto">';
+        var medals = ['🥇','🥈','🥉'];
+        d.rankings.forEach(function(r) {
+          var medal = medals[r.rank-1] || (r.rank+'위');
+          var time = r.finished ? (r.time/1000).toFixed(1)+'초' : 'DNF';
+          html += '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid #222;font-size:11px">' +
+            '<span style="width:24px;text-align:center">' + medal + '</span>' +
+            '<span style="flex:1;color:#ddd;font-weight:bold">' + r.name + '</span>' +
+            '<span style="color:#888">' + r.dragon + '</span>' +
+            '<span style="color:#ffd700">' + time + '</span></div>';
+        });
+        html += '</div>';
+        showModal('🏆 드래곤 레이스', html, [{label:'확인', action:'closeModal()'}]);
+        playSFX('levelup');
+      });
+
       // ═══ 하우징 & 요새 ═══
       window.socket.on('house_status', (d) => {
         var html = '';

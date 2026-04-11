@@ -897,6 +897,8 @@
           '<button class="btn" style="width:100%;margin:3px 0" onclick="window.socket.emit(\'evolve_pet\',\'pet_dragon\');closeModal();">미니 드래곤 → 고대 드래곤 (ATK+30%)</button>' +
           '<button class="btn" style="width:100%;margin:3px 0" onclick="window.socket.emit(\'evolve_pet\',\'pet_angel\');closeModal();">천사 → 세라핌 (자동 부활 강화)</button>' +
           '</div>',[{label:'닫기',type:'cancel',action:'closeModal()'}]);}},
+        {label:'🐲 드래곤', action:()=>{window.socket.emit('dragon_list');}},
+        {label:'🏁 드래곤 레이스', action:()=>{window.socket.emit('dragon_race_status');}},
         {label:'🏠 내 집', action:()=>{window.socket.emit('house_status');}},
         {label:'📖 메인 스토리', action:()=>{window.socket.emit('story_status');}},
         {label:'❓ 도움말', action:()=>window.showWelcomeGuide()},

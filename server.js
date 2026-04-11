@@ -98,6 +98,7 @@ const dragonRiding = require('./game/dragon_riding');
 const battleRoyale = require('./game/battle_royale');
 const combatEnhance = require('./game/combat_enhance');
 const worldRaid = require('./game/world_raid');
+const dragonRace = require('./game/dragon_race');
 const { handleRaidFinish, codexDiscover, finishBossRush, updateTownPrices, generateRandomOptions, logWorldEvent } = serverHelpers;
 const { expireMarketListings, destroyAxe, syncGameState, updatePassives, updatePlayerAutoSkills, updateBots, giveExp, handleCollisions, handleAoeDamage, handlePlayerDeath } = loops;
 // Phase 3 refactor: 전투/스폰/랭킹 모듈
@@ -610,6 +611,10 @@ battleRoyale.startAutoSchedule();
 // v2.58: 월드 레이드 & 이벤트 초기화
 worldRaid.initWorldRaid(io, players);
 worldRaid.startAutoEvents();
+
+// v2.58: 드래곤 레이스 초기화
+dragonRace.initDragonRace(io, players);
+dragonRace.startAutoRace();
 
 console.log(`[AutoBattle.io] Starting server on port ${PORT}...`);
 server.listen(PORT, () => {
