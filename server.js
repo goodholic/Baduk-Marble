@@ -604,6 +604,9 @@ httpRoutes.register(app, {
 // v2.51: 영웅의 전당 초기화
 hallOfHeroes.init({});
 
+// v2.60: IO-RPG 코어 초기화
+try { const ioRpg = require('./game/io_rpg_core'); ioRpg.initIoRpg(io, players); } catch(e) {}
+
 // v2.58: 배틀로얄/레이드/드래곤 초기화는 players 선언 후 실행 (setTimeout)
 setTimeout(() => {
     try {
