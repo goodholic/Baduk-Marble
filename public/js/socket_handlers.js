@@ -3361,6 +3361,20 @@
             showToast(d.trap.msg);
             if (d.trap.damage) showFloatingDamage(d.trap.damage, false, '함정', 'fire');
           }
+          // v2.59: 던전 랜덤 이벤트
+          if (d.dungeonEvent) {
+            var evt = d.dungeonEvent;
+            setTimeout(function() {
+              showModal(evt.icon + ' ' + evt.name, '<div style="text-align:center">' +
+                '<p style="color:#ffd700;font-size:14px">' + evt.desc + '</p>' +
+                '<p style="color:' + (evt.result.damage ? '#ff4444' : '#44ff44') + ';margin-top:10px;font-size:13px">' + evt.result.msg + '</p>' +
+                (evt.result.gold ? '<p style="color:#ffd700">💰 +' + evt.result.gold + 'G</p>' : '') +
+                (evt.result.exp ? '<p style="color:#aa44ff">✨ +' + evt.result.exp + 'EXP</p>' : '') +
+                (evt.result.buff ? '<p style="color:#44ff88">🔮 ' + evt.result.buff.type + ' +' + evt.result.buff.value + '</p>' : '') +
+                '</div>', [{label:'계속 탐험', action:"window.socket.emit('deep_dungeon_kill');closeModal();"}]);
+              playSFX(evt.result.damage ? 'hit' : 'gold');
+            }, 1000);
+          }
         }
 
         if (d.type === 'kill') {

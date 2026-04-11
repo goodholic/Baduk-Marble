@@ -305,6 +305,90 @@ function hitDeepDungeonBoss(instance, player, io, socket, dungeon, floor) {
 }
 
 // 층 클리어
+// ═══ v2.59: 던전 랜덤 이벤트 ═══
+const DUNGEON_EVENTS = [
+  { id: 'merchant', name: '떠돌이 상인', icon: '🧳', weight: 15,
+    desc: '어둠 속에서 상인이 나타났다! 특별한 물건을 판다.',
+    effect: (player) => {
+      const heal = Math.floor(player.maxHp * 0.3);
+      player.hp = Math.min(player.maxHp, player.hp + heal);
+      return { msg: '상인에게 비약을 샀다! HP +' + heal, heal };
+    }},
+  { id: 'treasure_room', name: '보물 방', icon: '💎', weight: 10,
+    desc: '숨겨진 보물 방을 발견했다!',
+    effect: (player) => {
+      const gold = 1000 + Math.floor(Math.random() * 3000);
+      player.gold = (player.gold || 0) + gold;
+      return { msg: '보물 발견! +' + gold + 'G', gold };
+    }},
+  { id: 'trap_room', name: '함정 방', icon: '⚠️', weight: 12,
+    desc: '함정이 가득한 방이다! 조심해서 통과해야 한다.',
+    effect: (player) => {
+      const dmg = Math.floor(player.maxHp * 0.15);
+      player.hp = Math.max(1, player.hp - dmg);
+      return { msg: '함정에 걸렸다! HP -' + dmg, damage: dmg };
+    }},
+  { id: 'miniboss', name: '미니보스 출현', icon: '👹', weight: 8,
+    desc: '예상치 못한 강적이 나타났다!',
+    effect: (player) => {
+      // 미니보스 처치 보상 (자동)
+      const gold = 2000 + Math.floor(Math.random() * 2000);
+      const exp = 3000;
+      player.gold = (player.gold || 0) + gold;
+      if (player.exp !== undefined) player.exp += exp;
+      const dmg = Math.floor(player.maxHp * 0.2);
+      player.hp = Math.max(1, player.hp - dmg);
+      return { msg: '미니보스를 쓰러뜨렸다! +' + gold + 'G, +' + exp + 'EXP (HP -' + dmg + ')', gold, exp, damage: dmg };
+    }},
+  { id: 'healing_spring', name: '치유의 샘', icon: '💚', weight: 12,
+    desc: '맑은 샘물이 흐르고 있다. 마시면 회복될 것 같다.',
+    effect: (player) => {
+      player.hp = player.maxHp;
+      return { msg: 'HP가 완전히 회복되었다!', fullHeal: true };
+    }},
+  { id: 'cursed_chest', name: '저주받은 상자', icon: '☠️', weight: 8,
+    desc: '불길한 기운이 감도는 상자... 열까?',
+    effect: (player) => {
+      if (Math.random() < 0.5) {
+        // 좋은 결과
+        const gold = 5000;
+        player.gold = (player.gold || 0) + gold;
+        return { msg: '행운! 금화가 쏟아져 나왔다! +' + gold + 'G', gold };
+      } else {
+        // 나쁜 결과
+        const dmg = Math.floor(player.maxHp * 0.25);
+        player.hp = Math.max(1, player.hp - dmg);
+        return { msg: '저주! 어둠의 기운에 휩싸였다! HP -' + dmg, damage: dmg };
+      }
+    }},
+  { id: 'enchant_altar', name: '강화 제단', icon: '🔮', weight: 5,
+    desc: '고대의 강화 제단이다. 무기에 일시적 축복을 받을 수 있다.',
+    effect: (player) => {
+      if (!player.npcBuffs) player.npcBuffs = [];
+      player.npcBuffs.push({ type: 'dungeon_atk', value: 15, expiresAt: Date.now() + 300000, from: '강화 제단' });
+      return { msg: 'ATK +15 버프 획득! (5분)', buff: { type: 'atk', value: 15 } };
+    }},
+  { id: 'ghost_npc', name: '유령 모험가', icon: '👻', weight: 10,
+    desc: '이전에 쓰러진 모험가의 영혼이 나타났다.',
+    effect: (player) => {
+      const tips = ['이 층 보스는 2페이즈에서 방어력이 떨어진다.', '다음 층에 함정이 많다. 조심해라.',
+        '끝까지 가면 전설 장비를 얻을 수 있다.', '치유의 샘을 발견하면 반드시 사용해라.'];
+      return { msg: '유령: "' + tips[Math.floor(Math.random() * tips.length)] + '"', tip: true };
+    }},
+];
+
+function rollDungeonEvent(instance) {
+  // 30% 확률로 이벤트 발생
+  if (Math.random() > 0.3) return null;
+  const totalWeight = DUNGEON_EVENTS.reduce((s, e) => s + e.weight, 0);
+  let roll = Math.random() * totalWeight;
+  for (const evt of DUNGEON_EVENTS) {
+    roll -= evt.weight;
+    if (roll <= 0) return evt;
+  }
+  return DUNGEON_EVENTS[0];
+}
+
 function clearFloor(instance, player, io, socket, dungeon) {
   const floor = dungeon.floors[instance.currentFloor];
 
@@ -313,6 +397,14 @@ function clearFloor(instance, player, io, socket, dungeon) {
   instance.accumulatedReward.exp += floor.reward.exp;
   player.gold = (player.gold || 0) + floor.reward.gold;
   if (player.exp !== undefined) player.exp += floor.reward.exp;
+
+  // v2.59: 랜덤 이벤트 발생
+  let dungeonEvent = null;
+  const event = rollDungeonEvent(instance);
+  if (event) {
+    const result = event.effect(player);
+    dungeonEvent = { id: event.id, name: event.name, icon: event.icon, desc: event.desc, result };
+  }
 
   // 다음 층으로
   instance.currentFloor++;
@@ -369,6 +461,7 @@ function clearFloor(instance, player, io, socket, dungeon) {
     },
     totalFloors: dungeon.floors.length,
     trap: trapResult,
+    dungeonEvent: dungeonEvent,
     accumulated: instance.accumulatedReward,
   };
 }
