@@ -1122,6 +1122,121 @@
     }
 
     // ── 전투 화려 연출 (v2.59) ──
+
+    // 연속 히트 카운터
+    var _hitComboCount = 0, _hitComboTimer = null;
+    function showHitCombo(damage) {
+      _hitComboCount++;
+      if (_hitComboTimer) clearTimeout(_hitComboTimer);
+      _hitComboTimer = setTimeout(function() { _hitComboCount = 0; hideHitCombo(); }, 2000);
+
+      var el = document.getElementById('hit-combo-display');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'hit-combo-display';
+        el.style.cssText = 'position:fixed;top:15%;right:20px;z-index:55;text-align:right;pointer-events:none;transition:all 0.15s';
+        document.body.appendChild(el);
+      }
+      var size = Math.min(42, 16 + _hitComboCount * 2);
+      var color = _hitComboCount >= 20 ? '#ff00ff' : _hitComboCount >= 10 ? '#00ffff' : _hitComboCount >= 5 ? '#ffd700' : '#ffffff';
+      el.innerHTML = '<div style="font-size:' + size + 'px;font-weight:900;color:' + color + ';text-shadow:0 0 12px currentColor;font-family:Cinzel,serif;animation:streakPop 0.2s ease-out">' + _hitComboCount + ' <span style="font-size:12px;color:#888">HITS</span></div>' +
+        '<div style="font-size:11px;color:#ff8800;margin-top:2px">DMG: ' + damage + '</div>';
+    }
+    function hideHitCombo() {
+      var el = document.getElementById('hit-combo-display');
+      if (el) el.innerHTML = '';
+    }
+
+    // 킬 시 영혼 흡수 이펙트
+    function showSoulAbsorb() {
+      for (var i = 0; i < 5; i++) {
+        var soul = document.createElement('div');
+        var startX = 30 + Math.random() * 40;
+        var startY = 25 + Math.random() * 30;
+        soul.style.cssText = 'position:fixed;left:' + startX + '%;top:' + startY + '%;width:6px;height:6px;border-radius:50%;pointer-events:none;z-index:35;' +
+          'background:radial-gradient(circle,rgba(150,200,255,0.9),rgba(100,150,255,0.3));box-shadow:0 0 8px rgba(100,150,255,0.6);' +
+          'transition:all 0.8s ease-in;animation-delay:' + (i * 0.1) + 's';
+        document.body.appendChild(soul);
+        // 화면 중앙으로 빨려오기
+        requestAnimationFrame(function() {
+          soul.style.left = '50%';
+          soul.style.top = '50%';
+          soul.style.opacity = '0';
+          soul.style.transform = 'scale(0.2)';
+        });
+        setTimeout(function() { soul.remove(); }, 900);
+      }
+    }
+
+    // 광역 스킬 화면 이펙트
+    function showFullScreenSkillEffect(element) {
+      var overlay = document.createElement('div');
+      var colors = {
+        fire: 'radial-gradient(circle,rgba(255,100,0,0.4),rgba(255,50,0,0.1),transparent)',
+        ice: 'radial-gradient(circle,rgba(100,200,255,0.4),rgba(0,150,255,0.1),transparent)',
+        lightning: 'radial-gradient(circle,rgba(255,255,100,0.4),rgba(255,220,0,0.1),transparent)',
+        dark: 'radial-gradient(circle,rgba(150,50,255,0.4),rgba(80,0,150,0.1),transparent)',
+        holy: 'radial-gradient(circle,rgba(255,255,200,0.5),rgba(255,215,0,0.15),transparent)',
+      };
+      overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:60;' +
+        'background:' + (colors[element] || colors.fire) + ';animation:flashOut 1s ease-out forwards';
+      document.body.appendChild(overlay);
+
+      // 파티클 링
+      for (var i = 0; i < 12; i++) {
+        var p = document.createElement('div');
+        var angle = (Math.PI * 2 / 12) * i;
+        var r = 30 + Math.random() * 10;
+        p.style.cssText = 'position:fixed;left:calc(50% + ' + (Math.cos(angle)*r) + 'vw);top:calc(50% + ' + (Math.sin(angle)*r) + 'vh);' +
+          'width:4px;height:4px;border-radius:50%;pointer-events:none;z-index:61;opacity:0.8;' +
+          'background:' + (element === 'ice' ? '#88ddff' : element === 'dark' ? '#aa66ff' : element === 'holy' ? '#ffd700' : '#ff6622') + ';' +
+          'box-shadow:0 0 8px currentColor;transition:all 0.6s ease-in';
+        document.body.appendChild(p);
+        requestAnimationFrame(function() { p.style.left = '50%'; p.style.top = '50%'; p.style.opacity = '0'; });
+        setTimeout(function() { p.remove(); }, 700);
+      }
+
+      setTimeout(function() { overlay.remove(); }, 1000);
+    }
+
+    // HP 비율에 따른 화면 흔들림 강도
+    function shakeByDamage(hpPct) {
+      var container = document.getElementById('unity-container');
+      if (!container) return;
+      if (hpPct < 0.2) {
+        // 위험! 강한 흔들림 + 붉은 비네팅
+        container.style.animation = 'screenShake 0.5s ease-out';
+        container.style.boxShadow = 'inset 0 0 80px rgba(255,0,0,0.4)';
+        setTimeout(function() { container.style.animation = ''; container.style.boxShadow = ''; }, 500);
+      } else if (hpPct < 0.5) {
+        container.style.animation = 'screenShake 0.3s ease-out';
+        setTimeout(function() { container.style.animation = ''; }, 300);
+      }
+    }
+
+    // 궁극기 준비 완료 이펙트 (게이지 풀 시)
+    var _ultReadyShown = false;
+    function showUltimateReady() {
+      if (_ultReadyShown) return;
+      _ultReadyShown = true;
+      var el = document.createElement('div');
+      el.id = 'ult-ready-glow';
+      el.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:1;' +
+        'box-shadow:inset 0 0 60px rgba(255,215,0,0.15);animation:ultReadyPulse 2s ease-in-out infinite';
+      document.body.appendChild(el);
+      // CSS 추가
+      if (!document.getElementById('ult-ready-style')) {
+        var style = document.createElement('style');
+        style.id = 'ult-ready-style';
+        style.textContent = '@keyframes ultReadyPulse{0%,100%{box-shadow:inset 0 0 40px rgba(255,215,0,0.1)}50%{box-shadow:inset 0 0 80px rgba(255,215,0,0.25)}}';
+        document.head.appendChild(style);
+      }
+    }
+    function hideUltimateReady() {
+      _ultReadyShown = false;
+      var el = document.getElementById('ult-ready-glow');
+      if (el) el.remove();
+    }
     // 멀티킬 연출
     var _multiKillCount = 0, _multiKillTimer = null;
     function showMultiKill() {

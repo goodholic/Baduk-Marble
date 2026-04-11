@@ -300,12 +300,15 @@
         playSFX(d.isCrit ? 'crit' : 'hit');
         if (d.skillName) addCombatLog(d.skillName + '! ' + d.damage + ' 데미지', 'log-crit');
         showFloatingDamage(d.damage, d.isCrit, d.skillName, d.element || 'normal');
-        // DPS 샘플 기록
         dpsSamples.push({ time: Date.now(), damage: d.damage || 0 });
-        // 크리 화면 플래시
         if (d.isCrit) showCritFlash();
-        // 힐 이펙트
         if (d.isHeal && typeof showHealEffect === 'function') showHealEffect();
+        // v2.59: 히트 콤보 카운터
+        if (typeof showHitCombo === 'function') showHitCombo(d.damage);
+        // v2.59: HP 기반 화면 흔들림
+        if (d.hp !== undefined && d.maxHp && typeof shakeByDamage === 'function') {
+          shakeByDamage(d.hp / d.maxHp);
+        }
       });
       window.socket.on('monster_hit', (d) => {
         showFloatingDamage(d.damage, d.isCrit || false, d.skillName || null, d.element || 'normal');
@@ -645,9 +648,10 @@
           if (now - lastKillTime < 5000) { killStreak++; } else { killStreak = 1; }
           lastKillTime = now;
           showKillStreak(killStreak);
-          // v2.59: 멀티킬 + 오버킬 연출
+          // v2.59: 멀티킬 + 오버킬 + 영혼 흡수 연출
           if (typeof showMultiKill === 'function') showMultiKill();
           if (d.goldEarned > 500 && typeof showOverkill === 'function') showOverkill(d.goldEarned);
+          if (typeof showSoulAbsorb === 'function') showSoulAbsorb();
           if ((d.tier === 'boss' || d.tier === 'legendary' || d.tier === 'mythic') && typeof showSlowMotion === 'function') showSlowMotion(800);
           // 골드/EXP 플로팅 숫자
           if (d.goldEarned) showFloatingDamage('+' + d.goldEarned + 'G', false, null);
@@ -3427,8 +3431,10 @@
         if (pct >= 100) {
           btnEl.style.display = 'inline-block';
           btnEl.textContent = '⚡ ' + (d.name || '궁극기');
+          if (typeof showUltimateReady === 'function') showUltimateReady();
         } else {
           btnEl.style.display = 'none';
+          if (typeof hideUltimateReady === 'function') hideUltimateReady();
         }
       });
 
@@ -3438,6 +3444,8 @@
           showBossEntrance(d.name, '— ' + d.desc + ' —');
         }
         if (typeof showMagicCircle === 'function') showMagicCircle(d.animation || 'fire', 250);
+        if (typeof showFullScreenSkillEffect === 'function') showFullScreenSkillEffect(d.animation || 'fire');
+        if (typeof hideUltimateReady === 'function') hideUltimateReady();
         if (typeof playSFX2 === 'function') playSFX2('boss_roar');
         playSFX('boss'); playSFX('levelup');
         // 화면 효과
