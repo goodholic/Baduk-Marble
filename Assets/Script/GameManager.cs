@@ -1836,10 +1836,20 @@ public class GameManager : MonoBehaviour
         if (bgRenderer == null || mapName == currentZone) return;
         currentZone = mapName;
 
+        // v2.58: SpriteLoader로 SD 배경 우선 로드
+        Sprite bgSprite = SpriteLoader.LoadZoneBackground(mapName);
+        if (bgSprite != null)
+        {
+            bgRenderer.sprite = bgSprite;
+            bgRenderer.color = Color.white;
+            return;
+        }
+
+        // 폴백: 직접 텍스처 로드
         Texture2D tex = Resources.Load<Texture2D>("Sprites/" + mapName);
         if (tex != null)
         {
-            Sprite bgSprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), 32f);
+            bgSprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), 32f);
             bgRenderer.sprite = bgSprite;
             bgRenderer.color = Color.white;
         }

@@ -32,19 +32,38 @@ public static class SpriteLoader
         { "worldboss", "dragon" },
     };
 
-    // 몬스터 이름 키워드 → 스프라이트 매핑
+    // 몬스터 이름 키워드 → 스프라이트 매핑 (v2.58: SD 스프라이트 우선)
     private static Dictionary<string, string> monsterNameMap = new Dictionary<string, string>
     {
-        { "슬라임", "slime" }, { "slime", "slime" },
-        { "늑대", "wolf" }, { "wolf", "wolf" },
-        { "스켈레톤", "skeleton" }, { "skeleton", "skeleton" }, { "해골", "skeleton" },
-        { "오크", "orc" }, { "orc", "orc" },
-        { "거미", "spider" }, { "spider", "spider" },
-        { "드래곤", "dragon" }, { "dragon", "dragon" }, { "용", "dragon" },
-        { "골렘", "golem" }, { "golem", "golem" },
-        { "뱀파이어", "vampire" }, { "vampire", "vampire" }, { "흡혈", "vampire" },
-        { "악마", "demon" }, { "demon", "demon" }, { "데몬", "demon" },
+        { "슬라임", "slime_sd" }, { "slime", "slime_sd" },
+        { "늑대", "wolf_sd" }, { "wolf", "wolf_sd" },
+        { "스켈레톤", "skeleton_sd" }, { "skeleton", "skeleton_sd" }, { "해골", "skeleton_sd" },
+        { "오크", "orc_sd" }, { "orc", "orc_sd" },
+        { "거미", "spider_sd" }, { "spider", "spider_sd" },
+        { "드래곤", "dragon_sd" }, { "dragon", "dragon_sd" }, { "용", "dragon_sd" },
+        { "골렘", "ice_golem_sd" }, { "golem", "ice_golem_sd" },
+        { "뱀파이어", "vampire_sd" }, { "vampire", "vampire_sd" }, { "흡혈", "vampire_sd" },
+        { "악마", "demon_lord_sd" }, { "demon", "demon_lord_sd" }, { "데몬", "demon_lord_sd" },
         { "유령", "ghost" }, { "ghost", "ghost" }, { "영혼", "ghost" },
+        { "고블린", "goblin_sd" }, { "goblin", "goblin_sd" },
+        { "리치", "lich_sd" }, { "lich", "lich_sd" },
+        { "미노타우르스", "minotaur_sd" }, { "minotaur", "minotaur_sd" },
+        // 보스 전용
+        { "바하무트", "boss_bahamut_sd" }, { "bahamut", "boss_bahamut_sd" },
+        { "심연의 군주", "boss_abyss_lord_sd" }, { "아비스", "boss_abyss_lord_sd" },
+        { "천사장", "boss_archangel_sd" }, { "미카엘", "boss_archangel_sd" },
+        { "이그드라실", "boss_treant_sd" }, { "세계수", "boss_treant_sd" },
+    };
+
+    // 배경 존 → SD 배경 매핑
+    private static Dictionary<string, string> zoneBgMap = new Dictionary<string, string>
+    {
+        { "map_village", "bg_village_sd" },
+        { "map_forest", "bg_forest_sd" },
+        { "map_dungeon", "bg_dungeon_sd" },
+        { "map_dragon", "bg_volcano_sd" },
+        { "map_chaos", "bg_abyss_sd" },
+        { "map_plains", "bg_desert_sd" },
     };
 
     /// <summary>
@@ -120,6 +139,70 @@ public static class SpriteLoader
         {
             anim.frames = new Sprite[] { sprite };
         }
+    }
+
+    /// <summary>
+    /// 존 배경 스프라이트 로드 (SD 버전 우선)
+    /// </summary>
+    public static Sprite LoadZoneBackground(string bgType)
+    {
+        // SD 버전 우선
+        if (zoneBgMap.ContainsKey(bgType))
+        {
+            Sprite sd = LoadCached($"Sprites/{zoneBgMap[bgType]}");
+            if (sd != null) return sd;
+        }
+        // 폴백: 기존 배경
+        Sprite orig = LoadCached($"Sprites/{bgType}");
+        if (orig != null) return orig;
+        // 최종 폴백: bg_grass
+        return LoadCached("Sprites/bg_grass");
+    }
+
+    /// <summary>
+    /// 이펙트 스프라이트 로드
+    /// </summary>
+    public static Sprite LoadEffect(string element)
+    {
+        string effectName = "fx_fire"; // default
+        switch (element)
+        {
+            case "fire": effectName = "fx_fire"; break;
+            case "ice": effectName = "fx_ice"; break;
+            case "lightning": effectName = "fx_lightning"; break;
+            case "dark": effectName = "fx_dark"; break;
+            case "holy": effectName = "fx_holy"; break;
+            case "poison": effectName = "fx_poison"; break;
+        }
+        return LoadCached($"Sprites/Effects/{effectName}");
+    }
+
+    /// <summary>
+    /// 건물/오브젝트 스프라이트 로드
+    /// </summary>
+    public static Sprite LoadObject(string objectName)
+    {
+        // SD 버전 우선
+        Sprite sd = LoadCached($"Sprites/Objects/{objectName}_sd");
+        if (sd != null) return sd;
+        // 폴백
+        return LoadCached($"Sprites/Objects/{objectName}");
+    }
+
+    /// <summary>
+    /// NPC 스프라이트 로드
+    /// </summary>
+    public static Sprite LoadNpc(string npcType)
+    {
+        string spriteName = "npc_elder_sd"; // default
+        switch (npcType)
+        {
+            case "smith": case "대장장이": spriteName = "npc_smith_sd"; break;
+            case "shop": case "상점": case "merchant": spriteName = "npc_merchant_sd"; break;
+            case "healer": case "힐러": spriteName = "npc_healer_sd"; break;
+            case "elder": case "촌장": spriteName = "npc_elder_sd"; break;
+        }
+        return LoadCached($"Sprites/Characters/{spriteName}");
     }
 
     private static Sprite LoadCached(string path)
