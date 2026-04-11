@@ -2,6 +2,13 @@
 // 10층 다층 던전: 층별 테마, 함정, 보스 페이즈, 누적 보상
 // 리니지풍 던전 탐험 경험
 
+// ═══ v2.59: 난이도 모드 ═══
+const DIFFICULTY_MODES = {
+  normal:  { name: '일반',  icon: '⚔️', hpMult: 1.0, atkMult: 1.0, rewardMult: 1.0, desc: '기본 난이도' },
+  hard:    { name: '하드',  icon: '🔥', hpMult: 1.8, atkMult: 1.5, rewardMult: 2.0, desc: 'HP/ATK 강화, 보상 2배' },
+  inferno: { name: '지옥',  icon: '💀', hpMult: 3.0, atkMult: 2.5, rewardMult: 4.0, desc: '극한 난이도, 보상 4배! 회복 불가' },
+};
+
 // ═══ 던전 정의 ═══
 const DEEP_DUNGEONS = {
   abyss_tower: {

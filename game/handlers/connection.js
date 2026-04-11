@@ -382,6 +382,12 @@ io.on("connection", (socket) => {
         friendDuel.registerFriendDuelHandlers(socket, playerId, players, io);
     } catch(e) { /* ignore if not loaded */ }
 
+    // v2.59: 공성전 핸들러
+    try {
+        const guildSiege = require('../guild_siege');
+        guildSiege.registerSiegeHandlers(socket, playerId, players, io);
+    } catch(e) {}
+
     // v2.59: 펫 진화 핸들러
     try {
         const petEvo = require('../pet_evolution');

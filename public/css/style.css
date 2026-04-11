@@ -133,6 +133,25 @@
       #chat-box { width:240px; }
     }
 
+    /* 모바일 진동 피드백 + 터치 최적화 (v2.59) */
+    @media (max-width:768px) {
+      /* 공격 버튼 더 크게 + 글로우 */
+      #attack-btn {
+        width:80px !important; height:80px !important;
+        font-size:15px !important;
+        box-shadow:0 0 20px rgba(255,0,0,0.4) !important;
+      }
+      /* 하단 바 고정 + safe area */
+      #bottom-bar {
+        padding-bottom:env(safe-area-inset-bottom, 0) !important;
+      }
+      /* 터치 가능 영역 표시 */
+      .btn:active, .tab:active, .npc-menu-btn:active, .class-btn:active {
+        transform:scale(0.95) !important;
+        filter:brightness(1.2);
+      }
+    }
+
     /* 가로 모드 모바일 */
     @media (max-height:450px) and (orientation:landscape) {
       #status-bar { padding:2px 8px; font-size:9px; }
