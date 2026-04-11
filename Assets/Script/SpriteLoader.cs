@@ -52,6 +52,9 @@ public static class SpriteLoader
         { "네크로맨서", "necromancer_sd" }, { "necromancer", "necromancer_sd" },
         { "트렌트", "treant_sd" }, { "treant", "treant_sd" }, { "나무", "treant_sd" },
         { "불사조", "phoenix_sd" }, { "phoenix", "phoenix_sd" },
+        { "리치 킹", "lich_king_sd" }, { "lich_king", "lich_king_sd" },
+        { "히드라", "hydra_sd" }, { "hydra", "hydra_sd" },
+        { "크리스탈 골렘", "crystal_golem_sd" }, { "crystal_golem", "crystal_golem_sd" },
         // 보스 전용
         { "바하무트", "boss_bahamut_sd" }, { "bahamut", "boss_bahamut_sd" },
         { "심연의 군주", "boss_abyss_lord_sd" }, { "아비스", "boss_abyss_lord_sd" },
