@@ -696,6 +696,13 @@ function checkWeeklyRankingRewards() {
         _setLastWeeklyRewardWeek(week);
         updateRankings();
 
+        // v2.58: 최소 경쟁 인원 체크 — 실제 플레이어 3명 이상이어야 랭킹 보상 지급
+        const realPlayers = Object.values(players).filter(p => p && !p.isBot && p.level > 1);
+        if (realPlayers.length < 3) {
+            io.emit('server_msg', { msg: '주간 랭킹: 참여자 부족 (최소 3명)으로 보상이 지급되지 않습니다.', type: 'normal' });
+            return;
+        }
+
         // 레벨 1위
         if (rankings.level.length > 0) {
             const topId = rankings.level[0].id;
