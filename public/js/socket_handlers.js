@@ -2687,6 +2687,20 @@
         playSFX('buff');
       });
 
+      // ═══ 요일 이벤트 ═══
+      window.socket.on('daily_event_status', (d) => {
+        var html = '<div style="text-align:center">' +
+          '<div style="font-size:48px;margin-bottom:8px">' + d.dayEvent.icon + '</div>' +
+          '<p style="color:#ffd700;font-size:16px;font-weight:bold">' + d.dayEvent.name + '</p>' +
+          '<p style="color:#ddd;font-size:13px;margin:8px 0">' + d.dayEvent.desc + '</p>' +
+          '<div style="border-top:1px solid #333;margin:12px 0;padding-top:12px">' +
+          '<p style="color:#888;font-size:11px">현재 날씨 보너스</p>' +
+          '<p style="font-size:24px">' + d.weatherBonus.icon + '</p>' +
+          '<p style="color:#88ccff;font-size:12px">' + d.weatherBonus.desc + '</p>' +
+          '</div></div>';
+        showModal('📅 오늘의 이벤트', html, [{label:'확인', action:'closeModal()'}]);
+      });
+
       // ═══ 채팅 이모트 ═══
       window.socket.on('emote_packs', (d) => {
         var html = '';

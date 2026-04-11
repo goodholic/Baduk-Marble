@@ -382,6 +382,12 @@ io.on("connection", (socket) => {
         friendDuel.registerFriendDuelHandlers(socket, playerId, players, io);
     } catch(e) { /* ignore if not loaded */ }
 
+    // v2.59: 요일 이벤트 핸들러
+    try {
+        const dailyEvents = require('../daily_events');
+        dailyEvents.registerDailyEventHandlers(socket, playerId, players, io);
+    } catch(e) {}
+
     // v2.59: 채팅 이모트 핸들러
     try {
         const chatEmotes = require('../chat_emotes');
