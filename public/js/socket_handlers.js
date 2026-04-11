@@ -2689,30 +2689,51 @@
 
       // ═══ 용병 육성 ═══
       window.socket.on('merc_status', (d) => {
-        var html = '<div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="color:#ffd700">전투력: <b>' + d.totalPower + '</b></span><span style="color:#888">' + d.roster.length + '/' + d.maxRoster + '</span></div>';
-        // 파티
+        var gc = {0:'#888',1:'#44cc44',2:'#4488ff',3:'#aa44ff',4:'#ff8800',5:'#ff00ff'};
+        var gn = ['일반','고급','희귀','영웅','전설','신화'];
+        var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">' +
+          '<div><span style="color:#ffd700;font-size:16px;font-weight:900">⚔️ ' + d.totalPower + '</span><span style="color:#888;font-size:10px"> 전투력</span></div>' +
+          '<span style="color:#888;font-size:11px">' + d.roster.length + '/' + d.maxRoster + ' 보유</span></div>';
+
+        // 파티 편성
         if (d.party.length > 0) {
-          html += '<div style="display:flex;gap:4px;margin-bottom:8px;padding:6px;background:rgba(255,215,0,0.05);border-radius:6px;border:1px solid rgba(255,215,0,0.15)">';
+          html += '<div class="slg-section"><h4>📋 편성 부대</h4><div style="display:flex;gap:6px;flex-wrap:wrap">';
           d.roster.filter(function(m){return m.inParty;}).forEach(function(m) {
-            html += '<div style="text-align:center;width:40px"><span style="font-size:20px">' + m.icon + '</span><div style="font-size:8px;color:' + m.gradeColor + '">Lv.' + m.level + '</div><div style="font-size:7px;color:#ffd700">' + '⭐'.repeat(m.stars) + '</div></div>';
+            html += '<div style="text-align:center;width:50px;padding:4px;border-radius:6px;border:1px solid ' + (gc[m.grade]||'#444') + ';background:rgba(0,0,0,0.3)">' +
+              '<div style="font-size:24px">' + m.icon + '</div>' +
+              '<div style="font-size:8px;color:' + (gc[m.grade]||'#888') + '">Lv.' + m.level + '</div>' +
+              '<div style="font-size:7px;color:#ffd700">' + '⭐'.repeat(m.stars) + '</div></div>';
           });
-          html += '</div>';
+          html += '</div></div>';
         }
-        // 로스터
-        html += '<div style="max-height:40vh;overflow-y:auto">';
+
+        // 등급별 탭 필터
+        html += '<div style="display:flex;gap:3px;margin:6px 0;flex-wrap:wrap">';
+        html += '<button class="btn btn-sm" onclick="document.querySelectorAll(\'.merc-card\').forEach(function(e){e.style.display=\'flex\'});" style="font-size:9px">전체</button>';
+        for (var g = 5; g >= 0; g--) {
+          html += '<button class="btn btn-sm" onclick="document.querySelectorAll(\'.merc-card\').forEach(function(e){e.style.display=e.dataset.grade==\'' + g + '\'?\'flex\':\'none\'});" style="font-size:9px;color:' + gc[g] + '">' + gn[g] + '</button>';
+        }
+        html += '</div>';
+
+        // 용병 목록
+        html += '<div style="max-height:35vh;overflow-y:auto">';
         d.roster.sort(function(a,b){return b.combatPower-a.combatPower;}).forEach(function(m) {
-          html += '<div class="panel-item" style="border-left:3px solid ' + m.gradeColor + '">' +
-            '<span class="name">' + m.icon + ' <b style="color:' + m.gradeColor + '">' + m.name + '</b> ' + '⭐'.repeat(m.stars) + (m.inParty ? ' <span style="color:#44ff44;font-size:9px">[편성]</span>' : '') +
-            '<br><small style="color:#888">Lv.' + m.level + ' | ATK:' + m.atk + ' DEF:' + m.def + ' HP:' + m.hp + ' | 🗡️' + m.skillName + ' Lv.' + m.skillLevel + '</small>' +
-            '<br><small style="color:#ffd700">전투력: ' + m.combatPower + '</small></span>' +
-            '<div style="display:flex;flex-direction:column;gap:2px">' +
-            '<button class="btn btn-sm" onclick="window.socket.emit(\'merc_level_up\',{uid:\'' + m.uid + '\'});closeModal();" style="font-size:8px">훈련(100G)</button>' +
-            '<button class="btn btn-sm" onclick="window.socket.emit(\'merc_skill_up\',\'' + m.uid + '\');closeModal();" style="font-size:8px">스킬↑</button>' +
-            '<button class="btn btn-sm" onclick="window.socket.emit(\'merc_awaken\',\'' + m.uid + '\');closeModal();" style="font-size:8px">각성⭐</button>' +
+          html += '<div class="merc-card merc-grade-' + m.grade + '" data-grade="' + m.grade + '">' +
+            '<div class="merc-icon">' + m.icon + '</div>' +
+            '<div class="merc-info">' +
+              '<div class="merc-name" style="color:' + (gc[m.grade]||'#ddd') + '">' + m.name + ' ' + '⭐'.repeat(m.stars) +
+              (m.inParty ? ' <span style="color:#44ff44;font-size:8px;border:1px solid #44ff44;padding:0 3px;border-radius:3px">편성</span>' : '') + '</div>' +
+              '<div class="merc-stats">Lv.' + m.level + ' | ⚔️' + m.atk + ' 🛡️' + m.def + ' ❤️' + m.hp + ' | 🗡️' + m.skillName + ' Lv.' + m.skillLevel + '</div>' +
+              '<div class="merc-power">⚔️ ' + m.combatPower + '</div>' +
+            '</div>' +
+            '<div class="merc-actions">' +
+              '<button class="btn btn-sm" onclick="window.socket.emit(\'merc_level_up\',{uid:\'' + m.uid + '\'});closeModal();">훈련</button>' +
+              '<button class="btn btn-sm" onclick="window.socket.emit(\'merc_skill_up\',\'' + m.uid + '\');closeModal();">스킬↑</button>' +
+              '<button class="btn btn-sm" onclick="window.socket.emit(\'merc_awaken\',\'' + m.uid + '\');closeModal();">각성⭐</button>' +
             '</div></div>';
         });
         html += '</div>';
-        showModal('⚔️ 용병 관리', html, [{label:'닫기', type:'cancel', action:'closeModal()'}]);
+        showModal('⚔️ 용병 관리 (' + d.roster.length + '종)', html, [{label:'닫기', type:'cancel', action:'closeModal()'}]);
       });
 
       window.socket.on('merc_result', (d) => { showToast(d.msg || (d.success ? '성공' : '실패')); if (d.success && d.leveled) playSFX('levelup'); });
