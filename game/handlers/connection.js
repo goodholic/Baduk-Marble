@@ -375,6 +375,12 @@ io.on("connection", (socket) => {
         const minigames = require('../minigames');
         minigames.registerMinigameHandlers(socket, playerId, players, io);
     } catch(e) { /* ignore if not loaded */ }
+
+    // v2.58: 친구 대전 핸들러
+    try {
+        const friendDuel = require('../friend_duel');
+        friendDuel.registerFriendDuelHandlers(socket, playerId, players, io);
+    } catch(e) { /* ignore if not loaded */ }
 });
 }
 

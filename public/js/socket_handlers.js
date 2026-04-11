@@ -2679,6 +2679,27 @@
         playSFX('buff');
       });
 
+      // ═══ 친구 대전 ═══
+      window.socket.on('friend_duel_request', (d) => {
+        showModal('⚔️ 대전 신청!', '<p style="color:#ffd700;text-align:center;font-size:14px">' + d.challengerName + ' (Lv.' + d.challengerLevel + ' ' + d.challengerClass + ')</p>' +
+          '<p style="text-align:center;color:#ddd">이(가) 대전을 신청했습니다!</p>' +
+          (d.bet > 0 ? '<p style="text-align:center;color:#ff8800;font-size:16px">💰 베팅: ' + d.bet + 'G</p>' : '<p style="text-align:center;color:#888">친선 대전 (무료)</p>'),
+          [{label:'수락!', action:"window.socket.emit('friend_duel_accept','" + d.duelId + "');closeModal();"}, {label:'거절', type:'cancel', action:"window.socket.emit('friend_duel_decline','" + d.duelId + "');closeModal();"}]);
+        playSFX('pvp');
+      });
+      window.socket.on('friend_duel_start', (d) => {
+        showToast('⚔️ ' + d.opponent + '와(과) 대전 시작!' + (d.bet > 0 ? ' (베팅: ' + d.bet + 'G)' : ''));
+        if (typeof showBossEntrance === 'function') showBossEntrance('VS ' + d.opponent, '— 친구 대전! —');
+      });
+      window.socket.on('friend_duel_end', (d) => {
+        showModal('⚔️ 대전 결과', '<div style="text-align:center"><p style="color:#ffd700;font-size:18px">' + d.winnerName + ' 승리!</p>' +
+          '<p style="color:#888">' + d.reason + '</p>' +
+          (d.bet > 0 ? '<p style="color:#ff8800;margin-top:8px">💰 상금: ' + (d.bet*2) + 'G</p>' : '') + '</div>',
+          [{label:'확인', action:'closeModal()'}]);
+        playSFX('levelup');
+      });
+      window.socket.on('friend_duel_expired', () => { showToast('대전 신청이 만료되었습니다.'); });
+
       // ═══ 미니게임 ═══
       window.socket.on('minigame_result', (d) => { showToast(d.msg); });
 
