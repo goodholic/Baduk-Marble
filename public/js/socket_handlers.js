@@ -2687,6 +2687,45 @@
         playSFX('buff');
       });
 
+      // ═══ 가챠 소환 ═══
+      window.socket.on('gacha_pool_list', (d) => {
+        var html = '';
+        d.pools.forEach(function(pool) {
+          html += '<div style="border:1px solid rgba(255,215,0,0.15);border-radius:10px;padding:12px;margin-bottom:8px">' +
+            '<p style="color:#ffd700;font-size:14px;font-weight:bold">' + pool.icon + ' ' + pool.name + '</p>' +
+            '<p style="color:#888;font-size:11px;margin:4px 0">' + pool.desc + '</p>' +
+            '<div style="display:flex;flex-wrap:wrap;gap:4px;margin:6px 0">';
+          pool.pool.forEach(function(item) {
+            var gc = {normal:'#888',uncommon:'#44cc44',rare:'#4488ff',epic:'#aa44ff',legendary:'#ff8800'};
+            html += '<span style="font-size:10px;color:' + (gc[item.grade]||'#888') + '">' + item.icon + item.name + '</span>';
+          });
+          html += '</div><div style="display:flex;gap:6px">' +
+            '<button class="btn btn-primary" onclick="window.socket.emit(\'gacha_summon\',{poolId:\'' + pool.id + '\',count:1});closeModal();" style="flex:1">1회 (' + pool.cost.diamonds + '💎)</button>' +
+            '<button class="btn btn-primary" onclick="window.socket.emit(\'gacha_summon\',{poolId:\'' + pool.id + '\',count:10});closeModal();" style="flex:1;background:linear-gradient(135deg,#ff4400,#ff8800)">10연차 (' + pool.costx10.diamonds + '💎)</button>' +
+            '</div></div>';
+        });
+        showModal('⭐ 소환', html, [{label:'닫기', type:'cancel', action:'closeModal()'}]);
+      });
+
+      window.socket.on('gacha_result', (d) => {
+        if (!d.success) { showToast(d.msg); return; }
+        var gc = {normal:'#888',uncommon:'#44cc44',rare:'#4488ff',epic:'#aa44ff',legendary:'#ff8800'};
+        var html = '<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center">';
+        d.results.forEach(function(r) {
+          var isSpecial = r.grade === 'legendary' || r.grade === 'epic';
+          html += '<div style="width:80px;text-align:center;padding:8px;border-radius:8px;border:2px solid ' + (gc[r.grade]||'#444') + ';background:rgba(0,0,0,0.3)' + (isSpecial ? ';animation:epicGlow 1.5s ease-in-out infinite' : '') + '">' +
+            '<div style="font-size:28px">' + r.icon + '</div>' +
+            '<div style="font-size:9px;color:' + (gc[r.grade]||'#888') + ';font-weight:bold;margin-top:4px">' + r.name + '</div>' +
+            '<div style="font-size:8px;color:#666">[' + r.grade + ']</div></div>';
+        });
+        html += '</div>';
+        html += '<p style="text-align:center;color:#888;font-size:10px;margin-top:8px">천장: ' + d.pity + '/' + d.pityMax + '</p>';
+        showModal('⭐ 소환 결과', html, [{label:'확인', action:'closeModal()'}]);
+        if (d.hasLegendary) { if (typeof celebrateRareDrop === 'function') celebrateRareDrop('mythic'); playSFX('boss'); }
+        else if (d.hasEpic) { if (typeof celebrateRareDrop === 'function') celebrateRareDrop('epic'); playSFX('levelup'); }
+        else playSFX('gold');
+      });
+
       // ═══ 튜토리얼 ═══
       // 게임 시작 시 자동 튜토리얼 체크
       setTimeout(function() { if (window.socket?.connected) window.socket.emit('tutorial_status'); }, 3000);
