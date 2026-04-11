@@ -15,14 +15,15 @@ const CONFIG = {
 
 // ═══ 무기 시스템 (중첩 가능!) ═══
 const WEAPONS = {
-  sword:    { name: '회전 검',    icon: '🗡️', type: 'orbit',   baseDmg: 8,  range: 40, cd: 1200, desc: '주변을 도는 검' },
-  fireball: { name: '파이어볼',   icon: '🔥', type: 'projectile',baseDmg: 12, range: 120, cd: 1500, desc: '전방 화염구' },
-  lightning:{ name: '낙뢰',       icon: '⚡', type: 'random',   baseDmg: 15, range: 100, cd: 2000, desc: '랜덤 위치 번개' },
-  icering:  { name: '얼음 고리',  icon: '❄️', type: 'aoe',      baseDmg: 6,  range: 60,  cd: 1800, desc: '주변 원형 빙결' },
-  arrow:    { name: '연속 화살',  icon: '🏹', type: 'multi',    baseDmg: 5,  range: 100, cd: 600,  desc: '빠른 연사' },
-  holy:     { name: '신성 폭발',  icon: '✨', type: 'nova',     baseDmg: 20, range: 80,  cd: 3000, desc: '전방위 폭발' },
-  poison:   { name: '독 안개',    icon: '☠️', type: 'dot',      baseDmg: 3,  range: 50,  cd: 2500, desc: '지속 데미지 장판' },
-  shield:   { name: '가시 방패',  icon: '🛡️', type: 'reflect',  baseDmg: 4,  range: 30,  cd: 0,    desc: '피격 시 반사' },
+  // v2.60 밸런스 패치: 무기 DPS 균형 조정
+  sword:    { name: '회전 검',    icon: '🗡️', type: 'orbit',   baseDmg: 10, range: 45, cd: 1000, desc: '주변을 도는 검. 안정적 딜러.' },
+  fireball: { name: '파이어볼',   icon: '🔥', type: 'projectile',baseDmg: 15, range: 130, cd: 1400, desc: '전방 화염구. 높은 단일 데미지.' },
+  lightning:{ name: '낙뢰',       icon: '⚡', type: 'random',   baseDmg: 18, range: 110, cd: 1800, desc: '랜덤 위치 번개. 예측 불가!' },
+  icering:  { name: '얼음 고리',  icon: '❄️', type: 'aoe',      baseDmg: 7,  range: 65,  cd: 1600, desc: '주변 빙결. 근접 방어용.' },
+  arrow:    { name: '연속 화살',  icon: '🏹', type: 'multi',    baseDmg: 6,  range: 110, cd: 500,  desc: '빠른 연사. 다수 적에 효과적.' },
+  holy:     { name: '신성 폭발',  icon: '✨', type: 'nova',     baseDmg: 22, range: 90,  cd: 2800, desc: '전방위 폭발. 궁극기급!' },
+  poison:   { name: '독 안개',    icon: '☠️', type: 'dot',      baseDmg: 4,  range: 55,  cd: 2200, desc: '지속 데미지. 보스에 효과적.' },
+  shield:   { name: '가시 방패',  icon: '🛡️', type: 'reflect',  baseDmg: 5,  range: 35,  cd: 0,    desc: '반사 데미지. 탱커용.' },
 };
 
 // 패시브 아이템 (스탯 강화)
@@ -39,10 +40,11 @@ const PASSIVES = {
 
 // 웨이브별 몬스터
 function getWaveMonsters(wave, playerCount) {
-  const count = Math.floor((5 + wave * 2) * Math.max(1, playerCount * 0.7));
-  const hp = Math.floor(20 + wave * 8);
-  const atk = Math.floor(3 + wave * 2);
-  const exp = 8 + wave;
+  // v2.60 밸런스: 초반 쉽게, 후반 급격히 어려워짐
+  const count = Math.floor((4 + wave * 1.5 + Math.pow(wave, 1.3) * 0.3) * Math.max(1, playerCount * 0.6));
+  const hp = Math.floor(15 + wave * 6 + Math.pow(wave, 1.4));
+  const atk = Math.floor(2 + wave * 1.5 + Math.pow(wave, 1.2) * 0.5);
+  const exp = 10 + wave * 2;
   const isBoss = wave % 5 === 0;
 
   return {
