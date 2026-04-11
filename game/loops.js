@@ -829,6 +829,13 @@ function giveExp(playerObj, amount) {
             if (sr) io.to(target.id).emit('story_quest_update', sr);
         } catch(e) {}
 
+        // v2.59: 튜토리얼 레벨업
+        try {
+            const tut = require('./tutorial');
+            const tr = tut.checkTutorialProgress(target, 'level_up', { level: target.level });
+            if (tr) io.to(target.id).emit('tutorial_update', tr);
+        } catch(e) {}
+
         // Lv.20 전직 알림
         if (target.level === 20 && !target.isAdvanced) {
             io.to(target.id).emit('server_msg', { msg: '전직이 가능합니다! 메뉴에서 전직하세요.', type: 'rare' });
@@ -1466,6 +1473,13 @@ function handleCollisions() {
                         const gauge = ce.updateUltimateGauge(realOwner, 'kill');
                         const ult = ce.ULTIMATES[(realOwner.className||'Warrior').split(' ')[0]] || ce.ULTIMATES.Warrior;
                         io.to(realOwner.id).emit('ultimate_gauge', { gauge, max: ce.ULTIMATE_CONFIG.maxGauge, name: ult.name });
+                    } catch(e) {}
+
+                    // v2.59: 튜토리얼 진행 (킬)
+                    try {
+                        const tut = require('./tutorial');
+                        const tutResult = tut.checkTutorialProgress(realOwner, 'kill', {});
+                        if (tutResult) io.to(realOwner.id).emit('tutorial_update', tutResult);
                     } catch(e) {}
 
                     delete monsters[mId];

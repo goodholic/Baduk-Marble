@@ -2687,6 +2687,82 @@
         playSFX('buff');
       });
 
+      // ═══ 튜토리얼 ═══
+      // 게임 시작 시 자동 튜토리얼 체크
+      setTimeout(function() { if (window.socket?.connected) window.socket.emit('tutorial_status'); }, 3000);
+
+      window.socket.on('tutorial_status', (d) => {
+        if (d.completed || !d.step) return;
+        showTutorialStep(d.step);
+      });
+
+      window.socket.on('tutorial_update', (d) => {
+        if (d.type === 'tutorial_complete') {
+          showModal('🎉 튜토리얼 완료!', '<div style="text-align:center"><p style="font-size:36px">🎓</p>' +
+            '<p style="color:#ffd700;font-size:18px;font-weight:900">축하합니다!</p>' +
+            '<p style="color:#ddd;margin:8px 0">모든 기본을 마스터했습니다!</p>' +
+            '<p style="color:#ffd700">💰 +1000G 💎 +50 👑 칭호: 졸업생</p></div>',
+            [{label:'모험 시작!', action:'closeModal()'}]);
+          if (typeof celebrateRareDrop === 'function') celebrateRareDrop('mythic');
+          playSFX('levelup');
+        } else if (d.type === 'step_complete') {
+          // 보상 토스트
+          var r = d.reward;
+          var rewardText = '';
+          if (r.gold) rewardText += '💰+' + r.gold + 'G ';
+          if (r.exp) rewardText += '✨+' + r.exp + 'EXP ';
+          if (r.diamonds) rewardText += '💎+' + r.diamonds + ' ';
+          showToast('✅ ' + d.completedStep.name + ' 완료! ' + rewardText);
+          playSFX('levelup');
+          // 다음 단계 표시
+          if (d.nextStep) setTimeout(function() { showTutorialStep(d.nextStep); }, 1500);
+        } else if (d.type === 'skipped') {
+          showToast(d.msg);
+        } else if (d.type === 'progress') {
+          // 진행도 토스트
+          showToast('📋 ' + d.progress + '/' + d.goal);
+        }
+      });
+
+      window.showTutorialStep = function(step) {
+        var html = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">' +
+          '<span style="font-size:32px">' + (step.npcIcon || step.icon) + '</span>' +
+          '<div><div style="color:#ffd700;font-size:13px;font-weight:bold">' + (step.npcName || '') + '</div>' +
+          '<div style="color:#888;font-size:10px">튜토리얼 ' + (step.id || '') + '</div></div></div>' +
+          '<div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:12px;margin-bottom:10px;border-left:3px solid rgba(255,215,0,0.3)">' +
+          '<p style="color:#d4cfc0;font-size:13px;line-height:1.6">' + step.dialog + '</p></div>';
+
+        if (step.task) {
+          html += '<div style="background:rgba(255,215,0,0.05);border-radius:6px;padding:8px;margin-bottom:8px">' +
+            '<p style="color:#ff8800;font-size:12px">📋 목표: ' + step.task.desc + '</p>' +
+            (step.progress > 0 ? '<p style="color:#888;font-size:10px">진행: ' + step.progress + '/' + (step.task.goal||1) + '</p>' : '') +
+            '</div>';
+        }
+
+        if (step.reward) {
+          html += '<p style="color:#888;font-size:10px">보상: ' +
+            (step.reward.gold ? '💰' + step.reward.gold + 'G ' : '') +
+            (step.reward.exp ? '✨' + step.reward.exp + 'EXP ' : '') +
+            (step.reward.diamonds ? '💎' + step.reward.diamonds + ' ' : '') + '</p>';
+        }
+
+        // 하이라이트 표시
+        if (step.highlight) {
+          var highlightEl = document.getElementById(step.highlight);
+          if (highlightEl) {
+            highlightEl.style.boxShadow = '0 0 15px rgba(255,215,0,0.6)';
+            highlightEl.style.border = '2px solid #ffd700';
+            setTimeout(function() { highlightEl.style.boxShadow = ''; highlightEl.style.border = ''; }, 8000);
+          }
+        }
+
+        var buttons = [];
+        if (!step.task) buttons.push({label:'다음 ▶', action:"window.socket.emit('tutorial_advance');closeModal();"});
+        buttons.push({label:'건너뛰기', type:'cancel', action:"window.socket.emit('tutorial_skip');closeModal();"});
+
+        showModal('📖 튜토리얼: ' + step.name, html, buttons);
+      };
+
       // ═══ PvP 강화 ═══
       window.socket.on('pvp_bounty_update', (d) => {
         if (typeof showFantasyToast === 'function') {
