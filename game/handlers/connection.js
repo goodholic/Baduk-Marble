@@ -327,6 +327,12 @@ io.on("connection", (socket) => {
         io, players, playerId, savePlayer, trackQuest, codexDiscover,
         getZone, isNight: $.isNight, MAX_GOLD, fishing
     });
+
+    // v2.58: 배틀로얄 핸들러
+    try {
+        const battleRoyale = require('../battle_royale');
+        battleRoyale.registerBattleRoyaleHandlers(socket, playerId);
+    } catch(e) { /* ignore if not loaded */ }
 });
 }
 

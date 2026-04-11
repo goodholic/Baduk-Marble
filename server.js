@@ -95,6 +95,7 @@ const spiritPact = require('./game/spirit_pact');
 const mythicWeapon = require('./game/mythic_weapon');
 const dimensionTraveler = require('./game/dimension_traveler');
 const dragonRiding = require('./game/dragon_riding');
+const battleRoyale = require('./game/battle_royale');
 const { handleRaidFinish, codexDiscover, finishBossRush, updateTownPrices, generateRandomOptions, logWorldEvent } = serverHelpers;
 const { expireMarketListings, destroyAxe, syncGameState, updatePassives, updatePlayerAutoSkills, updateBots, giveExp, handleCollisions, handleAoeDamage, handlePlayerDeath } = loops;
 // Phase 3 refactor: 전투/스폰/랭킹 모듈
@@ -599,6 +600,10 @@ httpRoutes.register(app, {
 
 // v2.51: 영웅의 전당 초기화
 hallOfHeroes.init({});
+
+// v2.58: 배틀로얄 초기화
+battleRoyale.initBattleRoyale(io, (pid) => players[pid], players);
+battleRoyale.startAutoSchedule();
 
 console.log(`[AutoBattle.io] Starting server on port ${PORT}...`);
 server.listen(PORT, () => {

@@ -901,6 +901,7 @@
         {label:'📜 패치 노트', action:()=>window.showPatchNotes()},
         {label:'🏆 개인 기록', action:()=>window.showPersonalRecords()},
         {label:'🔔 알림 센터', action:()=>window.showNotifications()},
+        {label:'🏟️ 배틀로얄', action:()=>{window.socket.emit('br_status');showModal('🏟️ 배틀로얄','<div id="br-modal-body"><p class="text-muted">상태 로딩 중...</p></div>',[{label:'닫기',type:'cancel',action:'closeModal()'}]);}},
         {label:'시즌 균열', action:()=>togglePanel('rift')},
         {label:'환생', action:()=>{showModal('환생 (프레스티지)','<p class="text-gold">Lv.50 달성 시 레벨을 1로 리셋하고 영구 보너스를 획득합니다.</p><p class="text-muted text-sm">장비/인벤/다이아는 유지. 최대 10회.</p>',[{label:'환생!',action:"window.socket.emit('prestige');closeModal();"},{label:'취소',type:'cancel',action:'closeModal()'}]);}},
         {label:'의뢰', action:()=>{togglePanel('contracts');window.socket.emit('get_contracts');}},

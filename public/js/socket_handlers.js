@@ -2679,6 +2679,119 @@
         playSFX('buff');
       });
 
+      // ═══ 배틀로얄 이벤트 ═══
+      window.socket.on('br_result', (d) => { showToast(d.msg); });
+
+      window.socket.on('battle_royale_status', (d) => {
+        var body = document.getElementById('br-modal-body');
+        if (!body) return;
+        var html = '';
+        if (d.phase === 'idle') {
+          html = '<div style="text-align:center">' +
+            '<p style="color:#ffd700;font-size:16px;margin-bottom:12px">🏟️ 배틀로얄</p>' +
+            '<p class="text-muted">최대 20명이 전투하여 최후의 1인을 가립니다!</p>' +
+            '<p class="text-muted text-sm" style="margin:8px 0">참가비: 2,000G | 상금: 풀 적립식</p>' +
+            '<p style="color:#888;font-size:11px">현재 대기 중 — 곧 자동 개최됩니다</p>' +
+            '<button class="btn btn-primary" onclick="window.socket.emit(\'br_start_manual\');closeModal();" style="margin-top:12px">수동 개최</button>' +
+            '</div>';
+        } else if (d.phase === 'registration') {
+          html = '<div style="text-align:center">' +
+            '<p style="color:#ff8800;font-size:16px;margin-bottom:8px">⚔️ 참가 등록 중!</p>' +
+            '<p class="text-gold" style="font-size:20px">' + d.playerCount + ' / ' + d.maxPlayers + '</p>' +
+            '<p class="text-muted">상금 풀: ' + d.prizePool + 'G</p>' +
+            '<button class="btn btn-primary" onclick="window.socket.emit(\'br_register\');closeModal();" style="margin-top:12px;font-size:16px;padding:12px 24px">⚔️ 참가 등록 (2,000G)</button>' +
+            '</div>';
+        } else if (d.phase === 'active') {
+          html = '<div>' +
+            '<div style="text-align:center;margin-bottom:10px">' +
+            '<p style="color:#ff4444;font-size:16px">🔥 배틀로얄 진행 중!</p>' +
+            '<p class="text-gold">생존자: ' + d.aliveCount + ' / ' + d.playerCount + '</p>' +
+            '<p class="text-muted text-sm">경과: ' + Math.floor(d.elapsed/60) + ':' + (d.elapsed%60<10?'0':'') + (d.elapsed%60) + ' | 안전지대: ' + d.safeZone.radius + '</p>' +
+            '</div>';
+          // 참가자 목록
+          html += '<div style="max-height:30vh;overflow-y:auto">';
+          d.players.sort(function(a,b){ return b.alive-a.alive || b.kills-a.kills; }).forEach(function(p) {
+            var color = p.alive ? '#44ff44' : '#ff4444';
+            var hpPct = p.maxHp > 0 ? Math.floor(p.hp/p.maxHp*100) : 0;
+            html += '<div style="display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid #222;opacity:'+(p.alive?1:0.4)+'">' +
+              '<span style="color:'+color+';font-size:11px;width:14px">'+(p.alive?'⚔':'💀')+'</span>' +
+              '<span style="flex:1;font-size:11px;color:#ddd">'+p.name+' <span style="color:#888">Lv.'+p.level+'</span></span>' +
+              '<span style="font-size:10px;color:#ffd700">'+p.kills+' kills</span>' +
+              (p.alive ? '<span style="width:50px;height:6px;background:#222;border-radius:3px;overflow:hidden"><span style="display:block;width:'+hpPct+'%;height:100%;background:'+(hpPct>50?'#44cc44':hpPct>25?'#ccaa00':'#cc2222')+'"></span></span>' : '') +
+              '</div>';
+          });
+          html += '</div></div>';
+        } else if (d.phase === 'finished') {
+          html = '<div style="text-align:center"><p class="text-gold" style="font-size:16px">🏆 배틀로얄 종료!</p></div>';
+        }
+        body.innerHTML = html;
+      });
+
+      window.socket.on('battle_royale_start', (d) => {
+        if (typeof showBossEntrance === 'function') {
+          showBossEntrance('BATTLE ROYALE', '— ' + d.playerCount + '명의 전사가 격돌한다 —');
+        }
+        showToast('🏟️ 배틀로얄 시작! 상금: ' + d.prizePool + 'G');
+      });
+
+      window.socket.on('battle_royale_zone_shrink', (d) => {
+        showToast('⚠️ 안전지대 축소! 반경 ' + d.safeZone.radius);
+        if (typeof playSFX2 === 'function') playSFX2('thunder');
+        else playSFX('boss');
+      });
+
+      window.socket.on('battle_royale_zone_damage', (d) => {
+        showFloatingDamage(d.damage, false, '독가스', 'poison');
+      });
+
+      window.socket.on('battle_royale_combat', (d) => {
+        addCombatLog(d.attackerName + ' → ' + d.targetName + ' ' + d.damage + (d.isCrit ? ' 크리!' : ''), d.isCrit ? 'log-crit' : 'normal');
+      });
+
+      window.socket.on('battle_royale_eliminate', (d) => {
+        var msg = '💀 ' + d.victimName + ' 탈락! (' + d.killerName + ') — 잔여 ' + d.remaining + '명';
+        addCombatLog(msg, 'log-crit');
+        if (d.remaining <= 5) {
+          if (typeof showFantasyToast === 'function') showFantasyToast(msg, 'legendary');
+          else showToast(msg);
+        }
+      });
+
+      window.socket.on('battle_royale_supply', (d) => {
+        showToast('📦 보급 상자 투하! — ' + d.name);
+        playSFX('gold');
+      });
+
+      window.socket.on('battle_royale_pickup', (d) => {
+        showToast('📦 ' + d.item + ' 획득!');
+        playSFX('buff');
+      });
+
+      window.socket.on('battle_royale_end', (d) => {
+        var html = '<div style="text-align:center;margin-bottom:12px">' +
+          '<p style="color:#ffd700;font-size:18px;font-weight:900">🏆 배틀로얄 결과</p>' +
+          '<p class="text-muted">상금 풀: ' + d.prizePool + 'G</p>' +
+          (d.topKiller ? '<p style="color:#ff4444;font-size:11px">최다 킬: ' + d.topKiller.name + ' (' + d.topKiller.kills + '킬)</p>' : '') +
+          '</div>';
+        html += '<div style="max-height:40vh;overflow-y:auto">';
+        var medals = ['🥇','🥈','🥉'];
+        d.results.forEach(function(r) {
+          var medal = medals[r.rank-1] || (r.rank + '위');
+          var color = r.rank === 1 ? '#ffd700' : r.rank === 2 ? '#c0c0c0' : r.rank === 3 ? '#cd7f32' : '#888';
+          html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #222">' +
+            '<span style="font-size:16px;width:30px;text-align:center">' + medal + '</span>' +
+            '<span style="flex:1;color:' + color + ';font-weight:bold">' + r.name + '</span>' +
+            '<span style="font-size:10px;color:#aaa">' + r.kills + ' kills</span>' +
+            '<span style="font-size:10px;color:#ffd700">' + r.goldReward + 'G</span>' +
+            (r.diamondReward ? '<span style="font-size:10px;color:#55ccff">+' + r.diamondReward + '💎</span>' : '') +
+            '</div>';
+        });
+        html += '</div>';
+        showModal('🏆 배틀로얄', html, [{label:'확인', action:'closeModal()'}]);
+        if (typeof celebrateRareDrop === 'function') celebrateRareDrop('legendary');
+        playSFX('levelup');
+      });
+
       window.socket.on('inventory_data', renderInventory);
       window.socket.on('inventory_update', (d) => { if(d.inventory) showToast('인벤토리 업데이트!'); });
       window.socket.on('market_data', renderMarket);
