@@ -924,6 +924,7 @@
         {label:'일일 챌린지', action:()=>window.socket.emit('get_daily_challenge')},
         {label:'📅 주간 챌린지', action:()=>window.socket.emit('get_weekly_challenge')},
         {label:'결투', action:()=>{showModal('결투 신청','<p class="text-muted text-sm">결투할 플레이어 이름을 입력하세요</p><input id="duel-target" placeholder="플레이어 이름" style="width:100%;padding:8px;background:#222;color:#fff;border:1px solid #555;border-radius:4px;margin-top:8px">',[{label:'결투!',action:"var names=getModalInput('duel-target');for(var pid in (window._syncPlayers||{})){if(window._syncPlayers[pid]&&players&&players[pid]?.displayName===names){window.socket.emit('duel_request',pid);break;}}closeModal();"},{label:'취소',type:'cancel',action:'closeModal()'}]);}},
+        {label:'🐲 월드 레이드', action:()=>{window.socket.emit('world_events_status');}},
         {label:'이벤트', action:()=>{togglePanel('events');window.socket.emit('get_world_events');}},
         {label:'이모트', action:()=>{showModal('이모트','<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">' +
           Object.entries({taunt:'😤 도발',cheer:'🎉 환호',greet:'👋 인사',laugh:'😂 ㅋㅋ',cry:'😢 ㅠㅠ',gg:'🤝 GG',help:'🆘 도움',thanks:'❤ 감사'}).map(function(e) {

@@ -345,6 +345,12 @@ io.on("connection", (socket) => {
         const mainStory = require('../main_story');
         mainStory.registerStoryHandlers(socket, playerId, players, io);
     } catch(e) { /* ignore if not loaded */ }
+
+    // v2.58: 월드 레이드 & 이벤트 핸들러
+    try {
+        const worldRaid = require('../world_raid');
+        worldRaid.registerWorldRaidHandlers(socket, playerId, players, io);
+    } catch(e) { /* ignore if not loaded */ }
 });
 }
 

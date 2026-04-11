@@ -2679,6 +2679,111 @@
         playSFX('buff');
       });
 
+      // ═══ 월드 레이드 & 이벤트 ═══
+      window.socket.on('world_events_info', (d) => {
+        var html = '';
+        // 진행 중 레이드
+        if (d.raid && d.raid.active) {
+          var hpPct = d.raid.hpPct;
+          var remain = d.raid.remaining;
+          html += '<div style="border:1px solid rgba(255,68,68,0.3);border-radius:8px;padding:12px;margin-bottom:10px;background:rgba(255,0,0,0.05)">' +
+            '<p style="color:#ff4444;font-size:14px;font-weight:900">' + d.raid.icon + ' ' + d.raid.bossName + ' <span style="color:#888;font-size:10px">진행 중</span></p>' +
+            '<div style="width:100%;height:12px;background:#222;border-radius:6px;overflow:hidden;margin:6px 0"><div style="width:' + hpPct + '%;height:100%;background:linear-gradient(90deg,#cc2222,#ff4444);border-radius:6px;transition:width 0.5s"></div></div>' +
+            '<div style="display:flex;justify-content:space-between;font-size:10px;color:#888"><span>HP ' + hpPct + '%</span><span>' + d.raid.phase + '</span><span>⏱ ' + Math.floor(remain/60) + ':' + (remain%60<10?'0':'') + (remain%60) + '</span></div>' +
+            '<p style="color:#888;font-size:10px;margin-top:4px">참가자: ' + d.raid.participantCount + '명</p>' +
+            '<button class="btn btn-danger" onclick="window.socket.emit(\'raid_hit\');closeModal();" style="width:100%;margin-top:6px;font-size:14px">⚔ 공격!</button>' +
+            '</div>';
+        }
+        // 진행 중 이벤트
+        if (d.event) {
+          html += '<div style="border:1px solid rgba(255,215,0,0.3);border-radius:8px;padding:10px;margin-bottom:10px;background:rgba(255,215,0,0.03)">' +
+            '<p style="color:#ffd700;font-size:13px;font-weight:bold">' + d.event.icon + ' ' + d.event.name + ' <span style="color:#888;font-size:10px">진행 중 (' + Math.floor(d.event.remaining/60) + '분 남음)</span></p></div>';
+        }
+        // 레이드 보스 목록
+        html += '<h4 style="color:#ff4444;margin:10px 0 6px;font-size:12px">🐲 월드 레이드 보스</h4>';
+        d.availableRaids.forEach(function(r) {
+          html += '<div class="panel-item" style="border-left:3px solid #ff4444;cursor:pointer" onclick="window.socket.emit(\'raid_start_manual\',\'' + r.id + '\');closeModal();">' +
+            '<span class="name">' + r.icon + ' ' + r.name + '<br><small style="color:#888">HP ' + (r.hp/1000).toFixed(0) + 'K | 최소 ' + r.minPlayers + '명</small>' +
+            '<br><small style="color:#aaa">' + r.desc + '</small></span></div>';
+        });
+        // 이벤트 목록
+        html += '<h4 style="color:#ffd700;margin:10px 0 6px;font-size:12px">🎉 시즌 이벤트</h4>';
+        d.availableEvents.forEach(function(e) {
+          html += '<div class="panel-item" style="border-left:3px solid #ffd700;cursor:pointer" onclick="window.socket.emit(\'event_start_manual\',\'' + e.id + '\');closeModal();">' +
+            '<span class="name">' + e.icon + ' ' + e.name + '<br><small style="color:#aaa">' + e.desc + '</small></span></div>';
+        });
+        showModal('🐲 월드 레이드 & 이벤트', html, [{label:'닫기', type:'cancel', action:'closeModal()'}]);
+      });
+
+      window.socket.on('world_raid_start', (d) => {
+        if (typeof showBossEntrance === 'function') showBossEntrance(d.name, '— 서버 전체 협력 레이드! —');
+        showToast(d.icon + ' ' + d.name + ' 출현! 공격하라!');
+      });
+
+      window.socket.on('world_raid_phase', (d) => {
+        if (typeof showFantasyToast === 'function') showFantasyToast('⚠️ ' + d.phase, 'legendary');
+        addCombatLog('[레이드] ' + d.phase, 'log-crit');
+        playSFX('boss');
+        document.getElementById('unity-container').classList.add('shake');
+        setTimeout(function(){ document.getElementById('unity-container').classList.remove('shake'); }, 500);
+      });
+
+      window.socket.on('world_raid_attack', (d) => {
+        showToast(d.msg);
+        if (d.damage) showFloatingDamage(d.damage, false, '보스', 'fire');
+        playSFX('boss');
+      });
+
+      window.socket.on('world_raid_update', (d) => {
+        if (!d.active) return;
+        document.title = d.bossName + ' HP: ' + d.hpPct + '% (' + d.participantCount + '명)';
+      });
+
+      window.socket.on('raid_hit_result', (d) => {
+        showFloatingDamage(d.damage, d.isCrit, null, 'fire');
+        dpsSamples.push({ time: Date.now(), damage: d.damage || 0 });
+      });
+
+      window.socket.on('world_raid_end', (d) => {
+        document.title = 'AutoBattle.io';
+        var html = '<div style="text-align:center;margin-bottom:10px">' +
+          '<p style="font-size:24px">' + d.icon + '</p>' +
+          '<p style="color:' + (d.victory ? '#ffd700' : '#ff4444') + ';font-size:18px;font-weight:900">' + (d.victory ? '🏆 레이드 승리!' : '💀 레이드 실패') + '</p>' +
+          '<p style="color:#ddd">' + d.bossName + '</p>' +
+          '<p style="color:#888;font-size:11px">참가자 ' + d.totalParticipants + '명 | 총 데미지 ' + d.totalDamage.toLocaleString() + '</p></div>';
+        if (d.victory && d.results.length > 0) {
+          html += '<div style="max-height:35vh;overflow-y:auto">';
+          var medals = ['🥇','🥈','🥉'];
+          d.results.forEach(function(r) {
+            var medal = medals[r.rank-1] || (r.rank + '위');
+            html += '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid #222;font-size:11px">' +
+              '<span style="width:28px;text-align:center">' + medal + '</span>' +
+              '<span style="flex:1;color:#ddd;font-weight:bold">' + r.name + '</span>' +
+              '<span style="color:#ff8800">' + r.damage.toLocaleString() + '</span>' +
+              '<span style="color:#ffd700">' + r.reward.gold.toLocaleString() + 'G</span>' +
+              (r.reward.item ? '<span style="color:#aa44ff">' + r.reward.item + '</span>' : '') + '</div>';
+          });
+          html += '</div>';
+        }
+        showModal(d.victory ? '🏆 레이드 승리' : '💀 레이드 실패', html, [{label:'확인', action:'closeModal()'}]);
+        if (d.victory) { if (typeof celebrateRareDrop === 'function') celebrateRareDrop('mythic'); playSFX('levelup'); }
+      });
+
+      window.socket.on('world_event_start', (d) => {
+        if (typeof showFantasyToast === 'function') showFantasyToast(d.icon + ' ' + d.name + ' 시작!', 'legendary');
+        else showToast(d.icon + ' ' + d.name + ' 시작! ' + d.desc);
+        playSFX('levelup');
+        // 이벤트 표시
+        var evEl = document.getElementById('world-event-display');
+        if (evEl) { evEl.textContent = d.icon + ' ' + d.name; evEl.style.display = 'inline-flex'; }
+      });
+
+      window.socket.on('world_event_end', (d) => {
+        showToast('이벤트 종료');
+        var evEl = document.getElementById('world-event-display');
+        if (evEl) evEl.style.display = 'none';
+      });
+
       // ═══ 메인 스토리 시스템 ═══
       window.socket.on('story_status', (d) => {
         if (d.completed) {
