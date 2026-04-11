@@ -284,9 +284,22 @@ function updatePlayerAutoSkills() {
                 const buffedAtk = (typeof getBuffedStat === 'function' ? getBuffedStat(p, 'atk') : p.atk) || p.atk || 10;
                 const skillDmg = Math.floor(buffedAtk * skill.dmgMulti * (p.dmgMulti || 1));
                 target.hp -= skillDmg;
+                // v2.58: 스킬 콤보 체크
+                let comboBonus = 1.0;
+                try {
+                    const ce = require('./combat_enhance');
+                    const combo = ce.checkCombo(p, skill.name);
+                    if (combo) {
+                        comboBonus = combo.bonus.dmgMultiplier || 1.0;
+                        target.hp -= Math.floor(skillDmg * (comboBonus - 1)); // 추가 데미지
+                        io.emit('combo_triggered', { id, name: combo.name, icon: combo.icon, color: combo.color, msg: combo.bonus.msg });
+                        if (combo.bonus.effect) ce.applyStatusEffect(target, combo.bonus.effect);
+                    }
+                } catch(e) {}
+
                 io.emit('skill_effect', { casterId: id, skillName: skill.name, type: 'cast', targetX: target.x, targetY: target.y });
-                io.emit('monster_hit', { id: target.id, hp: target.hp, damage: skillDmg, isCrit: false, skillName: skill.name, maxHp: target.maxHp });
-                io.to(id).emit('combat_log', { msg: `${skill.name} → ${skillDmg}` });
+                io.emit('monster_hit', { id: target.id, hp: target.hp, damage: Math.floor(skillDmg * comboBonus), isCrit: false, skillName: skill.name, maxHp: target.maxHp });
+                io.to(id).emit('combat_log', { msg: `${skill.name} → ${Math.floor(skillDmg * comboBonus)}${comboBonus > 1 ? ' (COMBO!)' : ''}` });
                 if (target.hp <= 0) {
                     target.isAlive = false;
                     delete monsters[target.id];
@@ -755,6 +768,12 @@ function giveExp(playerObj, amount) {
         if (!target.isBot && $.constellation) $.constellation.earnStardust(target, 'level_up');
         io.emit('level_up', { id: target.id, level: target.level, className: target.displayName, statPoints: target.statPoints, maxHp: target.maxHp, atk: target.atk, def: target.def, maxExp: getExpRequired(target.level) });
         trackQuest(target, 'reach_level', 0);
+        // v2.58: 스토리 레벨업 체크
+        try {
+            const ms = require('./main_story');
+            const sr = ms.checkStoryObjective(target, 'level_up', { level: target.level });
+            if (sr) io.to(target.id).emit('story_quest_update', sr);
+        } catch(e) {}
 
         // Lv.20 전직 알림
         if (target.level === 20 && !target.isAdvanced) {
@@ -977,6 +996,13 @@ function handleCollisions() {
                     expMulti += (realOwner.equipExpBonus || 0);
                     // 밤 보너스 (+20% EXP)
                     if (isNight) expMulti += 0.2;
+                    // v2.58: 시즌 이벤트 보너스
+                    try {
+                        const wr = require('./world_raid');
+                        const em = wr.getEventMultipliers();
+                        if (em.goldMult) goldMulti *= em.goldMult;
+                        if (em.expMult) expMulti *= em.expMult;
+                    } catch(e) {}
                     // 골드 피버 보너스 (해당 존 3배)
                     if (goldFeverZone && mob.zoneId === goldFeverZone && Date.now() < goldFeverEnd) {
                         goldMulti *= 3; expMulti *= 3;
@@ -1373,10 +1399,27 @@ function handleCollisions() {
                     io.emit('monster_die', { id: mId, tier: mob.tier, killer: realOwner.id, zone: mob.zoneId, name: mob.name, goldEarned, expEarned, expPct, isMutant: mob.isMutant, mutationName: mob.mutationName });
                     io.emit('player_update', realOwner);
 
+                    // v2.58: 스토리 진행 체크
+                    try {
+                        const mainStory = require('./main_story');
+                        const storyResult = mainStory.checkStoryObjective(realOwner, 'kill', { tier: mob.tier, zone: mob.zoneId });
+                        if (storyResult) io.to(realOwner.id).emit('story_quest_update', storyResult);
+                    } catch(e) {}
+
+                    // v2.58: 궁극기 게이지 (킬 시)
+                    try {
+                        const ce = require('./combat_enhance');
+                        const gauge = ce.updateUltimateGauge(realOwner, 'kill');
+                        const ult = ce.ULTIMATES[(realOwner.className||'Warrior').split(' ')[0]] || ce.ULTIMATES.Warrior;
+                        io.to(realOwner.id).emit('ultimate_gauge', { gauge, max: ce.ULTIMATE_CONFIG.maxGauge, name: ult.name });
+                    } catch(e) {}
+
                     delete monsters[mId];
                     spawnMonster();
                 } else {
                     io.emit('monster_hit', { id: mId, hp: mob.hp, damage, maxHp: mob.maxHp });
+                    // v2.58: 궁극기 게이지 (타격 시)
+                    try { require('./combat_enhance').updateUltimateGauge(realOwner, 'hit'); } catch(e) {}
                 }
                 destroyAxe(axeId);
                 axeDestroyed = true;

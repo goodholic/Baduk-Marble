@@ -353,16 +353,27 @@ function recalcStats(p) {
     const tb = _getTitleBonus(p, 'atk'); if (tb) titleAtk = tb;
     const te = _getTitleBonus(p, 'expBonus'); if (te) titleExp = te;
 
+    // ── 하우징 보너스 (v2.58) ──
+    let housingAtk = 0, housingDef = 0, housingHp = 0, housingExp = 0;
+    try {
+        const housing = require('./housing');
+        const hb = housing.getHousingBonuses(p);
+        housingAtk = hb.atkBonus || 0;
+        housingDef = hb.defBonus || 0;
+        housingHp = (hb.hpRegen || 0) * 10; // HP 회복을 HP 보너스로 환산
+        housingExp = hb.expBonus || 0;
+    } catch(e) {}
+
     // ── 최종 스탯 계산 ──
-    p.atk = Math.floor((cls.atk + bonusAtk + setAtkBonus + runeAtk + legacyAtk + advAtk + awkAtk + blAtk + cursedAtk + str * 2) * petAtkMulti * setAtkMulti * factionAtkMulti * legacyAllMulti * (1 + titleAtk));
-    p.def = Math.floor((cls.def + bonusDef + setDefBonus + runeDef + legacyDef + advDef + awkDef + blDef + cursedDef) * setDefMulti * factionDefMulti * legacyAllMulti);
-    p.equipBonusHp = bonusHp + con * 10 + setHpBonus + runeHp + legacyHp + advHp + awkHp + blHp;
+    p.atk = Math.floor((cls.atk + bonusAtk + setAtkBonus + runeAtk + legacyAtk + advAtk + awkAtk + blAtk + cursedAtk + housingAtk + str * 2) * petAtkMulti * setAtkMulti * factionAtkMulti * legacyAllMulti * (1 + titleAtk));
+    p.def = Math.floor((cls.def + bonusDef + setDefBonus + runeDef + legacyDef + advDef + awkDef + blDef + cursedDef + housingDef) * setDefMulti * factionDefMulti * legacyAllMulti);
+    p.equipBonusHp = bonusHp + con * 10 + setHpBonus + runeHp + legacyHp + advHp + awkHp + blHp + housingHp;
     p.maxHp = (cls.maxHp || cls.hp || 100) + (p.level - 1) * 20 + p.equipBonusHp;
     p.dmgMulti = 1.0 + (p.level - 1) * 0.08 + int_ * 0.02;
     p.critRate = (cls.critRate || 0.1) + bonusCrit + runeCrit + legacyCrit + advCrit + awkCrit + blCrit * 0.01 + dex * 0.005;
     p.dodgeRate = (cls.dodgeRate || 0) + bonusDodge + runeDodge + advDodge + awkDodge + blDodge * 0.01 + dex * 0.003;
     p.equipBonusSpd = bonusSpd + runeSpd + legacySpd + awkSpd + blSpd;
-    p.equipExpBonus = bonusExp + setExpBonus + runeExp + legacyExpBonus + titleExp;
+    p.equipExpBonus = bonusExp + setExpBonus + runeExp + legacyExpBonus + titleExp + housingExp;
     p.equipGoldBonus = bonusGold + runeGold + legacyGoldBonus;
     p.dropRateBonus = runeDropRate + legacyDropRate;
 }
