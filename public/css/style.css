@@ -308,3 +308,336 @@
     #toast { position:absolute; top:70px; left:50%; transform:translateX(-50%); background:rgba(12,12,24,0.92); backdrop-filter:blur(12px); color:#ffd700; padding:10px 24px; border-radius:10px; z-index:30; display:none; font-size:13px; font-weight:700; border:1px solid rgba(255,215,0,0.2); box-shadow:0 4px 24px rgba(0,0,0,0.5),0 0 1px rgba(255,215,0,0.15); letter-spacing:0.5px; max-width:90%; text-align:center; animation:toastIn 0.3s ease; }
     @keyframes toastIn { 0%{opacity:0;transform:translateX(-50%) translateY(-10px)} 100%{opacity:1;transform:translateX(-50%) translateY(0)} }
     #toast.show { display:block; animation:msgPulse 0.3s ease; }
+
+    /* ═══════════════════════════════════════════
+       판타지 강화 이펙트 시스템
+       ═══════════════════════════════════════════ */
+
+    /* ── 속성별 데미지 컬러 ── */
+    .dmg-fire { color:#ff6622 !important; text-shadow:0 0 8px #ff4400,0 0 16px rgba(255,68,0,0.5) !important; }
+    .dmg-ice { color:#66ddff !important; text-shadow:0 0 8px #00aaff,0 0 16px rgba(0,170,255,0.5) !important; }
+    .dmg-lightning { color:#ffee44 !important; text-shadow:0 0 8px #ffdd00,0 0 16px rgba(255,221,0,0.5) !important; }
+    .dmg-dark { color:#cc66ff !important; text-shadow:0 0 8px #9933ff,0 0 16px rgba(153,51,255,0.5) !important; }
+    .dmg-holy { color:#ffffaa !important; text-shadow:0 0 8px #ffd700,0 0 16px rgba(255,215,0,0.6) !important; }
+    .dmg-poison { color:#88ff44 !important; text-shadow:0 0 8px #44cc00,0 0 16px rgba(68,204,0,0.5) !important; }
+    .dmg-heal { color:#44ff88 !important; text-shadow:0 0 8px #00ff66,0 0 12px rgba(0,255,102,0.4) !important; }
+
+    /* ── 마법진 (스킬 시전) ── */
+    .magic-circle {
+      position:fixed; pointer-events:none; z-index:28;
+      border:2px solid rgba(255,215,0,0.6);
+      border-radius:50%; opacity:0;
+      animation:magicCast 1.2s ease-out forwards;
+      box-shadow:0 0 20px rgba(255,215,0,0.3),inset 0 0 20px rgba(255,215,0,0.1);
+    }
+    .magic-circle::before {
+      content:''; position:absolute; inset:8px;
+      border:1px dashed rgba(255,215,0,0.4); border-radius:50%;
+      animation:magicCircle 2s linear infinite;
+    }
+    .magic-circle::after {
+      content:'✦'; position:absolute; top:50%; left:50%;
+      transform:translate(-50%,-50%); font-size:24px;
+      color:rgba(255,215,0,0.8); text-shadow:0 0 12px currentColor;
+    }
+    .magic-circle.fire { border-color:rgba(255,68,0,0.6); box-shadow:0 0 30px rgba(255,68,0,0.4),inset 0 0 20px rgba(255,68,0,0.15); }
+    .magic-circle.fire::before { border-color:rgba(255,100,0,0.4); }
+    .magic-circle.fire::after { color:rgba(255,100,0,0.9); content:'🔥'; }
+    .magic-circle.ice { border-color:rgba(0,170,255,0.6); box-shadow:0 0 30px rgba(0,170,255,0.4),inset 0 0 20px rgba(0,170,255,0.15); }
+    .magic-circle.ice::before { border-color:rgba(0,170,255,0.4); }
+    .magic-circle.ice::after { color:rgba(100,200,255,0.9); content:'❄'; }
+    .magic-circle.lightning { border-color:rgba(255,221,0,0.6); box-shadow:0 0 30px rgba(255,221,0,0.4),inset 0 0 20px rgba(255,221,0,0.15); }
+    .magic-circle.lightning::before { border-color:rgba(255,221,0,0.4); }
+    .magic-circle.lightning::after { color:rgba(255,230,50,0.9); content:'⚡'; }
+    .magic-circle.dark { border-color:rgba(153,51,255,0.6); box-shadow:0 0 30px rgba(153,51,255,0.4),inset 0 0 20px rgba(153,51,255,0.15); }
+    .magic-circle.dark::before { border-color:rgba(153,51,255,0.4); }
+    .magic-circle.dark::after { color:rgba(180,100,255,0.9); content:'☽'; }
+    .magic-circle.holy { border-color:rgba(255,215,0,0.6); box-shadow:0 0 30px rgba(255,215,0,0.4),inset 0 0 30px rgba(255,215,0,0.2); }
+    .magic-circle.holy::after { content:'✝'; color:rgba(255,230,150,0.9); }
+    @keyframes magicCast {
+      0%   { transform:translate(-50%,-50%) scale(0.3) rotate(0deg); opacity:0; }
+      20%  { opacity:1; }
+      60%  { transform:translate(-50%,-50%) scale(1.1) rotate(180deg); opacity:0.9; }
+      100% { transform:translate(-50%,-50%) scale(1.3) rotate(360deg); opacity:0; }
+    }
+
+    /* ── 타격 스파크 ── */
+    .hit-spark {
+      position:fixed; pointer-events:none; z-index:29;
+      width:4px; height:4px; border-radius:50%;
+      animation:sparkFly 0.6s ease-out forwards;
+    }
+    @keyframes sparkFly {
+      0%   { opacity:1; transform:translate(0,0) scale(1); }
+      100% { opacity:0; transform:translate(var(--sx),var(--sy)) scale(0.2); }
+    }
+
+    /* ── 보스 등장 시네마틱 ── */
+    .boss-entrance {
+      position:fixed; top:0; left:0; width:100%; height:100%;
+      pointer-events:none; z-index:65;
+      animation:bossEntranceFade 3s ease-out forwards;
+    }
+    .boss-entrance-bars {
+      position:absolute; width:100%;
+      background:#000; z-index:66;
+      animation:bossBar 3s ease-out forwards;
+    }
+    .boss-entrance-bars.top { top:0; }
+    .boss-entrance-bars.bottom { bottom:0; }
+    .boss-entrance-name {
+      position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+      font-family:var(--ff-title); font-size:42px; font-weight:900;
+      color:#ff4444; letter-spacing:6px; z-index:67;
+      text-shadow:0 0 40px #ff0000,0 0 80px rgba(255,0,0,0.4),0 4px 8px rgba(0,0,0,0.8);
+      animation:bossNamePop 3s ease-out forwards;
+    }
+    .boss-entrance-title {
+      position:absolute; top:calc(50% + 36px); left:50%; transform:translateX(-50%);
+      font-family:var(--ff-heading); font-size:14px; color:#ffd700;
+      letter-spacing:3px; z-index:67;
+      animation:bossNamePop 3s ease-out forwards;
+      text-shadow:0 0 20px rgba(255,215,0,0.5);
+    }
+    @keyframes bossEntranceFade {
+      0%   { background:rgba(0,0,0,0.8); }
+      70%  { background:rgba(0,0,0,0.6); }
+      100% { background:transparent; }
+    }
+    @keyframes bossBar {
+      0%   { height:15%; }
+      60%  { height:15%; }
+      100% { height:0%; }
+    }
+    @keyframes bossNamePop {
+      0%   { opacity:0; transform:translate(-50%,-50%) scale(2); }
+      15%  { opacity:1; transform:translate(-50%,-50%) scale(1); }
+      70%  { opacity:1; }
+      100% { opacity:0; transform:translate(-50%,-50%) scale(0.95); }
+    }
+
+    /* ── 강화된 크리티컬 ── */
+    .crit-slash {
+      position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+      width:200px; height:200px; pointer-events:none; z-index:26;
+      animation:critSlash 0.5s ease-out forwards;
+    }
+    .crit-slash::before {
+      content:''; position:absolute;
+      top:0; left:50%; transform:translateX(-50%) rotate(-45deg);
+      width:3px; height:100%;
+      background:linear-gradient(180deg,transparent,#ffd700,#fff,#ffd700,transparent);
+      animation:slashLine 0.3s ease-out;
+    }
+    .crit-slash::after {
+      content:''; position:absolute;
+      top:0; left:50%; transform:translateX(-50%) rotate(45deg);
+      width:2px; height:100%;
+      background:linear-gradient(180deg,transparent,rgba(255,255,255,0.6),transparent);
+      animation:slashLine 0.3s ease-out 0.05s;
+    }
+    @keyframes critSlash {
+      0%   { opacity:1; }
+      100% { opacity:0; transform:translate(-50%,-50%) scale(1.5); }
+    }
+    @keyframes slashLine {
+      0%   { transform:translateX(-50%) rotate(-45deg) scaleY(0); opacity:0; }
+      50%  { opacity:1; }
+      100% { transform:translateX(-50%) rotate(-45deg) scaleY(1); opacity:0.5; }
+    }
+
+    /* ── 힐 이펙트 ── */
+    .heal-particle {
+      position:fixed; pointer-events:none; z-index:28;
+      font-size:14px; opacity:0;
+      animation:healFloat 1.5s ease-out forwards;
+    }
+    @keyframes healFloat {
+      0%   { opacity:0; transform:translateY(0) scale(0.5); }
+      20%  { opacity:1; transform:translateY(-10px) scale(1); }
+      100% { opacity:0; transform:translateY(-60px) scale(0.5); }
+    }
+
+    /* ── 환경 파티클 ── */
+    .ambient-particle {
+      position:fixed; pointer-events:none; z-index:3;
+      border-radius:50%; opacity:0;
+    }
+    .ambient-firefly {
+      background:radial-gradient(circle,#ffee88,#ffcc00);
+      box-shadow:0 0 6px #ffcc00,0 0 12px rgba(255,204,0,0.3);
+      animation:fireflyDrift var(--dur) ease-in-out infinite;
+    }
+    .ambient-ember {
+      background:radial-gradient(circle,#ff6622,#ff4400);
+      box-shadow:0 0 4px #ff4400;
+      animation:emberRise var(--dur) ease-out infinite;
+    }
+    .ambient-leaf {
+      background:#88aa44; width:3px !important; height:6px !important;
+      border-radius:50% 0; transform-origin:center;
+      animation:leafFall var(--dur) ease-in-out infinite;
+    }
+    .ambient-mist {
+      background:radial-gradient(circle,rgba(150,170,200,0.15),transparent);
+      border-radius:50%;
+      animation:mistDrift var(--dur) ease-in-out infinite;
+    }
+    .ambient-snow-large {
+      background:radial-gradient(circle,rgba(255,255,255,0.8),rgba(200,220,255,0.3));
+      box-shadow:0 0 4px rgba(200,220,255,0.3);
+      animation:snowDrift var(--dur) linear infinite;
+    }
+    .ambient-sparkle {
+      background:radial-gradient(circle,rgba(170,130,255,0.9),rgba(100,60,200,0.3));
+      box-shadow:0 0 6px rgba(170,130,255,0.4);
+      animation:sparklePulse var(--dur) ease-in-out infinite;
+    }
+    @keyframes fireflyDrift {
+      0%   { opacity:0; transform:translate(0,0); }
+      25%  { opacity:0.8; transform:translate(var(--dx1),var(--dy1)); }
+      50%  { opacity:0.3; transform:translate(var(--dx2),var(--dy2)); }
+      75%  { opacity:0.7; transform:translate(var(--dx3),var(--dy3)); }
+      100% { opacity:0; transform:translate(0,0); }
+    }
+    @keyframes emberRise {
+      0%   { opacity:0.8; transform:translateY(0) scale(1); }
+      100% { opacity:0; transform:translateY(-120px) translateX(var(--dx1)) scale(0.2); }
+    }
+    @keyframes leafFall {
+      0%   { opacity:0; transform:translate(0,-20px) rotate(0deg); }
+      20%  { opacity:0.7; }
+      100% { opacity:0; transform:translate(var(--dx1),100vh) rotate(720deg); }
+    }
+    @keyframes mistDrift {
+      0%   { opacity:0; transform:translate(0,0) scale(0.8); }
+      50%  { opacity:0.6; transform:translate(var(--dx1),var(--dy1)) scale(1.2); }
+      100% { opacity:0; transform:translate(var(--dx2),var(--dy2)) scale(0.8); }
+    }
+    @keyframes snowDrift {
+      0%   { opacity:0; transform:translate(0,-10px); }
+      10%  { opacity:0.8; }
+      90%  { opacity:0.5; }
+      100% { opacity:0; transform:translate(var(--dx1),100vh); }
+    }
+    @keyframes sparklePulse {
+      0%   { opacity:0; transform:scale(0.5); }
+      30%  { opacity:0.9; transform:scale(1.2); }
+      60%  { opacity:0.4; transform:scale(0.8); }
+      100% { opacity:0; transform:scale(0.3); }
+    }
+
+    /* ── 번개 번쩍임 (폭풍우) ── */
+    .lightning-flash {
+      position:fixed; top:0; left:0; width:100%; height:100%;
+      pointer-events:none; z-index:4;
+      animation:lightningStrike 0.3s ease-out forwards;
+    }
+    @keyframes lightningStrike {
+      0%   { background:rgba(200,220,255,0.5); }
+      10%  { background:rgba(200,220,255,0.1); }
+      20%  { background:rgba(200,220,255,0.4); }
+      40%  { background:transparent; }
+      100% { background:transparent; }
+    }
+
+    /* ── 낮/밤 오버레이 ── */
+    .daynight-overlay {
+      position:fixed; top:0; left:0; width:100%; height:100%;
+      pointer-events:none; z-index:1;
+      transition:background 5s ease;
+    }
+    .daynight-day { background:transparent; }
+    .daynight-sunset { background:rgba(255,120,40,0.08); }
+    .daynight-night { background:rgba(10,10,40,0.25); }
+    .daynight-dawn { background:rgba(255,180,100,0.06); }
+
+    /* ── 아이템 등급 글로우 ── */
+    .item-normal { border-left:3px solid #888; }
+    .item-uncommon { border-left:3px solid #44cc44; }
+    .item-rare { border-left:3px solid #4488ff; box-shadow:inset 0 0 8px rgba(68,136,255,0.1); }
+    .item-epic { border-left:3px solid #aa44ff; box-shadow:inset 0 0 12px rgba(170,68,255,0.1); animation:epicGlow 2s ease-in-out infinite; }
+    .item-legendary { border-left:3px solid #ff8800; box-shadow:inset 0 0 16px rgba(255,136,0,0.15); animation:legendGlow 2s ease-in-out infinite; }
+    .item-mythic { border-left:3px solid #ff00ff; box-shadow:inset 0 0 20px rgba(255,0,255,0.15); animation:mythicGlow 1.5s ease-in-out infinite; }
+    @keyframes epicGlow {
+      0%,100% { box-shadow:inset 0 0 8px rgba(170,68,255,0.1); }
+      50%     { box-shadow:inset 0 0 16px rgba(170,68,255,0.25),0 0 4px rgba(170,68,255,0.15); }
+    }
+    @keyframes legendGlow {
+      0%,100% { box-shadow:inset 0 0 10px rgba(255,136,0,0.1); }
+      50%     { box-shadow:inset 0 0 20px rgba(255,136,0,0.3),0 0 6px rgba(255,136,0,0.2); }
+    }
+    @keyframes mythicGlow {
+      0%,100% { box-shadow:inset 0 0 12px rgba(255,0,255,0.15); border-left-color:#ff00ff; }
+      50%     { box-shadow:inset 0 0 24px rgba(255,0,255,0.3),0 0 8px rgba(255,0,255,0.25); border-left-color:#ff66ff; }
+    }
+
+    /* ── 스킬 쿨다운 아이콘 강화 ── */
+    .skill-slot {
+      display:inline-flex; flex-direction:column; align-items:center;
+      width:60px; padding:4px; border-radius:6px;
+      background:rgba(10,10,20,0.85); border:1px solid rgba(255,215,0,0.1);
+      backdrop-filter:blur(4px); position:relative; overflow:hidden;
+    }
+    .skill-slot.ready { border-color:rgba(68,255,68,0.4); }
+    .skill-slot.ready::after {
+      content:''; position:absolute; inset:0;
+      background:radial-gradient(circle at center bottom,rgba(68,255,68,0.15),transparent);
+    }
+    .skill-slot .skill-icon {
+      font-size:18px; margin-bottom:2px;
+    }
+    .skill-slot .skill-name { font-size:8px; color:#aaa; max-width:56px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .skill-slot .skill-cd { font-size:10px; color:#ff8800; font-weight:bold; }
+    .skill-slot .skill-bar { width:100%; height:3px; background:#222; border-radius:2px; overflow:hidden; }
+    .skill-slot .skill-bar-fill { height:100%; border-radius:2px; transition:width 0.3s; }
+
+    /* ── 버프 아이콘 속성 글로우 강화 ── */
+    .buff-icon.buff-fire { background:rgba(255,68,0,0.25); border:1px solid rgba(255,100,0,0.4); }
+    .buff-icon.buff-ice { background:rgba(0,170,255,0.2); border:1px solid rgba(0,170,255,0.4); }
+    .buff-icon.buff-holy { background:rgba(255,215,0,0.2); border:1px solid rgba(255,215,0,0.4); }
+    .buff-icon.buff-dark { background:rgba(153,51,255,0.2); border:1px solid rgba(153,51,255,0.4); }
+    .buff-icon.buff-poison { background:rgba(68,204,0,0.2); border:1px solid rgba(68,204,0,0.4); }
+
+    /* ── 강화된 패널 장식 ── */
+    .panel-header .panel-icon {
+      display:inline-block; margin-right:6px;
+      width:20px; height:20px; text-align:center; font-size:14px;
+    }
+
+    /* ── 데미지 숫자 강화 ── */
+    .dmg-number {
+      position:absolute; font-weight:900; pointer-events:none;
+      font-family:'Cinzel',sans-serif; letter-spacing:1px;
+      transition:all 1.2s ease-out; opacity:1;
+    }
+    .dmg-number.crit {
+      font-size:26px !important;
+      animation:dmgCritPop 0.3s ease-out;
+    }
+    @keyframes dmgCritPop {
+      0%   { transform:scale(2); }
+      50%  { transform:scale(0.9); }
+      100% { transform:scale(1); }
+    }
+
+    /* ── 화면 비네팅 (보스전) ── */
+    .vignette-overlay {
+      position:fixed; top:0; left:0; width:100%; height:100%;
+      pointer-events:none; z-index:1;
+      box-shadow:inset 0 0 120px rgba(0,0,0,0.6);
+      transition:box-shadow 2s ease;
+    }
+    .vignette-danger { box-shadow:inset 0 0 150px rgba(100,0,0,0.5); }
+    .vignette-boss { box-shadow:inset 0 0 120px rgba(80,0,0,0.4); }
+    .vignette-safe { box-shadow:inset 0 0 60px rgba(0,0,0,0.2); }
+
+    /* ── 토스트 알림 등급별 ── */
+    #toast.toast-epic { border-color:rgba(170,68,255,0.5); color:#cc88ff; background:rgba(30,10,50,0.95); }
+    #toast.toast-legendary { border-color:rgba(255,136,0,0.5); color:#ff8800; background:rgba(40,20,5,0.95); }
+    #toast.toast-mythic { border-color:rgba(255,0,255,0.5); color:#ff66ff; background:rgba(40,5,40,0.95); animation:mythicToast 0.5s ease; }
+    @keyframes mythicToast {
+      0%   { transform:translateX(-50%) scale(0.5); filter:brightness(3); }
+      50%  { transform:translateX(-50%) scale(1.1); }
+      100% { transform:translateX(-50%) scale(1); filter:brightness(1); }
+    }

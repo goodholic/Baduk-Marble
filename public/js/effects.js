@@ -462,21 +462,340 @@
       if (count >= 10) { document.getElementById('unity-container').classList.add('shake'); setTimeout(function(){ document.getElementById('unity-container').classList.remove('shake'); },300); }
     }
 
-    function showFloatingDamage(damage, isCrit, skillName) {
+    // ═══ 속성 컬러 매핑 ═══
+    var ELEMENT_COLORS = {
+      fire:    { color:'#ff6622', glow:'rgba(255,68,0,0.5)', cls:'dmg-fire', icon:'🔥' },
+      ice:     { color:'#66ddff', glow:'rgba(0,170,255,0.5)', cls:'dmg-ice', icon:'❄' },
+      lightning:{ color:'#ffee44', glow:'rgba(255,221,0,0.5)', cls:'dmg-lightning', icon:'⚡' },
+      dark:    { color:'#cc66ff', glow:'rgba(153,51,255,0.5)', cls:'dmg-dark', icon:'☽' },
+      holy:    { color:'#ffffaa', glow:'rgba(255,215,0,0.6)', cls:'dmg-holy', icon:'✝' },
+      poison:  { color:'#88ff44', glow:'rgba(68,204,0,0.5)', cls:'dmg-poison', icon:'☠' },
+      normal:  { color:'#ffffff', glow:'rgba(255,255,255,0.3)', cls:'', icon:'' },
+    };
+
+    function showFloatingDamage(damage, isCrit, skillName, element) {
       var el = document.createElement('div');
-      var x = 40 + Math.random() * 20; // 화면 중앙 부근
-      var y = 30 + Math.random() * 20;
-      var color = isCrit ? '#ff4444' : '#fff';
-      var size = isCrit ? '22px' : '16px';
-      if (skillName) color = '#ffd700';
-      el.textContent = (skillName ? skillName + ' ' : '') + '-' + damage;
-      el.style.cssText = 'position:absolute;left:'+x+'%;top:'+y+'%;color:'+color+';font-size:'+size+';font-weight:bold;text-shadow:0 0 4px rgba(0,0,0,0.8);transition:all 1s ease-out;opacity:1;pointer-events:none;font-family:sans-serif';
+      el.className = 'dmg-number';
+      var x = 40 + Math.random() * 20;
+      var y = 25 + Math.random() * 25;
+      var elem = ELEMENT_COLORS[element] || ELEMENT_COLORS.normal;
+      var color = isCrit ? '#ff4444' : elem.color;
+      var size = isCrit ? '26px' : (skillName ? '18px' : '15px');
+      if (skillName && !isCrit) color = '#ffd700';
+
+      // 속성 아이콘 + 데미지
+      var prefix = elem.icon && element !== 'normal' ? elem.icon + ' ' : '';
+      var skillPrefix = skillName ? skillName + ' ' : '';
+      el.textContent = prefix + skillPrefix + '-' + damage;
+      el.style.cssText = 'left:'+x+'%;top:'+y+'%;color:'+color+';font-size:'+size;
+
+      // 속성별 CSS 클래스
+      if (elem.cls) el.classList.add(elem.cls);
+      if (isCrit) el.classList.add('crit');
+
       dmgContainer.appendChild(el);
+
       requestAnimationFrame(function() {
-        el.style.top = (y - 10) + '%';
+        el.style.top = (y - 12) + '%';
         el.style.opacity = '0';
       });
+
+      // 크리티컬 시 추가 이펙트
+      if (isCrit) {
+        showCritSlash();
+        showHitSparks(x, y, element || 'fire');
+      }
+
+      setTimeout(function() { el.remove(); }, 1300);
+    }
+
+    // ═══ 크리티컬 슬래시 이펙트 ═══
+    function showCritSlash() {
+      var el = document.createElement('div');
+      el.className = 'crit-slash';
+      document.body.appendChild(el);
+      setTimeout(function() { el.remove(); }, 500);
+    }
+
+    // ═══ 타격 스파크 파티클 ═══
+    function showHitSparks(centerX, centerY, element) {
+      var elem = ELEMENT_COLORS[element] || ELEMENT_COLORS.normal;
+      var count = 6 + Math.floor(Math.random() * 4);
+      for (var i = 0; i < count; i++) {
+        var spark = document.createElement('div');
+        spark.className = 'hit-spark';
+        var angle = (Math.PI * 2 / count) * i + Math.random() * 0.5;
+        var dist = 30 + Math.random() * 50;
+        var sx = Math.cos(angle) * dist;
+        var sy = Math.sin(angle) * dist;
+        spark.style.cssText = 'left:'+centerX+'%;top:'+centerY+'%;background:'+elem.color+';box-shadow:0 0 4px '+elem.glow+';--sx:'+sx+'px;--sy:'+sy+'px';
+        spark.style.width = (2 + Math.random() * 3) + 'px';
+        spark.style.height = spark.style.width;
+        document.body.appendChild(spark);
+        setTimeout(function() { spark.remove(); }, 600);
+      }
+    }
+
+    // ═══ 마법진 이펙트 (스킬 시전) ═══
+    function showMagicCircle(element, size) {
+      var el = document.createElement('div');
+      el.className = 'magic-circle ' + (element || '');
+      var s = size || 120;
+      el.style.width = s + 'px';
+      el.style.height = s + 'px';
+      el.style.left = '50%';
+      el.style.top = '50%';
+      document.body.appendChild(el);
+      playSFX('skill');
       setTimeout(function() { el.remove(); }, 1200);
+    }
+
+    // ═══ 보스 등장 시네마틱 ═══
+    function showBossEntrance(bossName, subtitle) {
+      var container = document.createElement('div');
+      container.className = 'boss-entrance';
+      var topBar = document.createElement('div');
+      topBar.className = 'boss-entrance-bars top';
+      var btmBar = document.createElement('div');
+      btmBar.className = 'boss-entrance-bars bottom';
+      var name = document.createElement('div');
+      name.className = 'boss-entrance-name';
+      name.textContent = bossName || 'UNKNOWN';
+      var title = document.createElement('div');
+      title.className = 'boss-entrance-title';
+      title.textContent = subtitle || '— 공포의 지배자 —';
+      container.appendChild(topBar);
+      container.appendChild(btmBar);
+      container.appendChild(name);
+      container.appendChild(title);
+      document.body.appendChild(container);
+      playSFX('boss');
+
+      // 화면 흔들림
+      var uc = document.getElementById('unity-container');
+      if (uc) { uc.classList.add('shake'); setTimeout(function(){ uc.classList.remove('shake'); }, 500); }
+
+      setTimeout(function() { container.remove(); }, 3000);
+    }
+
+    // ═══ 힐 이펙트 ═══
+    function showHealEffect() {
+      var symbols = ['+','✦','❤','♥','✚'];
+      for (var i = 0; i < 8; i++) {
+        var p = document.createElement('div');
+        p.className = 'heal-particle';
+        p.textContent = symbols[Math.floor(Math.random() * symbols.length)];
+        p.style.left = (35 + Math.random() * 30) + '%';
+        p.style.top = (50 + Math.random() * 20) + '%';
+        p.style.color = '#44ff88';
+        p.style.textShadow = '0 0 8px rgba(68,255,136,0.6)';
+        p.style.animationDelay = (Math.random() * 0.5) + 's';
+        document.body.appendChild(p);
+        setTimeout(function() { p.remove(); }, 2000);
+      }
+      playSFX('heal');
+    }
+
+    // ═══ 번개 번쩍임 (폭풍우용) ═══
+    function showLightningFlash() {
+      var el = document.createElement('div');
+      el.className = 'lightning-flash';
+      document.body.appendChild(el);
+      // 번개 소리
+      if (audioCtx && soundEnabled) {
+        var osc = audioCtx.createOscillator();
+        var gain = audioCtx.createGain();
+        var sfxVol = (typeof window._sfxVol === 'number') ? window._sfxVol : 1;
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(60, audioCtx.currentTime);
+        osc.frequency.linearRampToValueAtTime(30, audioCtx.currentTime + 0.3);
+        gain.gain.setValueAtTime(0.06 * sfxVol, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+      }
+      setTimeout(function() { el.remove(); }, 300);
+    }
+
+    // ═══ 환경 파티클 시스템 ═══
+    var _ambientParticles = [];
+    var _ambientZone = '';
+
+    var ZONE_AMBIENT = {
+      forest:     { type:'firefly', count:12, color:'#ffee88' },
+      darkforest: { type:'firefly', count:8, color:'#88ff44' },
+      mushroom:   { type:'sparkle', count:10, color:'#aa88ff' },
+      world_tree: { type:'leaf', count:15, color:'#88aa44' },
+      volcano:    { type:'ember', count:18, color:'#ff6622' },
+      magma_core: { type:'ember', count:25, color:'#ff4400' },
+      dragon:     { type:'ember', count:12, color:'#ff8844' },
+      cave:       { type:'sparkle', count:6, color:'#6688ff' },
+      crystal_mine: { type:'sparkle', count:15, color:'#88ddff' },
+      ruins:      { type:'mist', count:6, color:'rgba(150,170,200,0.15)' },
+      graveyard:  { type:'mist', count:10, color:'rgba(100,130,100,0.12)' },
+      haunted:    { type:'mist', count:12, color:'rgba(100,80,150,0.15)' },
+      glacier:    { type:'snow-large', count:10, color:'#ffffff' },
+      tundra:     { type:'snow-large', count:14, color:'#eef4ff' },
+      frozen_deep:{ type:'snow-large', count:8, color:'#aaddff' },
+      abyss:      { type:'sparkle', count:8, color:'#ff44ff' },
+      hell:       { type:'ember', count:20, color:'#ff2200' },
+      chaos:      { type:'sparkle', count:10, color:'#ff0088' },
+      void_rift:  { type:'sparkle', count:12, color:'#cc44ff' },
+      celestial:  { type:'sparkle', count:18, color:'#ffd700' },
+      shadow:     { type:'mist', count:8, color:'rgba(50,0,80,0.15)' },
+      ancient:    { type:'firefly', count:6, color:'#ffcc44' },
+      coral:      { type:'sparkle', count:8, color:'#44ddff' },
+      meadow:     { type:'firefly', count:10, color:'#ffee66' },
+    };
+
+    function startAmbientParticles(zoneName) {
+      // 기존 파티클 정리
+      _ambientParticles.forEach(function(p) { if (p.parentNode) p.remove(); });
+      _ambientParticles = [];
+      _ambientZone = zoneName;
+
+      var config = ZONE_AMBIENT[zoneName];
+      if (!config) return;
+
+      var isMobile = window.innerWidth < 768;
+      var count = isMobile ? Math.floor(config.count * 0.5) : config.count;
+
+      for (var i = 0; i < count; i++) {
+        var p = document.createElement('div');
+        p.className = 'ambient-particle ambient-' + config.type;
+        var dur = 4 + Math.random() * 6;
+        var size = config.type === 'mist' ? (40 + Math.random() * 60) :
+                   config.type === 'firefly' ? (2 + Math.random() * 3) :
+                   config.type === 'ember' ? (2 + Math.random() * 2) :
+                   config.type === 'snow-large' ? (3 + Math.random() * 4) :
+                   (2 + Math.random() * 3);
+        p.style.cssText =
+          'left:'+(Math.random()*100)+'%;top:'+(Math.random()*100)+'%;' +
+          'width:'+size+'px;height:'+size+'px;' +
+          '--dur:'+dur+'s;' +
+          '--dx1:'+(Math.random()*60-30)+'px;--dy1:'+(Math.random()*40-20)+'px;' +
+          '--dx2:'+(Math.random()*80-40)+'px;--dy2:'+(Math.random()*60-30)+'px;' +
+          '--dx3:'+(Math.random()*40-20)+'px;--dy3:'+(Math.random()*30-15)+'px;' +
+          'animation-delay:'+(Math.random()*dur)+'s;';
+        document.body.appendChild(p);
+        _ambientParticles.push(p);
+      }
+    }
+
+    // ═══ 낮/밤 오버레이 ═══
+    var _daynightEl = null;
+    function updateDayNightOverlay(timeOfDay) {
+      if (!_daynightEl) {
+        _daynightEl = document.createElement('div');
+        _daynightEl.className = 'daynight-overlay';
+        document.body.appendChild(_daynightEl);
+      }
+      _daynightEl.className = 'daynight-overlay daynight-' + (timeOfDay || 'day');
+    }
+
+    // ═══ 비네팅 (위험 지대) ═══
+    var _vignetteEl = null;
+    function updateVignette(type) {
+      if (!_vignetteEl) {
+        _vignetteEl = document.createElement('div');
+        _vignetteEl.className = 'vignette-overlay';
+        document.body.appendChild(_vignetteEl);
+      }
+      _vignetteEl.className = 'vignette-overlay' + (type ? ' vignette-' + type : '');
+    }
+
+    // ═══ 강화된 SFX ═══
+    function playSFX2(type) {
+      if (!soundEnabled || !audioCtx) return;
+      var sfxVol = (typeof window._sfxVol === 'number') ? window._sfxVol : 1;
+      if (sfxVol <= 0) return;
+
+      switch(type) {
+        case 'fireball':
+          _playSynth('sawtooth', 200, 600, 0.08 * sfxVol, 0.3);
+          setTimeout(function(){ _playSynth('square', 100, 50, 0.06 * sfxVol, 0.2); }, 100);
+          break;
+        case 'ice_spell':
+          _playSynth('sine', 1200, 800, 0.05 * sfxVol, 0.4);
+          _playSynth('triangle', 2000, 1500, 0.03 * sfxVol, 0.3);
+          break;
+        case 'thunder':
+          _playSynth('square', 60, 30, 0.12 * sfxVol, 0.5);
+          setTimeout(function(){ _playSynth('sawtooth', 100, 200, 0.06 * sfxVol, 0.3); }, 150);
+          break;
+        case 'dark_magic':
+          _playSynth('sawtooth', 150, 80, 0.06 * sfxVol, 0.5);
+          _playSynth('sine', 300, 100, 0.04 * sfxVol, 0.6);
+          break;
+        case 'holy_light':
+          _playSynth('sine', 800, 1400, 0.06 * sfxVol, 0.5);
+          _playSynth('sine', 1200, 1800, 0.03 * sfxVol, 0.4);
+          break;
+        case 'boss_roar':
+          _playSynth('sawtooth', 50, 180, 0.15 * sfxVol, 0.8);
+          _playSynth('square', 40, 100, 0.1 * sfxVol, 1.0);
+          setTimeout(function(){ _playSynth('sawtooth', 80, 40, 0.08 * sfxVol, 0.5); }, 400);
+          break;
+        case 'equip':
+          _playSynth('sine', 500, 700, 0.06 * sfxVol, 0.15);
+          setTimeout(function(){ _playSynth('sine', 700, 900, 0.04 * sfxVol, 0.1); }, 100);
+          break;
+        case 'enchant':
+          _playSynth('sine', 600, 1200, 0.08 * sfxVol, 0.4);
+          _playSynth('triangle', 900, 1500, 0.04 * sfxVol, 0.5);
+          break;
+      }
+    }
+
+    function _playSynth(waveType, freqStart, freqEnd, volume, duration) {
+      if (!audioCtx) return;
+      var osc = audioCtx.createOscillator();
+      var gain = audioCtx.createGain();
+      osc.type = waveType;
+      osc.frequency.setValueAtTime(freqStart, audioCtx.currentTime);
+      osc.frequency.linearRampToValueAtTime(freqEnd, audioCtx.currentTime + duration * 0.7);
+      gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start(); osc.stop(audioCtx.currentTime + duration);
+    }
+
+    // ═══ 등급별 토스트 ═══
+    var _toastTimer = null;
+    function showFantasyToast(message, grade) {
+      var el = document.getElementById('toast');
+      if (!el) return;
+      el.textContent = message;
+      el.className = 'show';
+      if (grade === 'epic') el.classList.add('toast-epic');
+      else if (grade === 'legendary') el.classList.add('toast-legendary');
+      else if (grade === 'mythic') el.classList.add('toast-mythic');
+      if (_toastTimer) clearTimeout(_toastTimer);
+      _toastTimer = setTimeout(function() { el.className = ''; el.style.display = 'none'; }, 3000);
+      el.style.display = 'block';
+    }
+
+    // ═══ 폭풍우 번개 자동 발생 ═══
+    var _stormInterval = null;
+    function startStormLightning() {
+      if (_stormInterval) return;
+      _stormInterval = setInterval(function() {
+        if (currentWeather && (currentWeather.id === 'storm')) {
+          if (Math.random() < 0.3) showLightningFlash();
+        }
+      }, 3000);
+    }
+    startStormLightning();
+
+    // ═══ 존 변경 시 환경 이펙트 업데이트 ═══
+    function onZoneChange(newZone) {
+      startAmbientParticles(newZone);
+      // 위험 지대 비네팅
+      var dangerZones = ['abyss','hell','chaos','void_rift','demon','blood_arena','shadow','lawless'];
+      var bossZones = ['dragon','volcano','magma_core'];
+      if (dangerZones.indexOf(newZone) >= 0) updateVignette('danger');
+      else if (bossZones.indexOf(newZone) >= 0) updateVignette('boss');
+      else updateVignette('safe');
     }
 
     // ── 게임 모달 시스템 ──

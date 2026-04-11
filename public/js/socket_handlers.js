@@ -114,6 +114,10 @@
             za.classList.add('show');
             setTimeout(function(){ za.classList.remove('show'); }, 2500);
           }
+          // 환경 이펙트 업데이트
+          if (z !== lastZone) {
+            if (typeof onZoneChange === 'function') onZoneChange(z);
+          }
           lastZone = z;
           // 마을 진입 시 NPC 안내
           var townNpc = document.getElementById('town-npc');
@@ -127,6 +131,17 @@
         // 낮/밤 적용
         if (data.isNight !== undefined) {
           document.getElementById('unity-container').style.filter = data.isNight ? 'brightness(0.6) saturate(0.7)' : 'none';
+          // 낮/밤 오버레이 효과
+          if (typeof updateDayNightOverlay === 'function') {
+            if (data.worldTime !== undefined) {
+              var DAY_CYCLE_DN = 600;
+              var pctDN = (data.worldTime % DAY_CYCLE_DN) / DAY_CYCLE_DN;
+              var phase = data.isNight ? 'night' : (pctDN < 0.15 ? 'dawn' : pctDN > 0.4 ? 'sunset' : 'day');
+              updateDayNightOverlay(phase);
+            } else {
+              updateDayNightOverlay(data.isNight ? 'night' : 'day');
+            }
+          }
         }
         // 월드 시간 표시 (day/night clock)
         if (data.worldTime !== undefined) {
@@ -284,14 +299,16 @@
       window.socket.on('player_hit', (d) => {
         playSFX(d.isCrit ? 'crit' : 'hit');
         if (d.skillName) addCombatLog(d.skillName + '! ' + d.damage + ' 데미지', 'log-crit');
-        showFloatingDamage(d.damage, d.isCrit, d.skillName);
+        showFloatingDamage(d.damage, d.isCrit, d.skillName, d.element || 'normal');
         // DPS 샘플 기록
         dpsSamples.push({ time: Date.now(), damage: d.damage || 0 });
         // 크리 화면 플래시
         if (d.isCrit) showCritFlash();
+        // 힐 이펙트
+        if (d.isHeal && typeof showHealEffect === 'function') showHealEffect();
       });
       window.socket.on('monster_hit', (d) => {
-        showFloatingDamage(d.damage, false, null);
+        showFloatingDamage(d.damage, d.isCrit || false, d.skillName || null, d.element || 'normal');
         dpsSamples.push({ time: Date.now(), damage: d.damage || 0 });
       });
       // 회피 이벤트
@@ -325,6 +342,31 @@
         };
         addCombatLog(skillMsgs[d.type] || d.skillName + ' 발동!', 'log-crit');
         playSFX('crit');
+
+        // 마법진 이펙트 (스킬 속성에 따라)
+        if (typeof showMagicCircle === 'function') {
+          var skillElement = d.element || '';
+          var SKILL_ELEMENTS = {
+            '파이어볼':'fire', '메테오':'fire', '체인 라이트닝':'lightning',
+            '아이스 볼트':'ice', '홀리 라이트':'holy', '대천사 강림':'holy',
+            '그림자 일격':'dark', '암살':'dark', '정화':'holy',
+            '독 바르기':'poison', '마나 재생':'ice', '신성 방벽':'holy',
+          };
+          var elem = skillElement || SKILL_ELEMENTS[d.skillName] || '';
+          if (d.type === 'aoe' || d.type === 'chain' || d.type === 'ally_invincible') {
+            showMagicCircle(elem, 160);
+          } else if (d.type !== 'stealth') {
+            showMagicCircle(elem, 100);
+          }
+          // 속성별 SFX
+          if (typeof playSFX2 === 'function') {
+            if (elem === 'fire') playSFX2('fireball');
+            else if (elem === 'ice') playSFX2('ice_spell');
+            else if (elem === 'lightning') playSFX2('thunder');
+            else if (elem === 'dark') playSFX2('dark_magic');
+            else if (elem === 'holy') playSFX2('holy_light');
+          }
+        }
       });
       window.socket.on('level_up', (d) => {
         if (d.id === myPlayerId) {
@@ -390,8 +432,14 @@
 
       // 월드 보스 이벤트
       window.socket.on('world_boss_spawn', (d) => {
-        showToast('[월드 보스] ' + d.name + ' 출현!');
-        playSFX('levelup');
+        // 보스 등장 시네마틱
+        if (typeof showBossEntrance === 'function') {
+          showBossEntrance(d.name, d.subtitle || '— 공포의 지배자 —');
+        } else {
+          showToast('[월드 보스] ' + d.name + ' 출현!');
+        }
+        if (typeof playSFX2 === 'function') playSFX2('boss_roar');
+        else playSFX('levelup');
       });
       window.socket.on('world_boss_update', (d) => {
         const pct = Math.floor(d.hp / d.maxHp * 100);
@@ -614,6 +662,16 @@
             playSFX('boss');
             document.getElementById('unity-container').classList.add('shake');
             setTimeout(function(){ document.getElementById('unity-container').classList.remove('shake'); }, 500);
+            // 등급별 축하 이펙트
+            if (typeof celebrateRareDrop === 'function') {
+              if (d.tier === 'mythic') celebrateRareDrop('mythic');
+              else if (d.tier === 'legendary') celebrateRareDrop('legendary');
+              else if (d.tier === 'boss') celebrateRareDrop('epic');
+            }
+            // 등급별 토스트
+            if (typeof showFantasyToast === 'function') {
+              showFantasyToast(name + ' 처치! +'+(d.goldEarned||0)+'G', d.tier === 'mythic' ? 'mythic' : d.tier === 'legendary' ? 'legendary' : 'epic');
+            }
           }
           // 마일스톤 (50/100/500/1000)
           var milestones = [50,100,250,500,1000,2500,5000];
@@ -660,12 +718,18 @@
       window.socket.on('enchant_result', (d) => {
         showToast(d.msg);
         if (d.jackpot) {
+          if (typeof playSFX2 === 'function') playSFX2('enchant');
           playSFX('boss'); playSFX('levelup');
           document.getElementById('unity-container').classList.add('shake');
           setTimeout(function(){ document.getElementById('unity-container').classList.remove('shake'); }, 500);
-          showFloatingDamage(d.jackpot, true, null);
+          showFloatingDamage(d.jackpot, true, null, 'holy');
+          if (typeof celebrateRareDrop === 'function') celebrateRareDrop('legendary');
+        } else if (d.success) {
+          if (typeof playSFX2 === 'function') playSFX2('enchant');
+          else playSFX('levelup');
+          if (typeof showMagicCircle === 'function') showMagicCircle('holy', 80);
         } else {
-          playSFX(d.success ? 'levelup' : 'die');
+          playSFX('die');
         }
       });
 
@@ -674,19 +738,33 @@
       window.socket.on('boss_phase', (d) => {
         var phaseNames = { enrage:'분노', desperate:'필사' };
         addCombatLog('[보스] ' + (phaseNames[d.phase]||d.phase) + ' 페이즈!', 'log-crit');
-        showToast(d.msg);
-        playSFX('boss');
+        if (typeof showFantasyToast === 'function') {
+          showFantasyToast('[보스] ' + (phaseNames[d.phase]||d.phase) + ' 페이즈!', 'legendary');
+        } else {
+          showToast(d.msg);
+        }
+        if (typeof playSFX2 === 'function') playSFX2('boss_roar');
+        else playSFX('boss');
         document.getElementById('unity-container').classList.add('shake');
         setTimeout(function(){ document.getElementById('unity-container').classList.remove('shake'); }, 500);
+        // 보스 분노 시 비네팅 강화
+        if (typeof updateVignette === 'function') updateVignette('danger');
       });
 
       // 날씨
       window.socket.on('weather_change', (d) => {
-        var overlays = { clear:'none', rain:'sepia(0.1) brightness(0.9)', fog:'contrast(0.8) brightness(0.85)', snow:'saturate(0.5) brightness(1.1)', storm:'contrast(1.2) brightness(0.8)' };
+        var overlays = { clear:'none', rain:'sepia(0.1) brightness(0.9)', fog:'contrast(0.8) brightness(0.85)', snow:'saturate(0.5) brightness(1.1)', storm:'contrast(1.2) brightness(0.7)' };
         document.getElementById('unity-container').style.filter = overlays[d.id] || 'none';
-        if (d.id !== 'clear') showToast('[날씨] ' + d.name);
+        if (d.id !== 'clear') {
+          var weatherIcons = { rain:'🌧', fog:'🌫', snow:'❄', storm:'⛈' };
+          showToast((weatherIcons[d.id]||'') + ' [날씨] ' + d.name);
+        }
         currentWeather = d;
         startWeatherParticles(d.id);
+        // 폭풍우 진입 시 번개 한 번
+        if (d.id === 'storm' && typeof showLightningFlash === 'function') {
+          setTimeout(function() { showLightningFlash(); }, 500);
+        }
       });
 
       // 캐릭터 프로필

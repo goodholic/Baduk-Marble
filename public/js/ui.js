@@ -120,7 +120,8 @@
           var eqInfo = items[eqId] || {};
           var gc = gradeColors[eqInfo.grade] || '#ccc';
           var enchLv = data.enchantLevels && data.enchantLevels[eqId] ? ' +'+data.enchantLevels[eqId] : '';
-          html += '<div class="panel-item" style="border-left:3px solid '+gc+';background:rgba(255,215,0,0.05)"><span class="name" style="color:'+gc+'">[' + (slotNames[slot]||slot) + '] '+(eqInfo.name||eqId)+enchLv+'</span>';
+          var itemCls = 'item-' + (eqInfo.grade || 'normal');
+          html += '<div class="panel-item '+itemCls+'" style="background:rgba(255,215,0,0.05)"><span class="name" style="color:'+gc+'">[' + (slotNames[slot]||slot) + '] '+(eqInfo.name||eqId)+enchLv+'</span>';
           html += '<button onclick="window.socket.emit(\'unequip_item\',\''+slot+'\')" style="background:#4a2a2a">해제</button></div>';
         }
       }
@@ -135,7 +136,8 @@
           var enchant = data.enchantLevels && data.enchantLevels[k] ? ' +'+data.enchantLevels[k] : '';
           var boundTag = items[k]?.bound ? ' <span style="color:#f44;font-size:9px">[귀속]</span>' : '';
           var isWorn = equippedKeys.includes(k);
-          var row = '<div class="panel-item" style="border-left:3px solid '+gColor+(isWorn?';opacity:0.5':'')+'"><span class="name" style="color:'+gColor+'">'+name+enchant;
+          var itemCls2 = grade ? 'item-'+grade : '';
+          var row = '<div class="panel-item '+itemCls2+'" style="'+(isWorn?'opacity:0.5':'')+'"><span class="name" style="color:'+gColor+'">'+name+enchant;
           if (gName) row += ' <small style="color:'+gColor+';opacity:0.7">('+gName+')</small>';
           if (isWorn) row += ' <span style="color:#ffd700;font-size:9px">[장착중]</span>';
           row += boundTag+' <b style="color:#888">x'+inv[k]+'</b></span>';
@@ -168,7 +170,8 @@
           var enchant = data.enchantLevels && data.enchantLevels[k] ? ' +'+data.enchantLevels[k] : '';
           var boundTag = items[k]?.bound ? ' <span style="color:#f44;font-size:9px">[귀속]</span>' : '';
           var isWorn = equippedKeys.includes(k);
-          html += '<div class="panel-item" style="border-left:3px solid '+gColor+(isWorn?';opacity:0.5':'')+'"><span class="name" style="color:'+gColor+'">'+name+enchant;
+          var itemCls3 = grade ? 'item-'+grade : '';
+          html += '<div class="panel-item '+itemCls3+'" style="'+(isWorn?'opacity:0.5':'')+'"><span class="name" style="color:'+gColor+'">'+name+enchant;
           if (gName) html += ' <small style="color:'+gColor+';opacity:0.7">('+gName+')</small>';
           if (isWorn) html += ' <span style="color:#ffd700;font-size:9px">[장착중]</span>';
           html += boundTag+' <b style="color:#888">x'+inv[k]+'</b></span>';
