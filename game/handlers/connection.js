@@ -382,6 +382,12 @@ io.on("connection", (socket) => {
         friendDuel.registerFriendDuelHandlers(socket, playerId, players, io);
     } catch(e) { /* ignore if not loaded */ }
 
+    // v3.0: 공성전 IO 전투
+    try {
+        const siegeBattle = require('../siege_battle');
+        siegeBattle.registerSiegeBattleHandlers(socket, playerId, players, io);
+    } catch(e) {}
+
     // v3.0: SLG 뷰 (진급/진화/배치)
     try {
         const slgView = require('../slg_view');
