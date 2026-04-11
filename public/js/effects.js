@@ -796,6 +796,27 @@
       if (dangerZones.indexOf(newZone) >= 0) updateVignette('danger');
       else if (bossZones.indexOf(newZone) >= 0) updateVignette('boss');
       else updateVignette('safe');
+
+      // 존별 분위기 오버레이
+      var atmoEl = document.getElementById('game-atmosphere');
+      if (atmoEl) {
+        atmoEl.className = '';
+        var safeZones = ['aden','harbor','oasis','mountain','frontier','shrine','bazaar','port_east','fishing'];
+        var forestZones = ['forest','meadow','darkforest','ancient','toxic_marsh','mushroom','world_tree'];
+        var dungeonZones = ['cave','ruins','graveyard','haunted','sky_ruins','frozen_deep','castle','sunken','crystal_mine'];
+        var fireZones = ['volcano','magma_core','hell'];
+        var iceZones = ['glacier','tundra','frozen_deep'];
+        var darkZones = ['abyss','shadow','void_rift','demon'];
+        var chaosZones = ['chaos','warzone','blood_arena','lawless'];
+
+        if (safeZones.indexOf(newZone) >= 0) atmoEl.className = 'atmo-village';
+        else if (forestZones.indexOf(newZone) >= 0) atmoEl.className = 'atmo-forest';
+        else if (fireZones.indexOf(newZone) >= 0) atmoEl.className = 'atmo-fire';
+        else if (iceZones.indexOf(newZone) >= 0) atmoEl.className = 'atmo-ice';
+        else if (darkZones.indexOf(newZone) >= 0) atmoEl.className = 'atmo-dark';
+        else if (chaosZones.indexOf(newZone) >= 0) atmoEl.className = 'atmo-chaos';
+        else if (dungeonZones.indexOf(newZone) >= 0) atmoEl.className = 'atmo-dungeon';
+      }
     }
 
     // ── 게임 모달 시스템 ──
