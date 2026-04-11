@@ -56,6 +56,12 @@ const SLG_EVENTS = [
   { id: 'merc_recruit',    name: '용병 모집 축제', icon: '🎴', interval: 10800, desc: '소환 시 등급 +1 보장!', effect: { gradeBoost: 1 } },
   { id: 'boss_invasion',   name: '보스 침공',     icon: '👹', interval: 5400,  desc: '월드 보스가 모든 성을 공격! 협동 방어!', reward: { gold: 30000, mercCard: true } },
   { id: 'treasure_hunt',   name: '보물 사냥',     icon: '🗺️', interval: 3600,  desc: '맵에 보물이 숨겨짐! 찾으면 희귀 용병!', reward: { mercCard: true } },
+  // v3.0 추가 이벤트
+  { id: 'merc_war',       name: '용병 대전쟁',   icon: '⚔️', interval: 7200,  desc: '서버 전체 용병 전쟁! 최강 부대 결정!', reward: { gold: 50000, diamonds: 200 } },
+  { id: 'dragon_invasion',name: '드래곤 침공',   icon: '🐲', interval: 10800, desc: '드래곤 군단이 모든 성을 공격! 협동 방어!', reward: { mercCard: true, gold: 30000 } },
+  { id: 'black_market',   name: '암시장 오픈',   icon: '🌑', interval: 5400,  desc: '희귀 용병/장비를 할인 구매!', effect: { gachaDiscount: 50 } },
+  { id: 'double_exp',     name: '경험치 폭풍',   icon: '📈', interval: 3600,  desc: '용병 EXP 2배! 빠른 성장!', effect: { mercExpMult: 2 } },
+  { id: 'guild_rally',    name: '혈맹 집결',     icon: '🏴', interval: 14400, desc: '혈맹 공성 보상 5배! 전원 참여!', effect: { siegeRewardMult: 5 } },
 ];
 
 // ── 공성전 배치 시스템 (성주 방어) ──
@@ -74,12 +80,22 @@ const SIEGE_PLACEMENT = {
     { id: 'teleport_trap',name: '텔레포트 함정',icon: '🌀', cost: 3000, desc: '시작점으로 강제 이동' },
     { id: 'summon_trap',  name: '소환 함정',   icon: '👹', summon: 3, cost: 5000, desc: '해골 3체 소환' },
   ],
-  // 공성전 맵 구조
+  // 공성전 맵 구조 (v3.0 복잡화)
   mapLayout: {
-    size: { w: 20, h: 15 },
-    lanes: 3,            // 3개 통로
-    gatePosition: { x: 10, y: 0 },  // 성문 위치
-    thronePosition: { x: 10, y: 14 }, // 왕좌 위치 (여기 도달하면 승리)
+    size: { w: 25, h: 20 },
+    lanes: 5,            // 5개 통로 (좌/좌중/중/우중/우)
+    gatePosition: { x: 12, y: 0 },
+    thronePosition: { x: 12, y: 19 },
+    // 지형 장애물 (벽)
+    walls: [
+      { x: 5, y: 5, w: 3, h: 1 }, { x: 17, y: 5, w: 3, h: 1 },
+      { x: 8, y: 10, w: 9, h: 1 }, // 중앙 벽 (우회 필요)
+      { x: 3, y: 14, w: 4, h: 1 }, { x: 18, y: 14, w: 4, h: 1 },
+    ],
+    // 특수 지형
+    healZone: { x: 12, y: 7, radius: 2 }, // 회복 지대
+    slowZone: { x: 6, y: 12, radius: 3 },  // 감속 지대
+    darkZone: { x: 18, y: 8, radius: 3 },  // 시야 차단 지대
   },
 };
 

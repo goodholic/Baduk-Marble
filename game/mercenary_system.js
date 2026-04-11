@@ -40,6 +40,29 @@ const MERCENARIES = [
   { id: 'merc_bahamut',  name: '용왕 바하무트', icon: '🐲', grade: 5, role: '전사', atk: 100, def: 60, hp: 1000, spd: 15, skill: { name: '멸망의 브레스', dmg: 10.0, aoe: true, cd: 35, desc: '전체 10배!' } },
   { id: 'merc_god_of_war',name:'전쟁의 신',  icon: '⚡', grade: 5, role: '전사',   atk: 90, def: 50, hp: 800, spd: 20, skill: { name: '천둥 심판', dmg: 8.0, stun: 3, aoe: true, cd: 30, desc: '전체 8배+스턴' } },
 
+  // ── v3.0 확장 용병 (50종 목표) ──
+  // 일반 추가
+  { id: 'merc_spearman',  name: '창병',       icon: '🔱', grade: 0, role: '전사',   atk: 11, def: 12, hp: 130, spd: 7,  skill: { name: '찌르기', dmg: 1.8, cd: 7, desc: '관통 1.8배' } },
+  { id: 'merc_monk',      name: '수도승',     icon: '🙏', grade: 0, role: '전사',   atk: 13, def: 8,  hp: 110, spd: 11, skill: { name: '연타', dmg: 0.6, hits: 4, cd: 6, desc: '4연타' } },
+  { id: 'merc_thief',     name: '도둑',       icon: '💰', grade: 0, role: '암살',   atk: 10, def: 3,  hp: 65,  spd: 14, skill: { name: '금화 훔치기', steal: 50, cd: 12, desc: '골드 50 훔침' } },
+  // 고급 추가
+  { id: 'merc_cavalry',   name: '기마병',     icon: '🐴', grade: 1, role: '전사',   atk: 20, def: 10, hp: 160, spd: 14, skill: { name: '돌격', dmg: 2.5, cd: 10, desc: '돌진 2.5배' } },
+  { id: 'merc_crossbow',  name: '석궁병',     icon: '🏹', grade: 1, role: '사수',   atk: 22, def: 6,  hp: 85,  spd: 8,  skill: { name: '관통 사격', dmg: 3.0, pierce: true, cd: 12, desc: '관통 3배' } },
+  { id: 'merc_shaman',    name: '주술사',     icon: '🪬', grade: 1, role: '마법',   atk: 18, def: 5,  hp: 80,  spd: 9,  skill: { name: '저주', debuff: 'def-30%', cd: 14, desc: '적 DEF-30%' } },
+  { id: 'merc_dancer',    name: '무희',       icon: '💃', grade: 1, role: '치유',   atk: 8,  def: 6,  hp: 90,  spd: 13, skill: { name: '고무의 춤', buffAll: 'spd+20%', cd: 16, desc: '아군 SPD+20%' } },
+  // 희귀 추가
+  { id: 'merc_samurai',   name: '사무라이',   icon: '⚔️', grade: 2, role: '전사',   atk: 30, def: 14, hp: 190, spd: 12, skill: { name: '거합', dmg: 4.5, critGuarantee: true, cd: 16, desc: '확정크리 4.5배' } },
+  { id: 'merc_sniper',    name: '저격수',     icon: '🎯', grade: 2, role: '사수',   atk: 35, def: 3,  hp: 70,  spd: 8,  skill: { name: '헤드샷', dmg: 6.0, cd: 20, desc: '단일 6배!' } },
+  { id: 'merc_druid',     name: '드루이드',   icon: '🌿', grade: 2, role: '치유',   atk: 14, def: 10, hp: 150, spd: 9,  skill: { name: '자연 치유', healAll: 50, hpRegen: 3, cd: 18, desc: '전체 50+재생' } },
+  { id: 'merc_pyromancer', name: '화염술사',  icon: '🔥', grade: 2, role: '마법',   atk: 32, def: 4,  hp: 75,  spd: 10, skill: { name: '화염 폭풍', dmg: 3.5, aoe: true, dot: 8, cd: 14, desc: '광역 3.5배+화상' } },
+  // 영웅 추가
+  { id: 'merc_demon_lord', name: '마왕',      icon: '👿', grade: 3, role: '마법',   atk: 48, def: 18, hp: 280, spd: 11, skill: { name: '지옥불', dmg: 6.0, aoe: true, cd: 22, desc: '광역 6배 암흑' } },
+  { id: 'merc_angel',     name: '수호천사',   icon: '😇', grade: 3, role: '치유',   atk: 20, def: 25, hp: 320, spd: 12, skill: { name: '천상의 빛', healAll: 80, shield: 50, cd: 24, desc: '전체 80힐+보호막' } },
+  { id: 'merc_blade_master',name:'검성',      icon: '🗡️', grade: 3, role: '전사',   atk: 46, def: 16, hp: 260, spd: 16, skill: { name: '천검', dmg: 3.0, hits: 5, cd: 18, desc: '5연참 3배' } },
+  // 전설 추가
+  { id: 'merc_world_tree', name: '세계수 정령',icon: '🌳', grade: 4, role: '치유',  atk: 25, def: 30, hp: 600, spd: 8,  skill: { name: '생명의 나무', healAll: 150, revive: true, cd: 45, desc: '전체 150힐+부활' } },
+  { id: 'merc_void_king',  name: '공허의 왕', icon: '🌀', grade: 4, role: '마법',   atk: 65, def: 20, hp: 400, spd: 14, skill: { name: '차원 붕괴', dmg: 8.0, aoe: true, cd: 32, desc: '전체 8배 공허' } },
+
   // ── v3.0 추가 용병 ──
   // 고급
   { id: 'merc_berserker', name: '광전사',     icon: '😤', grade: 1, role: '전사',   atk: 24, def: 4,  hp: 130, spd: 11, skill: { name: '분노', dmg: 3.0, selfDmg: 20, cd: 8, desc: '3배, 자해 20' } },

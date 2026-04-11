@@ -8,6 +8,11 @@ const TRADE_ROUTES = [
   { id: 'r4', from: '구름마루 산장', to: '신전 마을',    goods: '광석',      buy: 300,  sell: 550,  risk: 40, time: 90,  desc: '산악 루트' },
   { id: 'r5', from: '신전 마을',    to: '사막 시장',    goods: '마법 결정',  buy: 500,  sell: 1000, risk: 50, time: 120, desc: '위험한 고수익' },
   { id: 'r6', from: '사막 시장',    to: '바람개비 마을', goods: '보석',      buy: 800,  sell: 1500, risk: 60, time: 150, desc: '최고 위험 최고 이윤' },
+  // v3.0 확장 루트
+  { id: 'r7', from: '동쪽 항구',   to: '신전 마을',    goods: '성수',      buy: 400,  sell: 750,  risk: 35, time: 80,  desc: '신성한 물품' },
+  { id: 'r8', from: '구름마루 산장',to: '사막 시장',    goods: '용린',      buy: 1000, sell: 2200, risk: 70, time: 180, desc: '극한 고위험 루트' },
+  { id: 'r9', from: '바람개비 마을',to: '구름마루 산장', goods: '목재',      buy: 80,   sell: 160,  risk: 15, time: 40,  desc: '안전한 기본 루트' },
+  { id: 'r10',from: '별빛 항구',   to: '동쪽 항구',    goods: '비단',      buy: 250,  sell: 480,  risk: 25, time: 60,  desc: '해상 무역' },
 ];
 
 const CARAVAN_UPGRADES = [
