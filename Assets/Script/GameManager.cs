@@ -691,6 +691,7 @@ public class GameManager : MonoBehaviour
         InterpolateNetworkEntities();
         HandleAutoAttack();
         UpdateHPBars();
+        UpdateZoneTint(currentZone);
     }
 
     void LateUpdate()
@@ -1223,6 +1224,11 @@ public class GameManager : MonoBehaviour
         string id = (string)data["id"];
         int level = (int)data["level"];
 
+        if (players.ContainsKey(id) && players[id].go != null)
+        {
+            PlayLevelUpEffect(players[id].go);
+        }
+
         if (id == myId) {
             Debug.Log($"레벨 업! Lv.{level}");
         }
@@ -1504,35 +1510,202 @@ public class GameManager : MonoBehaviour
         obj.transform.position = originalPos;
     }
 
-    private void ShowDamageText(Vector3 worldPos, int damage, bool isCrit)
+    // ═══ v2.58: 강화된 데미지 텍스트 ═══
+    private void ShowDamageText(Vector3 worldPos, int damage, bool isCrit, string element = "normal", string skillName = "")
     {
-        // 간이 데미지 텍스트 (월드 좌표에 TextMesh 생성)
         GameObject dmgObj = new GameObject("DmgText");
-        dmgObj.transform.position = worldPos + new Vector3(UnityEngine.Random.Range(-0.3f, 0.3f), 0.5f, -2f);
+        dmgObj.transform.position = worldPos + new Vector3(UnityEngine.Random.Range(-0.4f, 0.4f), 0.6f, -2f);
 
         TextMesh tm = dmgObj.AddComponent<TextMesh>();
-        tm.text = isCrit ? $"CRIT! {damage}" : damage.ToString();
-        tm.color = isCrit ? Color.red : Color.white;
-        tm.fontSize = isCrit ? 48 : 36;
-        tm.characterSize = 0.08f;
+
+        // 속성별 컬러
+        Color dmgColor = Color.white;
+        if (element == "fire") dmgColor = new Color(1f, 0.4f, 0.13f);
+        else if (element == "ice") dmgColor = new Color(0.4f, 0.87f, 1f);
+        else if (element == "lightning") dmgColor = new Color(1f, 0.93f, 0.27f);
+        else if (element == "dark") dmgColor = new Color(0.8f, 0.4f, 1f);
+        else if (element == "holy") dmgColor = new Color(1f, 1f, 0.67f);
+        else if (element == "poison") dmgColor = new Color(0.53f, 1f, 0.27f);
+
+        if (isCrit) dmgColor = Color.red;
+
+        string prefix = "";
+        if (!string.IsNullOrEmpty(skillName)) prefix = skillName + " ";
+        tm.text = isCrit ? $"★CRIT! {prefix}{damage}★" : $"{prefix}{damage}";
+        tm.color = dmgColor;
+        tm.fontSize = isCrit ? 56 : 38;
+        tm.characterSize = isCrit ? 0.1f : 0.08f;
         tm.alignment = TextAlignment.Center;
         tm.anchor = TextAnchor.MiddleCenter;
 
-        StartCoroutine(FloatAndDestroy(dmgObj));
+        // 크리티컬 시 추가 이펙트
+        if (isCrit) StartCoroutine(CriticalEffect(worldPos));
+
+        StartCoroutine(FloatAndDestroy(dmgObj, isCrit ? 1.2f : 0.9f));
     }
 
-    private IEnumerator FloatAndDestroy(GameObject obj)
+    // 힐 텍스트
+    private void ShowHealText(Vector3 worldPos, int amount)
+    {
+        GameObject healObj = new GameObject("HealText");
+        healObj.transform.position = worldPos + new Vector3(0, 0.5f, -2f);
+        TextMesh tm = healObj.AddComponent<TextMesh>();
+        tm.text = $"+{amount}";
+        tm.color = new Color(0.27f, 1f, 0.53f);
+        tm.fontSize = 40;
+        tm.characterSize = 0.08f;
+        tm.alignment = TextAlignment.Center;
+        tm.anchor = TextAnchor.MiddleCenter;
+        StartCoroutine(FloatAndDestroy(healObj, 0.8f));
+    }
+
+    // 레벨업 이펙트
+    private void PlayLevelUpEffect(GameObject target)
+    {
+        if (target == null) return;
+        StartCoroutine(LevelUpParticles(target));
+    }
+
+    private IEnumerator LevelUpParticles(GameObject target)
+    {
+        // 빛 기둥 효과
+        GameObject pillar = new GameObject("LvUpPillar");
+        pillar.transform.position = target.transform.position;
+        SpriteRenderer psr = pillar.AddComponent<SpriteRenderer>();
+        psr.sprite = CreateWhiteSquare();
+        psr.color = new Color(1f, 0.84f, 0f, 0.4f);
+        pillar.transform.localScale = new Vector3(0.3f, 4f, 1f);
+        psr.sortingOrder = 100;
+
+        // 파티클 (원형 배치)
+        List<GameObject> particles = new List<GameObject>();
+        for (int i = 0; i < 8; i++)
+        {
+            GameObject p = new GameObject("LvUpP");
+            p.transform.position = target.transform.position;
+            SpriteRenderer sr = p.AddComponent<SpriteRenderer>();
+            sr.sprite = CreateWhiteSquare();
+            sr.color = new Color(1f, 0.84f, 0f, 0.8f);
+            p.transform.localScale = new Vector3(0.15f, 0.15f, 1f);
+            sr.sortingOrder = 101;
+            particles.Add(p);
+        }
+
+        float elapsed = 0f;
+        while (elapsed < 1.5f)
+        {
+            elapsed += Time.deltaTime;
+            float t = elapsed / 1.5f;
+
+            // 빛 기둥 페이드
+            if (psr != null)
+            {
+                psr.color = new Color(1f, 0.84f, 0f, 0.4f * (1f - t));
+                pillar.transform.localScale = new Vector3(0.3f + t * 0.5f, 4f, 1f);
+            }
+
+            // 파티클 원형 확산
+            for (int i = 0; i < particles.Count; i++)
+            {
+                float angle = (Mathf.PI * 2f / particles.Count) * i + elapsed * 3f;
+                float radius = t * 2f;
+                particles[i].transform.position = target.transform.position + new Vector3(
+                    Mathf.Cos(angle) * radius,
+                    Mathf.Sin(angle) * radius + t * 1.5f,
+                    -1f
+                );
+                SpriteRenderer sr = particles[i].GetComponent<SpriteRenderer>();
+                if (sr != null) sr.color = new Color(1f, 0.84f, 0f, 0.8f * (1f - t));
+                particles[i].transform.localScale = Vector3.one * 0.15f * (1f - t * 0.7f);
+            }
+
+            yield return null;
+        }
+
+        Destroy(pillar);
+        foreach (var p in particles) Destroy(p);
+    }
+
+    // 크리티컬 히트 이펙트
+    private IEnumerator CriticalEffect(Vector3 pos)
+    {
+        // X자 슬래시
+        GameObject slash1 = CreateSlash(pos, 45f);
+        GameObject slash2 = CreateSlash(pos, -45f);
+
+        yield return new WaitForSeconds(0.3f);
+        Destroy(slash1);
+        Destroy(slash2);
+    }
+
+    private GameObject CreateSlash(Vector3 pos, float angle)
+    {
+        GameObject obj = new GameObject("Slash");
+        obj.transform.position = pos + new Vector3(0, 0, -3f);
+        SpriteRenderer sr = obj.AddComponent<SpriteRenderer>();
+        sr.sprite = CreateWhiteSquare();
+        sr.color = new Color(1f, 0.84f, 0f, 0.7f);
+        obj.transform.localScale = new Vector3(0.06f, 1.5f, 1f);
+        obj.transform.rotation = Quaternion.Euler(0, 0, angle);
+        sr.sortingOrder = 200;
+        return obj;
+    }
+
+    // 유틸: 흰색 사각형 스프라이트 생성
+    private Sprite _whiteSquare;
+    private Sprite CreateWhiteSquare()
+    {
+        if (_whiteSquare != null) return _whiteSquare;
+        Texture2D tex = new Texture2D(4, 4);
+        for (int x = 0; x < 4; x++)
+            for (int y = 0; y < 4; y++)
+                tex.SetPixel(x, y, Color.white);
+        tex.Apply();
+        _whiteSquare = Sprite.Create(tex, new Rect(0, 0, 4, 4), new Vector2(0.5f, 0.5f), 4f);
+        return _whiteSquare;
+    }
+
+    // 존별 배경 색상 틴트
+    private void UpdateZoneTint(string zone)
+    {
+        if (bgRenderer == null) return;
+        Color tint = Color.white;
+        if (zone != null)
+        {
+            if (zone.Contains("volcano") || zone.Contains("magma") || zone.Contains("hell"))
+                tint = new Color(1f, 0.85f, 0.75f); // 따뜻한 톤
+            else if (zone.Contains("glacier") || zone.Contains("frozen") || zone.Contains("tundra") || zone.Contains("ice"))
+                tint = new Color(0.8f, 0.9f, 1f); // 차가운 톤
+            else if (zone.Contains("dark") || zone.Contains("shadow") || zone.Contains("abyss") || zone.Contains("void"))
+                tint = new Color(0.7f, 0.65f, 0.85f); // 어두운 톤
+            else if (zone.Contains("forest") || zone.Contains("meadow") || zone.Contains("world_tree"))
+                tint = new Color(0.85f, 1f, 0.85f); // 자연 톤
+            else if (zone.Contains("desert") || zone.Contains("sand") || zone.Contains("oasis"))
+                tint = new Color(1f, 0.95f, 0.8f); // 사막 톤
+        }
+        bgRenderer.color = Color.Lerp(bgRenderer.color, tint, Time.deltaTime * 2f);
+    }
+
+    private IEnumerator FloatAndDestroy(GameObject obj, float duration = 0.8f)
     {
         float elapsed = 0f;
         Vector3 startPos = obj.transform.position;
-        while (elapsed < 0.8f) {
+        while (elapsed < duration) {
             elapsed += Time.deltaTime;
-            obj.transform.position = startPos + Vector3.up * elapsed * 1.5f;
+            float t = elapsed / duration;
+            obj.transform.position = startPos + Vector3.up * elapsed * 1.8f;
+
+            // 크리티컬은 크기 변동
+            if (duration > 1f)
+            {
+                float scale = 1f + Mathf.Sin(t * Mathf.PI) * 0.3f;
+                obj.transform.localScale = Vector3.one * scale;
+            }
 
             TextMesh tm = obj.GetComponent<TextMesh>();
             if (tm != null) {
                 Color c = tm.color;
-                c.a = 1f - (elapsed / 0.8f);
+                c.a = 1f - (t * t); // 가속 페이드
                 tm.color = c;
             }
             yield return null;
