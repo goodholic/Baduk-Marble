@@ -85,8 +85,63 @@
       #sub-menu button { width:70px; font-size:9px; }
       #chat-box { width:160px; }
       #minimap-container { transform:scale(0.65); }
-      #combat-log { display:none; } /* 매우 작은 화면에서 전투 로그 숨김 */
+      #combat-log { display:none; }
       #loot-log { display:none; }
+    }
+
+    /* ═══ 모바일 터치 최적화 (v2.58) ═══ */
+    @media (max-width:768px) {
+      /* 터치 타겟 최소 44px */
+      .panel-item button { min-height:44px; min-width:44px; padding:8px 12px; }
+      .npc-menu-btn { min-height:48px; padding:14px; font-size:13px; }
+      .npc-card { min-height:48px; padding:12px; }
+      .class-btn { padding:16px !important; }
+
+      /* NPC 대화창 모바일 최적화 */
+      #npc-dialog > div { max-width:100vw; width:100%; border-radius:14px 14px 0 0; max-height:60vh; }
+      #npc-dialog { align-items:flex-end !important; padding-bottom:0 !important; }
+
+      /* 궁극기 버튼 크게 */
+      #ult-btn { padding:10px 28px; font-size:14px; }
+      #ultimate-gauge { bottom:85px; }
+      #ultimate-gauge > div:first-child { width:160px; }
+
+      /* 상태이상 아이콘 */
+      .status-icon { padding:4px 8px; font-size:11px; }
+
+      /* 버프 바 줄간격 */
+      #buff-bar { gap:2px; max-width:280px; }
+      .buff-icon { font-size:10px; padding:2px 6px; }
+
+      /* 서브메뉴 스크롤 가능 */
+      #sub-menu { max-height:40vh; overflow-y:auto; flex-wrap:wrap; }
+
+      /* 퀘스트 가이드 축소 */
+      #quest-guide { width:200px; font-size:10px; right:5px; }
+
+      /* 세션 스탯 간소화 */
+      #session-stats span:nth-child(4) { display:none; } /* 사망 숨김 */
+
+      /* 모달 스크롤 */
+      #game-modal > div > div:nth-child(2) { max-height:50vh; overflow-y:auto; }
+    }
+
+    /* 태블릿 (768px ~ 1024px) */
+    @media (min-width:769px) and (max-width:1024px) {
+      .panel { width:80vw; max-width:500px; }
+      #sub-menu button { width:90px; }
+      #chat-box { width:240px; }
+    }
+
+    /* 가로 모드 모바일 */
+    @media (max-height:450px) and (orientation:landscape) {
+      #status-bar { padding:2px 8px; font-size:9px; }
+      #bottom-bar { height:40px; }
+      #bottom-bar .tab { height:34px; font-size:9px; }
+      .panel { max-height:80vh; }
+      #attack-btn { width:60px; height:60px; font-size:11px; bottom:100px; }
+      #minimap-container { transform:scale(0.5); }
+      #levelup-overlay .lvl-text { font-size:24px; }
     }
 
     /* 연결 상태 표시 */

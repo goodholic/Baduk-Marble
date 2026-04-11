@@ -157,6 +157,60 @@ function syncGameState() {
             }
         }
     }
+
+    // v2.58: 상태이상 틱 (30틱마다 = ~1초)
+    if (tickCounter % 30 === 0) {
+        try {
+            const ce = require('./combat_enhance');
+            for (const pId in players) {
+                const p = players[pId];
+                if (!p || !p.isAlive || !p._comboTracker) continue;
+                const dotResults = ce.tickStatusEffects(p);
+                if (dotResults.length > 0) {
+                    for (const r of dotResults) {
+                        if (r.event === 'dot' && r.damage > 0) {
+                            io.to(pId).emit('status_dot_tick', { damage: r.damage, icon: r.icon, element: r.element });
+                        }
+                    }
+                    // 상태이상 UI 업데이트
+                    const effects = p._comboTracker.statusEffects.map(e => {
+                        const def = ce.STATUS_EFFECTS[e.type];
+                        return { type: e.type, icon: def?.icon, color: def?.color, stacks: e.stacks, expiresAt: e.expiresAt };
+                    });
+                    io.to(pId).emit('status_effects_update', { effects });
+                }
+                // NPC 버프 만료 체크
+                if (p.npcBuffs) {
+                    p.npcBuffs = p.npcBuffs.filter(b => Date.now() < b.expiresAt);
+                }
+                // 전설 변신 만료 체크
+                if (p._legendaryMorph && Date.now() >= p._legendaryMorph.expiresAt) {
+                    p._legendaryMorph = null;
+                    io.to(pId).emit('npc_result', { msg: '변신이 해제되었습니다.' });
+                }
+                // 궁극기 게이지 감쇠 (비전투 시)
+                if (p._comboTracker.ultimateGauge > 0 && p._comboTracker.recentSkills.length === 0) {
+                    ce.updateUltimateGauge(p, 'decay');
+                }
+            }
+        } catch(e) {}
+
+        // v2.58: 업적 자동 체크 (30초마다)
+        if (tickCounter % 900 === 0) {
+            try {
+                const am = require('./advanced_morph');
+                for (const pId in players) {
+                    const p = players[pId];
+                    if (!p || p.isBot) continue;
+                    const newAchs = am.checkAchievements(p);
+                    for (const ach of newAchs) {
+                        io.to(pId).emit('achievement_unlocked', ach);
+                        io.emit('server_msg', { msg: '🏆 ' + (p.displayName||p.className) + ' 업적: ' + ach.icon + ' ' + ach.name, type: 'rare' });
+                    }
+                }
+            } catch(e) {}
+        }
+    }
 }
 
 // ────────────────────────────────────────
