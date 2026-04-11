@@ -54,6 +54,14 @@ function register(app, ctx) {
                     return ev ? { id: ev.id, name: ev.name, color: ev.color, buff: ev.globalBuff } : null;
                 })(),
                 timestamp: new Date().toISOString(),
+                // v2.58: 신규 시스템 상태
+                v258: {
+                    battleRoyale: (() => { try { return require('../game/battle_royale').brState?.phase || 'idle'; } catch(e) { return 'n/a'; } })(),
+                    worldRaid: (() => { try { return require('../game/world_raid').getRaidStatus()?.active ? 'active' : 'idle'; } catch(e) { return 'n/a'; } })(),
+                    worldEvent: (() => { try { const e = require('../game/world_raid').getActiveEvent(); return e ? e.name : 'none'; } catch(e) { return 'n/a'; } })(),
+                    totalAssets: 329,
+                    systems: 10,
+                },
             });
         } catch (e) {
             res.status(500).json({ status: 'error', message: e.message });
