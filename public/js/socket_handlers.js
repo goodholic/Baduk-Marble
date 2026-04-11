@@ -2679,6 +2679,146 @@
         playSFX('buff');
       });
 
+      // ═══ 메인 스토리 시스템 ═══
+      window.socket.on('story_status', (d) => {
+        if (d.completed) {
+          showModal('📖 메인 스토리', '<div style="text-align:center"><p style="color:#ffd700;font-size:18px;font-weight:900">🎊 스토리 완료!</p><p style="color:#ddd;margin-top:8px">당신은 <b style="color:#ff8800">전설의 영웅</b>입니다.</p><p style="color:#888;margin-top:4px">봉인석 ' + d.seals + '/6 수집</p></div>', [{label:'확인', action:'closeModal()'}]);
+          return;
+        }
+        if (!d.quest) { showToast('스토리 데이터를 불러올 수 없습니다.'); return; }
+
+        // 컷신이 있으면 먼저 재생
+        if (d.quest.cutscene) {
+          showStoryCutscene(d.quest.cutscene, function() { showStoryQuest(d); });
+        } else {
+          showStoryQuest(d);
+        }
+      });
+
+      window.socket.on('story_quest_update', (d) => {
+        if (d.type === 'progress') {
+          showToast('📖 ' + d.questName + ': ' + d.progress + '/' + d.goal);
+        } else if (d.type === 'complete') {
+          // 퀘스트 완료!
+          var html = '<div style="text-align:center">' +
+            '<p style="color:#ffd700;font-size:18px;font-weight:900">✅ 퀘스트 완료!</p>' +
+            '<p style="color:#ddd;font-size:14px;margin:8px 0">' + d.questName + '</p>';
+          if (d.reward) {
+            html += '<div style="margin:10px 0;padding:10px;background:rgba(255,215,0,0.05);border-radius:8px;border:1px solid rgba(255,215,0,0.15);font-size:12px">';
+            if (d.reward.gold) html += '<p style="color:#ffd700">💰 ' + d.reward.gold + 'G</p>';
+            if (d.reward.exp) html += '<p style="color:#aa44ff">✨ ' + d.reward.exp + ' EXP</p>';
+            if (d.reward.diamonds) html += '<p style="color:#55ccff">💎 ' + d.reward.diamonds + '</p>';
+            if (d.reward.itemName) html += '<p style="color:#ff8800">🎁 ' + d.reward.itemName + '</p>';
+            if (d.reward.titleName) html += '<p style="color:#ff4444">👑 칭호: ' + d.reward.titleName + '</p>';
+            html += '</div>';
+          }
+          if (d.nextQuest) {
+            html += '<p style="color:#888;font-size:11px;margin-top:8px">다음: ' + d.nextQuest.chapter + ' — ' + d.nextQuest.name + '</p>';
+          }
+          if (d.storyCompleted) {
+            html += '<p style="color:#ffd700;font-size:16px;margin-top:12px">🎊 메인 스토리 완료!</p>';
+          }
+          html += '</div>';
+          showModal('📖 스토리', html, [{label:'계속', action:'closeModal()'}]);
+          playSFX('levelup');
+          if (typeof celebrateRareDrop === 'function') celebrateRareDrop('legendary');
+
+          // 다음 컷신 자동 재생
+          if (d.nextCutscene) {
+            setTimeout(function() { showStoryCutscene(d.nextCutscene); }, 2000);
+          }
+        }
+      });
+
+      window.socket.on('story_choice_result', (d) => {
+        if (d.dialog) {
+          showModal('📖 선택의 결과', '<p style="color:#ddd;font-size:13px;line-height:1.6;text-align:center;font-style:italic">"' + d.dialog + '"</p>', [{label:'계속', action:"window.socket.emit('story_status');closeModal();"}]);
+        }
+      });
+
+      // 컷신 재생 함수
+      window.showStoryCutscene = function(cutscene, callback) {
+        if (!cutscene || !cutscene.lines || cutscene.lines.length === 0) { if (callback) callback(); return; }
+        var lines = cutscene.lines;
+        var idx = 0;
+
+        function showLine() {
+          if (idx >= lines.length) {
+            closeModal();
+            if (callback) callback();
+            return;
+          }
+          var line = lines[idx];
+          var html = '<div style="text-align:center;padding:16px 0">' +
+            '<div style="font-size:32px;margin-bottom:8px">' + (line.icon || '') + '</div>' +
+            (line.speaker ? '<div style="color:#ffd700;font-size:12px;margin-bottom:6px;letter-spacing:2px;font-family:\'Cinzel\',serif">' + line.speaker + '</div>' : '') +
+            '<div style="color:#d4cfc0;font-size:14px;line-height:1.8;max-width:350px;margin:0 auto">' + line.text + '</div>' +
+            '<div style="color:#555;font-size:9px;margin-top:12px">' + (idx+1) + ' / ' + lines.length + '</div>' +
+            '</div>';
+          showModal('', html, [{label: idx < lines.length - 1 ? '다음 ▶' : '시작하기', action: 'window._storyCutsceneNext()'}]);
+          idx++;
+        }
+
+        window._storyCutsceneNext = showLine;
+        showLine();
+      };
+
+      // 스토리 퀘스트 UI
+      window.showStoryQuest = function(d) {
+        var q = d.quest;
+        var pct = q.goal > 0 ? Math.floor(q.progress / q.goal * 100) : 0;
+        var html = '<div>' +
+          '<div style="text-align:center;margin-bottom:10px">' +
+          '<p style="color:#888;font-size:10px;letter-spacing:2px">' + (d.chapter ? d.chapter.name : '') + '</p>' +
+          '<p style="color:#ffd700;font-size:16px;font-weight:900">' + q.name + '</p>' +
+          '</div>';
+
+        // NPC 대화
+        if (q.dialog) {
+          var dialogText = pct >= 100 ? q.dialog.after : (q.progress > 0 ? q.dialog.task : q.dialog.before);
+          if (dialogText) {
+            html += '<div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:12px;margin:8px 0;border-left:3px solid rgba(255,215,0,0.3)">' +
+              (q.npc ? '<span style="color:#ffd700;font-size:11px">' + q.npc + '</span><br>' : '') +
+              '<span style="color:#d4cfc0;font-size:12px;line-height:1.6">' + dialogText + '</span></div>';
+          }
+        }
+
+        // 진행도
+        html += '<div style="margin:10px 0">' +
+          '<div style="display:flex;justify-content:space-between;font-size:10px;color:#888;margin-bottom:3px"><span>진행도</span><span>' + q.progress + '/' + q.goal + '</span></div>' +
+          '<div style="width:100%;height:8px;background:#222;border-radius:4px;overflow:hidden"><div style="width:' + pct + '%;height:100%;background:linear-gradient(90deg,#ffd700,#ff8800);border-radius:4px;transition:width 0.3s"></div></div>' +
+          '</div>';
+
+        // 보상 미리보기
+        if (q.reward) {
+          html += '<div style="font-size:10px;color:#888;margin-top:8px">보상: ';
+          if (q.reward.gold) html += '💰' + q.reward.gold + 'G ';
+          if (q.reward.exp) html += '✨' + q.reward.exp + 'EXP ';
+          if (q.reward.diamonds) html += '💎' + q.reward.diamonds + ' ';
+          if (q.reward.itemName) html += '🎁' + q.reward.itemName + ' ';
+          html += '</div>';
+        }
+
+        // 선택지
+        if (q.choice && pct >= 100) {
+          html += '<div style="margin-top:12px;border-top:1px solid #333;padding-top:10px">' +
+            '<p style="color:#ff8800;font-size:12px;text-align:center;margin-bottom:8px">' + q.choice.prompt + '</p>';
+          q.choice.options.forEach(function(opt) {
+            html += '<button class="btn" style="width:100%;margin:3px 0;text-align:left" onclick="window.socket.emit(\'story_choice\',\'' + opt.value + '\');closeModal();">' + opt.label + '</button>';
+          });
+          html += '</div>';
+        }
+
+        html += '</div>';
+
+        var buttons = [{label:'닫기', type:'cancel', action:'closeModal()'}];
+        if (pct >= 100 && !q.choice) {
+          buttons.unshift({label:'✅ 완료 보고', action:"window.socket.emit('story_complete_report');closeModal();"});
+        }
+
+        showModal('📖 메인 스토리', html, buttons);
+      };
+
       // ═══ 심층 던전 시스템 ═══
       window.socket.on('deep_dungeon_list', (d) => {
         var html = '<p style="text-align:center;color:#888;font-size:11px;margin-bottom:10px">10층 다층 던전 — 층별 테마, 함정, 보스 페이즈</p>';

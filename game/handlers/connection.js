@@ -339,6 +339,12 @@ io.on("connection", (socket) => {
         const deepDungeon = require('../deep_dungeon');
         deepDungeon.registerDeepDungeonHandlers(socket, playerId, players, io);
     } catch(e) { /* ignore if not loaded */ }
+
+    // v2.58: 메인 스토리 핸들러
+    try {
+        const mainStory = require('../main_story');
+        mainStory.registerStoryHandlers(socket, playerId, players, io);
+    } catch(e) { /* ignore if not loaded */ }
 });
 }
 
