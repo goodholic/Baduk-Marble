@@ -4,36 +4,47 @@
 
 const ELEMENT_BONUS = { fire: 'water', water: 'wind', wind: 'earth', earth: 'fire' }; // 상성
 
+// v2.58 밸런스 패치: 몬스터 스탯 & 보상 재조정
 const MONSTER_TIERS = {
     normal: {
-        name: '슬라임', hp: 80, atk: 12, def: 3,
-        expReward: 18, goldReward: 10, color: '#88cc88',
-        spawnWeight: 50
+        name: '슬라임', hp: 100, atk: 14, def: 4,        // HP 80→100, ATK 12→14
+        expReward: 22, goldReward: 12, color: '#88cc88',   // EXP 18→22, Gold 10→12
+        spawnWeight: 45,                                     // 비중 50→45
+        dropChance: 0.02,                                    // 장비 드롭 2%
     },
     elite: {
-        name: '오크 전사', hp: 300, atk: 28, def: 12,
-        expReward: 65, goldReward: 40, color: '#ccaa44',
-        spawnWeight: 25
+        name: '오크 전사', hp: 350, atk: 32, def: 14,     // HP 300→350, ATK 28→32
+        expReward: 80, goldReward: 50, color: '#ccaa44',   // EXP 65→80, Gold 40→50
+        spawnWeight: 28,                                     // 비중 25→28
+        dropChance: 0.05,                                    // 장비 드롭 5%
     },
     rare: {
-        name: '다크 나이트', hp: 800, atk: 50, def: 22,
-        expReward: 160, goldReward: 100, color: '#aa44cc',
-        spawnWeight: 12
+        name: '다크 나이트', hp: 900, atk: 55, def: 24,   // HP 800→900, ATK 50→55
+        expReward: 200, goldReward: 120, color: '#aa44cc', // EXP 160→200, Gold 100→120
+        spawnWeight: 15,                                     // 비중 12→15
+        dropChance: 0.12,                                    // 장비 드롭 12%
+        minGrade: 'uncommon',                                // 최소 고급 등급
     },
     boss: {
-        name: '드래곤', hp: 2000, atk: 60, def: 30,
-        expReward: 600, goldReward: 350, color: '#ff4444',
-        spawnWeight: 5
+        name: '드래곤', hp: 2500, atk: 65, def: 32,       // HP 2000→2500, ATK 60→65
+        expReward: 750, goldReward: 400, color: '#ff4444', // EXP 600→750, Gold 350→400
+        spawnWeight: 5,
+        dropChance: 0.25,                                    // 장비 드롭 25%
+        minGrade: 'rare',                                    // 최소 희귀 등급
     },
     legendary: {
-        name: '고대 드래곤', hp: 8000, atk: 100, def: 50,
-        expReward: 2000, goldReward: 1000, color: '#ff8800',
-        spawnWeight: 1
+        name: '고대 드래곤', hp: 10000, atk: 110, def: 55, // HP 8000→10000, ATK 100→110
+        expReward: 2500, goldReward: 1200, color: '#ff8800',// EXP 2000→2500, Gold 1000→1200
+        spawnWeight: 1,
+        dropChance: 0.50,                                    // 장비 드롭 50%
+        minGrade: 'epic',                                    // 최소 영웅 등급
     },
     mythic: {
-        name: '태초의 존재', hp: 30000, atk: 200, def: 100,
-        expReward: 8000, goldReward: 5000, color: '#ff00ff',
-        spawnWeight: 0
+        name: '태초의 존재', hp: 35000, atk: 220, def: 110,// HP 30000→35000, ATK 200→220
+        expReward: 10000, goldReward: 6000, color: '#ff00ff',// EXP 8000→10000, Gold 5000→6000
+        spawnWeight: 0,
+        dropChance: 0.80,                                    // 장비 드롭 80%
+        minGrade: 'legendary',                               // 최소 전설 등급
     }
 };
 
