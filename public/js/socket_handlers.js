@@ -2687,6 +2687,32 @@
         playSFX('buff');
       });
 
+      // ═══ 채팅 이모트 ═══
+      window.socket.on('emote_packs', (d) => {
+        var html = '';
+        d.packs.forEach(function(pack) {
+          html += '<div style="margin-bottom:10px;padding:10px;border:1px solid rgba(255,215,0,0.1);border-radius:8px;opacity:' + (pack.unlocked ? 1 : 0.5) + '">' +
+            '<p style="color:#ffd700;font-size:12px;font-weight:bold">' + pack.name + (pack.unlocked ? ' ✅' : ' 🔒') + '</p>' +
+            '<div style="display:flex;flex-wrap:wrap;gap:4px;margin:6px 0">';
+          pack.emotes.forEach(function(e) {
+            html += '<button class="btn btn-sm" onclick="document.getElementById(\'chat-input\').value+=\'' + e.id + '\';closeModal();" style="font-size:14px" title="' + e.text + '">' + e.icon + '</button>';
+          });
+          html += '</div>';
+          if (!pack.unlocked && pack.unlockDiamonds) {
+            html += '<button class="btn btn-sm" onclick="window.socket.emit(\'buy_emote_pack\',\'' + pack.id + '\');closeModal();">구매 (' + pack.unlockDiamonds + '💎)</button>';
+          } else if (!pack.unlocked && pack.unlockLevel) {
+            html += '<span style="color:#888;font-size:10px">Lv.' + pack.unlockLevel + ' 필요</span>';
+          }
+          html += '</div>';
+        });
+        showModal('😀 이모트', html, [{label:'닫기', type:'cancel', action:'closeModal()'}]);
+      });
+
+      window.socket.on('whisper_received', (d) => {
+        addCombatLog('[귓속말] ' + d.from + ': ' + d.msg, 'log-gold');
+        showToast('💬 ' + d.from + ': ' + d.msg);
+      });
+
       // ═══ 랭크 시즌 ═══
       window.socket.on('ranked_status', (d) => {
         var pct = d.nextRank ? Math.floor((d.points - d.rank.minPts) / (d.nextRank.minPts - d.rank.minPts) * 100) : 100;
