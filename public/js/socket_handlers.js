@@ -2687,6 +2687,51 @@
         playSFX('buff');
       });
 
+      // ═══ PvP 강화 ═══
+      window.socket.on('pvp_bounty_update', (d) => {
+        if (typeof showFantasyToast === 'function') {
+          showFantasyToast(d.icon + ' ' + d.playerName + ' — ' + d.title + '! 현상금 ' + d.bounty + 'G', 'legendary');
+        }
+      });
+      window.socket.on('pvp_bounty_claimed', (d) => {
+        showToast('💰 현상금 ' + d.gold + 'G 획득! (' + d.victimName + ' 처치)');
+        playSFX('boss');
+        if (typeof celebrateRareDrop === 'function') celebrateRareDrop('legendary');
+      });
+      window.socket.on('pvp_killcam', (d) => {
+        var html = '<div style="text-align:center">' +
+          '<p style="font-size:24px;color:#ff4444;font-weight:900;text-shadow:0 0 20px #f00">☠ KILL</p>' +
+          '<p style="color:#ffd700;font-size:14px;margin:6px 0">' + d.killerName + ' <span style="color:#888">Lv.' + d.killerLevel + '</span></p>' +
+          '<p style="color:#666;font-size:20px">⚔️</p>' +
+          '<p style="color:#ff6666;font-size:14px">' + d.victimName + ' <span style="color:#888">Lv.' + d.victimLevel + '</span></p>' +
+          (d.damage ? '<p style="color:#ff8800;font-size:12px;margin-top:6px">DMG: ' + d.damage + (d.isCrit ? ' CRIT!' : '') + '</p>' : '') +
+          (d.streak > 3 ? '<p style="color:#ff00ff;font-size:11px">🔥 ' + d.streak + ' KILL STREAK</p>' : '') +
+          '</div>';
+        showModal('', html, [{label:'확인', action:'closeModal()'}]);
+        if (typeof showSlowMotion === 'function') showSlowMotion(600);
+      });
+      window.socket.on('pvp_bounties_list', (d) => {
+        var html = '<p style="text-align:center;color:#ff4444;font-size:14px;margin-bottom:8px">🩸 현상수배 목록</p>';
+        if (d.bounties.length === 0) html += '<p style="text-align:center;color:#888">현재 현상수배자가 없습니다</p>';
+        d.bounties.forEach(function(b) {
+          html += '<div class="panel-item" style="border-left:3px solid ' + b.color + '">' +
+            '<span class="name">' + b.icon + ' <b style="color:' + b.color + '">' + b.name + '</b> Lv.' + b.level +
+            '<br><small style="color:#888">' + b.title + ' (' + b.kills + '킬)</small></span>' +
+            '<span style="color:#ffd700;font-weight:bold">' + b.bounty + 'G</span></div>';
+        });
+        showModal('🩸 현상수배', html, [{label:'닫기', type:'cancel', action:'closeModal()'}]);
+      });
+      window.socket.on('battlefield_buffs_list', (d) => {
+        var html = '<p style="text-align:center;color:#888;font-size:11px;margin-bottom:8px">PvP존 진입 시 전투 스타일을 선택하세요</p>';
+        if (d.current) html += '<p style="text-align:center;color:#ffd700;margin-bottom:8px">현재: ' + d.current.icon + ' ' + d.current.name + '</p>';
+        d.buffs.forEach(function(b) {
+          html += '<button class="btn" style="width:100%;margin:3px 0;text-align:left" onclick="window.socket.emit(\'select_battlefield_buff\',\'' + b.id + '\');closeModal();">' +
+            b.icon + ' <b>' + b.name + '</b> — ' + b.desc + '</button>';
+        });
+        showModal('⚔️ 전장 버프', html, [{label:'닫기', type:'cancel', action:'closeModal()'}]);
+      });
+      window.socket.on('battlefield_buff_result', (d) => { showToast(d.msg); });
+
       // ═══ 펫 진화 ═══
       window.socket.on('pet_evo_status', (d) => {
         var html = '';
