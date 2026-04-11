@@ -869,6 +869,7 @@
         {label:'도감', action:()=>{togglePanel('bestiary');window.socket.emit('get_bestiary');}},
       ],
       etc: [
+        {label:'🏰 심층 던전', action:()=>{window.socket.emit('deep_dungeon_list');}},
         {label:'던전', action:()=>{showModal('던전 입장','<p style="color:#888;font-size:12px;margin-bottom:10px">입장할 던전을 선택하세요</p>',[
           {label:'어둠의 동굴 (Lv.15) - 3스테이지',action:"closeModal();window.socket.emit('enter_dungeon','cave_dungeon')"},
           {label:'얼어붙은 신전 (Lv.18) - 4스테이지 ✨',action:"closeModal();window.socket.emit('enter_dungeon','frozen_temple')"},

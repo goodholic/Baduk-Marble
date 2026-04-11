@@ -2679,6 +2679,118 @@
         playSFX('buff');
       });
 
+      // ═══ 심층 던전 시스템 ═══
+      window.socket.on('deep_dungeon_list', (d) => {
+        var html = '<p style="text-align:center;color:#888;font-size:11px;margin-bottom:10px">10층 다층 던전 — 층별 테마, 함정, 보스 페이즈</p>';
+        d.dungeons.forEach(function(dg) {
+          html += '<div class="panel-item" style="border-left:3px solid #ffd700;cursor:pointer" onclick="window.socket.emit(\'deep_dungeon_enter\',\'' + dg.id + '\');closeModal();">' +
+            '<span class="name"><span style="font-size:18px">' + dg.icon + '</span> ' + dg.name +
+            '<br><small style="color:#888">Lv.' + dg.minLevel + '+ | ' + dg.floors + '층 | 입장료 ' + dg.entryFee + 'G</small>' +
+            '<br><small style="color:#aaa">' + dg.desc + '</small></span></div>';
+        });
+        showModal('🏰 심층 던전', html, [{label:'닫기', type:'cancel', action:'closeModal()'}]);
+      });
+
+      window.socket.on('deep_dungeon_result', (d) => {
+        if (d.success === false) { showToast(d.msg); return; }
+
+        if (d.type === 'abandon') {
+          showToast(d.msg);
+          return;
+        }
+
+        if (d.floor) {
+          // 입장 또는 층 이동
+          var floorInfo = d.floor || d.nextFloor;
+          if (floorInfo) {
+            var html = '<div style="text-align:center">' +
+              '<p style="color:#ffd700;font-size:16px;font-weight:900">' + (floorInfo.name || '') + '</p>' +
+              '<p style="color:#8a8470;font-size:11px;font-style:italic;margin:6px 0">' + (floorInfo.ambience || '') + '</p>';
+            if (floorInfo.hasBoss && floorInfo.bossName) {
+              html += '<p style="color:#ff4444;font-size:13px;margin-top:8px">⚠️ 보스: ' + floorInfo.bossName + '</p>';
+            }
+            html += '<p style="color:#888;font-size:11px">층 ' + (floorInfo.index+1) + '/' + (d.totalFloors||10) + '</p>';
+            html += '<div style="margin-top:10px;display:flex;gap:6px;justify-content:center">' +
+              '<button class="btn btn-primary" onclick="window.socket.emit(\'deep_dungeon_kill\');closeModal();">⚔ 전투!</button>' +
+              '<button class="btn btn-danger" onclick="window.socket.emit(\'deep_dungeon_abandon\');closeModal();">포기</button></div></div>';
+            showModal('🏰 ' + (d.dungeonName || '심층 던전'), html, []);
+            // 존 공지 스타일 연출
+            var za = document.getElementById('zone-announce');
+            if (za) {
+              za.querySelector('.zone-name').textContent = floorInfo.name;
+              za.querySelector('.zone-name').style.color = floorInfo.hasBoss ? '#ff4444' : '#ffd700';
+              za.querySelector('.zone-info').textContent = floorInfo.ambience || '';
+              za.classList.remove('show'); void za.offsetWidth; za.classList.add('show');
+              setTimeout(function(){ za.classList.remove('show'); }, 2500);
+            }
+            if (typeof playSFX2 === 'function') playSFX2('dark_magic');
+          }
+        }
+
+        if (d.type === 'floor_clear') {
+          showToast('✅ ' + d.clearedFloorName + ' 클리어! +' + d.reward.gold + 'G +' + d.reward.exp + 'EXP');
+          playSFX('levelup');
+          if (d.trap) {
+            showToast(d.trap.msg);
+            if (d.trap.damage) showFloatingDamage(d.trap.damage, false, '함정', 'fire');
+          }
+        }
+
+        if (d.type === 'kill') {
+          showFloatingDamage('Kill! ' + d.killed + '/' + d.total, false, null, 'normal');
+        }
+
+        if (d.type === 'boss_hit') {
+          showFloatingDamage(d.damage, d.isCrit, null, 'dark');
+          if (d.phaseChange) {
+            if (typeof showBossEntrance === 'function') {
+              showBossEntrance(d.bossName, '— ' + d.phaseChange.name + ' —');
+            }
+            addCombatLog('[보스] ' + d.phaseChange.name + ' — ' + d.phaseChange.desc, 'log-crit');
+          }
+          // 보스 HP 표시
+          var hpPct = d.bossMaxHp > 0 ? Math.floor(d.bossHp / d.bossMaxHp * 100) : 0;
+          document.title = d.bossName + ' HP: ' + hpPct + '%';
+        }
+
+        if (d.type === 'dungeon_complete') {
+          document.title = 'AutoBattle.io';
+          var html = '<div style="text-align:center">' +
+            '<p style="color:#ffd700;font-size:20px;font-weight:900">🏆 던전 클리어!</p>' +
+            '<p style="color:#ddd;font-size:14px;margin:8px 0">' + d.dungeonName + '</p>' +
+            '<p style="color:#888;font-size:11px">클리어 시간: ' + Math.floor(d.elapsedSec/60) + '분 ' + (d.elapsedSec%60) + '초</p>' +
+            '<div style="margin:12px 0;padding:12px;background:rgba(255,215,0,0.05);border-radius:8px;border:1px solid rgba(255,215,0,0.15)">' +
+            '<p style="color:#ffd700">💰 ' + d.totalReward.gold + 'G</p>' +
+            '<p style="color:#aa44ff">✨ ' + d.totalReward.exp + ' EXP</p>' +
+            (d.totalReward.diamonds > 0 ? '<p style="color:#55ccff">💎 ' + d.totalReward.diamonds + '</p>' : '') +
+            (d.totalReward.items.length > 0 ? '<p style="color:#ff8800">🎁 ' + d.totalReward.items.map(function(i){return i.name;}).join(', ') + '</p>' : '') +
+            '</div></div>';
+          showModal('🏆 던전 클리어', html, [{label:'확인', action:'closeModal()'}]);
+          if (typeof celebrateRareDrop === 'function') celebrateRareDrop('legendary');
+          playSFX('levelup'); playSFX('boss');
+        }
+      });
+
+      window.socket.on('deep_dungeon_status', (d) => {
+        if (!d.active) { showToast('진행 중인 심층 던전이 없습니다.'); return; }
+        var html = '<p style="color:#ffd700;text-align:center">' + d.dungeonName + '</p>' +
+          '<p style="text-align:center;color:#ddd">' + d.floor.name + ' (' + (d.floor.index+1) + '/' + d.totalFloors + ')</p>' +
+          '<p style="text-align:center;color:#888;font-style:italic">' + d.floor.ambience + '</p>' +
+          '<p style="text-align:center;color:#aaa">진행: ' + d.progress + '</p>';
+        if (d.boss) {
+          var hpPct = d.boss.maxHp > 0 ? Math.floor(d.boss.hp / d.boss.maxHp * 100) : 0;
+          html += '<div style="margin:8px 0;text-align:center"><p style="color:#ff4444">보스: ' + d.boss.name + '</p>' +
+            '<div style="width:100%;height:12px;background:#222;border-radius:6px;overflow:hidden;margin-top:4px"><div style="width:'+hpPct+'%;height:100%;background:linear-gradient(90deg,#cc2222,#ff4444);border-radius:6px"></div></div>' +
+            '<p style="color:#888;font-size:10px">' + d.boss.hp + ' / ' + d.boss.maxHp + '</p></div>';
+        }
+        html += '<p style="text-align:center;color:#ffd700;font-size:11px;margin-top:8px">누적: ' + d.accumulated.gold + 'G, ' + d.accumulated.exp + 'EXP</p>';
+        showModal('🏰 진행 상황', html, [
+          {label:'⚔ 전투!', action:"window.socket.emit('deep_dungeon_kill');closeModal();"},
+          {label:'포기', action:"window.socket.emit('deep_dungeon_abandon');closeModal();"},
+          {label:'닫기', type:'cancel', action:'closeModal()'}
+        ]);
+      });
+
       // ═══ 전투 강화 시스템 ═══
       // 궁극기 게이지
       window.socket.on('ultimate_gauge', (d) => {

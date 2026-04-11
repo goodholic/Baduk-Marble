@@ -333,6 +333,12 @@ io.on("connection", (socket) => {
         const battleRoyale = require('../battle_royale');
         battleRoyale.registerBattleRoyaleHandlers(socket, playerId);
     } catch(e) { /* ignore if not loaded */ }
+
+    // v2.58: 심층 던전 핸들러
+    try {
+        const deepDungeon = require('../deep_dungeon');
+        deepDungeon.registerDeepDungeonHandlers(socket, playerId, players, io);
+    } catch(e) { /* ignore if not loaded */ }
 });
 }
 
