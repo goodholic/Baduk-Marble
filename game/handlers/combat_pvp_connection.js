@@ -793,9 +793,14 @@ function registerCombatPvpConnectionHandlers(socket, $) {
                 const match = arenaMatches[matchId];
                 if (!match) return;
                 const mp1 = players[match.player1], mp2 = players[match.player2];
+                // v2.58: 양측 모두 존재해야 판정 (한쪽 이탈 시 무효)
+                if (!mp1 || !mp2 || !mp1.isAlive || !mp2.isAlive) {
+                    $.endArenaMatch(matchId, match.player1, match.player2, '상대 이탈 - 무효');
+                    return;
+                }
                 // 남은 HP 비율로 승자 결정
-                const hp1Pct = mp1 ? mp1.hp / mp1.maxHp : 0;
-                const hp2Pct = mp2 ? mp2.hp / mp2.maxHp : 0;
+                const hp1Pct = mp1.hp / mp1.maxHp;
+                const hp2Pct = mp2.hp / mp2.maxHp;
                 const winnerId = hp1Pct >= hp2Pct ? match.player1 : match.player2;
                 const loserId = winnerId === match.player1 ? match.player2 : match.player1;
                 $.endArenaMatch(matchId, winnerId, loserId, '시간 초과 - HP 비율 판정');

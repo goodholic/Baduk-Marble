@@ -526,6 +526,24 @@ function endArenaMatch(matchId, winnerId, loserId, reason) {
     if (!match) return;
     const winner = players[winnerId], loser = players[loserId];
 
+    // v2.58: 상대가 없으면 무효 처리 (혼자 승리 방지)
+    if (!winner || !loser) {
+        // 남아있는 플레이어만 HP 회복 + 마을 귀환 (보상 없음)
+        const remaining = winner || loser;
+        if (remaining) {
+            remaining.hp = remaining.maxHp;
+            delete remaining.arenaMatchId;
+            remaining.x = -480 + Math.random() * 40; remaining.y = -480 + Math.random() * 40;
+            io.to(remaining.id || winnerId || loserId).emit('arena_end', { result: 'cancelled', msg: '상대가 이탈하여 매치 무효', points: 0, reward: 0, reason: '상대 이탈' });
+        }
+        io.emit('server_msg', { msg: '[아레나] 상대 이탈로 매치 무효', type: 'normal' });
+        delete arenaMatches[matchId];
+        return;
+    }
+
+    // v2.58: 접속자 수 체크 — 서버에 실제 PvP 가능 인원이 2명 미만이면 보상 제한
+    const onlinePvpPlayers = Object.values(players).filter(p => p && p.isAlive && !p.isBot).length;
+
     // 포인트 계산 (결투는 랭킹에 영향 안 줌)
     if (!match.isDuel) {
         if (!arenaRankings[winnerId]) arenaRankings[winnerId] = { wins:0, losses:0, points:1000 };
@@ -543,7 +561,7 @@ function endArenaMatch(matchId, winnerId, loserId, reason) {
         }
     }
 
-    // 보상
+    // 보상 (실제 대전이 있었을 때만)
     if (winner) {
         winner.gold = Math.min(999999999, winner.gold + 200);
         winner.arenaCountToday = (winner.arenaCountToday || 0) + 1;
