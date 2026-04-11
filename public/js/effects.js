@@ -1071,6 +1071,33 @@
       if (btn) { btn.style.transform = 'scale(0.85)'; btn.style.filter = 'brightness(1.5)'; setTimeout(() => { btn.style.transform = 'scale(1)'; btn.style.filter = ''; }, 120); }
     }
 
+    // ── NPC 대화 ──
+    function closeNpcDialog() {
+      var dlg = document.getElementById('npc-dialog');
+      if (dlg) { dlg.classList.remove('show'); dlg.style.display = 'none'; }
+    }
+    function npcAction(npcId, action) {
+      if (action === 'close') { closeNpcDialog(); return; }
+      // 기존 시스템 연동
+      if (action === 'shop') { closeNpcDialog(); openSubMenu('items'); return; }
+      if (action === 'craft') { closeNpcDialog(); togglePanel('craft'); return; }
+      if (action === 'enchant') { closeNpcDialog(); window.socket.emit('interact_npc','대장장이'); return; }
+      if (action === 'auction') { closeNpcDialog(); togglePanel('market'); window.socket.emit('market_browse',{}); return; }
+      if (action === 'caravan') { closeNpcDialog(); window.socket.emit('caravan_status'); return; }
+      if (action === 'train_skills') { closeNpcDialog(); togglePanel('skills'); window.socket.emit('get_skills'); return; }
+      if (action === 'class_info') { closeNpcDialog(); togglePanel('stats'); return; }
+      if (action === 'combat_analysis') { closeNpcDialog(); window.socket.emit('get_profile'); return; }
+      if (action === 'board') { closeNpcDialog(); window.socket.emit('get_contracts'); return; }
+      if (action === 'cook_menu') { closeNpcDialog(); window.socket.emit('cooking_status'); return; }
+      if (action === 'recipe_shop') { closeNpcDialog(); window.socket.emit('cooking_status'); return; }
+      if (action === 'premium_shop') { closeNpcDialog(); togglePanel('shop'); return; }
+      if (action === 'price_check') { closeNpcDialog(); window.socket.emit('get_town_prices','{}'); togglePanel('trade'); return; }
+      // 서버에 NPC 액션 전달
+      window.socket.emit('npc_action', { npcId: npcId, action: action });
+    }
+    // NPC 대화창 바깥 클릭시 닫기
+    document.getElementById('npc-dialog').addEventListener('click', function(e) { if (e.target === this) closeNpcDialog(); });
+
     // ── 채팅 ──
     function sendChat() {
       var input = document.getElementById('chat-input');

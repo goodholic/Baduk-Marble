@@ -641,3 +641,33 @@
       50%  { transform:translateX(-50%) scale(1.1); }
       100% { transform:translateX(-50%) scale(1); filter:brightness(1); }
     }
+
+    /* ═══ NPC 대화 시스템 ═══ */
+    #npc-dialog { pointer-events:auto; }
+    #npc-dialog.show { display:flex !important; animation:panelIn 0.25s ease; }
+    .npc-menu-btn {
+      display:block; width:100%; padding:10px 14px; margin:3px 0;
+      background:rgba(255,255,255,0.03); border:1px solid rgba(255,215,0,0.08);
+      border-radius:8px; color:#d4cfc0; font-size:12px; font-weight:600;
+      cursor:pointer; transition:all 0.15s; text-align:left;
+      font-family:'Noto Sans KR',sans-serif;
+    }
+    .npc-menu-btn:hover {
+      background:rgba(255,215,0,0.1); color:#ffd700;
+      border-color:rgba(255,215,0,0.25); transform:translateX(4px);
+    }
+    .npc-menu-btn:active { transform:scale(0.98); }
+    /* NPC 목록 카드 */
+    .npc-card {
+      display:flex; align-items:center; gap:10px;
+      padding:10px 14px; margin:4px 0;
+      background:rgba(255,255,255,0.03); border:1px solid rgba(255,215,0,0.08);
+      border-radius:10px; cursor:pointer; transition:all 0.2s;
+    }
+    .npc-card:hover {
+      background:rgba(255,215,0,0.08); border-color:rgba(255,215,0,0.2);
+      transform:translateY(-1px); box-shadow:0 4px 12px rgba(0,0,0,0.3);
+    }
+    .npc-card .npc-icon { font-size:24px; }
+    .npc-card .npc-name { color:#ffd700; font-size:13px; font-weight:700; }
+    .npc-card .npc-title { color:#888; font-size:10px; }

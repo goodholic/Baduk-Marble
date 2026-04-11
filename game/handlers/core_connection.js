@@ -603,6 +603,45 @@ function registerCoreConnectionHandlers(socket, $) {
     });
 
 
+    // ── 신규 NPC 대화 시스템 (v2.58) ──
+    const npcSystem = (() => { try { return require('../npc_system'); } catch(e) { return null; } })();
+
+    // 마을 진입 시 NPC 목록 요청
+    socket.on('get_town_npcs', () => {
+        const p = players[playerId];
+        if (!p) return;
+        if (!npcSystem) return;
+        const npcs = npcSystem.getTownNpcList(p.zone);
+        socket.emit('town_npc_list', {
+            zone: p.zone,
+            npcs: npcs.map(n => ({ id: n.id, name: n.name, title: n.title, icon: n.icon, type: n.type })),
+        });
+    });
+
+    // NPC 대화 시작
+    socket.on('npc_open_dialog', (npcId) => {
+        const p = players[playerId];
+        if (!p || !p.isAlive) return;
+        if (!npcSystem) return;
+        npcSystem.handleNpcInteraction(socket, playerId, players, io, npcId, 'open_dialog');
+    });
+
+    // NPC 메뉴 액션 실행
+    socket.on('npc_action', (data) => {
+        const p = players[playerId];
+        if (!p || !p.isAlive) return;
+        if (!npcSystem) return;
+        npcSystem.handleNpcInteraction(socket, playerId, players, io, data.npcId, data.action, data.extra);
+    });
+
+    // 창고 보관/인출
+    socket.on('storage_action', (data) => {
+        const p = players[playerId];
+        if (!p) return;
+        if (!npcSystem) return;
+        npcSystem.handleStorageAction(socket, playerId, players, data.action, data.itemId, data.count || 1);
+    });
+
     // --- update_dir ---
     socket.on('update_dir', (data) => {
         try {

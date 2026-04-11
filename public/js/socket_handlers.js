@@ -2679,6 +2679,83 @@
         playSFX('buff');
       });
 
+      // ═══ NPC 대화 시스템 ═══
+      window.socket.on('town_npc_list', (d) => {
+        if (!d.npcs || d.npcs.length === 0) {
+          showToast('이 마을에는 대화할 NPC가 없습니다.');
+          return;
+        }
+        var html = '<div style="text-align:center;margin-bottom:8px"><span style="color:#44ff44;font-size:11px;letter-spacing:2px">TOWN NPCs</span></div>';
+        d.npcs.forEach(function(npc) {
+          html += '<div class="npc-card" onclick="window.socket.emit(\'npc_open_dialog\',\'' + npc.id + '\')">' +
+            '<span class="npc-icon">' + (npc.icon || '👤') + '</span>' +
+            '<div><div class="npc-name">' + npc.name + '</div><div class="npc-title">' + (npc.title || '') + '</div></div>' +
+            '</div>';
+        });
+        showModal('🏘 마을 NPC', html, [{label:'닫기', type:'cancel', action:'closeModal()'}]);
+      });
+
+      window.socket.on('npc_dialog', (d) => {
+        closeModal();
+        var dlg = document.getElementById('npc-dialog');
+        document.getElementById('npc-dialog-icon').textContent = d.icon || '👤';
+        document.getElementById('npc-dialog-name').textContent = d.name;
+        document.getElementById('npc-dialog-title').textContent = d.title || '';
+        document.getElementById('npc-dialog-greeting').textContent = d.greeting;
+        var menuHtml = '';
+        d.menu.forEach(function(m) {
+          menuHtml += '<button class="npc-menu-btn" onclick="npcAction(\'' + d.npcId + '\',\'' + m.action + '\')">' + m.label + '</button>';
+        });
+        document.getElementById('npc-dialog-menu').innerHTML = menuHtml;
+        dlg.classList.add('show');
+        dlg.style.display = 'flex';
+        if (typeof playSFX2 === 'function') playSFX2('equip');
+        else playSFX('buy');
+      });
+
+      window.socket.on('npc_dialog_text', (d) => {
+        // NPC 대화 텍스트 — 대화창 업데이트
+        var greeting = document.getElementById('npc-dialog-greeting');
+        if (greeting) {
+          greeting.innerHTML = '<div style="color:#ffd700;font-size:11px;margin-bottom:4px">' + (d.icon || '') + ' ' + d.name + '</div>' + d.text;
+        }
+      });
+
+      window.socket.on('npc_storage', (d) => {
+        closeNpcDialog();
+        var html = '<p style="text-align:center;color:#ffd700;margin-bottom:8px">' + (d.npcName || '창고') + ' (' + Object.keys(d.items).length + '/' + d.slots + '칸)</p>';
+        var keys = Object.keys(d.items);
+        if (keys.length === 0) {
+          html += '<p style="text-align:center;color:#666;margin:20px 0">창고가 비어있습니다</p>';
+        } else {
+          html += '<div style="max-height:40vh;overflow-y:auto">';
+          keys.forEach(function(k) {
+            html += '<div class="panel-item"><span class="name">' + k + ' <b style="color:#888">x' + d.items[k] + '</b></span>' +
+              '<button onclick="window.socket.emit(\'storage_action\',{action:\'withdraw\',itemId:\'' + k + '\',count:1})" style="background:#2a4a2a;font-size:10px">꺼내기</button></div>';
+          });
+          html += '</div>';
+        }
+        html += '<div style="border-top:1px solid #444;padding-top:8px;margin-top:8px">' +
+          '<p class="text-muted text-sm" style="text-align:center">인벤토리에서 보관</p>' +
+          '<input id="storage-item-id" placeholder="아이템 ID" style="width:100%;padding:6px;background:#222;color:#fff;border:1px solid #555;border-radius:4px;margin:4px 0;font-size:11px">' +
+          '</div>';
+        showModal('📦 창고', html, [
+          {label:'보관', action:"window.socket.emit('storage_action',{action:'deposit',itemId:getModalInput('storage-item-id'),count:1})"},
+          {label:'닫기', type:'cancel', action:'closeModal()'}
+        ]);
+      });
+
+      window.socket.on('teleport_effect', (d) => {
+        if (typeof showMagicCircle === 'function') showMagicCircle('', 180);
+        showToast('🌀 ' + d.name + '(으)로 이동합니다!');
+        playSFX('buff');
+      });
+
+      window.socket.on('buff_applied', (d) => {
+        showToast('✨ 버프: ' + d.type + ' +' + d.value + (d.from ? ' (' + d.from + ')' : ''));
+        playSFX('buff');
+      });
+
       // ═══ 배틀로얄 이벤트 ═══
       window.socket.on('br_result', (d) => { showToast(d.msg); });
 
