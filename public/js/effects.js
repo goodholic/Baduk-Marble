@@ -184,17 +184,20 @@
 
     function doCraft(recipeId) { window.socket.emit('craft', recipeId); }
 
-    // ── 공격 버튼 ──
+    // ── 공격 버튼 (쿨다운 적용) ──
     function doAttack(e) {
       if (e) { e.stopPropagation(); e.preventDefault(); }
+      if (!canAttack()) return; // 쿨다운 체크
       if (window.socket) {
         window.socket.emit('throw', '{}');
         playSFX('hit');
       }
       var btn = document.getElementById('attack-btn');
-      btn.style.transform = 'scale(0.85)';
-      btn.style.filter = 'brightness(1.5)';
-      setTimeout(() => { btn.style.transform = 'scale(1)'; btn.style.filter = ''; }, 120);
+      if (btn) {
+        btn.style.transform = 'scale(0.85)';
+        btn.style.filter = 'brightness(1.5)';
+        setTimeout(() => { btn.style.transform = 'scale(1)'; btn.style.filter = ''; }, 120);
+      }
     }
 
     var attackTouchStart = null;
@@ -1054,12 +1057,23 @@
     function createParty() { window.socket.emit('create_party','{}'); }
     function partyInvite() { window.socket.emit('party_invite_nearby','{}'); }
 
-    // Space키 → 마우스 방향 공격 (브라우저 스크롤 차단)
+    // Space키 → 마우스 방향 공격 (쿨다운 적용, 키 반복 차단)
     // 1/2/3/4 → 포션 단축키 (HP 하/중/상, MP)
+    var _attackCooldown = 400; // 0.4초 쿨다운
+    var _lastAttackTime = 0;
+    function canAttack() {
+      var now = Date.now();
+      if (now - _lastAttackTime < _attackCooldown) return false;
+      _lastAttackTime = now;
+      return true;
+    }
+
     window.addEventListener('keydown', function(e) {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
       if (e.code === 'Space') {
         e.preventDefault();
+        if (e.repeat) return; // 키 반복 차단
+        if (!canAttack()) return; // 쿨다운 체크
         doAttackTowardMouse();
       } else if (e.key === '1') { window.socket?.emit('use_potion','pot_hp_s'); }
       else if (e.key === '2') { window.socket?.emit('use_potion','pot_hp_m'); }
@@ -1092,9 +1106,8 @@
       var mag = Math.sqrt(dx * dx + dy * dy);
       if (mag > 0.01) { dx /= mag; dy /= mag; }
       else { dx = 0; dy = 1; }
-      // 방향만 업데이트 후 공격
-      window.socket.emit('update_dir', JSON.stringify({ dirX: dx, dirY: dy }));
-      window.socket.emit('throw', '{}');
+      // 방향 + 공격을 하나의 이벤트로 전송 (타이밍 불일치 방지)
+      window.socket.emit('throw_directed', JSON.stringify({ dirX: dx, dirY: dy }));
       playSFX('hit');
       var btn = document.getElementById('attack-btn');
       if (btn) { btn.style.transform = 'scale(0.85)'; btn.style.filter = 'brightness(1.5)'; setTimeout(() => { btn.style.transform = 'scale(1)'; btn.style.filter = ''; }, 120); }

@@ -699,8 +699,31 @@ function registerCoreConnectionHandlers(socket, $) {
 
 
     // --- throw ---
+    // v2.58: 서버 측 공격 쿨다운 (0.35초)
+    let _lastThrowTime = 0;
+    const THROW_COOLDOWN = 350;
+
     socket.on('throw', () => {
         if (!players[playerId] || !players[playerId].isAlive) return;
+        const now = Date.now();
+        if (now - _lastThrowTime < THROW_COOLDOWN) return;
+        _lastThrowTime = now;
+        executeThrow(playerId);
+    });
+
+    // v2.58: 방향 + 공격 합쳐진 이벤트 (타이밍 불일치 방지)
+    socket.on('throw_directed', (dataStr) => {
+        if (!players[playerId] || !players[playerId].isAlive) return;
+        const now = Date.now();
+        if (now - _lastThrowTime < THROW_COOLDOWN) return;
+        _lastThrowTime = now;
+        try {
+            const data = JSON.parse(dataStr);
+            if (data.dirX !== undefined && data.dirY !== undefined) {
+                players[playerId].dirX = data.dirX;
+                players[playerId].dirY = data.dirY;
+            }
+        } catch(e) {}
         executeThrow(playerId);
     });
 
