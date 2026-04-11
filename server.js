@@ -604,17 +604,18 @@ httpRoutes.register(app, {
 // v2.51: 영웅의 전당 초기화
 hallOfHeroes.init({});
 
-// v2.58: 배틀로얄 초기화
-battleRoyale.initBattleRoyale(io, (pid) => players[pid], players);
-battleRoyale.startAutoSchedule();
-
-// v2.58: 월드 레이드 & 이벤트 초기화
-worldRaid.initWorldRaid(io, players);
-worldRaid.startAutoEvents();
-
-// v2.58: 드래곤 레이스 초기화
-dragonRace.initDragonRace(io, players);
-dragonRace.startAutoRace();
+// v2.58: 배틀로얄/레이드/드래곤 초기화는 players 선언 후 실행 (setTimeout)
+setTimeout(() => {
+    try {
+        battleRoyale.initBattleRoyale(io, (pid) => players[pid], players);
+        battleRoyale.startAutoSchedule();
+        worldRaid.initWorldRaid(io, players);
+        worldRaid.startAutoEvents();
+        dragonRace.initDragonRace(io, players);
+        dragonRace.startAutoRace();
+        console.log('[v2.58] 배틀로얄/레이드/드래곤 초기화 완료');
+    } catch(e) { console.error('[v2.58] Init error:', e.message); }
+}, 2000);
 
 console.log(`[AutoBattle.io] Starting server on port ${PORT}...`);
 server.listen(PORT, () => {
