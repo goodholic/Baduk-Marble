@@ -63,6 +63,22 @@ const MERCENARIES = [
   { id: 'merc_world_tree', name: '세계수 정령',icon: '🌳', grade: 4, role: '치유',  atk: 25, def: 30, hp: 600, spd: 8,  skill: { name: '생명의 나무', healAll: 150, revive: true, cd: 45, desc: '전체 150힐+부활' } },
   { id: 'merc_void_king',  name: '공허의 왕', icon: '🌀', grade: 4, role: '마법',   atk: 65, def: 20, hp: 400, spd: 14, skill: { name: '차원 붕괴', dmg: 8.0, aoe: true, cd: 32, desc: '전체 8배 공허' } },
 
+  // ── 50종 완성 추가분 ──
+  // 일반
+  { id: 'merc_farmer',    name: '농부 전사',   icon: '🌾', grade: 0, role: '전사',   atk: 9,  def: 11, hp: 140, spd: 7,  skill: { name: '낫 휘두르기', dmg: 1.6, cd: 8, desc: '광역 1.6배' } },
+  // 고급
+  { id: 'merc_pirate',    name: '해적',       icon: '🏴‍☠️', grade: 1, role: '암살',  atk: 19, def: 7,  hp: 110, spd: 13, skill: { name: '약탈', dmg: 2.0, steal: 30, cd: 10, desc: '2배+골드30' } },
+  { id: 'merc_templar',   name: '성전사',     icon: '⛪', grade: 1, role: '전사',   atk: 16, def: 15, hp: 170, spd: 8,  skill: { name: '신성 돌격', dmg: 2.2, heal: 20, cd: 12, desc: '2.2배+자힐' } },
+  // 희귀
+  { id: 'merc_alchemist',  name: '연금술사',  icon: '⚗️', grade: 2, role: '치유',   atk: 16, def: 8,  hp: 110, spd: 9,  skill: { name: '만능약', healAll: 45, buffAll: 'atk+10%', cd: 16, desc: '전체힐+ATK↑' } },
+  { id: 'merc_beast_tamer', name: '맹수 조련사',icon: '🦁', grade: 2, role: '전사', atk: 27, def: 10, hp: 160, spd: 11, skill: { name: '맹수 소환', summon: 3, dmg: 1.5, cd: 14, desc: '맹수3+1.5배' } },
+  // 영웅
+  { id: 'merc_time_mage',  name: '시간 마법사', icon: '⏳', grade: 3, role: '마법', atk: 42, def: 10, hp: 170, spd: 14, skill: { name: '시간 정지', stun: 4, aoe: true, cd: 24, desc: '전체 4초 정지!' } },
+  // 전설
+  { id: 'merc_chaos_lord', name: '혼돈의 군주', icon: '🌀', grade: 4, role: '마법', atk: 62, def: 22, hp: 420, spd: 13, skill: { name: '차원 분열', dmg: 7.5, aoe: true, debuff: 'all-20%', cd: 30, desc: '7.5배+전스탯감소' } },
+  // 신화
+  { id: 'merc_world_ender',name: '세계의 끝',  icon: '💀', grade: 5, role: '전사',  atk: 95, def: 55, hp: 900, spd: 18, skill: { name: '종말', dmg: 12.0, aoe: true, cd: 40, desc: '전체 12배!!!' } },
+
   // ── v3.0 추가 용병 ──
   // 고급
   { id: 'merc_berserker', name: '광전사',     icon: '😤', grade: 1, role: '전사',   atk: 24, def: 4,  hp: 130, spd: 11, skill: { name: '분노', dmg: 3.0, selfDmg: 20, cd: 8, desc: '3배, 자해 20' } },
