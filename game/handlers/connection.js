@@ -351,6 +351,12 @@ io.on("connection", (socket) => {
         const worldRaid = require('../world_raid');
         worldRaid.registerWorldRaidHandlers(socket, playerId, players, io);
     } catch(e) { /* ignore if not loaded */ }
+
+    // v2.58: 하우징 & 요새 핸들러
+    try {
+        const housing = require('../housing');
+        housing.registerHousingHandlers(socket, playerId, players, io);
+    } catch(e) { /* ignore if not loaded */ }
 });
 }
 

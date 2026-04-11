@@ -2679,6 +2679,91 @@
         playSFX('buff');
       });
 
+      // ═══ 하우징 & 요새 ═══
+      window.socket.on('house_status', (d) => {
+        var html = '';
+        if (!d.hasHouse) {
+          html = '<div style="text-align:center"><p style="color:#ffd700;font-size:16px;margin-bottom:10px">🏠 집 건설하기</p>' +
+            '<p class="text-muted text-sm" style="margin-bottom:12px">자신만의 집을 건설하세요! 가구 배치, 자원 생산, 수비대 배치까지!</p></div>';
+          d.tiers.forEach(function(t) {
+            html += '<div class="panel-item" style="border-left:3px solid #ffd700;cursor:pointer" onclick="window.socket.emit(\'house_build\',\'' + t.id + '\');closeModal();">' +
+              '<span class="name">' + t.icon + ' ' + t.name + '<br><small style="color:#888">' + t.cost.toLocaleString() + 'G</small>' +
+              '<br><small style="color:#aaa">' + t.desc + '</small></span></div>';
+          });
+        } else {
+          // 집 상태
+          html = '<div style="text-align:center;margin-bottom:8px">' +
+            '<span style="font-size:32px">' + d.tier.icon + '</span>' +
+            '<p style="color:#ffd700;font-size:16px;font-weight:900">' + d.tier.name + '</p></div>';
+
+          // 보너스
+          var bonusText = Object.entries(d.bonuses).filter(function(e){return typeof e[1]==='number'&&e[1]>0;}).map(function(e){return e[0]+': +'+e[1];}).join(', ');
+          if (bonusText) html += '<p style="color:#44ff88;font-size:10px;text-align:center;margin-bottom:8px">✨ ' + bonusText + '</p>';
+
+          // 수집 가능
+          if (d.pendingHours > 0) {
+            html += '<button class="btn btn-primary" onclick="window.socket.emit(\'house_collect\');closeModal();" style="width:100%;margin-bottom:8px">📦 자원 수집 (' + d.pendingHours + '시간분)</button>';
+          }
+
+          // 업그레이드
+          if (d.nextUpgrade) {
+            html += '<button class="btn" onclick="window.socket.emit(\'house_upgrade\');closeModal();" style="width:100%;margin-bottom:8px">' + d.nextUpgrade.icon + ' 업그레이드: ' + d.nextUpgrade.name + ' (' + d.nextUpgrade.cost.toLocaleString() + 'G)</button>';
+          }
+
+          // 가구
+          html += '<h4 style="color:#ffd700;margin:8px 0 4px;font-size:11px">🪑 가구 (' + d.furniture.length + '/' + d.maxFurniture + ')</h4>';
+          if (d.furniture.length > 0) {
+            d.furniture.forEach(function(f) { html += '<span style="font-size:11px;color:#ddd;margin-right:4px">' + (f.icon||'') + f.name + '</span>'; });
+          }
+          html += '<div style="margin:6px 0"><select id="furn-select" style="width:70%;padding:4px;background:#222;color:#ddd;border:1px solid #555;border-radius:4px;font-size:10px">';
+          d.availableFurniture.forEach(function(f) { html += '<option value="' + f.id + '">' + f.icon + ' ' + f.name + ' (' + f.cost.toLocaleString() + 'G) — ' + f.desc + '</option>'; });
+          html += '</select><button class="btn btn-sm" onclick="window.socket.emit(\'house_furniture\',document.getElementById(\'furn-select\').value);closeModal();" style="margin-left:4px">배치</button></div>';
+
+          // 수비대
+          html += '<h4 style="color:#ff4444;margin:8px 0 4px;font-size:11px">⚔️ 수비대 (' + d.guards.length + '/' + d.maxGuards + ')</h4>';
+          if (d.guards.length > 0) {
+            d.guards.forEach(function(g) {
+              var hpPct = g.maxHp > 0 ? Math.floor(g.hp/g.maxHp*100) : 0;
+              html += '<span style="font-size:11px;color:#ddd;margin-right:6px">' + (g.icon||'') + g.name + ' HP:' + hpPct + '%</span>';
+            });
+          }
+          html += '<div style="margin:6px 0"><select id="guard-select" style="width:70%;padding:4px;background:#222;color:#ddd;border:1px solid #555;border-radius:4px;font-size:10px">';
+          d.availableGuards.forEach(function(g) { html += '<option value="' + g.id + '">' + g.icon + ' ' + g.name + ' (' + g.cost.toLocaleString() + 'G) ATK:' + g.atk + ' DEF:' + g.def + '</option>'; });
+          html += '</select><button class="btn btn-sm" onclick="window.socket.emit(\'house_guard\',document.getElementById(\'guard-select\').value);closeModal();" style="margin-left:4px">배치</button></div>';
+
+          // 방명록
+          if (d.guestbook && d.guestbook.length > 0) {
+            html += '<h4 style="color:#888;margin:8px 0 4px;font-size:11px">📝 방명록</h4>';
+            d.guestbook.slice(0,5).forEach(function(g) {
+              html += '<div style="font-size:10px;color:#aaa;padding:2px 0"><b style="color:#ffd700">' + g.from + '</b>: ' + g.msg + '</div>';
+            });
+          }
+        }
+        showModal('🏠 내 집', html, [{label:'닫기', type:'cancel', action:'closeModal()'}]);
+      });
+
+      window.socket.on('house_result', (d) => { showToast(d.msg); });
+      window.socket.on('house_collect_result', (d) => {
+        if (!d.success) { showToast(d.msg); return; }
+        var msg = '📦 ' + d.msg + ' — +' + d.gold + 'G';
+        var items = Object.entries(d.items || {});
+        if (items.length > 0) msg += ', ' + items.map(function(e){return e[0]+' x'+e[1];}).join(', ');
+        showToast(msg);
+        playSFX('gold');
+      });
+
+      window.socket.on('house_raid_result', (d) => {
+        var html = '<div style="text-align:center"><p style="color:' + (d.success ? '#ffd700' : '#ff4444') + ';font-size:16px">' + (d.success ? '⚔️ 침공 성공!' : '💀 침공 실패!') + '</p>';
+        if (d.lootGold) html += '<p style="color:#ffd700;margin:8px 0">약탈: ' + d.lootGold + 'G</p>';
+        if (d.results && d.results.length > 0) {
+          html += '<div style="margin-top:8px">';
+          d.results.forEach(function(r) { html += '<p style="font-size:11px;color:' + (r.survived?'#ff4444':'#44ff44') + '">' + r.guard + ': ' + (r.survived?'생존':'격파') + ' (' + r.rounds + '라운드)</p>'; });
+          html += '</div>';
+        }
+        html += '</div>';
+        showModal('⚔️ 요새 침공', html, [{label:'확인', action:'closeModal()'}]);
+      });
+
       // ═══ 월드 레이드 & 이벤트 ═══
       window.socket.on('world_events_info', (d) => {
         var html = '';
