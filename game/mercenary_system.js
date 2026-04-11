@@ -1,0 +1,304 @@
+// 용병 육성 시스템 — v3.0
+// 거상 스타일 용병 수집 + 스펙업 + 편성 + 공성/서바이벌 연동
+// 핵심: 용병을 키우는 재미!
+
+// ═══ 용병 등급 & 스탯 성장 ═══
+const GRADES = ['일반','고급','희귀','영웅','전설','신화'];
+const GRADE_COLORS = { 0:'#888', 1:'#44cc44', 2:'#4488ff', 3:'#aa44ff', 4:'#ff8800', 5:'#ff00ff' };
+const GRADE_STAT_MULT = [1.0, 1.3, 1.7, 2.2, 3.0, 5.0]; // 등급별 스탯 배율
+const MAX_LEVEL = 100;
+const EXP_PER_LEVEL = (lv) => Math.floor(50 * Math.pow(1.08, lv - 1));
+
+// ═══ 용병 목록 (수집형) ═══
+const MERCENARIES = [
+  // ── 일반 (서바이벌에서 쉽게 획득) ──
+  { id: 'merc_soldier',  name: '보병',       icon: '🗡️', grade: 0, role: '전사',   atk: 12, def: 10, hp: 120, spd: 8,  skill: { name: '강타', dmg: 1.5, cd: 8,  desc: '단일 1.5배' } },
+  { id: 'merc_archer',   name: '궁수',       icon: '🏹', grade: 0, role: '사수',   atk: 14, def: 5,  hp: 80,  spd: 10, skill: { name: '연사', dmg: 0.8, hits: 3, cd: 6, desc: '3연사' } },
+  { id: 'merc_acolyte',  name: '수습 사제',  icon: '📿', grade: 0, role: '치유',   atk: 6,  def: 6,  hp: 90,  spd: 7,  skill: { name: '치유', heal: 30, cd: 10, desc: 'HP 30 회복' } },
+
+  // ── 고급 (서바이벌 보스 드롭) ──
+  { id: 'merc_knight',   name: '기사',       icon: '⚔️', grade: 1, role: '전사',   atk: 18, def: 16, hp: 180, spd: 7,  skill: { name: '방패 돌진', dmg: 2.0, stun: 2, cd: 12, desc: '2배+스턴 2초' } },
+  { id: 'merc_ranger',   name: '레인저',     icon: '🌿', grade: 1, role: '사수',   atk: 20, def: 8,  hp: 100, spd: 12, skill: { name: '독화살', dmg: 1.2, dot: 5, cd: 8, desc: '독 5초' } },
+  { id: 'merc_wizard',   name: '마법사',     icon: '🔮', grade: 1, role: '마법',   atk: 22, def: 4,  hp: 70,  spd: 9,  skill: { name: '파이어볼', dmg: 2.5, aoe: true, cd: 10, desc: '광역 2.5배' } },
+
+  // ── 희귀 (가챠/이벤트) ──
+  { id: 'merc_paladin',  name: '성기사',     icon: '✝️', grade: 2, role: '전사',   atk: 25, def: 22, hp: 250, spd: 8,  skill: { name: '신성 일격', dmg: 3.0, heal: 50, cd: 15, desc: '3배+자힐 50' } },
+  { id: 'merc_assassin',  name: '암살자',    icon: '🌙', grade: 2, role: '암살',   atk: 30, def: 6,  hp: 90,  spd: 16, skill: { name: '급소', dmg: 4.0, critGuarantee: true, cd: 14, desc: '확정 크리 4배' } },
+  { id: 'merc_priest',   name: '사제',       icon: '💚', grade: 2, role: '치유',   atk: 10, def: 12, hp: 140, spd: 8,  skill: { name: '전체 치유', healAll: 40, cd: 18, desc: '아군 전원 HP 40' } },
+  { id: 'merc_warlock',  name: '흑마법사',   icon: '☠️', grade: 2, role: '마법',   atk: 28, def: 5,  hp: 85,  spd: 9,  skill: { name: '저주', dmg: 2.0, debuff: 'atk-30%', cd: 12, desc: '2배+ATK감소' } },
+
+  // ── 영웅 (매우 희귀) ──
+  { id: 'merc_dragon_knight', name: '드래곤나이트', icon: '🐲', grade: 3, role: '전사', atk: 40, def: 30, hp: 400, spd: 10, skill: { name: '드래곤 브레스', dmg: 5.0, aoe: true, cd: 20, desc: '광역 5배 화염' } },
+  { id: 'merc_archmage', name: '대마법사',   icon: '🌟', grade: 3, role: '마법',   atk: 45, def: 8,  hp: 150, spd: 11, skill: { name: '메테오', dmg: 6.0, aoe: true, cd: 25, desc: '메테오 6배' } },
+  { id: 'merc_shadow_lord',name:'그림자 군주', icon: '🌑', grade: 3, role: '암살',  atk: 42, def: 15, hp: 200, spd: 18, skill: { name: '분신', summon: 2, cd: 22, desc: '분신 2체 소환' } },
+
+  // ── 전설 (극히 희귀) ──
+  { id: 'merc_death_knight',name:'죽음의 기사', icon: '💀', grade: 4, role: '전사', atk: 55, def: 35, hp: 500, spd: 9,  skill: { name: '망자의 군대', summon: 5, dmg: 3.0, cd: 30, desc: '해골 5체+3배' } },
+  { id: 'merc_seraph',   name: '세라핌',     icon: '👼', grade: 4, role: '치유',   atk: 35, def: 25, hp: 400, spd: 12, skill: { name: '부활', revive: true, cd: 60, desc: '아군 1체 부활' } },
+
+  // ── 신화 (전설 중의 전설) ──
+  { id: 'merc_bahamut',  name: '용왕 바하무트', icon: '🐲', grade: 5, role: '전사', atk: 100, def: 60, hp: 1000, spd: 15, skill: { name: '멸망의 브레스', dmg: 10.0, aoe: true, cd: 35, desc: '전체 10배!' } },
+  { id: 'merc_god_of_war',name:'전쟁의 신',  icon: '⚡', grade: 5, role: '전사',   atk: 90, def: 50, hp: 800, spd: 20, skill: { name: '천둥 심판', dmg: 8.0, stun: 3, aoe: true, cd: 30, desc: '전체 8배+스턴' } },
+];
+
+// ═══ 용병 장비 (용병 전용) ═══
+const MERC_EQUIPMENT = {
+  weapon: [
+    { id: 'mw_iron',   name: '철 검',     grade: 0, atk: 3 },
+    { id: 'mw_steel',  name: '강철 검',   grade: 1, atk: 6 },
+    { id: 'mw_magic',  name: '마법 검',   grade: 2, atk: 12, critRate: 5 },
+    { id: 'mw_legend', name: '전설의 검',  grade: 3, atk: 20, critRate: 10 },
+    { id: 'mw_divine', name: '신성 검',    grade: 4, atk: 35, critRate: 15, lifesteal: 5 },
+  ],
+  armor: [
+    { id: 'ma_leather', name: '가죽 갑옷', grade: 0, def: 3, hp: 10 },
+    { id: 'ma_chain',   name: '사슬 갑옷', grade: 1, def: 6, hp: 25 },
+    { id: 'ma_plate',   name: '판금 갑옷', grade: 2, def: 12, hp: 50 },
+    { id: 'ma_dragon',  name: '용린 갑옷', grade: 3, def: 20, hp: 100 },
+    { id: 'ma_divine',  name: '신성 갑옷', grade: 4, def: 35, hp: 200 },
+  ],
+};
+
+// ═══ 용병 스킬 강화 ═══
+const SKILL_UPGRADE_COST = (lv) => ({ gold: lv * 500, material: Math.ceil(lv / 2) });
+const SKILL_MAX_LEVEL = 10;
+
+// ═══ 핵심 함수들 ═══
+
+function getPlayerMercs(player) {
+  if (!player._mercs) player._mercs = { roster: [], party: [], maxRoster: 20 };
+  return player._mercs;
+}
+
+// 용병 획득
+function addMercenary(player, mercId) {
+  const template = MERCENARIES.find(m => m.id === mercId);
+  if (!template) return { success: false, msg: '존재하지 않는 용병' };
+  const mercs = getPlayerMercs(player);
+  if (mercs.roster.length >= mercs.maxRoster) return { success: false, msg: '용병 보관함이 가득찼습니다 (' + mercs.maxRoster + ')' };
+
+  const merc = {
+    uid: 'mu_' + Date.now() + '_' + Math.floor(Math.random() * 9999),
+    ...template,
+    level: 1, exp: 0,
+    skillLevel: 1,
+    equipment: { weapon: null, armor: null },
+    stars: 0, // 각성 단계 (0~5)
+    bond: 0,  // 유대도 (0~100)
+  };
+  mercs.roster.push(merc);
+
+  return { success: true, msg: template.icon + ' ' + template.name + ' 획득!', merc };
+}
+
+// 용병 레벨업 (EXP)
+function addMercExp(player, mercUid, expAmount) {
+  const mercs = getPlayerMercs(player);
+  const merc = mercs.roster.find(m => m.uid === mercUid);
+  if (!merc) return null;
+
+  merc.exp += expAmount;
+  let leveled = false;
+  while (merc.level < MAX_LEVEL && merc.exp >= EXP_PER_LEVEL(merc.level)) {
+    merc.exp -= EXP_PER_LEVEL(merc.level);
+    merc.level++;
+    leveled = true;
+    // 레벨당 스탯 성장
+    const mult = GRADE_STAT_MULT[merc.grade] || 1;
+    merc.atk += Math.floor(1.5 * mult);
+    merc.def += Math.floor(1.0 * mult);
+    merc.hp += Math.floor(5 * mult);
+  }
+
+  return { leveled, level: merc.level, exp: merc.exp, expToNext: EXP_PER_LEVEL(merc.level) };
+}
+
+// 용병 각성 (★)
+function awakenMerc(player, mercUid) {
+  const mercs = getPlayerMercs(player);
+  const merc = mercs.roster.find(m => m.uid === mercUid);
+  if (!merc) return { success: false, msg: '용병을 찾을 수 없습니다' };
+  if (merc.stars >= 5) return { success: false, msg: '이미 최대 각성!' };
+
+  // 같은 ID의 다른 용병이 필요 (재료로 소모)
+  const dupeIdx = mercs.roster.findIndex(m => m.uid !== mercUid && m.id === merc.id);
+  if (dupeIdx === -1) return { success: false, msg: '같은 용병 카드가 필요합니다 (중복 카드 소모)' };
+
+  const goldCost = (merc.stars + 1) * 5000 * (merc.grade + 1);
+  if ((player.gold || 0) < goldCost) return { success: false, msg: '골드 부족 (필요: ' + goldCost + 'G)' };
+
+  // 각성!
+  player.gold -= goldCost;
+  mercs.roster.splice(dupeIdx, 1); // 중복 카드 소모
+  merc.stars++;
+
+  // 각성 보너스
+  const bonus = Math.floor(merc.stars * 5 * GRADE_STAT_MULT[merc.grade]);
+  merc.atk += bonus;
+  merc.def += Math.floor(bonus * 0.7);
+  merc.hp += bonus * 5;
+
+  return { success: true, msg: '⭐'.repeat(merc.stars) + ' ' + merc.name + ' 각성 완료!', merc };
+}
+
+// 스킬 강화
+function upgradeSkill(player, mercUid) {
+  const mercs = getPlayerMercs(player);
+  const merc = mercs.roster.find(m => m.uid === mercUid);
+  if (!merc) return { success: false };
+  if (merc.skillLevel >= SKILL_MAX_LEVEL) return { success: false, msg: '스킬 최대 레벨' };
+
+  const cost = SKILL_UPGRADE_COST(merc.skillLevel);
+  if ((player.gold || 0) < cost.gold) return { success: false, msg: '골드 부족 (' + cost.gold + 'G)' };
+
+  player.gold -= cost.gold;
+  merc.skillLevel++;
+
+  // 스킬 데미지 증가
+  if (merc.skill.dmg) merc.skill.dmg = Math.round((merc.skill.dmg + 0.3) * 10) / 10;
+  if (merc.skill.heal) merc.skill.heal += 10;
+  if (merc.skill.healAll) merc.skill.healAll += 8;
+
+  return { success: true, msg: merc.skill.name + ' Lv.' + merc.skillLevel + '!' };
+}
+
+// 장비 장착
+function equipMerc(player, mercUid, equipId) {
+  const mercs = getPlayerMercs(player);
+  const merc = mercs.roster.find(m => m.uid === mercUid);
+  if (!merc) return { success: false };
+
+  // 장비 찾기
+  let equip = null, slot = null;
+  for (const s of ['weapon', 'armor']) {
+    equip = MERC_EQUIPMENT[s].find(e => e.id === equipId);
+    if (equip) { slot = s; break; }
+  }
+  if (!equip) return { success: false, msg: '장비를 찾을 수 없습니다' };
+
+  // 인벤토리 체크
+  if (!player.inventory || !player.inventory[equipId]) return { success: false, msg: '장비가 없습니다' };
+  player.inventory[equipId]--;
+  if (player.inventory[equipId] <= 0) delete player.inventory[equipId];
+
+  // 기존 장비 반환
+  if (merc.equipment[slot]) {
+    if (!player.inventory) player.inventory = {};
+    player.inventory[merc.equipment[slot].id] = (player.inventory[merc.equipment[slot].id] || 0) + 1;
+  }
+
+  merc.equipment[slot] = equip;
+
+  return { success: true, msg: merc.name + '에게 ' + equip.name + ' 장착!' };
+}
+
+// 파티 편성 (최대 6명)
+function setParty(player, mercUids) {
+  const mercs = getPlayerMercs(player);
+  const party = [];
+  for (const uid of mercUids.slice(0, 6)) {
+    const merc = mercs.roster.find(m => m.uid === uid);
+    if (merc) party.push(merc);
+  }
+  mercs.party = party.map(m => m.uid);
+  return { success: true, party: party.map(m => ({ uid: m.uid, name: m.name, icon: m.icon, level: m.level, stars: m.stars })) };
+}
+
+// 전투력 계산
+function calcCombatPower(merc) {
+  let atk = merc.atk, def = merc.def, hp = merc.hp;
+  if (merc.equipment.weapon) { atk += merc.equipment.weapon.atk || 0; }
+  if (merc.equipment.armor) { def += merc.equipment.armor.def || 0; hp += merc.equipment.armor.hp || 0; }
+  return Math.floor((atk * 2 + def * 1.5 + hp * 0.3) * (1 + merc.stars * 0.15));
+}
+
+// 용병 상태 조회
+function getMercStatus(player) {
+  const mercs = getPlayerMercs(player);
+  return {
+    roster: mercs.roster.map(m => ({
+      uid: m.uid, id: m.id, name: m.name, icon: m.icon,
+      grade: m.grade, gradeColor: GRADE_COLORS[m.grade],
+      level: m.level, exp: m.exp, expToNext: EXP_PER_LEVEL(m.level),
+      atk: m.atk, def: m.def, hp: m.hp, spd: m.spd,
+      stars: m.stars, skillLevel: m.skillLevel, skillName: m.skill.name,
+      equipment: m.equipment, combatPower: calcCombatPower(m),
+      role: m.role,
+      inParty: mercs.party.includes(m.uid),
+    })),
+    party: mercs.party,
+    maxRoster: mercs.maxRoster,
+    totalPower: mercs.roster.filter(m => mercs.party.includes(m.uid)).reduce((s, m) => s + calcCombatPower(m), 0),
+  };
+}
+
+// ═══ 소켓 핸들러 ═══
+function registerMercHandlers(socket, playerId, players, io) {
+  socket.on('merc_status', () => {
+    const p = players[playerId];
+    if (!p) return;
+    socket.emit('merc_status', getMercStatus(p));
+  });
+
+  socket.on('merc_level_up', (data) => {
+    const p = players[playerId];
+    if (!p) return;
+    // 골드로 경험치 구매 (100G = 50 EXP)
+    const cost = 100;
+    if ((p.gold || 0) < cost) { socket.emit('merc_result', { success: false, msg: '골드 부족' }); return; }
+    p.gold -= cost;
+    const result = addMercExp(p, data.uid, 50);
+    socket.emit('merc_result', { success: true, msg: result?.leveled ? '레벨 업!' : 'EXP +50', ...result });
+  });
+
+  socket.on('merc_awaken', (uid) => {
+    const p = players[playerId];
+    if (!p) return;
+    const result = awakenMerc(p, uid);
+    socket.emit('merc_result', result);
+    if (result.success) io.emit('server_msg', { msg: '⭐ ' + (p.displayName||p.className) + '의 ' + result.merc.name + ' 각성!', type: 'rare' });
+  });
+
+  socket.on('merc_skill_up', (uid) => {
+    const p = players[playerId];
+    if (!p) return;
+    socket.emit('merc_result', upgradeSkill(p, uid));
+  });
+
+  socket.on('merc_equip', (data) => {
+    const p = players[playerId];
+    if (!p) return;
+    socket.emit('merc_result', equipMerc(p, data.uid, data.equipId));
+  });
+
+  socket.on('merc_set_party', (uids) => {
+    const p = players[playerId];
+    if (!p) return;
+    socket.emit('merc_party_result', setParty(p, uids));
+  });
+
+  // 서바이벌 보상으로 용병 카드 획득
+  socket.on('merc_gacha', () => {
+    const p = players[playerId];
+    if (!p) return;
+    if ((p.diamonds || 0) < 30) { socket.emit('merc_result', { success: false, msg: '다이아 부족 (30💎)' }); return; }
+    p.diamonds -= 30;
+
+    // 가중치 랜덤
+    const weights = { 0: 50, 1: 25, 2: 15, 3: 7, 4: 2.5, 5: 0.5 };
+    let roll = Math.random() * 100;
+    let targetGrade = 0;
+    for (const [g, w] of Object.entries(weights)) {
+      roll -= w;
+      if (roll <= 0) { targetGrade = parseInt(g); break; }
+    }
+
+    const pool = MERCENARIES.filter(m => m.grade === targetGrade);
+    const selected = pool[Math.floor(Math.random() * pool.length)] || MERCENARIES[0];
+    const result = addMercenary(p, selected.id);
+    socket.emit('merc_gacha_result', result);
+    if (targetGrade >= 4) io.emit('server_msg', { msg: '⭐ ' + (p.displayName||p.className) + '님이 ' + GRADES[targetGrade] + ' 용병 획득! ' + selected.icon + ' ' + selected.name, type: 'boss' });
+  });
+}
+
+module.exports = { MERCENARIES, MERC_EQUIPMENT, GRADES, GRADE_COLORS, addMercenary, addMercExp, getMercStatus, registerMercHandlers, calcCombatPower, getPlayerMercs };

@@ -382,6 +382,12 @@ io.on("connection", (socket) => {
         friendDuel.registerFriendDuelHandlers(socket, playerId, players, io);
     } catch(e) { /* ignore if not loaded */ }
 
+    // v3.0: 용병 육성 시스템
+    try {
+        const mercSystem = require('../mercenary_system');
+        mercSystem.registerMercHandlers(socket, playerId, players, io);
+    } catch(e) {}
+
     // v2.60: 오토배틀 서바이벌 IO
     try {
         const autoSurvival = require('../auto_survival');
