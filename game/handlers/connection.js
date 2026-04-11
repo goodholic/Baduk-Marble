@@ -369,6 +369,12 @@ io.on("connection", (socket) => {
         const advMorph = require('../advanced_morph');
         advMorph.registerAdvancedHandlers(socket, playerId, players, io);
     } catch(e) { /* ignore if not loaded */ }
+
+    // v2.58: 미니게임 핸들러
+    try {
+        const minigames = require('../minigames');
+        minigames.registerMinigameHandlers(socket, playerId, players, io);
+    } catch(e) { /* ignore if not loaded */ }
 });
 }
 

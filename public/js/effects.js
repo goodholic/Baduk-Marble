@@ -921,6 +921,12 @@
           '<button class="btn" style="width:100%;margin:3px 0" onclick="window.socket.emit(\'evolve_pet\',\'pet_dragon\');closeModal();">미니 드래곤 → 고대 드래곤 (ATK+30%)</button>' +
           '<button class="btn" style="width:100%;margin:3px 0" onclick="window.socket.emit(\'evolve_pet\',\'pet_angel\');closeModal();">천사 → 세라핌 (자동 부활 강화)</button>' +
           '</div>',[{label:'닫기',type:'cancel',action:'closeModal()'}]);}},
+        {label:'🎮 미니게임', action:()=>{showModal('🎮 미니게임','<div style="display:flex;flex-direction:column;gap:6px">'+
+          '<button class="btn" onclick="window.socket.emit(\'fish_tournament_start\');closeModal();" style="text-align:left">🎣 낚시 대회 — 5분간 가장 많이 낚아라!</button>'+
+          '<button class="btn" onclick="window.socket.emit(\'treasure_hunt_start\');closeModal();" style="text-align:left">🗺️ 보물지도 — 단서를 따라 보물을 찾아라!</button>'+
+          '<button class="btn" onclick="window.socket.emit(\'card_game_start\');closeModal();" style="text-align:left">🃏 카드 뒤집기 — 짝 맞추기 (300G)</button>'+
+          '<button class="btn" onclick="window.socket.emit(\'quiz_start\');closeModal();" style="text-align:left">❓ 몬스터 퀴즈 — 15초 안에 정답!</button>'+
+          '</div>',[{label:'닫기',type:'cancel',action:'closeModal()'}]);}},
         {label:'🏆 업적', action:()=>{window.socket.emit('achievement_status');}},
         {label:'👿 전설 변신', action:()=>{window.socket.emit('legendary_morph_list');}},
         {label:'🐲 드래곤', action:()=>{window.socket.emit('dragon_list');}},

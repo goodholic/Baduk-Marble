@@ -2679,6 +2679,90 @@
         playSFX('buff');
       });
 
+      // ═══ 미니게임 ═══
+      window.socket.on('minigame_result', (d) => { showToast(d.msg); });
+
+      // 낚시 대회
+      window.socket.on('fish_tournament_catch_result', (d) => {
+        showToast(d.fish.icon + ' ' + d.fish.name + ' 낚음! (+' + d.fish.points + '점, 총 ' + d.totalPoints + '점)');
+        playSFX('gold');
+      });
+      window.socket.on('fishing_tournament_end', (d) => {
+        var html = '<p style="text-align:center;color:#ffd700;font-size:16px">🏆 낚시 대회 결과</p>';
+        d.rankings.forEach(function(r) { html += '<div style="padding:3px 0;font-size:11px;color:#ddd">' + r.rank + '위 ' + r.name + ' — ' + r.points + '점 (' + r.catches + '마리)</div>'; });
+        showModal('🎣 낚시 대회', html, [{label:'확인', action:'closeModal()'}]);
+      });
+
+      // 보물지도
+      window.socket.on('treasure_hunt_result', (d) => {
+        if (!d.success) { showToast(d.msg); return; }
+        if (d.completed) {
+          showModal('🗺️ 보물 발견!', '<div style="text-align:center"><p style="color:#ffd700;font-size:18px">보물을 찾았습니다!</p>' +
+            (d.reward.gold ? '<p style="color:#ffd700">💰 +' + d.reward.gold + 'G</p>' : '') +
+            (d.reward.diamonds ? '<p style="color:#55ccff">💎 +' + d.reward.diamonds + '</p>' : '') +
+            '</div>', [{label:'멋지다!', action:'closeModal()'}]);
+          playSFX('levelup');
+        } else if (d.map) {
+          showModal('🗺️ ' + d.map.name, '<p style="color:#ffd700">단서: "' + d.map.clue + '"</p><p style="color:#888;font-size:11px">' + d.map.zone + ' 지역으로 이동하세요!</p><p style="color:#aaa;font-size:10px">난이도: ' + '⭐'.repeat(d.map.difficulty) + '</p>',
+            [{label:'탐험!', action:"window.socket.emit('treasure_hunt_progress');closeModal();"}, {label:'닫기', type:'cancel', action:'closeModal()'}]);
+        } else {
+          showToast('📍 다음 단서: "' + d.clue + '" (' + d.progress + ')');
+        }
+      });
+
+      // 카드 뒤집기
+      window.socket.on('card_game_result', (d) => {
+        if (!d.success) { showToast(d.msg); return; }
+        showModal('🃏 카드 뒤집기', '<p style="text-align:center;color:#ffd700">4×4 카드에서 같은 짝을 찾으세요! (' + d.timeLimit + '초)</p>' +
+          '<div id="card-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin:12px 0">' +
+          Array.from({length:16}, function(_,i) { return '<button class="btn" style="width:100%;height:50px;font-size:20px" onclick="window.socket.emit(\'card_game_flip\',' + i + ')" id="card-' + i + '">❓</button>'; }).join('') +
+          '</div>', [{label:'닫기', type:'cancel', action:'closeModal()'}]);
+      });
+      window.socket.on('card_game_flip_result', (d) => {
+        if (!d.success) { if (d.timeout) showToast('⏰ 시간 초과!'); return; }
+        if (d.waitingSecond) {
+          var el = document.getElementById('card-' + d.index);
+          if (el) { el.textContent = d.symbol; el.style.background = '#2a4a2a'; }
+        } else if (d.match) {
+          if (d.completed) {
+            showModal('🃏 성공!', '<p style="text-align:center;color:#ffd700;font-size:16px">전부 맞췄습니다!</p><p style="color:#888">' + d.attempts + '번 시도, ' + d.elapsed + '초</p>' +
+              '<p style="color:#ffd700">💰 +' + d.reward.gold + 'G' + (d.reward.diamonds ? ' 💎 +' + d.reward.diamonds : '') + '</p>',
+              [{label:'멋지다!', action:'closeModal()'}]);
+            playSFX('levelup');
+          } else { showToast('✅ 짝 맞춤! (' + d.matches + '/' + d.total + ')'); }
+        } else {
+          // 짝이 안 맞음 — 잠시 보여주고 뒤집기
+          var e1 = document.getElementById('card-' + d.firstIndex);
+          var e2 = document.getElementById('card-' + d.secondIndex);
+          if (e1) e1.textContent = d.firstSymbol;
+          if (e2) e2.textContent = d.secondSymbol;
+          setTimeout(function() {
+            if (e1) { e1.textContent = '❓'; e1.style.background = ''; }
+            if (e2) { e2.textContent = '❓'; e2.style.background = ''; }
+          }, 800);
+        }
+      });
+
+      // 퀴즈
+      window.socket.on('quiz_question', (d) => {
+        if (!d.success) { showToast(d.msg); return; }
+        var html = '<p style="color:#ffd700;font-size:14px;text-align:center;margin-bottom:12px">' + d.question + '</p>' +
+          '<p style="color:#888;font-size:10px;text-align:center;margin-bottom:8px">⏱ ' + d.timeLimit + '초</p>';
+        d.options.forEach(function(opt, i) {
+          html += '<button class="btn" style="width:100%;margin:3px 0;text-align:left" onclick="window.socket.emit(\'quiz_answer\',' + i + ');closeModal();">' + (i+1) + '. ' + opt + '</button>';
+        });
+        showModal('❓ 몬스터 퀴즈', html, []);
+      });
+      window.socket.on('quiz_result', (d) => {
+        var html = '<div style="text-align:center"><p style="font-size:32px">' + (d.correct ? '⭕' : '❌') + '</p>' +
+          '<p style="color:' + (d.correct ? '#44ff44' : '#ff4444') + ';font-size:16px">' + (d.correct ? '정답!' : '오답!') + '</p>' +
+          '<p style="color:#888;font-size:11px">정답: ' + d.correctAnswer + ' (' + d.elapsed + '초)</p>' +
+          (d.reward ? '<p style="color:#ffd700;margin-top:8px">💰 +' + d.reward.gold + 'G ✨ +' + d.reward.exp + 'EXP</p>' : '') +
+          '</div>';
+        showModal('❓ 결과', html, [{label:'확인', action:'closeModal()'}]);
+        if (d.correct) playSFX('levelup');
+      });
+
       // ═══ 업적 & 전설 변신 ═══
       window.socket.on('achievement_status', (d) => {
         var html = '<div style="text-align:center;margin-bottom:8px"><p style="color:#ffd700;font-size:14px">달성: ' + d.completed + '/' + d.total + ' (' + d.pct + '%)</p>' +
