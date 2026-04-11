@@ -1864,15 +1864,29 @@ public class GameManager : MonoBehaviour
         if (terrainSpawned) return;
         terrainSpawned = true;
 
-        // 존 타입별 지형지물 정의
-        var terrainDefs = new Dictionary<string, System.Action<float, float>>() {
-            {"forest", (x,y) => SpawnTerrainObj(x, y, new Color(0.15f,0.45f,0.1f), 1.5f, "나무")},
-            {"plains", (x,y) => SpawnTerrainObj(x, y, new Color(0.3f,0.5f,0.15f), 1.0f, "풀")},
-            {"dungeon",(x,y) => SpawnTerrainObj(x, y, new Color(0.35f,0.3f,0.25f), 1.2f, "바위")},
-            {"dragon", (x,y) => SpawnTerrainObj(x, y, new Color(0.6f,0.15f,0.05f), 1.0f, "용암")},
-            {"chaos",  (x,y) => SpawnTerrainObj(x, y, new Color(0.3f,0.1f,0.35f), 1.3f, "잔해")},
-            {"village",(x,y) => SpawnTerrainObj(x, y, new Color(0.5f,0.35f,0.2f), 2.0f, "건물")},
+        // v2.58: SD 스프라이트를 사용하는 지형지물 배치
+        string[][] sdTerrainMap = new string[][] {
+            new[]{"forest", "tree_oak_sd", "tree_pine_sd", "enchanted_stump_sd", "giant_mushroom_sd"},
+            new[]{"plains", "scarecrow_sd", "hay_cart_sd", "windmill_sd", "flower"},
+            new[]{"dungeon","rock_normal", "broken_pillar_sd", "wall_torch_sd", "bone_pile_sd"},
+            new[]{"dragon", "rock_lava", "lava_waterfall_sd", "dragon_bones_sd", "anvil_sd"},
+            new[]{"chaos",  "bone_pile_sd", "skull_throne_sd", "chains_sd", "dimension_crack_sd"},
+            new[]{"village","building_shop_sd", "building_inn_sd", "building_forge_sd", "lamp_post_sd"},
         };
+
+        var terrainDefs = new Dictionary<string, System.Action<float, float>>();
+        foreach (var mapping in sdTerrainMap)
+        {
+            string zoneType = mapping[0];
+            string[] objects = new string[mapping.Length - 1];
+            System.Array.Copy(mapping, 1, objects, 0, objects.Length);
+            terrainDefs[zoneType] = (x, y) => {
+                string objName = objects[UnityEngine.Random.Range(0, objects.Length)];
+                Sprite sp = SpriteLoader.LoadObject(objName);
+                if (sp != null) SpawnTerrainSprite(x, y, sp, objName);
+                else SpawnTerrainObj(x, y, Color.gray, 1f, objName);
+            };
+        }
 
         // 긴 벽/울타리 지형 생성 (존 경계, 던전 벽 등)
         SpawnWall(-450, -400, true, 15, new Color(0.25f, 0.25f, 0.2f), "돌담");
@@ -1956,6 +1970,20 @@ public class GameManager : MonoBehaviour
                 }
             }
         }
+    }
+
+    // v2.58: SD 스프라이트로 지형 배치
+    private void SpawnTerrainSprite(float x, float y, Sprite sprite, string label)
+    {
+        GameObject obj = new GameObject("SD_" + label);
+        obj.transform.position = new Vector3(x, y, 0.1f);
+        SpriteRenderer sr = obj.AddComponent<SpriteRenderer>();
+        sr.sprite = sprite;
+        sr.sortingOrder = -1;
+        float scale = 0.3f + UnityEngine.Random.value * 0.2f; // 약간의 크기 변동
+        obj.transform.localScale = new Vector3(scale, scale, 1f);
+        // 약간의 색상 변동 (자연스러움)
+        sr.color = new Color(0.9f + UnityEngine.Random.value * 0.1f, 0.9f + UnityEngine.Random.value * 0.1f, 0.9f + UnityEngine.Random.value * 0.1f);
     }
 
     private void SpawnTerrainObj(float x, float y, Color color, float scale, string label)
