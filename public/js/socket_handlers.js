@@ -2679,6 +2679,69 @@
         playSFX('buff');
       });
 
+      // ═══ 업적 & 전설 변신 ═══
+      window.socket.on('achievement_status', (d) => {
+        var html = '<div style="text-align:center;margin-bottom:8px"><p style="color:#ffd700;font-size:14px">달성: ' + d.completed + '/' + d.total + ' (' + d.pct + '%)</p>' +
+          '<div style="width:100%;height:8px;background:#222;border-radius:4px;overflow:hidden"><div style="width:' + d.pct + '%;height:100%;background:linear-gradient(90deg,#ffd700,#ff4400);border-radius:4px"></div></div></div>';
+        html += '<div style="max-height:50vh;overflow-y:auto">';
+        d.achievements.forEach(function(a) {
+          var done = a.completed;
+          html += '<div class="panel-item" style="opacity:' + (done?1:0.5) + ';border-left:3px solid ' + (done?'#44ff44':'#444') + '">' +
+            '<span class="name">' + a.icon + ' <b style="color:' + (done?'#ffd700':'#888') + '">' + a.name + '</b>' + (done?' ✅':'') +
+            '<br><small style="color:#aaa">' + a.desc + '</small>' +
+            '<br><small style="color:#888">보상: ' + (a.reward.gold?a.reward.gold+'G ':'') + (a.reward.diamonds?a.reward.diamonds+'💎 ':'') + (a.reward.title?'👑'+a.reward.title:'') + '</small></span></div>';
+        });
+        html += '</div>';
+        showModal('🏆 업적', html, [{label:'닫기', type:'cancel', action:'closeModal()'}]);
+      });
+
+      window.socket.on('achievement_unlocked', (d) => {
+        var html = '<div style="text-align:center">' +
+          '<div style="font-size:48px;margin-bottom:8px">' + d.icon + '</div>' +
+          '<p style="color:#ffd700;font-size:18px;font-weight:900">업적 달성!</p>' +
+          '<p style="color:#ddd;font-size:14px">' + d.name + '</p>' +
+          '<p style="color:#888;font-size:11px">' + d.desc + '</p>';
+        if (d.reward) {
+          html += '<div style="margin-top:8px;font-size:12px">';
+          if (d.reward.gold) html += '<span style="color:#ffd700">💰+' + d.reward.gold + 'G </span>';
+          if (d.reward.diamonds) html += '<span style="color:#55ccff">💎+' + d.reward.diamonds + ' </span>';
+          if (d.reward.title) html += '<span style="color:#ff8800">👑' + d.reward.title + '</span>';
+          html += '</div>';
+        }
+        html += '</div>';
+        showModal('🏆', html, [{label:'멋지다!', action:'closeModal()'}]);
+        if (typeof celebrateRareDrop === 'function') celebrateRareDrop('legendary');
+        playSFX('levelup');
+      });
+
+      window.socket.on('legendary_morph_list', (d) => {
+        var html = '';
+        if (d.activeMorph) {
+          var remain = Math.max(0, Math.floor((d.activeMorph.expiresAt - Date.now()) / 1000));
+          html += '<div style="text-align:center;color:#ff8800;margin-bottom:8px">현재 변신 중! (' + Math.floor(remain/60) + '분 남음)</div>';
+        }
+        html += '<div style="max-height:50vh;overflow-y:auto">';
+        d.forms.forEach(function(f) {
+          var rarityColors = {legendary:'#ff8800',mythic:'#ff00ff'};
+          html += '<div class="panel-item" style="border-left:3px solid ' + (rarityColors[f.rarity]||'#888') + ';opacity:' + (f.canUse?1:0.4) + '">' +
+            '<span class="name"><span style="font-size:18px">' + f.icon + '</span> <b style="color:' + (rarityColors[f.rarity]||'#ddd') + '">' + f.name + '</b> <span style="color:#888;font-size:9px">[' + f.rarity + ']</span>' +
+            '<br><small style="color:#aaa">' + f.desc + '</small>' +
+            '<br><small style="color:#888">ATK+' + (f.stats.atk||0) + ' DEF+' + (f.stats.def||0) + ' HP+' + (f.stats.maxHp||0) + ' | ' + (f.duration/60) + '분</small></span>' +
+            (f.canUse ? '<button class="btn btn-sm" onclick="window.socket.emit(\'legendary_morph\',\'' + f.id + '\');closeModal();" style="font-size:10px">변신!</button>' : '<span style="color:#666;font-size:9px">조건 미충족</span>') +
+            '</div>';
+        });
+        html += '</div>';
+        showModal('👿 전설 변신', html, [{label:'닫기', type:'cancel', action:'closeModal()'}]);
+      });
+
+      window.socket.on('legendary_morph_result', (d) => {
+        if (!d.success) { showToast(d.msg); return; }
+        showToast(d.msg);
+        if (typeof showBossEntrance === 'function') showBossEntrance(d.form.name, '— 전설의 변신! —');
+        if (typeof showMagicCircle === 'function') showMagicCircle(d.form.visualEffect || 'dark', 250);
+        playSFX('levelup'); playSFX('boss');
+      });
+
       // ═══ 드래곤 관리 & 레이스 ═══
       window.socket.on('dragon_list', (d) => {
         var html = '';

@@ -363,6 +363,12 @@ io.on("connection", (socket) => {
         const dragonRace = require('../dragon_race');
         dragonRace.registerDragonHandlers(socket, playerId, players, io);
     } catch(e) { /* ignore if not loaded */ }
+
+    // v2.58: 상위 변신 & 업적 핸들러
+    try {
+        const advMorph = require('../advanced_morph');
+        advMorph.registerAdvancedHandlers(socket, playerId, players, io);
+    } catch(e) { /* ignore if not loaded */ }
 });
 }
 
