@@ -922,6 +922,7 @@
           '<button class="btn" style="width:100%;margin:3px 0" onclick="window.socket.emit(\'evolve_pet\',\'pet_dragon\');closeModal();">미니 드래곤 → 고대 드래곤 (ATK+30%)</button>' +
           '<button class="btn" style="width:100%;margin:3px 0" onclick="window.socket.emit(\'evolve_pet\',\'pet_angel\');closeModal();">천사 → 세라핌 (자동 부활 강화)</button>' +
           '</div>',[{label:'닫기',type:'cancel',action:'closeModal()'}]);}},
+        {label:'🎲 로그라이크', action:()=>{window.socket.emit('rogue_status');window.socket.once('rogue_status',function(d){if(d){showToast('진행 중: '+d.floor+'층');window.socket.emit('rogue_advance');}else{showModal('🎲 로그라이크 던전','<p style="text-align:center;color:#ffd700">매번 다른 랜덤 던전!<br>15층 도전, 영구 사망, 업그레이드 선택</p><p style="color:#888;font-size:11px;text-align:center;margin-top:8px">입장료: 1000G</p>',[{label:'도전!',action:"window.socket.emit(\'rogue_start\');closeModal();"},{label:'취소',type:'cancel',action:'closeModal()'}]);}});}},
         {label:'🏅 칭호 컬렉션', action:()=>{window.socket.emit('title_collection');}},
         {label:'📅 오늘의 이벤트', action:()=>{window.socket.emit('daily_event_status');}},
         {label:'😀 이모트', action:()=>{window.socket.emit('get_emote_packs');}},

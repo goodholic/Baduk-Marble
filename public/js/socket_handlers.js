@@ -2687,6 +2687,41 @@
         playSFX('buff');
       });
 
+      // ═══ 로그라이크 던전 ═══
+      window.socket.on('rogue_result', (d) => {
+        if (!d.success) { showToast(d.msg || '실패'); return; }
+        if (d.type === 'complete') {
+          showModal('🏆 로그라이크 클리어!', '<div style="text-align:center"><p style="color:#ffd700;font-size:20px">🎲 ' + d.floors + '층 클리어!</p>' +
+            '<p style="color:#ddd;margin:8px 0">처치: ' + d.kills + ' | 강화: ' + d.upgrades.length + '회</p>' +
+            '<p style="color:#ffd700">💰 +' + d.gold + 'G 💎 +' + d.diamonds + '</p></div>',
+            [{label:'멋지다!', action:'closeModal()'}]);
+          if (typeof celebrateRareDrop === 'function') celebrateRareDrop('mythic');
+          return;
+        }
+        if (d.type === 'fail') {
+          showModal('💀 사망', '<div style="text-align:center"><p style="color:#ff4444;font-size:18px">' + d.cause + '</p>' +
+            '<p style="color:#888">' + d.floors + '층 도달 | ' + d.kills + '킬</p>' +
+            '<p style="color:#ffd700">골드 30% 보존: ' + d.goldKept + 'G</p></div>',
+            [{label:'확인', action:'closeModal()'}]);
+          return;
+        }
+        if (d.room) {
+          var html = '<div style="text-align:center;margin-bottom:8px"><p style="color:#888;font-size:10px">' + d.floor + '/' + 15 + '층</p>' +
+            '<p style="font-size:28px">' + d.room.icon + '</p><p style="color:#ffd700;font-size:14px">' + d.room.name + '</p></div>';
+          if (d.run) html += '<p style="color:#888;font-size:10px;text-align:center">HP:' + d.run.hp + '/' + d.run.maxHp + ' ATK:' + d.run.atk + ' DEF:' + d.run.def + ' 💰' + d.run.gold + '</p>';
+          if (d.combatResult) html += '<p style="color:#44ff44;text-align:center;margin:6px 0">' + d.combatResult.enemy + ' 처치! +' + d.combatResult.goldEarned + 'G</p>';
+          if (d.choices) {
+            html += '<p style="color:#ff8800;font-size:12px;text-align:center;margin:8px 0">업그레이드 1개 선택:</p>';
+            d.choices.forEach(function(c) {
+              html += '<button class="btn" style="width:100%;margin:3px 0;text-align:left" onclick="window.socket.emit(\'rogue_upgrade\',\'' + c.id + '\');closeModal();">' + c.icon + ' ' + c.name + '</button>';
+            });
+          }
+          var btns = [{label:'다음 층 ▶', action:"window.socket.emit('rogue_advance');closeModal();"}];
+          if (d.room.type === 'rest') { html += '<p style="color:#44ff88;text-align:center">💚 HP 30% 회복!</p>'; }
+          showModal('🎲 ' + d.floor + '층', html, btns);
+        }
+      });
+
       // ═══ 칭호 컬렉션 ═══
       window.socket.on('title_collection', (d) => {
         var html = '<p style="text-align:center;color:#888;font-size:11px;margin-bottom:8px">보유: ' + d.owned.length + '/' + d.all.length + '</p>';
