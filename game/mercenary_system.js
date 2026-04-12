@@ -330,27 +330,167 @@ function registerMercHandlers(socket, playerId, players, io) {
     socket.emit('merc_party_result', setParty(p, uids));
   });
 
-  // 서바이벌 보상으로 용병 카드 획득
+  // ══════ 가챠 시스템 (천장 + 10연차 + 포인트) ══════
+  function getGachaState(p) {
+    if (!p._gacha) p._gacha = { pity: 0, mythicPity: 0, points: 0, freeDaily: 0, freeWeekly: 0, totalPulls: 0 };
+    return p._gacha;
+  }
+
+  function doSinglePull(p) {
+    const g = getGachaState(p);
+    g.pity++;
+    g.mythicPity++;
+    g.totalPulls++;
+    g.points++;
+
+    // 기본 확률: 일반50/고급25/희귀15/영웅7/전설2.5/신화0.5
+    let weights = { 0: 50, 1: 25, 2: 15, 3: 7, 4: 2.5, 5: 0.5 };
+
+    // 소프트 천장: 50회 후 영웅+ 확률 매회 +3%
+    if (g.pity >= 50) {
+      const bonus = (g.pity - 49) * 3;
+      weights[3] += bonus;         // 영웅 확률 증가
+      weights[0] = Math.max(5, weights[0] - bonus); // 일반 확률 감소
+    }
+
+    // 하드 천장: 80회 = 영웅 확정
+    if (g.pity >= 80) {
+      weights = { 3: 85, 4: 12, 5: 3 };
+    }
+
+    // 신화 천장: 200회 = 신화 확정
+    if (g.mythicPity >= 200) {
+      weights = { 5: 100 };
+    }
+
+    // 가중치 롤
+    const total = Object.values(weights).reduce((s, w) => s + w, 0);
+    let roll = Math.random() * total;
+    let targetGrade = 0;
+    for (const [grade, w] of Object.entries(weights)) {
+      roll -= w;
+      if (roll <= 0) { targetGrade = parseInt(grade); break; }
+    }
+
+    // 천장 리셋
+    if (targetGrade >= 3) g.pity = 0;     // 영웅 이상 → 영웅 천장 리셋
+    if (targetGrade >= 5) g.mythicPity = 0; // 신화 → 신화 천장 리셋
+
+    const pool = MERCENARIES.filter(m => m.grade === targetGrade);
+    const selected = pool[Math.floor(Math.random() * pool.length)] || MERCENARIES[0];
+    return { grade: targetGrade, merc: selected };
+  }
+
+  // 단일 소환 (30💎)
   socket.on('merc_gacha', () => {
     const p = players[playerId];
     if (!p) return;
     if ((p.diamonds || 0) < 30) { socket.emit('merc_result', { success: false, msg: '다이아 부족 (30💎)' }); return; }
     p.diamonds -= 30;
 
-    // 가중치 랜덤
-    const weights = { 0: 50, 1: 25, 2: 15, 3: 7, 4: 2.5, 5: 0.5 };
-    let roll = Math.random() * 100;
-    let targetGrade = 0;
-    for (const [g, w] of Object.entries(weights)) {
-      roll -= w;
-      if (roll <= 0) { targetGrade = parseInt(g); break; }
+    const pull = doSinglePull(p);
+    const result = addMercenary(p, pull.merc.id);
+    const g = getGachaState(p);
+    socket.emit('merc_gacha_result', { ...result, grade: pull.grade, pity: g.pity, mythicPity: g.mythicPity, points: g.points });
+    if (pull.grade >= 4) io.emit('server_msg', { msg: '⭐ ' + (p.displayName||p.className) + '님이 ' + GRADES[pull.grade] + ' 용병 획득! ' + pull.merc.icon + ' ' + pull.merc.name, type: 'boss' });
+  });
+
+  // 10연차 (300💎, 고급+ 1체 보장, 포인트 ×2)
+  socket.on('merc_gacha_10', () => {
+    const p = players[playerId];
+    if (!p) return;
+    if ((p.diamonds || 0) < 300) { socket.emit('merc_result', { success: false, msg: '다이아 부족 (300💎)' }); return; }
+    p.diamonds -= 300;
+
+    const results = [];
+    let hasHighGrade = false;
+    for (let i = 0; i < 10; i++) {
+      const pull = doSinglePull(p);
+      if (pull.grade >= 1) hasHighGrade = true;
+      const r = addMercenary(p, pull.merc.id);
+      results.push({ ...r, grade: pull.grade, icon: pull.merc.icon, name: pull.merc.name });
     }
 
+    // 10연차 보장: 고급+ 없으면 마지막 1체를 고급으로 교체
+    if (!hasHighGrade) {
+      const lastIdx = results.length - 1;
+      const pool = MERCENARIES.filter(m => m.grade === 1);
+      const bonus = pool[Math.floor(Math.random() * pool.length)];
+      if (bonus) {
+        // 기존 마지막 용병 제거 후 교체
+        const mercs = getPlayerMercs(p);
+        const oldMerc = mercs.roster[mercs.roster.length - 1];
+        if (oldMerc) mercs.roster.pop();
+        const r = addMercenary(p, bonus.id);
+        results[lastIdx] = { ...r, grade: 1, icon: bonus.icon, name: bonus.name, guaranteed: true };
+      }
+    }
+
+    // 포인트 보너스 (10연차 = ×2)
+    const g = getGachaState(p);
+    g.points += 10; // 기본 10 + 추가 10 = 총 20
+
+    const bestGrade = Math.max(...results.map(r => r.grade));
+    socket.emit('merc_gacha_10_result', { results, pity: g.pity, mythicPity: g.mythicPity, points: g.points, bestGrade });
+    if (bestGrade >= 4) io.emit('server_msg', { msg: '🌟 ' + (p.displayName||p.className) + '님이 10연차에서 ' + GRADES[bestGrade] + ' 용병 획득!', type: 'boss' });
+  });
+
+  // 무료 골드 소환 (1일 1회, 3000G)
+  socket.on('merc_gacha_free', () => {
+    const p = players[playerId];
+    if (!p) return;
+    const g = getGachaState(p);
+    const today = new Date().toDateString();
+    if (g.freeDaily === today) { socket.emit('merc_result', { success: false, msg: '오늘 무료 소환 완료! 내일 다시' }); return; }
+    if ((p.gold || 0) < 3000) { socket.emit('merc_result', { success: false, msg: '골드 부족 (3,000G)' }); return; }
+    p.gold -= 3000;
+    g.freeDaily = today;
+
+    // 일반~고급 위주 (일반60/고급35/희귀5)
+    const weights = { 0: 60, 1: 35, 2: 5 };
+    const total = 100;
+    let roll = Math.random() * total;
+    let targetGrade = 0;
+    for (const [grade, w] of Object.entries(weights)) {
+      roll -= w;
+      if (roll <= 0) { targetGrade = parseInt(grade); break; }
+    }
     const pool = MERCENARIES.filter(m => m.grade === targetGrade);
     const selected = pool[Math.floor(Math.random() * pool.length)] || MERCENARIES[0];
     const result = addMercenary(p, selected.id);
-    socket.emit('merc_gacha_result', result);
-    if (targetGrade >= 4) io.emit('server_msg', { msg: '⭐ ' + (p.displayName||p.className) + '님이 ' + GRADES[targetGrade] + ' 용병 획득! ' + selected.icon + ' ' + selected.name, type: 'boss' });
+    socket.emit('merc_gacha_result', { ...result, grade: targetGrade, free: true });
+  });
+
+  // 포인트 교환 (30: 고급 선택, 80: 희귀 선택, 200: 영웅 선택)
+  socket.on('merc_gacha_exchange', (data) => {
+    const p = players[playerId];
+    if (!p) return;
+    const g = getGachaState(p);
+    const tiers = { 1: 30, 2: 80, 3: 200 }; // 등급: 필요 포인트
+    const cost = tiers[data.grade];
+    if (!cost) { socket.emit('merc_result', { success: false, msg: '교환 등급 오류' }); return; }
+    if (g.points < cost) { socket.emit('merc_result', { success: false, msg: '포인트 부족 (' + g.points + '/' + cost + ')' }); return; }
+
+    const target = MERCENARIES.find(m => m.id === data.mercId && m.grade === data.grade);
+    if (!target) { socket.emit('merc_result', { success: false, msg: '대상 용병 없음' }); return; }
+
+    g.points -= cost;
+    const result = addMercenary(p, target.id);
+    socket.emit('merc_gacha_result', { ...result, exchanged: true, pointsLeft: g.points });
+  });
+
+  // 가챠 상태 조회
+  socket.on('merc_gacha_status', () => {
+    const p = players[playerId];
+    if (!p) return;
+    const g = getGachaState(p);
+    socket.emit('merc_gacha_status', {
+      pity: g.pity, mythicPity: g.mythicPity, points: g.points,
+      totalPulls: g.totalPulls,
+      nextHeroPity: Math.max(0, 80 - g.pity),
+      nextMythicPity: Math.max(0, 200 - g.mythicPity),
+      freeAvailable: g.freeDaily !== new Date().toDateString(),
+    });
   });
 }
 

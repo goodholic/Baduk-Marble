@@ -97,6 +97,51 @@ const UPGRADES = [
   { id: 'ult_revive', name: '부활 1회', icon: '👼', cat: 'ult', effect: { revive: 1 }, weight: 1, minLv: 10 },
 ];
 
+// ═══ v3.0: SLG → IO 보너스 적용 ═══
+function applySLGBonus(player, session) {
+  // 1. 용병 파티 → 스탯 보너스
+  let mercSystem;
+  try { mercSystem = require('./mercenary_system'); } catch(e) { return; }
+
+  const mercs = mercSystem.getPlayerMercs(player);
+  const party = mercs.roster.filter(m => mercs.party.includes(m.uid));
+
+  if (party.length > 0) {
+    let mercAtk = 0, mercDef = 0, mercHp = 0;
+    const mercIcons = [];
+    for (const m of party) {
+      mercAtk += Math.floor(m.atk * 0.3);  // 용병 ATK의 30%
+      mercDef += Math.floor(m.def * 0.2);   // 용병 DEF의 20%
+      mercHp += Math.floor(m.hp * 0.2);     // 용병 HP의 20%
+      mercIcons.push(m.icon);
+    }
+    session.atk += mercAtk;
+    session.def += mercDef;
+    session.maxHp += mercHp;
+    session.hp += mercHp;
+    session._mercBonus = { atk: mercAtk, def: mercDef, hp: mercHp, icons: mercIcons.join(''), count: party.length };
+  }
+
+  // 2. 성 시설 → 시작 보너스
+  const castle = player._castle;
+  if (castle && castle.buildings) {
+    for (const b of castle.buildings) {
+      if (b === 'barracks') session._mercBonus = session._mercBonus || {}; // 병영: 용병 슬롯 (이미 반영)
+      if (b === 'smithy') session.atk += Math.floor(session.atk * 0.1);   // 대장간: 무기DMG +10%
+      if (b === 'temple') session.maxHp += Math.floor(session.maxHp * 0.1); // 신전: HP +10%
+    }
+  }
+
+  // 3. 전투력 기반 추가 보너스
+  if (session._mercBonus) {
+    const totalPower = party.reduce((s, m) => s + mercSystem.calcCombatPower(m), 0);
+    const atkBonus = Math.floor(totalPower / 1000) * 5; // 전투력 1000당 ATK +5
+    session.atk += atkBonus;
+    session._mercBonus.powerBonus = atkBonus;
+    session._mercBonus.totalPower = totalPower;
+  }
+}
+
 // ═══ 서바이벌 세션 ═══
 const activeSessions = {};
 
@@ -394,13 +439,33 @@ function endSurvival(playerId, cause) {
   s.alive = false;
   const score = s.kills * 10 + s.wave * 100 + s.level * 50 + s.time;
 
-  // 영구 계정 보상 (실제 플레이어에게)
+  // 영구 계정 보상 (실제 플레이어에게) — v3.0 SLG 연동
   const rewards = {
-    gold: Math.floor(s.gold * 0.5), // 골드 50% 가져감
+    gold: Math.floor(s.gold * 0.5),
     exp: s.kills * 5 + s.wave * 50,
     diamonds: Math.floor(s.wave / 5) * 5,
     score,
+    // v3.0: 용병 카드 & 재료
+    mercCard: null,     // 용병 카드 (보스킬 30%, 1위 100%)
+    material: Math.floor(s.wave * 0.5), // 웨이브당 재료 0.5개
   };
+  // 보스킬 시 30% 확률 용병 카드
+  if (s.wave >= 5 && Math.random() < 0.3) {
+    try {
+      const mercSystem = require('./mercenary_system');
+      const pool = mercSystem.MERCENARIES;
+      // 웨이브에 따라 등급 결정
+      let grade = 0;
+      if (s.wave >= 25) grade = Math.random() < 0.1 ? 4 : 3;
+      else if (s.wave >= 15) grade = Math.random() < 0.2 ? 3 : 2;
+      else if (s.wave >= 10) grade = 2;
+      else grade = Math.random() < 0.5 ? 1 : 0;
+      const gradePool = pool.filter(m => m.grade === grade);
+      if (gradePool.length > 0) {
+        rewards.mercCard = gradePool[Math.floor(Math.random() * gradePool.length)].id;
+      }
+    } catch(e) {}
+  }
 
   const result = {
     type: 'game_over',
@@ -437,6 +502,7 @@ function getSessionStatus(playerId) {
     skills: (s.skills || []).map(sk => ({ id: sk.id, name: sk.name, icon: sk.icon, lv: sk.lv })),
     droppedItem: s._droppedItem ? { name: s._droppedItem.name, icon: s._droppedItem.icon, grade: s._droppedItem.grade } : null,
     newSkill: s._newSkill ? { name: s._newSkill.name, icon: s._newSkill.icon, desc: s._newSkill.desc } : null,
+    mercBonus: s._mercBonus || null, // v3.0: SLG 용병 보너스 정보
   };
 }
 
@@ -450,8 +516,14 @@ function registerSurvivalHandlers(socket, playerId, players, io) {
     const p = players[playerId];
     if (!p) return;
     const result = startSurvival(playerId, p.displayName || p.className, p.className);
+    if (result.success) {
+      // v3.0: SLG 용병 파티 → IO 보너스 적용
+      const s = activeSessions[playerId];
+      if (s) applySLGBonus(p, s);
+      result.session = getSessionStatus(playerId);
+      io.emit('server_msg', { msg: '🎮 ' + (p.displayName||p.className) + '님이 서바이벌 IO 시작!', type: 'normal' });
+    }
     socket.emit('survival_result', result);
-    if (result.success) io.emit('server_msg', { msg: '🎮 ' + (p.displayName||p.className) + '님이 서바이벌 IO 시작!', type: 'normal' });
   });
 
   socket.on('survival_attack', () => {
@@ -465,8 +537,19 @@ function registerSurvivalHandlers(socket, playerId, players, io) {
           p.gold = (p.gold || 0) + result.rewards.gold;
           if (p.exp !== undefined) p.exp += result.rewards.exp;
           p.diamonds = (p.diamonds || 0) + result.rewards.diamonds;
+          // v3.0: 용병 카드 자동 추가
+          if (result.rewards.mercCard) {
+            try {
+              const mercSystem = require('./mercenary_system');
+              const cardResult = mercSystem.addMercenary(p, result.rewards.mercCard);
+              if (cardResult.success) {
+                socket.emit('merc_result', cardResult);
+                result.rewards.mercCardName = cardResult.merc?.name || result.rewards.mercCard;
+              }
+            } catch(e) {}
+          }
         }
-        io.emit('server_msg', { msg: '💀 서바이벌 종료! ' + (p?.displayName||'') + ' — 웨이브 ' + result.wave + ', ' + result.kills + '킬, 점수 ' + result.score, type: 'normal' });
+        io.emit('server_msg', { msg: '💀 서바이벌 종료! ' + (p?.displayName||'') + ' — 웨이브 ' + result.wave + ', ' + result.kills + '킬, 점수 ' + result.score + (result.rewards?.mercCardName ? ' 🎴 ' + result.rewards.mercCardName + ' 획득!' : ''), type: 'normal' });
       }
     }
   });

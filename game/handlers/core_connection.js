@@ -209,6 +209,13 @@ function registerCoreConnectionHandlers(socket, $) {
                         _mythicWeapon: ext._mythicWeapon || null,
                         _dimTravel: ext._dimTravel || null,
                         _riftDepth: ext._riftDepth || 0,
+                        // v3.0 SLG 시스템
+                        _mercs: ext._mercs || null,
+                        _castle: ext._castle || null,
+                        _trade: ext._trade || null,
+                        _lastSiege: ext._lastSiege || null,
+                        _gacha: ext._gacha || null,
+                        _expedition: ext._expedition || null,
                     });
                     if (pInfo.isAdvanced && pInfo.advancedClass) {
                         const adv = CLASS_ADVANCE[pInfo.baseClassName || pInfo.className];

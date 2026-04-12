@@ -758,6 +758,13 @@ async function savePlayer(player) {
         _spiritPact: player._spiritPact || null,
         _mythicWeapon: player._mythicWeapon || null,
         _dimTravel: player._dimTravel || null,
+        // v3.0 SLG 시스템
+        _mercs: player._mercs || null,
+        _castle: player._castle || null,
+        _trade: player._trade || null,
+        _lastSiege: player._lastSiege || null,
+        _gacha: player._gacha || null,
+        _expedition: player._expedition || null,
     });
 
     try {

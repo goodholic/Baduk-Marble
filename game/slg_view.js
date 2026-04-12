@@ -240,9 +240,159 @@ function placeDefender(player, mercUid, x, y) {
   if (!merc) return { success: false, msg: '용병 없음' };
   if (player._castle.defenders.length >= SIEGE_PLACEMENT.maxDefenders) return { success: false, msg: '방어 유닛 최대' };
 
-  player._castle.defenders.push({ uid: merc.uid, name: merc.name, icon: merc.icon, atk: merc.atk, def: merc.def, hp: merc.hp, x, y });
+  player._castle.defenders.push({
+    uid: merc.uid, name: merc.name, icon: merc.icon,
+    atk: merc.atk, def: merc.def, hp: merc.hp,
+    skill: merc.skill || null, skillLevel: merc.skillLevel || 1,
+    role: merc.role || '전사',
+    x, y,
+  });
 
   return { success: true, msg: merc.icon + ' ' + merc.name + ' 배치!' };
+}
+
+// ══════ 성 업그레이드 ══════
+const CASTLE_TIERS = [
+  { level: 1, name: '캠프 ⛺',       cost: 0,      time: 0,   slots: 3,  wallHp: 500 },
+  { level: 2, name: '목책 요새 🏕️',  cost: 5000,   time: 60,  slots: 5,  wallHp: 1500 },
+  { level: 3, name: '석조 성채 🏰',   cost: 20000,  time: 300, slots: 8,  wallHp: 5000 },
+  { level: 4, name: '왕의 성 ����',     cost: 80000,  time: 900, slots: 12, wallHp: 15000 },
+  { level: 5, name: '제국 요새 🗼',   cost: 300000, time: 1800,slots: 18, wallHp: 50000 },
+];
+
+const BUILDINGS = [
+  { id: 'barracks', name: '⚔️ 병영',     cost: 2000,  effect: '용병 슬롯 +2',    desc: '더 많은 용병 배치' },
+  { id: 'wall',     name: '🧱 성벽 강화', cost: 3000,  effect: '성벽 HP +2000',   desc: '방어력 강화' },
+  { id: 'tower',    name: '🗼 감시탑',    cost: 5000,  effect: '시야 +50',        desc: '적 감지' },
+  { id: 'market',   name: '💰 시장',      cost: 4000,  effect: '교역 슬롯 +1',    desc: '무역 확장' },
+  { id: 'smithy',   name: '🔨 대장간',    cost: 6000,  effect: '장비 강화 가능',   desc: '장비 업그레이드' },
+  { id: 'stable',   name: '🐴 마구간',    cost: 8000,  effect: '탈것 슬롯 +1',    desc: '이동 수단' },
+  { id: 'temple',   name: '⛪ 신전',      cost: 10000, effect: '회복 +20%',       desc: '용병 치유' },
+  { id: 'storage',  name: '📦 창고',      cost: 3000,  effect: '보관량 +500',     desc: '자원 저장' },
+  { id: 'academy',  name: '📚 학원',      cost: 15000, effect: '용병 EXP +30%',   desc: '육성 ���속' },
+];
+
+function getCastle(player) {
+  if (!player._castle) player._castle = { level: 1, name: '캠프 ⛺', buildings: [], traps: [], defenders: [], wallHp: 500 };
+  return player._castle;
+}
+
+function upgradeCastle(player) {
+  const castle = getCastle(player);
+  const nextTier = CASTLE_TIERS.find(t => t.level === castle.level + 1);
+  if (!nextTier) return { success: false, msg: '최대 레벨입니다!' };
+  if ((player.gold || 0) < nextTier.cost) return { success: false, msg: `골드 부족 (필요: ${nextTier.cost}G)` };
+
+  player.gold -= nextTier.cost;
+  castle.level = nextTier.level;
+  castle.name = nextTier.name;
+  castle.wallHp = nextTier.wallHp;
+
+  return { success: true, msg: `🏰 성 업그레이드! ${nextTier.name} (Lv.${nextTier.level})`, castle };
+}
+
+function buildFacility(player, buildingId) {
+  const castle = getCastle(player);
+  const building = BUILDINGS.find(b => b.id === buildingId);
+  if (!building) return { success: false, msg: '시설 없음' };
+
+  const currentSlots = CASTLE_TIERS.find(t => t.level === castle.level)?.slots || 3;
+  if (castle.buildings.length >= currentSlots) return { success: false, msg: `시설 슬롯 부족 (${castle.buildings.length}/${currentSlots})` };
+  if ((player.gold || 0) < building.cost) return { success: false, msg: `골드 부족 (${building.cost}G)` };
+
+  player.gold -= building.cost;
+  castle.buildings.push(buildingId);
+
+  return { success: true, msg: `${building.name} 건설 완료! ${building.effect}` };
+}
+
+// ══════ 용병 원정대 ══════
+const EXPEDITIONS = [
+  { id: 'forest',   name: '🌲 숲 원정',     power: 100,  time: 3600,   rewards: { gold: 200,   material: 2,  exp: 50  }, desc: '1시간, 초보 원정' },
+  { id: 'mountain',  name: '🏔️ 산맥 원정',   power: 500,  time: 10800,  rewards: { gold: 1000,  material: 8,  exp: 200 }, desc: '3시간, 중급' },
+  { id: 'volcano',   name: '🌋 화산 원정',   power: 2000, time: 21600,  rewards: { gold: 5000,  material: 20, exp: 500, cardChance: 0.1 }, desc: '6시간, 상급' },
+  { id: 'ruins',     name: '🏰 고대 유적',   power: 5000, time: 43200,  rewards: { gold: 15000, material: 50, exp: 1000, cardChance: 0.3 }, desc: '12시간, 최상급' },
+  { id: 'dimension', name: '🌌 차원의 틈',   power: 10000,time: 86400,  rewards: { gold: 50000, material: 100, diamonds: 100, cardChance: 0.5 }, desc: '24시간, 전설' },
+];
+
+function startExpedition(player, expedId, mercUids) {
+  if (!player._expedition) player._expedition = { active: null, completed: 0 };
+  if (player._expedition.active) return { success: false, msg: '이미 원정 진행 중!' };
+
+  const exped = EXPEDITIONS.find(e => e.id === expedId);
+  if (!exped) return { success: false, msg: '원정 없음' };
+
+  const mercSystem = require('./mercenary_system');
+  const mercs = mercSystem.getPlayerMercs(player);
+  const team = mercUids.map(uid => mercs.roster.find(m => m.uid === uid)).filter(Boolean).slice(0, 4);
+
+  const totalPower = team.reduce((s, m) => s + mercSystem.calcCombatPower(m), 0);
+  if (totalPower < exped.power) return { success: false, msg: `전투력 부족! (${totalPower}/${exped.power})` };
+
+  player._expedition.active = {
+    expedId, team: team.map(m => ({ uid: m.uid, name: m.name, icon: m.icon })),
+    startTime: Date.now(), arrivalTime: Date.now() + exped.time * 1000,
+    totalPower,
+  };
+
+  return { success: true, msg: `${exped.name} 출발! (${Math.floor(exped.time/3600)}시간)` };
+}
+
+function checkExpedition(player) {
+  if (!player._expedition || !player._expedition.active) return null;
+  const active = player._expedition.active;
+
+  if (Date.now() < active.arrivalTime) {
+    const remain = Math.ceil((active.arrivalTime - Date.now()) / 1000);
+    return { completed: false, remaining: remain, name: EXPEDITIONS.find(e => e.id === active.expedId)?.name };
+  }
+
+  // 원정 완료!
+  const exped = EXPEDITIONS.find(e => e.id === active.expedId);
+  const rewards = { ...exped.rewards };
+
+  // 전투력 보너스 (요구치 대비 초과분)
+  const overPower = active.totalPower / exped.power;
+  if (overPower > 1.5) { rewards.gold = Math.floor(rewards.gold * 1.3); rewards.material = Math.floor(rewards.material * 1.2); }
+
+  // 랜덤 이벤트 (10%)
+  let event = null;
+  if (Math.random() < 0.1) {
+    const events = ['보물 발견! 골드 2배', '적 습격! 보상 -30%', '비밀 던전 발견! 재료 3배', '조난 구조! 호감도 +10'];
+    event = events[Math.floor(Math.random() * events.length)];
+    if (event.includes('2배')) rewards.gold *= 2;
+    else if (event.includes('-30%')) { rewards.gold = Math.floor(rewards.gold * 0.7); rewards.material = Math.floor(rewards.material * 0.7); }
+    else if (event.includes('3배')) rewards.material *= 3;
+  }
+
+  // 용병 카드 드롭
+  let mercCard = null;
+  if (rewards.cardChance && Math.random() < rewards.cardChance) {
+    try {
+      const mercSystem = require('./mercenary_system');
+      const pool = mercSystem.MERCENARIES.filter(m => m.grade <= 2);
+      mercCard = pool[Math.floor(Math.random() * pool.length)];
+      if (mercCard) {
+        mercSystem.addMercenary(player, mercCard.id);
+        mercCard = { name: mercCard.name, icon: mercCard.icon };
+      }
+    } catch(e) {}
+  }
+
+  // 용병 EXP 지급
+  const mercSystem = require('./mercenary_system');
+  for (const t of active.team) {
+    mercSystem.addMercExp(player, t.uid, rewards.exp || 50);
+  }
+
+  // 보상 지급
+  player.gold = (player.gold || 0) + rewards.gold;
+  player.diamonds = (player.diamonds || 0) + (rewards.diamonds || 0);
+
+  player._expedition.active = null;
+  player._expedition.completed++;
+
+  return { completed: true, rewards, event, mercCard, team: active.team };
 }
 
 // 소켓 핸들러
@@ -280,6 +430,79 @@ function registerSlgHandlers(socket, playerId, players, io) {
     if (!p) return;
     socket.emit('slg_result', placeDefender(p, data.uid, data.x, data.y));
   });
+
+  // 성 업그레이드
+  socket.on('slg_upgrade_castle', () => {
+    const p = players[playerId];
+    if (!p) return;
+    const result = upgradeCastle(p);
+    socket.emit('slg_result', result);
+    if (result.success) io.emit('server_msg', { msg: '🏰 ' + (p.displayName||p.className) + '의 성이 업그레이드! ' + result.castle.name, type: 'rare' });
+  });
+
+  // 시설 건설
+  socket.on('slg_build', (buildingId) => {
+    const p = players[playerId];
+    if (!p) return;
+    socket.emit('slg_result', buildFacility(p, buildingId));
+  });
+
+  // 시설 목록 조회
+  socket.on('slg_buildings', () => {
+    const p = players[playerId];
+    if (!p) return;
+    const castle = getCastle(p);
+    const tier = CASTLE_TIERS.find(t => t.level === castle.level);
+    socket.emit('slg_buildings', {
+      buildings: BUILDINGS, current: castle.buildings,
+      slots: tier?.slots || 3, used: castle.buildings.length,
+    });
+  });
+
+  // 원정 출발
+  socket.on('slg_expedition_start', (data) => {
+    const p = players[playerId];
+    if (!p) return;
+    const result = startExpedition(p, data.expedId, data.mercUids || []);
+    socket.emit('slg_result', result);
+  });
+
+  // 원정 상태 확인
+  socket.on('slg_expedition_check', () => {
+    const p = players[playerId];
+    if (!p) return;
+    const result = checkExpedition(p);
+    if (result) {
+      socket.emit('slg_expedition_result', result);
+      if (result.completed) {
+        let msg = '🌍 원정 완료! +' + result.rewards.gold + 'G';
+        if (result.mercCard) msg += ' 🎴 ' + result.mercCard.icon + result.mercCard.name + ' 획득!';
+        if (result.event) msg += ' (' + result.event + ')';
+        socket.emit('server_msg', { msg, type: 'normal' });
+      }
+    } else {
+      socket.emit('slg_expedition_result', { completed: false, remaining: 0, noExpedition: true });
+    }
+  });
+
+  // 원정 목록
+  socket.on('slg_expeditions', () => {
+    socket.emit('slg_expeditions', { expeditions: EXPEDITIONS });
+  });
+
+  // 함정/용�� 배치 초기화
+  socket.on('slg_reset_defense', () => {
+    const p = players[playerId];
+    if (!p) return;
+    const castle = getCastle(p);
+    // 함정 비용의 50% 환불
+    let refund = 0;
+    for (const trap of castle.traps) refund += Math.floor((trap.cost || 0) * 0.5);
+    castle.traps = [];
+    castle.defenders = [];
+    p.gold = (p.gold || 0) + refund;
+    socket.emit('slg_result', { success: true, msg: `방��� 배치 초기화! ${refund}G 환불` });
+  });
 }
 
-module.exports = { PROMOTION_TREE, EVOLUTION_RECIPES, SLG_EVENTS, SIEGE_PLACEMENT, getSlgStatus, registerSlgHandlers };
+module.exports = { PROMOTION_TREE, EVOLUTION_RECIPES, SLG_EVENTS, SIEGE_PLACEMENT, CASTLE_TIERS, BUILDINGS, EXPEDITIONS, getSlgStatus, registerSlgHandlers };

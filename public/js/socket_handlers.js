@@ -2733,6 +2733,8 @@
             '</div></div>';
         });
         html += '</div>';
+        // 파티 UID 저장 (원정대에서 사용)
+        window._lastPartyUids = d.party || [];
         showModal('⚔️ 용병 관리 (' + d.roster.length + '종)', html, [{label:'닫기', type:'cancel', action:'closeModal()'}]);
       });
 
@@ -2754,34 +2756,208 @@
         else playSFX('gold');
       });
 
-      // ═══ SLG 뷰 + 무역 + 공성 관전 ═══
+      // ═══ SLG 뷰 v3.0 — 전면 개편 ═══
       window.socket.on('slg_status', (d) => {
-        var html = '<div style="text-align:center;margin-bottom:10px">' +
-          '<p style="color:#ffd700;font-size:18px">🏰 SLG 모드</p>' +
-          '<p style="color:#888;font-size:11px">용병을 키우고, 교역하고, 성을 공략하라!</p></div>';
-        // 진급 가능
+        var c = d.castle || { level: 1, name: '캠프', buildings: [], traps: [], defenders: [] };
+        var m = d.mercs || { roster: [], party: [], totalPower: 0 };
+        var html = '<div style="text-align:center;margin-bottom:8px">' +
+          '<p style="color:#ffd700;font-size:16px">' + c.name + ' (Lv.' + c.level + ')</p>' +
+          '<p style="color:#aaa;font-size:11px">전투력 ' + (m.totalPower||0) + ' | 용병 ' + m.roster.length + '명 | 시설 ' + (c.buildings||[]).length + '개</p></div>';
+
+        // 파티 표시
+        if (m.party && m.party.length > 0) {
+          html += '<div style="display:flex;gap:4px;justify-content:center;margin:6px 0">';
+          m.roster.filter(function(r){return m.party.indexOf(r.uid)>=0;}).forEach(function(r) {
+            html += '<span style="background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:4px;font-size:11px" title="' + r.name + ' Lv.' + r.level + '">' + r.icon + r.level + '</span>';
+          });
+          html += '</div>';
+        }
+
+        // 진급/진화 알림
+        var alerts = [];
+        if (d.promotions && d.promotions.length > 0) alerts.push('🎖️ 진급 ' + d.promotions.length);
+        if (d.evolutions && d.evolutions.length > 0) alerts.push('🧬 진화 ' + d.evolutions.length);
+        if (alerts.length > 0) html += '<p style="color:#ff8800;font-size:11px;text-align:center;margin:4px 0">' + alerts.join(' | ') + ' 가능!</p>';
+
+        // 메인 버튼 그리드
+        html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:8px">' +
+          '<button class="btn" onclick="window.socket.emit(\'merc_status\');">⚔️ 용병 관리</button>' +
+          '<button class="btn" onclick="window.socket.emit(\'merc_gacha_status\');">🎴 소환</button>' +
+          '<button class="btn" onclick="window.socket.emit(\'trade_routes\');">💰 무역</button>' +
+          '<button class="btn" onclick="window.socket.emit(\'slg_buildings\');">🔨 시설 건설</button>' +
+          '<button class="btn" onclick="window.socket.emit(\'slg_expedition_check\');">🌍 원정대</button>' +
+          '<button class="btn" onclick="window.socket.emit(\'slg_upgrade_castle\');">⬆️ 성 업그레이드</button>' +
+          '<button class="btn" onclick="window.socket.emit(\'siege_list\');">⚔️ 공성전</button>' +
+          '<button class="btn" onclick="window.socket.emit(\'slg_status\');">🔄 새로고침</button></div>';
+
+        // 진급 목록
         if (d.promotions && d.promotions.length > 0) {
-          html += '<h4 style="color:#ff8800;font-size:12px;margin:8px 0">🎖️ 진급 가능</h4>';
+          html += '<h4 style="color:#ff8800;font-size:11px;margin:8px 0 4px">🎖️ 진급 가능</h4>';
           d.promotions.forEach(function(p) {
-            html += '<div class="panel-item" style="border-left:3px solid #ff8800"><span class="name">' + p.mercName + ' → <b style="color:#ff8800">' + p.icon + ' ' + p.name + '</b><br><small style="color:#888">Lv.' + p.lv + '+ | ' + p.cost.gold + 'G</small></span>' +
-              '<button class="btn btn-sm" onclick="window.socket.emit(\'slg_promote\',{uid:\'' + p.mercUid + '\',to:\'' + p.to + '\'});closeModal();">진급!</button></div>';
+            html += '<div class="panel-item" style="border-left:3px solid #ff8800;padding:3px 6px"><span class="name" style="font-size:11px">' + p.mercName + ' → ' + p.icon + ' ' + p.name + ' (' + p.cost.gold + 'G)</span>' +
+              '<button class="btn btn-sm" onclick="window.socket.emit(\'slg_promote\',{uid:\'' + p.mercUid + '\',to:\'' + p.to + '\'});">진급</button></div>';
           });
         }
-        // 진화 가능
+        // 진화 목록
         if (d.evolutions && d.evolutions.length > 0) {
-          html += '<h4 style="color:#aa44ff;font-size:12px;margin:8px 0">🧬 진화 가능</h4>';
+          html += '<h4 style="color:#aa44ff;font-size:11px;margin:8px 0 4px">🧬 진화 가능</h4>';
           d.evolutions.forEach(function(e, i) {
-            html += '<div class="panel-item" style="border-left:3px solid #aa44ff"><span class="name"><b style="color:#aa44ff">' + e.name + '</b><br><small style="color:#888">' + e.desc + ' | ' + e.cost.gold + 'G</small></span>' +
-              '<button class="btn btn-sm" onclick="window.socket.emit(\'slg_evolve\',' + i + ');closeModal();">진화!</button></div>';
+            html += '<div class="panel-item" style="border-left:3px solid #aa44ff;padding:3px 6px"><span class="name" style="font-size:11px">' + e.name + ' (' + e.cost.gold + 'G)</span>' +
+              '<button class="btn btn-sm" onclick="window.socket.emit(\'slg_evolve\',' + i + ');">진화</button></div>';
           });
         }
-        // 버튼
-        html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px">' +
-          '<button class="btn" onclick="window.socket.emit(\'merc_status\');closeModal();">⚔️ 용병 관리</button>' +
-          '<button class="btn" onclick="window.socket.emit(\'trade_routes\');closeModal();">💰 무역</button>' +
-          '<button class="btn" onclick="window.socket.emit(\'merc_gacha\');closeModal();">🎴 소환 (30💎)</button>' +
-          '<button class="btn" onclick="window.socket.emit(\'house_status\');closeModal();">🏠 성 관리</button></div>';
         showModal('🏰 SLG', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+      });
+
+      // 시설 건설 UI
+      window.socket.on('slg_buildings', (d) => {
+        var html = '<p style="color:#aaa;font-size:11px;text-align:center">시설 슬롯: ' + d.used + '/' + d.slots + '</p>';
+        html += '<div style="max-height:50vh;overflow-y:auto">';
+        d.buildings.forEach(function(b) {
+          var owned = d.current.indexOf(b.id) >= 0;
+          html += '<div class="panel-item" style="border-left:3px solid ' + (owned ? '#44ff44' : '#666') + ';padding:4px 8px">' +
+            '<span class="name" style="font-size:11px">' + b.name + '<br><small style="color:#888">' + b.effect + ' | ' + b.cost + 'G</small></span>' +
+            (owned ? '<span style="color:#44ff44;font-size:10px">보유</span>' : '<button class="btn btn-sm" onclick="window.socket.emit(\'slg_build\',\'' + b.id + '\');closeModal();setTimeout(function(){window.socket.emit(\'slg_buildings\');},500);">건설</button>') +
+            '</div>';
+        });
+        html += '</div>';
+        showModal('🔨 시설 건설', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+      });
+
+      // 원정대 UI
+      window.socket.on('slg_expedition_result', (d) => {
+        if (d.noExpedition) {
+          window.socket.emit('slg_expeditions');
+          return;
+        }
+        if (!d.completed) {
+          var min = Math.floor(d.remaining / 60);
+          var sec = d.remaining % 60;
+          showModal('🌍 원정 진행 중', '<div style="text-align:center"><p style="color:#ffd700;font-size:16px">' + (d.name||'원정') + '</p><p style="color:#aaa;font-size:14px">남은 시간: ' + min + '분 ' + sec + '초</p></div>',
+            [{label:'확인',action:'closeModal()'}]);
+          return;
+        }
+        var html = '<div style="text-align:center"><p style="color:#44ff44;font-size:16px">🌍 원정 완료!</p>' +
+          '<p style="color:#ffd700;font-size:18px">+' + d.rewards.gold + 'G</p>';
+        if (d.rewards.diamonds) html += '<p style="color:#88ccff">+' + d.rewards.diamonds + '💎</p>';
+        if (d.mercCard) html += '<p style="color:#aa44ff">🎴 ' + d.mercCard.icon + ' ' + d.mercCard.name + ' 획득!</p>';
+        if (d.event) html += '<p style="color:#ff8800;font-size:12px">📢 ' + d.event + '</p>';
+        html += '</div>';
+        showModal('🌍 원정 결과', html, [{label:'확인',action:'closeModal()'}]);
+        playSFX('gold');
+      });
+
+      window.socket.on('slg_expeditions', (d) => {
+        var html = '<div style="max-height:50vh;overflow-y:auto">';
+        d.expeditions.forEach(function(e) {
+          var hours = Math.floor(e.time / 3600);
+          html += '<div class="panel-item" style="border-left:3px solid #4488ff;padding:4px 8px">' +
+            '<span class="name" style="font-size:11px">' + e.name + '<br><small style="color:#888">전투력 ' + e.power + '+ | ' + hours + '시간 | ' + e.rewards.gold + 'G</small></span>' +
+            '<button class="btn btn-sm" onclick="window.socket.emit(\'slg_expedition_start\',{expedId:\'' + e.id + '\',mercUids:window._lastPartyUids||[]});closeModal();">출발</button></div>';
+        });
+        html += '</div><p style="color:#888;font-size:10px;text-align:center">편성된 파티 용병이 원정에 참여합니다</p>';
+        showModal('🌍 원정대', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+      });
+
+      // 가챠 UI (천장 포함)
+      window.socket.on('merc_gacha_status', (d) => {
+        var html = '<div style="text-align:center;margin-bottom:8px">' +
+          '<p style="color:#aaa;font-size:11px">영웅 보장: <b style="color:#aa44ff">' + d.nextHeroPity + '회 남음</b> | 신화 보장: <b style="color:#ff00ff">' + d.nextMythicPity + '회 남음</b></p>' +
+          '<p style="color:#888;font-size:10px">총 소환 ' + d.totalPulls + '회 | 포인트 ' + d.points + 'pt</p></div>';
+        html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px">' +
+          '<button class="btn" style="background:#2d2d5e" onclick="window.socket.emit(\'merc_gacha\');closeModal();">🎴 소환 1회<br><small>30💎</small></button>' +
+          '<button class="btn" style="background:#3d1a5e" onclick="window.socket.emit(\'merc_gacha_10\');closeModal();">🌟 10연차<br><small>300💎 (고급+ 보장)</small></button>' +
+          '<button class="btn" style="background:#1a3d1a" onclick="window.socket.emit(\'merc_gacha_free\');closeModal();">🆓 무료 소환<br><small>3,000G (1일 1회)</small></button>' +
+          '<button class="btn" style="background:#1a1a3d" onclick="closeModal();showPointExchange();">🔄 포인트 교환<br><small>' + d.points + 'pt 보유</small></button></div>';
+        html += '<div style="margin-top:8px;padding:6px;background:rgba(255,255,255,0.03);border-radius:6px;font-size:10px;color:#666">' +
+          '50회부터 영웅 확률↑ | 80회 영웅 확정 | 200회 신화 확정<br>10연차: 고급+ 1체 보장 + 포인트 2배</div>';
+        showModal('🎴 용병 소환', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+      });
+
+      // 10연차 결과
+      window.socket.on('merc_gacha_10_result', (d) => {
+        var html = '<div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:center">';
+        var gradeColors = ['#888','#44cc44','#4488ff','#aa44ff','#ff8800','#ff00ff'];
+        d.results.forEach(function(r) {
+          html += '<div style="width:48px;height:56px;border:2px solid ' + gradeColors[r.grade] + ';border-radius:6px;text-align:center;padding:2px;background:rgba(0,0,0,0.3)">' +
+            '<div style="font-size:18px">' + (r.icon||'?') + '</div>' +
+            '<div style="font-size:8px;color:' + gradeColors[r.grade] + '">' + (r.name||'?') + '</div></div>';
+        });
+        html += '</div><p style="text-align:center;color:#888;font-size:10px;margin-top:6px">포인트: ' + d.points + 'pt | 천장: 영웅 ' + d.pity + '/80, 신화 ' + d.mythicPity + '/200</p>';
+        showModal('🌟 10연차 결과!', html, [{label:'확인',action:'closeModal()'}]);
+        playSFX(d.bestGrade >= 3 ? 'boss' : 'levelup');
+      });
+
+      // 공성전 목록
+      window.socket.on('siege_list_result', (d) => {
+        var html = '';
+        if (!d || d.length === 0) {
+          html = '<p style="color:#888;text-align:center">현재 진행 중인 공성전이 없습니다</p>';
+          html += '<div style="margin-top:10px"><p style="color:#aaa;font-size:11px">공성전 공격:</p>' +
+            '<input id="siege-target" placeholder="대상 닉네임" style="width:100%;padding:4px;margin:4px 0;background:#1a1a2e;border:1px solid #444;color:#fff;border-radius:4px">' +
+            '<button class="btn" onclick="var t=document.getElementById(\'siege-target\').value;if(t)window.socket.emit(\'siege_attack\',t);closeModal();">⚔️ 공성 시작</button></div>';
+        } else {
+          html += '<div style="max-height:40vh;overflow-y:auto">';
+          d.forEach(function(s) {
+            html += '<div class="panel-item"><span class="name" style="font-size:11px">' + s.attacker + ' → ' + s.defender + '<br><small style="color:#888">' + s.remaining + '초 남음</small></span>' +
+              '<button class="btn btn-sm" onclick="window.socket.emit(\'siege_spectate\',\'' + s.siegeId + '\');closeModal();">관전</button></div>';
+          });
+          html += '</div>';
+        }
+        showModal('⚔️ 공성전', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+      });
+
+      // 공성전 상세 업데이트
+      window.socket.on('siege_battle_update', (d) => {
+        var el = document.getElementById('siege-hud');
+        if (!el) {
+          el = document.createElement('div');
+          el.id = 'siege-hud';
+          el.style.cssText = 'position:fixed;top:10px;right:10px;background:rgba(0,0,0,0.85);border:1px solid #ffd700;border-radius:8px;padding:8px;z-index:9999;font-size:11px;color:#fff;min-width:180px';
+          document.body.appendChild(el);
+        }
+        var a = d.attacker;
+        var hpPct = Math.max(0, Math.floor(a.hp / a.maxHp * 100));
+        var cc = '';
+        if (a.stunned) cc += ' ❄️빙결';
+        if (a.poisoned) cc += ' ☠️독';
+        if (a.slowed) cc += ' 🕸️감속';
+        el.innerHTML = '<div style="color:#ffd700;text-align:center;margin-bottom:4px">⚔️ 공성전 ' + d.remaining + '초</div>' +
+          '<div style="background:#333;border-radius:4px;height:12px;margin:2px 0"><div style="background:' + (hpPct>50?'#44ff44':hpPct>25?'#ff8800':'#ff4444') + ';height:100%;width:' + hpPct + '%;border-radius:4px;transition:width 0.3s"></div></div>' +
+          '<div style="text-align:center;font-size:10px">HP ' + a.hp + '/' + a.maxHp + cc + '</div>' +
+          '<div style="color:#888;font-size:9px;margin-top:4px">방어유닛 ' + d.defenders.filter(function(dd){return dd.alive;}).length + '/' + d.defenders.length + ' | 함정 ' + d.trapsTriggered + '개 발동</div>';
+      });
+
+      window.socket.on('siege_battle_end', (d) => {
+        var el = document.getElementById('siege-hud');
+        if (el) el.remove();
+        var isWin = (d.role === 'attacker' && d.winner === 'attacker') || (d.role === 'defender' && d.winner === 'defender');
+        var html = '<div style="text-align:center">' +
+          '<p style="color:' + (isWin ? '#44ff44' : '#ff4444') + ';font-size:20px">' + (isWin ? '🏆 승리!' : '💀 패배...') + '</p>' +
+          '<p style="color:#aaa">' + d.reason + ' (' + d.elapsed + '초)</p>';
+        if (d.myReward) {
+          html += '<p style="color:#ffd700;font-size:16px;margin:6px 0">+' + (d.myReward.gold||0) + 'G';
+          if (d.myReward.diamonds) html += ' +' + d.myReward.diamonds + '💎';
+          html += '</p>';
+          if (d.myReward.lootGold) html += '<p style="color:#ff8800;font-size:12px">약탈: ' + d.myReward.lootGold + 'G</p>';
+        }
+        html += '</div>';
+        showModal('🏰 공성전 결과', html, [{label:'확인',action:'closeModal()'}]);
+        playSFX(isWin ? 'boss' : 'die');
+      });
+
+      window.socket.on('siege_skill', (d) => {
+        var msgs = d.events.map(function(e) { return d.defIcon + ' ' + (e.msg || e.type); }).join(', ');
+        addCombatLog('[공성] ' + msgs, 'log-gold');
+      });
+
+      window.socket.on('siege_event', (d) => {
+        addCombatLog('[공성] ' + (d.msg || d.type), d.type === 'defender_kill' ? 'log-green' : 'log-red');
+      });
+
+      window.socket.on('siege_trap_triggered', (d) => {
+        showToast(d.msg);
+        addCombatLog('[공성] ' + d.msg, 'log-red');
       });
 
       window.socket.on('slg_result', (d) => {
