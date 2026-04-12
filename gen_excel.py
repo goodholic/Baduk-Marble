@@ -6936,6 +6936,261 @@ weapon_data = [
 ]
 style_sheet(ws_weapon, weapon_headers, weapon_data, title='IO 무기 조합 빌드 가이드 15선', col_widths=[4,22,20,20,18,18,40,26,36,30])
 
+# ========== 용병 60종 레벨별 스탯표 ==========
+import math
+ws_merc_stat = wb.create_sheet('용병 60종 레벨별 스탯표')
+merc_stat_headers = ['이름','등급','Lv1 ATK','Lv1 DEF','Lv1 HP','Lv25 ATK','Lv25 DEF','Lv25 HP','Lv50 ATK','Lv50 DEF','Lv50 HP','Lv75 ATK','Lv75 DEF','Lv75 HP','Lv100 ATK','Lv100 DEF','Lv100 HP']
+_grade_names = ['일반','고급','희귀','영웅','전설','신화']
+_grade_mult = [1.0, 1.3, 1.7, 2.2, 3.0, 5.0]
+_merc_base = [
+    # (name, grade, atk, def, hp) — sorted by grade then name (Korean)
+    # Grade 0 일반
+    ('궁수', 0, 14, 5, 80),
+    ('농부 전사', 0, 9, 11, 140),
+    ('도둑', 0, 10, 3, 65),
+    ('보병', 0, 12, 10, 120),
+    ('수도승', 0, 13, 8, 110),
+    ('수습 사제', 0, 6, 6, 90),
+    ('창병', 0, 11, 12, 130),
+    # Grade 1 고급
+    ('광전사', 1, 24, 4, 130),
+    ('기마병', 1, 20, 10, 160),
+    ('기사', 1, 18, 16, 180),
+    ('레인저', 1, 20, 8, 100),
+    ('마법사', 1, 22, 4, 70),
+    ('무희', 1, 8, 6, 90),
+    ('석궁병', 1, 22, 6, 85),
+    ('성전사', 1, 16, 15, 170),
+    ('음유시인', 1, 8, 7, 95),
+    ('주술사', 1, 18, 5, 80),
+    ('해적', 1, 19, 7, 110),
+    # Grade 2 희귀
+    ('강령술사', 2, 26, 7, 100),
+    ('닌자', 2, 32, 5, 85),
+    ('드루이드', 2, 14, 10, 150),
+    ('맹수 조련사', 2, 27, 10, 160),
+    ('발키리', 2, 28, 16, 180),
+    ('사무라이', 2, 30, 14, 190),
+    ('사제', 2, 10, 12, 140),
+    ('성기사', 2, 25, 22, 250),
+    ('암살자', 2, 30, 6, 90),
+    ('연금술사', 2, 16, 8, 110),
+    ('저격수', 2, 35, 3, 70),
+    ('화염술사', 2, 32, 4, 75),
+    ('흑마법사', 2, 28, 5, 85),
+    # Grade 3 영웅
+    ('검성', 3, 46, 16, 260),
+    ('그림자 군주', 3, 42, 15, 200),
+    ('대마법사', 3, 45, 8, 150),
+    ('드래곤나이트', 3, 40, 30, 400),
+    ('마왕', 3, 48, 18, 280),
+    ('불사조 기사', 3, 38, 20, 350),
+    ('서리 여왕', 3, 44, 12, 180),
+    ('수호천사', 3, 20, 25, 320),
+    ('시간 마법사', 3, 42, 10, 170),
+    # Grade 4 전설
+    ('공허의 왕', 4, 65, 20, 400),
+    ('세계수 정령', 4, 25, 30, 600),
+    ('세라핌', 4, 35, 25, 400),
+    ('죽음의 기사', 4, 55, 35, 500),
+    ('천상의 기사', 4, 60, 40, 550),
+    ('혼돈의 군주', 4, 62, 22, 420),
+    # Grade 5 신화
+    ('세계의 끝', 5, 95, 55, 900),
+    ('용왕 바하무트', 5, 100, 60, 1000),
+    ('전쟁의 신', 5, 90, 50, 800),
+]
+
+merc_stat_data = []
+for (name, grade, base_atk, base_def, base_hp) in _merc_base:
+    gm = _grade_mult[grade]
+    atk_per = math.floor(1.5 * gm)
+    def_per = math.floor(1.0 * gm)
+    hp_per = math.floor(5 * gm)
+    row = [name, _grade_names[grade]]
+    for lv in [1, 25, 50, 75, 100]:
+        row.append(base_atk + (lv - 1) * atk_per)
+        row.append(base_def + (lv - 1) * def_per)
+        row.append(base_hp + (lv - 1) * hp_per)
+    merc_stat_data.append(row)
+
+style_sheet(ws_merc_stat, merc_stat_headers, merc_stat_data, title='용병 60종 레벨별 스탯표', col_widths=[14,8,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10])
+
+# ── IO 매치 타임라인 ──
+ws_timeline = wb.create_sheet('IO 매치 타임라인')
+timeline_headers = ['시간(분:초)','이벤트','몬스터/효과','플레이어 예상 레벨','전략 포인트']
+timeline_data = [
+    ['0:00','게임 시작 – 맵 스폰','없음','Lv.1','스폰 위치 확인, 주변 무기 상자 파악'],
+    ['0:10','첫 무기 상자 획득','없음','Lv.1','가장 가까운 상자로 이동, 기본 무기 확보'],
+    ['0:20','첫 무기 선택 완료','없음','Lv.1','파이어볼/회전검 등 초반 효율 무기 추천'],
+    ['0:30','웨이브 1 시작','슬라임 x5','Lv.1','뭉쳐서 처리, 골드 수집 시작'],
+    ['0:45','웨이브 2','슬라임 x8, 박쥐 x3','Lv.2','박쥐 우선 처리 (원거리 공격 주의)'],
+    ['1:00','웨이브 3~4 연속','늑대 x6, 거미 x4','Lv.2','늑대 돌진 회피, 거미 독 장판 주의'],
+    ['1:20','웨이브 5 – 첫 보스!','슬라임킹 (HP 500)','Lv.3','원형 패턴 회피, 분열 슬라임 무시하고 본체 집중'],
+    ['1:40','보스 처치 보상','골드 100 + 장비 상자','Lv.3','장비 즉시 장착, 2번째 무기 슬롯 개방'],
+    ['2:00','웨이브 6~8','고블린 x8, 해골 x5, 트렌트 x3','Lv.4','트렌트 고HP 주의, 고블린 회피기 있음'],
+    ['2:30','웨이브 9~10 – 혼합','좀비 x10, 거미 x5, 늑대 x5','Lv.5','좀비 밀집 시 범위 스킬 사용, 장비 드롭 수집'],
+    ['3:00','웨이브 11~12 – 엘리트 등장','오크 전사 x2, 일반몹 혼합','Lv.5','엘리트 우선 처치 (용병 카드 드롭 가능)'],
+    ['3:20','PvP 활성화 알림','다른 플레이어 접근 경고','Lv.6','맵 중앙 피하고 가장자리에서 파밍 유지'],
+    ['3:40','웨이브 13~15','암흑 기사 x1, 독 거미 x3, 일반몹','Lv.6','암흑 기사 방어력 높음 → CC 스킬 필수'],
+    ['4:00','안전지대 1차 축소','축소 경고 표시','Lv.7','맵 가장자리 이탈, 중앙 방향 이동 시작'],
+    ['4:15','웨이브 16~18','화염 정령 x2, 얼음 골렘 x1, 혼합','Lv.7','화염 정령 원거리 주의, 골렘은 느리지만 고HP'],
+    ['4:40','웨이브 19~20 – 중반 보스!','드래곤 (HP 2000)','Lv.8','브레스 범위 회피, 비행 중 원거리 공격만 유효'],
+    ['5:00','안전지대 2차 축소','강제 접전 구간 시작','Lv.8','드래곤 보상 확보 후 즉시 이동, PvP 교전 각오'],
+    ['5:20','웨이브 21~23','엘리트 혼합 x5, PvP 동시 진행','Lv.9','몬스터를 방패로 활용, 적 플레이어와 직접 교전 회피'],
+    ['5:50','웨이브 24~25 – 격전','모든 엘리트 종류 혼합 x8','Lv.9','무기 Lv.5 조합 완성 목표, 조합 실패 시 3무기 병행'],
+    ['6:00','웨이브 26~28','엘리트 러쉬 + 일반몹 대량','Lv.10','범위 스킬 집중, 포션/회복 아이템 사용 타이밍'],
+    ['6:30','웨이브 29~30 – 마왕!','마왕 (HP 5000)','Lv.10','암흑 장판 회피, 소환수 무시하고 본체 집중 공격'],
+    ['7:00','마왕 처치 / 안전지대 3차 축소','전설 장비 드롭 + 맵 극소화','Lv.11','전설 장비 즉시 장착, 최종 빌드 완성'],
+    ['7:30','웨이브 31~33 – 카오스','모든 몬스터 강화 버전 혼합','Lv.11','카오스 몹 패턴 변형 주의, 방어 우선 플레이'],
+    ['8:00','웨이브 34~35 – 최종 전쟁','강화 엘리트 + 미니보스 동시','Lv.12','생존이 최우선, 무리한 PvP 금지'],
+    ['8:30','최종 웨이브 36~38','세계의 적 (HP 10000) 등장','Lv.12','모든 생존자 협력 필요, 세계의 적 공동 공격'],
+    ['9:00','웨이브 39~40 – 절정','세계의 적 광역 패턴 + 잔여 몹','Lv.13','회피 최우선, 패턴 사이 딜 삽입, 최후의 1인 노림'],
+    ['9:30~10:00','최종 생존자 결정','승리 판정','Lv.13','세계의 적 처치 or 최후 생존 시 1등, 순위별 보상 지급'],
+]
+style_sheet(ws_timeline, timeline_headers, timeline_data, title='IO 매치 타임라인 (10분 서바이벌)', col_widths=[12,28,30,18,40])
+
+# ── 몬스터 드롭표 전체 ──
+ws_drop = wb.create_sheet('몬스터 드롭표 전체')
+drop_headers = ['몬스터','등급','HP','ATK','골드','EXP','장비 드롭%','장비 등급','용병 카드%','카드 등급','특수 드롭']
+drop_data = [
+    # 일반 몬스터 (8)
+    ['슬라임','일반',50,5,3,5,'5%','일반','1%','C','없음'],
+    ['늑대','일반',80,12,5,8,'7%','일반','1%','C','없음'],
+    ['박쥐','일반',40,8,4,6,'5%','일반','1%','C','없음'],
+    ['거미','일반',60,10,4,7,'6%','일반','2%','C','독 병 (3%)'],
+    ['트렌트','일반',150,8,8,12,'10%','일반~고급','2%','C','나무 방패 (2%)'],
+    ['고블린','일반',70,15,10,10,'8%','일반','2%','C','훔친 골드 주머니 (5%)'],
+    ['해골','일반',90,14,6,9,'7%','일반','1%','C','뼈 조각 (4%)'],
+    ['좀비','일반',120,10,5,8,'6%','일반','1%','C','감염 시료 (2%)'],
+    # 엘리트 몬스터 (5)
+    ['오크 전사','엘리트',400,35,25,40,'25%','고급','8%','B','오크 전투도끼 (5%)'],
+    ['암흑 기사','엘리트',500,45,30,50,'30%','고급~희귀','10%','B','암흑 갑옷 파편 (4%)'],
+    ['독 거미','엘리트',350,30,20,35,'22%','고급','7%','B','맹독 주머니 (8%)'],
+    ['화염 정령','엘리트',300,50,28,45,'28%','고급~희귀','9%','B','화염 정수 (6%)'],
+    ['얼음 골렘','엘리트',600,25,22,38,'20%','고급','7%','B','얼음 핵 (5%)'],
+    # 보스 몬스터 (5)
+    ['슬라임킹','보스',500,20,100,80,'80%','고급','20%','B~A','왕관 조각 (15%)'],
+    ['골렘','보스',2000,40,150,120,'85%','희귀','25%','A','골렘 코어 (10%)'],
+    ['드래곤','보스',2000,60,250,200,'90%','희귀~영웅','30%','A','용의 비늘 (12%)'],
+    ['마왕','보스',5000,80,500,400,'95%','영웅','40%','A~S','마왕의 증표 (20%)'],
+    ['세계의 적','보스',10000,100,1000,800,'100%','전설','50%','S','세계의 파편 (30%)'],
+    # 필드 보스 (4)
+    ['월드 보스','필드 보스',8000,70,300,250,'90%','영웅','35%','A','월드 메달 (25%)'],
+    ['레이드 보스','필드 보스',15000,90,500,400,'95%','영웅~전설','40%','A~S','레이드 토큰 (100%)'],
+    ['히든 보스','필드 보스',6000,120,800,600,'100%','전설','60%','S','히든 칭호 (100%)'],
+    ['이벤트 보스','필드 보스',5000,60,200,300,'100%','이벤트 한정','50%','이벤트','이벤트 코인 (100%)'],
+]
+style_sheet(ws_drop, drop_headers, drop_data, title='몬스터 드롭표 전체 (IO 서바이벌 + 필드)', col_widths=[14,10,8,8,8,8,12,14,12,12,22])
+
+# ========== 소켓 이벤트 API 명세서 ==========
+ws_api = wb.create_sheet('소켓 이벤트 API 명세서')
+api_headers = ['방향','이벤트명','파라미터','응답 이벤트','응답 데이터','카테고리','설명']
+api_data = [
+    # ── 용병 시스템 (mercenary_system.js) ──
+    ['C→S','merc_status','없음','merc_status','roster[], party[], maxRoster, totalPower','용병','용병 전체 상태 조회'],
+    ['C→S','merc_level_up','{uid}','merc_result','{success, msg, leveled, level, exp, expToNext}','용병','용병 레벨업 (100G → 50 EXP)'],
+    ['C→S','merc_awaken','uid (string)','merc_result','{success, msg, merc}','용병','용병 각성 (★ 올리기, 중복 카드 소모)'],
+    ['C→S','merc_skill_up','uid (string)','merc_result','{success, msg}','용병','용병 스킬 강화 (골드 소모)'],
+    ['C→S','merc_equip','{uid, equipId}','merc_result','{success, msg}','용병','용병 장비 장착'],
+    ['C→S','merc_set_party','uids[] (string[])','merc_party_result','{success, party[]}','용병','용병 파티 편성 (최대 6명)'],
+    ['C→S','merc_gacha','없음','merc_gacha_result','{success, msg, grade, pity, mythicPity, points}','용병','단일 소환 (30 다이아)'],
+    ['C→S','merc_gacha_10','없음','merc_gacha_10_result','{results[], pity, mythicPity, points, bestGrade}','용병','10연차 소환 (300 다이아, 고급+ 1체 보장)'],
+    ['C→S','merc_gacha_free','없음','merc_gacha_result','{success, msg, grade, free:true}','용병','무료 골드 소환 (1일 1회, 3000G)'],
+    ['C→S','merc_gacha_exchange','{grade, mercId}','merc_gacha_result','{success, exchanged, pointsLeft}','용병','포인트 교환 소환 (30/80/200 포인트)'],
+    ['C→S','merc_gacha_status','없음','merc_gacha_status','{pity, mythicPity, points, totalPulls, freeAvailable}','용병','가챠 천장/포인트 상태 조회'],
+    ['S→C','merc_result','—','—','{success, msg, ...}','용병','용병 관련 작업 결과 알림 (범용)'],
+    ['S→C','merc_status','—','—','roster[], party[], totalPower','용병','용병 상태 응답 데이터'],
+    ['S→C','merc_gacha_result','—','—','{success, msg, grade, merc}','용병','가챠 결과 (단일/무료/교환)'],
+    ['S→C','merc_gacha_10_result','—','—','{results[], bestGrade, pity, mythicPity}','용병','10연차 가챠 결과'],
+    ['S→C','merc_gacha_status','—','—','{pity, mythicPity, points, totalPulls}','용병','가챠 상태 응답'],
+    ['S→C','merc_party_result','—','—','{success, party[]}','용병','파티 편성 결과'],
+
+    # ── SLG 시스템 (slg_view.js) ──
+    ['C→S','slg_status','없음','slg_status','{mode, castle, mercs, promotions, evolutions, trade, events}','SLG','SLG 모드 전체 상태 조회'],
+    ['C→S','slg_promote','{uid, to}','slg_result','{success, msg, merc}','SLG','용병 진급 (병사→장군)'],
+    ['C→S','slg_evolve','recipeIdx (number)','slg_result','{success, msg, merc}','SLG','용병 진화 (합성)'],
+    ['C→S','slg_place_trap','{trapId, x, y}','slg_result','{success, msg}','SLG','성 함정 배치'],
+    ['C→S','slg_place_defender','{uid, x, y}','slg_result','{success, msg}','SLG','성 방어 용병 배치'],
+    ['C→S','slg_upgrade_castle','없음','slg_result','{success, msg, castle}','SLG','성 업그레이드'],
+    ['C→S','slg_build','buildingId (string)','slg_result','{success, msg}','SLG','시설 건설'],
+    ['C→S','slg_buildings','없음','slg_buildings','{buildings[], current[], slots, used}','SLG','시설 목록 조회'],
+    ['C→S','slg_expedition_start','{expedId, mercUids[]}','slg_result','{success, msg}','SLG','용병 원정대 출발'],
+    ['C→S','slg_expedition_check','없음','slg_expedition_result','{completed, remaining, rewards, event, mercCard}','SLG','원정 상태 확인 / 완료 수령'],
+    ['C→S','slg_expeditions','없음','slg_expeditions','{expeditions[]}','SLG','원정 목록 조회'],
+    ['C→S','slg_reset_defense','없음','slg_result','{success, msg}','SLG','함정/용병 배치 초기화 (50% 환불)'],
+    ['S→C','slg_status','—','—','{mode, castle, mercs, promotions, evolutions}','SLG','SLG 상태 응답'],
+    ['S→C','slg_result','—','—','{success, msg, ...}','SLG','SLG 작업 결과 알림 (범용)'],
+    ['S→C','slg_buildings','—','—','{buildings[], current[], slots, used}','SLG','시설 목록 응답'],
+    ['S→C','slg_expedition_result','—','—','{completed, rewards, event, mercCard}','SLG','원정 결과 응답'],
+    ['S→C','slg_expeditions','—','—','{expeditions[]}','SLG','원정 목록 응답'],
+
+    # ── 공성전 시스템 (siege_battle.js) ──
+    ['C→S','siege_attack','targetName (string)','siege_result','{success, siegeId, msg}','공성','공성전 신청 (대상 이름)'],
+    ['C→S','siege_battle_move','{dx, dy}','(실시간 틱)','siege_battle_update (틱마다)','공성','공격자 이동 (WASD 방향)'],
+    ['C→S','siege_spectate','siegeId (string)','siege_spectate_result','{success, data{siegeId, role, map, attacker, defenders}}','공성','공성전 관전 요청'],
+    ['C→S','siege_list','없음','siege_list_result','[{siegeId, attacker, defender, elapsed, remaining}]','공성','활성 공성전 목록 조회'],
+    ['C→S','siege_chat','{siegeId, msg}','siege_chat_msg (broadcast)','{from, msg, time}','공성','공성전 관전 채팅'],
+    ['S→C','siege_result','—','—','{success, siegeId, msg}','공성','공성전 신청 결과'],
+    ['S→C','siege_battle_start','—','—','{siegeId, role, map, traps[], defenders[], attacker, timeLimit}','공성','공성전 시작 (공격자/성주 각각 다른 정보)'],
+    ['S→C','siege_battle_update','—','—','{siegeId, elapsed, remaining, attacker{x,y,hp,stunned,poisoned}, defenders[], summons[]}','공성','공성전 틱 상태 (0.5초마다)'],
+    ['S→C','siege_battle_end','—','—','{siegeId, winner, reason, rewards, role, myReward}','공성','공성전 종료 결과 + 보상'],
+    ['S→C','siege_trap_triggered','—','—','{trap{id,icon,x,y}, msg, hp}','공성','함정 발동 알림'],
+    ['S→C','siege_event','—','—','{type, msg, ...}','공성','공성전 이벤트 (화살탑, 장벽, 용병 처치 등)'],
+    ['S→C','siege_skill','—','—','{defIcon, defName, events[]}','공성','방어 용병 스킬 발동 알림'],
+    ['S→C','siege_spectate_result','—','—','{success, data}','공성','관전 요청 결과'],
+    ['S→C','siege_list_result','—','—','[{siegeId, attacker, defender, elapsed, remaining}]','공성','활성 공성전 목록 응답'],
+    ['S→C','siege_chat_msg','—','—','{from, msg, time}','공성','관전 채팅 메시지 (브로드캐스트)'],
+
+    # ── 무역 시스템 (trade_system.js) ──
+    ['C→S','trade_routes','없음','trade_routes','{routes[], upgrades[], state, arrival}','무역','무역 루트 + 캐러밴 상태 조회'],
+    ['C→S','trade_start','{routeId, quantity}','trade_result','{success, msg, trip}','무역','교역 출발'],
+    ['C→S','trade_check','없음','trade_arrival','{arrived, profit, robbed, lostGoods, route, goods} 또는 {arrived:false, remaining}','무역','교역 도착 확인 / 수령'],
+    ['C→S','trade_upgrade','upgradeId (string)','trade_result','{success, msg}','무역','캐러밴 업그레이드 구매'],
+    ['C→S','trade_raid','targetName (string)','trade_raid_result','{success, stolenValue, stolenGoods}','무역','다른 플레이어 캐러밴 약탈 (PK존 전용)'],
+    ['S→C','trade_routes','—','—','{routes[], upgrades[], state, arrival}','무역','무역 루트 목록 응답'],
+    ['S→C','trade_result','—','—','{success, msg}','무역','무역 작업 결과 (출발/업그레이드)'],
+    ['S→C','trade_arrival','—','—','{arrived, profit, robbed, lostGoods}','무역','교역 도착/수령 결과'],
+    ['S→C','trade_raid_result','—','—','{success, stolenValue, stolenGoods, goods}','무역','캐러밴 약탈 결과 (공격자/피해자 각각)'],
+
+    # ── 서바이벌 IO (survival_io.js) — 솔로 ──
+    ['C→S','survival_start','없음','survival_result','{success, session, classInfo, availableClasses[]}','IO','서바이벌 IO 게임 시작'],
+    ['C→S','survival_attack','없음','survival_result','{killed, damage, isCrit, dodged, session} 또는 game_over','IO','서바이벌 공격 (몬스터 전투)'],
+    ['C→S','survival_tick','없음','survival_tick','{session, newWave}','IO','서바이벌 틱 (웨이브 진행)'],
+    ['C→S','survival_levelup_choices','없음','survival_choices','{choices[]}','IO','레벨업 선택지 요청'],
+    ['C→S','survival_select_upgrade','upgradeId (string)','survival_result','{success, upgrade, session}','IO','레벨업 업그레이드 선택'],
+    ['C→S','survival_status','없음','survival_status','{level, wave, kills, hp, atk, def, ...}','IO','서바이벌 현재 상태 조회'],
+    ['C→S','survival_use_skill','skillId (string)','survival_skill_result','{skillUsed, skill, icon, kills, buff, heal}','IO','RPG 스킬 사용 (쿨다운 관리)'],
+    ['S→C','survival_result','—','—','{success, session, type, ...}','IO','서바이벌 결과 (공격/게임오버/업그레이드)'],
+    ['S→C','survival_tick','—','—','{session, newWave}','IO','서바이벌 틱 응답'],
+    ['S→C','survival_choices','—','—','{choices[{id, name, icon, effect}]}','IO','레벨업 선택지 응답'],
+    ['S→C','survival_status','—','—','{level, wave, kills, hp, maxHp, atk, def, ...}','IO','서바이벌 상태 응답'],
+    ['S→C','survival_skill_result','—','—','{skillUsed, skill, icon, kills, buff, session}','IO','스킬 사용 결과'],
+
+    # ── 서바이벌 IO — 코옵 ──
+    ['C→S','coop_create','없음','coop_result','{success, roomId, msg}','IO','코옵 서바이벌 방 생성'],
+    ['C→S','coop_join','roomId (string)','coop_result','{success, roomId, players[]}','IO','코옵 방 참가'],
+    ['C→S','coop_start','roomId (string)','coop_started (broadcast)','{roomId, players[]}','IO','코옵 게임 시작 (방장 전용)'],
+    ['C→S','coop_attack','roomId (string)','coop_attack_result','{killed, damage, isCrit, playerHp, playerAlive}','IO','코옵 공격'],
+    ['C→S','coop_upgrade','{roomId, upgradeId}','coop_upgrade_result','{success, upgrade}','IO','코옵 레벨업 업그레이드 선택'],
+    ['C→S','coop_rooms','없음','coop_rooms','{rooms[{id, host, playerCount, maxPlayers}]}','IO','코옵 방 목록 조회'],
+    ['C→S','coop_status','roomId (string)','coop_status','{roomId, phase, wave, monstersAlive, totalKills, players[]}','IO','코옵 방 상태 조회'],
+    ['S→C','coop_result','—','—','{success, roomId, msg}','IO','코옵 방 생성/참가 결과'],
+    ['S→C','coop_started','—','—','{roomId, players[]}','IO','코옵 게임 시작 알림 (전원)'],
+    ['S→C','coop_player_joined','—','—','{name, players[]}','IO','코옵 새 플레이어 참가 알림'],
+    ['S→C','coop_wave','—','—','{wave, isBoss, monsterCount, bossName}','IO','코옵 새 웨이브 시작 알림'],
+    ['S→C','coop_update','—','—','{roomId, phase, wave, monstersAlive, totalKills, players[]}','IO','코옵 상태 브로드캐스트 (2초마다)'],
+    ['S→C','coop_end','—','—','{wave, totalKills, time, results[]}','IO','코옵 게임 종료 결과'],
+    ['S→C','coop_attack_result','—','—','{killed, damage, isCrit, playerHp}','IO','코옵 공격 결과'],
+    ['S→C','coop_upgrade_result','—','—','{success, upgrade}','IO','코옵 업그레이드 결과'],
+    ['S→C','coop_rooms','—','—','{rooms[]}','IO','코옵 방 목록 응답'],
+    ['S→C','coop_status','—','—','{roomId, phase, wave, ...}','IO','코옵 상태 응답'],
+
+    # ── 공통 서버 메시지 ──
+    ['S→C','server_msg','—','—','{msg, type}','공통','서버 전체 알림 (boss/rare/normal/danger)'],
+]
+style_sheet(ws_api, api_headers, api_data, title='소켓 이벤트 API 명세서 (v3.0)', col_widths=[8,28,28,28,50,8,36])
+
 # 저장
 path = r'C:\Users\super\My project\Baduk Marble\AutoBattle_io_기획서.xlsx'
 wb.save(path)
