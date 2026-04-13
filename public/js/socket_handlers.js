@@ -2789,6 +2789,10 @@
           '<button class="btn" onclick="window.socket.emit(\'slg_upgrade_castle\');">⬆️ 성 업그레이드</button>' +
           '<button class="btn" onclick="window.socket.emit(\'siege_list\');">⚔️ 공성전</button>' +
           '<button class="btn" onclick="window.socket.emit(\'arena_status\');">🏟️ 아레나</button>' +
+          '<button class="btn" onclick="window.socket.emit(\'capture_status\');">🐾 포획</button>' +
+          '<button class="btn" onclick="window.socket.emit(\'daily_quest_status\');">📋 일일퀘스트</button>' +
+          '<button class="btn" onclick="window.socket.emit(\'bp_status\');">📜 배틀패스</button>' +
+          '<button class="btn" onclick="window.socket.emit(\'faction_status\');">🏴 진영</button>' +
           '<button class="btn" onclick="window.socket.emit(\'slg_status\');">🔄 새로고침</button></div>';
 
         // 진급 목록
@@ -3012,6 +3016,127 @@
           '<p style="color:#aa44ff">' + d.newRank + ' ' + d.newScore + '점</p></div>',
           [{label:'확인',action:'closeModal()'}]);
         playSFX(isWin ? 'boss' : isDraw ? 'gold' : 'die');
+      });
+
+      // ═══ 포획 몬스터 UI ═══
+      window.socket.on('capture_status', (d) => {
+        var html = '<p style="color:#aaa;font-size:11px;text-align:center">포획 ' + d.monsters.length + '/' + d.maxSlots + '마리</p>';
+        if (d.monsters.length === 0) {
+          html += '<p style="color:#666;text-align:center;margin:12px 0">아직 포획한 몬스터가 없습니다.<br>IO 전투 중 약한 몬스터를 포획해보세요!</p>';
+        } else {
+          html += '<div style="max-height:45vh;overflow-y:auto">';
+          d.monsters.forEach(function(m) {
+            var bondBar = Math.min(100, Math.floor(m.bond / 7));
+            html += '<div class="panel-item" style="border-left:3px solid ' + (m.canTransform ? '#ff00ff' : '#4488ff') + ';padding:4px 8px">' +
+              '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:24px">' + m.icon + '</span><div>' +
+              '<div style="font-size:12px;color:#fff">' + m.name + ' Lv.' + m.level + ' <small style="color:#888">(' + m.personality + ')</small></div>' +
+              '<div style="font-size:10px;color:#aaa">ATK:' + m.atk + ' HP:' + m.hp + ' | 💕' + m.bondName + ' | 진화 ' + m.stage + '단계</div>' +
+              '<div style="background:#333;height:4px;border-radius:2px;margin:2px 0"><div style="background:#ff69b4;width:' + bondBar + '%;height:100%;border-radius:2px"></div></div>' +
+              '</div></div>' +
+              '<div style="display:flex;gap:3px;margin-top:4px">' +
+              '<button class="btn btn-sm" onclick="window.socket.emit(\'capture_feed\',{uid:\'' + m.uid + '\'});">🍖먹이</button>' +
+              (m.canEvolve ? '<button class="btn btn-sm" style="background:#aa44ff" onclick="window.socket.emit(\'capture_evolve\',\'' + m.uid + '\');">🌟진화</button>' : '') +
+              (m.canTransform ? '<button class="btn btn-sm" style="background:#ff00ff" onclick="window.socket.emit(\'capture_transform\',\'' + m.uid + '\');">🐲변신</button>' : '') +
+              '</div></div>';
+          });
+          html += '</div>';
+        }
+        showModal('🐾 포획 몬스터', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+      });
+
+      window.socket.on('capture_result', (d) => { showToast(d.msg || (d.success ? '성공' : '실패')); if (d.success) playSFX('levelup'); });
+      window.socket.on('capture_transform_data', (d) => {
+        if (!d.available) { showToast(d.msg); return; }
+        showModal('🐲 변신!', '<div style="text-align:center"><p style="font-size:48px">' + d.icon + '</p><p style="color:#ff00ff;font-size:16px">' + d.name + '</p><p style="color:#aaa">ATK:' + d.atk + ' HP:' + d.hp + '</p><p style="color:#888;font-size:11px">' + d.ability + '</p><p style="color:#ffd700;font-size:12px">' + d.duration + '초간 변신!</p></div>',
+          [{label:'변신!',action:'closeModal()'},{label:'취소',type:'cancel',action:'closeModal()'}]);
+      });
+
+      // ═══ 일일 퀘스트 UI ═══
+      window.socket.on('daily_quest_status', (d) => {
+        var completed = d.quests.filter(function(q){return q.completed;}).length;
+        var html = '<p style="text-align:center;color:#ffd700;font-size:14px;margin-bottom:8px">📋 ' + completed + '/' + d.quests.length + ' 완료</p>';
+        html += '<div style="max-height:45vh;overflow-y:auto">';
+        d.quests.forEach(function(q) {
+          var pct = Math.floor(q.progress / q.target * 100);
+          html += '<div class="panel-item" style="border-left:3px solid ' + (q.claimed ? '#44ff44' : q.completed ? '#ffd700' : '#666') + ';padding:4px 8px">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center">' +
+            '<div><span style="font-size:11px;color:' + (q.claimed ? '#44ff44' : '#fff') + '">' + (q.claimed ? '✅ ' : '') + q.name + '</span>' +
+            '<div style="background:#333;height:3px;border-radius:2px;width:120px;margin-top:2px"><div style="background:' + (q.completed ? '#44ff44' : '#4488ff') + ';width:' + pct + '%;height:100%;border-radius:2px"></div></div>' +
+            '<span style="font-size:9px;color:#888">' + q.progress + '/' + q.target + ' | +' + q.reward.gold + 'G' + (q.reward.diamonds ? '+' + q.reward.diamonds + '💎' : '') + '</span></div>' +
+            (q.completed && !q.claimed ? '<button class="btn btn-sm" onclick="window.socket.emit(\'daily_quest_claim\',\'' + q.id + '\');closeModal();setTimeout(function(){window.socket.emit(\'daily_quest_status\');},500);">수령</button>' : '') +
+            '</div></div>';
+        });
+        html += '</div>';
+        if (d.allComplete && !d.allClaimed) {
+          html += '<button class="btn" style="width:100%;margin-top:8px;background:#ffd700;color:#000" onclick="window.socket.emit(\'daily_quest_claim_all\');closeModal();">🏆 전체 완료 보너스! +2,000G +20💎</button>';
+        }
+        showModal('📋 일일 퀘스트', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+      });
+
+      window.socket.on('daily_quest_result', (d) => { showToast(d.msg || (d.success ? '성공' : '실패')); if (d.success) playSFX('gold'); });
+
+      // ═══ 배틀패스 UI ═══
+      window.socket.on('bp_status', (d) => {
+        var pct = d.expToNext > 0 ? Math.floor(d.exp / d.expToNext * 100) : 100;
+        var html = '<div style="text-align:center;margin-bottom:8px">' +
+          '<p style="color:#ffd700;font-size:16px">Lv.' + d.level + ' / ' + d.maxLevel + (d.isPremium ? ' ✨프리미엄' : '') + '</p>' +
+          '<div style="background:#333;height:8px;border-radius:4px;margin:4px 0"><div style="background:#4488ff;width:' + pct + '%;height:100%;border-radius:4px"></div></div>' +
+          '<p style="color:#888;font-size:10px">' + d.exp + '/' + d.expToNext + ' EXP | 시즌 ' + d.seasonDaysLeft + '일 남음</p></div>';
+        if (!d.isPremium) html += '<button class="btn" style="background:#ffd700;color:#000;width:100%;margin:4px 0" onclick="window.socket.emit(\'bp_buy_premium\');closeModal();">✨ 프리미엄 구매 (' + d.premiumCost + '💎)</button>';
+        html += '<div style="max-height:30vh;overflow-y:auto">';
+        d.rewards.forEach(function(r) {
+          html += '<div class="panel-item" style="border-left:3px solid ' + (r.claimed ? '#44ff44' : r.available ? '#ffd700' : '#333') + ';padding:3px 6px">' +
+            '<span style="font-size:10px;color:' + (r.available ? '#fff' : '#666') + '">Lv.' + r.lv + ' 무료: ' + JSON.stringify(r.free).replace(/[{}"]/g,'') + (d.isPremium ? ' | 유료: ' + JSON.stringify(r.paid).replace(/[{}"]/g,'') : '') + '</span>' +
+            (r.available && !r.claimed ? '<button class="btn btn-sm" onclick="window.socket.emit(\'bp_claim\',' + r.lv + ');closeModal();setTimeout(function(){window.socket.emit(\'bp_status\');},500);">수령</button>' : '') +
+            '</div>';
+        });
+        html += '</div>';
+        showModal('📜 배틀패스', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+      });
+
+      window.socket.on('bp_result', (d) => { showToast(d.msg); if (d.success) playSFX('levelup'); });
+      window.socket.on('bp_levelup', (d) => { showToast('📜 배틀패스 Lv.' + d.level + ' 달성!'); playSFX('boss'); });
+
+      // ═══ 진영 UI ═══
+      window.socket.on('faction_status', (d) => {
+        var html = '';
+        if (d.myFaction) {
+          html += '<div style="text-align:center;margin-bottom:8px"><p style="font-size:20px">' + d.myFaction.icon + ' ' + d.myFaction.name + '</p><p style="color:#aaa;font-size:11px">' + d.myFaction.desc + '</p>';
+          if (d.rewards) html += '<p style="color:#ffd700;font-size:10px">영토 보상: ' + d.rewards.tier + ' (+' + d.rewards.gold + 'G/일)</p>';
+          html += '</div>';
+        } else {
+          html += '<p style="text-align:center;color:#aaa;margin-bottom:8px">진영을 선택하세요!</p>';
+          d.factions.forEach(function(f) {
+            html += '<div class="panel-item" style="border-left:3px solid #ffd700;padding:4px 8px"><span style="font-size:12px">' + f.icon + ' ' + f.name + '<br><small style="color:#888">' + f.desc + '</small></span>' +
+              '<button class="btn btn-sm" onclick="window.socket.emit(\'faction_join\',\'' + f.id + '\');closeModal();">가입</button></div>';
+          });
+        }
+        html += '<p style="color:#888;font-size:9px;text-align:center;margin-top:6px">시즌 ' + d.season + ' | 전쟁 ' + (d.warActive ? '🔥진행중' : '평화') + '</p>';
+        showModal('🏴 진영', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+      });
+
+      window.socket.on('faction_result', (d) => { showToast(d.msg); if (d.success) playSFX('boss'); });
+
+      // ═══ 레이드 UI ═══
+      window.socket.on('raid_start', (d) => { showToast('⚔️ 레이드 시작! ' + d.boss.name); });
+      window.socket.on('raid_update', (d) => {
+        var el = document.getElementById('raid-hud');
+        if (!el) { el = document.createElement('div'); el.id = 'raid-hud'; el.style.cssText = 'position:fixed;bottom:10px;right:10px;background:rgba(0,0,0,0.85);border:1px solid #ff4444;border-radius:8px;padding:8px;z-index:9999;font-size:10px;color:#fff;min-width:180px'; document.body.appendChild(el); }
+        var bossHpPct = Math.floor(d.bossHp / d.bossMaxHp * 100);
+        el.innerHTML = '<div style="color:#ff4444;text-align:center">⚔️ 레이드 ' + d.remaining + '초 (P' + d.bossPhase + ')</div>' +
+          '<div style="background:#333;height:8px;border-radius:4px;margin:3px 0"><div style="background:#ff4444;width:' + bossHpPct + '%;height:100%;border-radius:4px"></div></div>' +
+          '<div style="text-align:center;font-size:9px">보스 HP ' + bossHpPct + '% | 생존 ' + d.team.filter(function(t){return t.alive;}).length + '/' + d.team.length + '</div>';
+      });
+      window.socket.on('raid_end', (d) => {
+        var el = document.getElementById('raid-hud');
+        if (el) el.remove();
+        showModal('⚔️ 레이드 ' + (d.victory ? '승리!' : '실패'), '<div style="text-align:center">' +
+          '<p style="color:' + (d.victory ? '#44ff44' : '#ff4444') + ';font-size:18px">' + d.bossName + '</p>' +
+          '<p style="color:#aaa">' + d.reason + ' (' + d.elapsed + '초)</p>' +
+          (d.mvp ? '<p style="color:#ffd700;font-size:12px">MVP: ' + d.mvp.name + ' (' + d.mvp.dmg + 'DMG)' + (d.isMvp ? ' ← 나!' : '') + '</p>' : '') +
+          '<p style="color:#44ff44;margin-top:6px">+' + d.rewards.gold + 'G</p></div>',
+          [{label:'확인',action:'closeModal()'}]);
+        playSFX(d.victory ? 'boss' : 'die');
       });
 
       window.socket.on('slg_result', (d) => {
