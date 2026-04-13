@@ -218,6 +218,8 @@ function registerCoreConnectionHandlers(socket, $) {
                         _expedition: ext._expedition || null,
                         _arena: ext._arena || null,
                         _captures: ext._captures || null,
+                        _abyssTower: ext._abyssTower || null,
+                        _abyssHighest: ext._abyssHighest || 0,
                         _rebirth: ext._rebirth || null,
                         _rebirthBonus: ext._rebirthBonus || 0,
                         _dailyQuests: ext._dailyQuests || null,
