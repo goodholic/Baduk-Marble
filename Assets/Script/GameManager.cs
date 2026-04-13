@@ -1317,6 +1317,76 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    // ═══ v4.2 IO 재앙 & 뮤턴트 웨이브 & 토스트 ═══
+
+    private GameObject disasterOverlay;
+
+    public void OnDisasterStart(string jsonStr)
+    {
+        JObject data = JObject.Parse(jsonStr);
+        string type = (string)data["type"] ?? "";
+        string dname = (string)data["name"] ?? "재앙";
+        float duration = data["duration"]?.Value<float>() ?? 15f;
+
+        Debug.Log($"[IO Disaster] {dname} 시작! ({duration}초)");
+
+        // 화면 오버레이 이펙트
+        if (disasterOverlay == null)
+        {
+            disasterOverlay = new GameObject("DisasterOverlay");
+            var canvas = disasterOverlay.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 999;
+            var img = new GameObject("Overlay").AddComponent<UnityEngine.UI.Image>();
+            img.transform.SetParent(disasterOverlay.transform, false);
+            img.rectTransform.anchorMin = Vector2.zero;
+            img.rectTransform.anchorMax = Vector2.one;
+            img.rectTransform.sizeDelta = Vector2.zero;
+
+            Color overlayColor;
+            switch (type)
+            {
+                case "meteor_shower": overlayColor = new Color(1f, 0.4f, 0f, 0.2f); break;
+                case "plague_fog": overlayColor = new Color(0f, 0.6f, 0f, 0.25f); break;
+                case "demon_lord": overlayColor = new Color(0.3f, 0f, 0f, 0.3f); break;
+                case "time_rewind": overlayColor = new Color(0.8f, 0.8f, 1f, 0.15f); break;
+                default: overlayColor = new Color(0.4f, 0f, 0.8f, 0.15f); break;
+            }
+            img.color = overlayColor;
+        }
+        disasterOverlay.SetActive(true);
+
+        // TODO: 경고 텍스트 표시, 카메라 흔들림, 재앙별 전용 SFX
+        CancelInvoke(nameof(HideDisasterOverlay));
+        Invoke(nameof(HideDisasterOverlay), duration);
+    }
+
+    public void OnDisasterEnd(string jsonStr)
+    {
+        HideDisasterOverlay();
+    }
+
+    private void HideDisasterOverlay()
+    {
+        if (disasterOverlay != null) disasterOverlay.SetActive(false);
+    }
+
+    public void OnMutantWave(string jsonStr)
+    {
+        JObject data = JObject.Parse(jsonStr);
+        string waveName = (string)data["name"] ?? "변이 웨이브";
+        Debug.Log($"[IO] 변이 웨이브: {waveName}");
+        // TODO: 변이 몬스터 특수 스프라이트 + 경고 UI
+    }
+
+    public void OnServerToast(string jsonStr)
+    {
+        JObject data = JObject.Parse(jsonStr);
+        string msg = (string)data["msg"] ?? "";
+        Debug.Log($"[Toast] {msg}");
+        // TODO: 화면 상단 토스트 UI 표시
+    }
+
     // ==========================================
     // 유틸리티
     // ==========================================

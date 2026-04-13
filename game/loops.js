@@ -210,6 +210,98 @@ function syncGameState() {
                 }
             } catch(e) {}
         }
+
+        // ═══ v3.7 타이머 ═══
+
+        // 용병 친밀도 자연 감소 (3분마다 = 5400틱)
+        if (tickCounter % 5400 === 0) {
+            try {
+                for (const pId in players) {
+                    const p = players[pId];
+                    if (!p || p.isBot || !p.mercenaries) continue;
+                    for (const m of p.mercenaries) {
+                        // 3일 이상 미사용 용병 친밀도 하락
+                        if (m._lastUsed && Date.now() - m._lastUsed > 3 * 86400e3) {
+                            m.bond = Math.max(0, (m.bond || 0) - 1);
+                        }
+                        // 급여 미지급 3일 이상 → 충성도 하락
+                        if (m._lastPaid && Date.now() - m._lastPaid > 3 * 86400e3) {
+                            m.loyalty = Math.max(0, (m.loyalty ?? 80) - 2);
+                            if (m.loyalty <= 20) {
+                                io.to(pId).emit('merc_warning', { mercId: m.id, msg: m.name + '의 충성도가 위험합니다! 급여를 지급하세요.' });
+                            }
+                        }
+                    }
+                }
+            } catch(e) { console.error('[v3.7 bond tick]', e.message); }
+        }
+
+        // 용병 훈련 완료 체크 (1분마다 = 1800틱)
+        if (tickCounter % 1800 === 0) {
+            try {
+                for (const pId in players) {
+                    const p = players[pId];
+                    if (!p || p.isBot || !p.activeTrainings) continue;
+                    const now = Date.now();
+                    const completed = [];
+                    p.activeTrainings = p.activeTrainings.filter(t => {
+                        if (now >= t.endTime) { completed.push(t); return false; }
+                        return true;
+                    });
+                    for (const t of completed) {
+                        io.to(pId).emit('training_complete', { mercId: t.mercId, type: t.type, effect: t.effect });
+                        io.to(pId).emit('server_toast', { msg: '훈련 완료! ' + (t.mercName || '용병') + '이(가) 강해졌습니다!' });
+                    }
+                }
+            } catch(e) { console.error('[v3.7 train tick]', e.message); }
+        }
+
+        // IO 재앙 이벤트 스케줄러 (10분마다 = 18000틱, 활성 IO 매치에 대해)
+        if (tickCounter % 18000 === 0) {
+            try {
+                const DISASTER_TYPES = ['meteor_shower','plague_fog','dimension_rift','gold_rush','elemental_storm','gravity_anomaly','treasure_ship','divine_blessing'];
+                // 활성 IO 매치가 있으면 랜덤 재앙 발생
+                if (io.sockets && io.sockets.adapter && io.sockets.adapter.rooms) {
+                    const rooms = io.sockets.adapter.rooms;
+                    for (const [roomId] of rooms) {
+                        if (roomId.startsWith('io_match_')) {
+                            const type = DISASTER_TYPES[Math.floor(Math.random() * DISASTER_TYPES.length)];
+                            io.to(roomId).emit('io_disaster_start', { type, name: type.replace(/_/g, ' '), duration: 15 + Math.floor(Math.random() * 15) });
+                        }
+                    }
+                }
+            } catch(e) { console.error('[v3.7 disaster tick]', e.message); }
+        }
+
+        // 서버 대전쟁 자동 진행 (5분마다 = 9000틱)
+        if (tickCounter % 9000 === 0) {
+            try {
+                if (typeof $ !== 'undefined' && $.serverWar && $.serverWar.active) {
+                    // 진행 중이면 점수 업데이트 브로드캐스트
+                    io.emit('war_score_update', $.serverWar.factions);
+                }
+            } catch(e) {}
+        }
+
+        // 영토 세금 수입 (10분마다 = 18000틱)
+        if (tickCounter % 18000 === 0) {
+            try {
+                for (const pId in players) {
+                    const p = players[pId];
+                    if (!p || p.isBot || !p.territories) continue;
+                    let totalTax = 0;
+                    for (const terr of p.territories) {
+                        totalTax += terr.taxPerHour || 0;
+                    }
+                    if (totalTax > 0) {
+                        // 10분 = 1/6 시간
+                        const income = Math.floor(totalTax / 6);
+                        p.gold = Math.min(999999999, (p.gold || 0) + income);
+                        io.to(pId).emit('territory_income', { income, total: p.gold });
+                    }
+                }
+            } catch(e) { console.error('[v3.7 territory tick]', e.message); }
+        }
     }
 }
 

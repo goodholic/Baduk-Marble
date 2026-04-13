@@ -534,6 +534,167 @@
       </div>
     </div>
 
+    <!-- ═══ v3.7 신규 패널 ═══ -->
+
+    <!-- 용병 고용소 패널 -->
+    <div class="panel" id="panel-hire">
+      <div class="panel-header"><h2>⚔️ 용병 고용소</h2><button class="panel-close" onclick="closePanel('hire')">X</button></div>
+      <div class="panel-body" id="hire-body">
+        <p style="color:#aaa;margin-bottom:8px">각 지역의 고용소에서 용병을 영입하세요!</p>
+        <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap">
+          <button onclick="browseHireMarket('tavern')" class="btn btn-sm" style="flex:1;min-width:45%">🏚️ 변방 주막</button>
+          <button onclick="browseHireMarket('guild')" class="btn btn-sm" style="flex:1;min-width:45%;color:#4488ff">🏛️ 왕도 길드</button>
+          <button onclick="browseHireMarket('darkMarket')" class="btn btn-sm" style="flex:1;min-width:45%;color:#aa44cc">🌑 암흑 시장</button>
+          <button onclick="browseHireMarket('spiritAltar')" class="btn btn-sm" style="flex:1;min-width:45%;color:#44cc88">🌿 정령 제단</button>
+          <button onclick="browseHireMarket('dragonNest')" class="btn btn-sm" style="flex:1;min-width:45%;color:#ff4444">🐉 드래곤 둥지</button>
+          <button onclick="browseHireMarket('piratePort')" class="btn btn-sm" style="flex:1;min-width:45%;color:#4488cc">🏴‍☠️ 해적 항구</button>
+          <button onclick="browseHireMarket('ancientRuins')" class="btn btn-sm" style="flex:1;min-width:45%;color:#ccaa44">🏛️ 고대 유적</button>
+          <button onclick="browseHireMarket('riftPortal')" class="btn btn-sm" style="flex:1;min-width:45%;color:#8844ff">🌀 차원 포탈</button>
+        </div>
+        <div id="hire-lineup" style="max-height:300px;overflow-y:auto"></div>
+      </div>
+    </div>
+
+    <!-- 용병 친밀도 패널 -->
+    <div class="panel" id="panel-bond">
+      <div class="panel-header"><h2>💕 용병 친밀도</h2><button class="panel-close" onclick="closePanel('bond')">X</button></div>
+      <div class="panel-body" id="bond-body">
+        <p style="color:#aaa;margin-bottom:8px">용병과의 유대를 쌓아 강력한 보너스를 해금하세요!</p>
+        <div id="bond-merc-list" style="max-height:350px;overflow-y:auto"></div>
+        <div id="bond-actions" style="margin-top:8px;display:none">
+          <div style="display:flex;gap:4px;flex-wrap:wrap">
+            <button onclick="bondAction('talk')" class="btn btn-sm" style="flex:1">💬 대화</button>
+            <button onclick="bondAction('gift')" class="btn btn-sm" style="flex:1;color:#ff88cc">🎁 선물</button>
+            <button onclick="bondAction('cook')" class="btn btn-sm" style="flex:1;color:#ffaa44">🍳 요리</button>
+            <button onclick="bondAction('train')" class="btn btn-sm" style="flex:1;color:#44aaff">⚔️ 합동훈련</button>
+          </div>
+          <div id="bond-detail" style="margin-top:8px;padding:8px;background:rgba(0,0,0,0.3);border-radius:6px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 용병 콜로세움 패널 -->
+    <div class="panel" id="panel-colosseum">
+      <div class="panel-header"><h2>🏟️ 용병 콜로세움</h2><button class="panel-close" onclick="closePanel('colosseum')">X</button></div>
+      <div class="panel-body" id="colosseum-body">
+        <div style="text-align:center;margin-bottom:8px">
+          <span id="colo-rank" style="font-size:16px;font-weight:bold;color:#FFD700">브론즈</span>
+          <span id="colo-pts" style="color:#aaa;margin-left:8px">0 pts</span>
+        </div>
+        <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap">
+          <button onclick="coloQueue('duel_1v1')" class="btn btn-sm" style="flex:1;min-width:45%">⚔️ 1:1 결투</button>
+          <button onclick="coloQueue('team_3v3')" class="btn btn-sm" style="flex:1;min-width:45%;color:#4488ff">👥 3:3 팀전</button>
+          <button onclick="coloQueue('brawl_5v5')" class="btn btn-sm" style="flex:1;min-width:45%;color:#ff8844">💥 5:5 난투</button>
+          <button onclick="coloQueue('survival')" class="btn btn-sm" style="flex:1;min-width:45%;color:#ff4444">♾️ 서바이벌</button>
+          <button onclick="coloQueue('banpick')" class="btn btn-sm" style="flex:1;min-width:45%;color:#cc44ff">🏆 밴픽 토너먼트</button>
+          <button onclick="coloQueue('hybrid')" class="btn btn-sm" style="flex:1;min-width:45%;color:#44ccaa">🦁 이종격투</button>
+        </div>
+        <div id="colo-result" style="max-height:200px;overflow-y:auto"></div>
+        <button onclick="window.socket.emit('colosseum_ranking')" class="btn btn-sm" style="width:100%;margin-top:4px;color:#FFD700">🏅 랭킹 보기</button>
+      </div>
+    </div>
+
+    <!-- 공성전 패널 -->
+    <div class="panel" id="panel-siege">
+      <div class="panel-header"><h2>🏰 공성전</h2><button class="panel-close" onclick="closePanel('siege')">X</button></div>
+      <div class="panel-body" id="siege-body">
+        <div style="display:flex;gap:4px;margin-bottom:8px">
+          <button onclick="window.socket.emit('siege_castle_info')" class="btn btn-sm" style="flex:1">🏰 내 성 보기</button>
+          <button onclick="showSiegeDeclare()" class="btn btn-sm" style="flex:1;color:#ff4444">⚔️ 선전포고</button>
+        </div>
+        <div id="siege-castle-info" style="padding:8px;background:rgba(0,0,0,0.3);border-radius:6px;margin-bottom:8px">
+          <p style="color:#aaa">성 정보를 불러오는 중...</p>
+        </div>
+        <div style="margin-bottom:6px;font-weight:bold;color:#FFD700">함정 업그레이드</div>
+        <div id="siege-traps" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
+          <button onclick="upgradeTrap('spike')" class="btn btn-sm" style="flex:1;min-width:30%">🔺 가시</button>
+          <button onclick="upgradeTrap('fire')" class="btn btn-sm" style="flex:1;min-width:30%;color:#ff4444">🔥 화염</button>
+          <button onclick="upgradeTrap('ice')" class="btn btn-sm" style="flex:1;min-width:30%;color:#44aaff">❄️ 얼음</button>
+          <button onclick="upgradeTrap('lightning')" class="btn btn-sm" style="flex:1;min-width:30%;color:#ffff44">⚡ 번개</button>
+          <button onclick="upgradeTrap('poison')" class="btn btn-sm" style="flex:1;min-width:30%;color:#44cc44">☠️ 독</button>
+          <button onclick="upgradeTrap('cannon')" class="btn btn-sm" style="flex:1;min-width:30%;color:#aaa">💣 대포</button>
+        </div>
+        <div style="margin-bottom:6px;font-weight:bold;color:#FFD700">성주 지휘 (전투 중)</div>
+        <div id="siege-commands" style="display:flex;gap:4px;flex-wrap:wrap">
+          <button onclick="siegeCmd('arrowRain')" class="btn btn-sm" style="flex:1;min-width:45%">🏹 화살비</button>
+          <button onclick="siegeCmd('magicBombard')" class="btn btn-sm" style="flex:1;min-width:45%;color:#8844ff">💫 마법 폭격</button>
+          <button onclick="siegeCmd('chargeAll')" class="btn btn-sm" style="flex:1;min-width:45%;color:#ff8844">⚔️ 전체 돌격</button>
+          <button onclick="siegeCmd('chainDetonate')" class="btn btn-sm" style="flex:1;min-width:45%;color:#ff4444">💥 연쇄 기폭</button>
+          <button onclick="siegeCmd('summonGuardian')" class="btn btn-sm" style="flex:1;min-width:45%;color:#FFD700">🛡️ 수호신 소환</button>
+          <button onclick="siegeCmd('lastAwakening')" class="btn btn-sm" style="flex:1;min-width:45%;color:#ff0000">👑 최후의 각성</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 서버 대전쟁 패널 -->
+    <div class="panel" id="panel-serverwar">
+      <div class="panel-header"><h2>⚔️ 서버 대전쟁</h2><button class="panel-close" onclick="closePanel('serverwar')">X</button></div>
+      <div class="panel-body" id="serverwar-body">
+        <div id="war-status" style="text-align:center;margin-bottom:8px;padding:8px;background:rgba(0,0,0,0.3);border-radius:6px">
+          <span style="color:#aaa">전쟁 상태 로딩 중...</span>
+        </div>
+        <div style="font-weight:bold;color:#FFD700;margin-bottom:6px">진영 선택</div>
+        <div style="display:flex;gap:4px;margin-bottom:8px">
+          <button onclick="joinFaction('light')" class="btn btn-sm" style="flex:1;color:#FFD700">☀️ 빛</button>
+          <button onclick="joinFaction('dark')" class="btn btn-sm" style="flex:1;color:#8B0000">🌑 어둠</button>
+          <button onclick="joinFaction('nature')" class="btn btn-sm" style="flex:1;color:#228B22">🌿 자연</button>
+          <button onclick="joinFaction('chaos')" class="btn btn-sm" style="flex:1;color:#8B008B">🌀 혼돈</button>
+        </div>
+        <div style="display:flex;gap:4px;margin-bottom:8px">
+          <button onclick="warContribute()" class="btn btn-sm" style="flex:1">💰 자원 기부</button>
+          <button onclick="window.socket.emit('war_status')" class="btn btn-sm" style="flex:1;color:#aaa">📊 전황 보기</button>
+        </div>
+        <div id="war-factions" style="max-height:200px;overflow-y:auto"></div>
+      </div>
+    </div>
+
+    <!-- 현상금 게시판 패널 -->
+    <div class="panel" id="panel-bounty">
+      <div class="panel-header"><h2>☠️ 현상금 게시판</h2><button class="panel-close" onclick="closePanel('bounty')">X</button></div>
+      <div class="panel-body" id="bounty-body">
+        <div style="text-align:center;margin-bottom:8px">
+          <span id="assassin-rank" style="font-size:14px;font-weight:bold;color:#ff4444">D등급 견습</span>
+          <span id="assassin-pts" style="color:#aaa;margin-left:8px">0 pts</span>
+        </div>
+        <div style="display:flex;gap:4px;margin-bottom:8px">
+          <button onclick="window.socket.emit('bounty_board')" class="btn btn-sm" style="flex:1">📋 의뢰 목록</button>
+          <button onclick="window.socket.emit('assassin_ranking')" class="btn btn-sm" style="flex:1;color:#ff4444">🗡️ 암살자 랭킹</button>
+        </div>
+        <div id="bounty-list" style="max-height:300px;overflow-y:auto"></div>
+      </div>
+    </div>
+
+    <!-- 무역 카라반 패널 -->
+    <div class="panel" id="panel-caravan">
+      <div class="panel-header"><h2>🚢 무역 카라반</h2><button class="panel-close" onclick="closePanel('caravan')">X</button></div>
+      <div class="panel-body" id="caravan-body">
+        <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap">
+          <button onclick="startCaravan('grassland')" class="btn btn-sm" style="flex:1;min-width:45%">🌿 초원 (x1.3)</button>
+          <button onclick="startCaravan('mountain')" class="btn btn-sm" style="flex:1;min-width:45%;color:#888">⛰️ 산악 (x1.8)</button>
+          <button onclick="startCaravan('shortcut')" class="btn btn-sm" style="flex:1;min-width:45%;color:#ff8844">⚡ 지름길 (x2.5)</button>
+          <button onclick="startCaravan('sea')" class="btn btn-sm" style="flex:1;min-width:45%;color:#4488ff">🌊 해상 (x2.2)</button>
+          <button onclick="startCaravan('dark')" class="btn btn-sm" style="flex:1;min-width:45%;color:#aa44cc">🌑 밀수 (x3.0)</button>
+          <button onclick="startCaravan('dragon')" class="btn btn-sm" style="flex:1;min-width:45%;color:#ff4444">🐉 용 (x4.0)</button>
+        </div>
+        <button onclick="window.socket.emit('caravan_list')" class="btn btn-sm" style="width:100%;margin-bottom:8px;color:#FFD700">📋 활성 카라반 목록 (약탈 가능!)</button>
+        <div id="caravan-list" style="max-height:250px;overflow-y:auto"></div>
+      </div>
+    </div>
+
+    <!-- 용병 스토리 패널 -->
+    <div class="panel" id="panel-mercstory">
+      <div class="panel-header"><h2>📖 용병 스토리</h2><button class="panel-close" onclick="closePanel('mercstory')">X</button></div>
+      <div class="panel-body" id="mercstory-body">
+        <p style="color:#aaa;margin-bottom:8px">용병의 과거를 알아가며 유대를 깊게 하세요</p>
+        <div style="display:flex;gap:4px;margin-bottom:8px">
+          <button onclick="window.socket.emit('merc_story_list')" class="btn btn-sm" style="flex:1">📖 스토리 목록</button>
+          <button onclick="window.socket.emit('merc_bond_check')" class="btn btn-sm" style="flex:1;color:#ff88cc">💕 인연 보너스</button>
+          <button onclick="window.socket.emit('merc_codex_check')" class="btn btn-sm" style="flex:1;color:#FFD700">📚 도감 보상</button>
+        </div>
+        <div id="mercstory-list" style="max-height:300px;overflow-y:auto"></div>
+      </div>
+    </div>
+
     <!-- 랭킹 패널 -->
     <div class="panel" id="panel-ranking">
       <div class="panel-header"><h2>랭킹</h2><button class="panel-close" onclick="closePanel('ranking')">X</button></div>

@@ -121,6 +121,25 @@ const { registerSpiritPactHandlers } = require('./spirit_pact_handlers');
 const { registerMythicWeaponHandlers } = require('./mythic_weapon_handlers');
 const { registerDimensionHandlers } = require('./dimension_handlers');
 const { registerDragonRidingHandlers } = require('./dragon_riding_handlers');
+// v3.6 신규 핸들러
+const { registerMercenaryHireHandlers } = require('./mercenary_hire_handlers');
+const { registerMercenaryBondHandlers } = require('./mercenary_bond_handlers');
+const { registerMercenaryColosseumHandlers } = require('./mercenary_colosseum_handlers');
+const { registerSiegeCommanderHandlers } = require('./siege_commander_handlers');
+const { registerIODisasterHandlers } = require('./io_disaster_handlers');
+// v3.7 신규 핸들러
+const { registerSiegeMatchHandlers } = require('./siege_match_handlers');
+const { registerServerWarHandlers } = require('./server_war_handlers');
+const { registerBountyExtendedHandlers } = require('./bounty_extended_handlers');
+// v3.9 신규 핸들러
+const { registerCaravanPvpHandlers } = require('./caravan_pvp_handlers');
+const { registerMercStoryHandlers } = require('./merc_story_handlers');
+// v4.0 신규 핸들러
+const { registerRoguelikeDungeonHandlers } = require('./roguelike_dungeon_handlers');
+// v4.1 신규 핸들러
+const { registerNpcFavorHandlers } = require('./npc_favor_handlers');
+const { registerGuildTechHandlers } = require('./guild_tech_handlers');
+const { registerCraftMasterHandlers } = require('./craft_master_handlers');
 
 function registerConnection(io, $) {
 
@@ -272,6 +291,31 @@ io.on("connection", (socket) => {
     registerMythicWeaponHandlers(socket, { io, players, playerId, savePlayer, mythicWeapon: $.mythicWeapon });
     registerDimensionHandlers(socket, { io, players, playerId, savePlayer, dimensionTraveler: $.dimensionTraveler });
     registerDragonRidingHandlers(socket, { io, players, playerId, savePlayer, dragonRiding: $.dragonRiding });
+
+    // v3.6 신규 시스템 핸들러
+    registerMercenaryHireHandlers(socket, { io, players, playerId, savePlayer });
+    registerMercenaryBondHandlers(socket, { io, players, playerId, savePlayer });
+    registerMercenaryColosseumHandlers(socket, { io, players, playerId, savePlayer, colosseumQueue: $.colosseumQueue || {} });
+    registerSiegeCommanderHandlers(socket, { io, players, playerId, savePlayer });
+    registerIODisasterHandlers(socket, { io, players, playerId, savePlayer });
+
+    // v3.7 신규 시스템 핸들러
+    registerSiegeMatchHandlers(socket, { io, players, playerId, savePlayer, siegeMatches: $.siegeMatches || {} });
+    registerServerWarHandlers(socket, { io, players, playerId, savePlayer, serverWar: $.serverWar });
+    registerBountyExtendedHandlers(socket, { io, players, playerId, savePlayer });
+
+    // v3.9 신규 시스템 핸들러
+    registerCaravanPvpHandlers(socket, { io, players, playerId, savePlayer, activeCaravans: $.activeCaravans || {} });
+    registerMercStoryHandlers(socket, { io, players, playerId, savePlayer });
+
+    // v4.0 신규 시스템 핸들러
+    registerRoguelikeDungeonHandlers(socket, { io, players, playerId, savePlayer });
+
+    // v4.1 신규 시스템 핸들러
+    registerNpcFavorHandlers(socket, { io, players, playerId, savePlayer });
+    registerGuildTechHandlers(socket, { io, players, playerId, savePlayer, clanTech: $.clanTech || {} });
+    registerCraftMasterHandlers(socket, { io, players, playerId, savePlayer });
+
     registerWeatherDungeonHandlers(socket, {
         io, players, playerId, savePlayer,
         weatherDungeon: $.weatherDungeon,

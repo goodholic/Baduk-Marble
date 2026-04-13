@@ -92,7 +92,76 @@ const MERCENARIES = [
   { id: 'merc_frost_queen',name:'서리 여왕',  icon: '❄️', grade: 3, role: '마법',   atk: 44, def: 12, hp: 180, spd: 10, skill: { name: '절대영도', dmg: 5.5, aoe: true, stun: 3, cd: 22, desc: '전체 빙결+5.5배' } },
   // 전설
   { id: 'merc_celestial',  name: '천상의 기사',icon: '✨', grade: 4, role: '전사',  atk: 60, def: 40, hp: 550, spd: 14, skill: { name: '신성 심판', dmg: 7.0, aoe: true, heal: 100, cd: 28, desc: '7배+아군힐' } },
+
+  // ── v3.7 신규 용병 (60종 완성) ──
+  // 일반 (고용소 전용)
+  { id: 'merc_militia',    name: '민병대원',   icon: '🪖', grade: 0, role: '전사', atk: 10, def: 9,  hp: 125, spd: 8,  skill: { name: '방패벽', def_buff: 20, cd: 10, desc: 'DEF+20 (5초)' }, personality: 'loyal' },
+  { id: 'merc_herbalist',  name: '약초사',     icon: '🌱', grade: 0, role: '치유', atk: 5,  def: 5,  hp: 85,  spd: 8,  skill: { name: '약초 치유', heal: 25, hpRegen: 2, cd: 8, desc: 'HP25+재생' }, personality: 'kind' },
+  // 고급 (지역별 고용소 전용)
+  { id: 'merc_pirate_cap',name: '해적 선장',   icon: '🏴', grade: 1, role: '암살', atk: 21, def: 8,  hp: 120, spd: 13, skill: { name: '포격', dmg: 2.8, aoe: true, cd: 12, desc: '광역 2.8배' }, personality: 'greedy', hireOnly: 'piratePort' },
+  { id: 'merc_elf_scout', name: '엘프 정찰병', icon: '🧝', grade: 1, role: '사수', atk: 19, def: 6,  hp: 90,  spd: 15, skill: { name: '정밀 사격', dmg: 2.2, critGuarantee: true, cd: 10, desc: '확크리 2.2배' }, personality: 'honest', hireOnly: 'spiritAltar' },
+  // 희귀 (특수 조건 고용)
+  { id: 'merc_rune_knight',name: '룬 기사',    icon: '🔷', grade: 2, role: '전사', atk: 28, def: 18, hp: 210, spd: 10, skill: { name: '룬 폭발', dmg: 3.5, aoe: true, cd: 14, desc: '광역 3.5배+룬' }, personality: 'scholar' },
+  { id: 'merc_shadow_dancer',name:'그림자 무희',icon: '🌙', grade: 2, role: '암살', atk: 31, def: 5,  hp: 80,  spd: 19, skill: { name: '그림자 춤', dmg: 3.0, hits: 3, cd: 12, desc: '3연격 3배' }, personality: 'cheerful' },
+  // 영웅 (합성/이벤트 전용)
+  { id: 'merc_storm_lord', name: '폭풍의 군주', icon: '⛈️', grade: 3, role: '마법', atk: 47, def: 14, hp: 230, spd: 14, skill: { name: '뇌신의 창', dmg: 6.5, aoe: true, stun: 2, cd: 20, desc: '전체 6.5배+스턴' }, personality: 'warlike' },
+  { id: 'merc_blood_queen',name: '피의 여왕',  icon: '🩸', grade: 3, role: '암살', atk: 44, def: 12, hp: 250, spd: 16, skill: { name: '피의 갈증', dmg: 5.0, lifesteal: 50, cd: 18, desc: '5배+HP50% 흡수' }, personality: 'mad' },
+  // 전설 (최고 레어)
+  { id: 'merc_time_lord',  name: '시간의 지배자',icon:'⏰', grade: 4, role: '마법', atk: 58, def: 18, hp: 380, spd: 16, skill: { name: '시간 역행', rewind: true, aoe: true, cd: 45, desc: '3초 전 상태로 복원' }, personality: 'scholar' },
+  { id: 'merc_nature_god', name: '자연신',      icon: '🌳', grade: 4, role: '치유', atk: 30, def: 35, hp: 650, spd: 10, skill: { name: '대자연의 힘', healAll: 200, revive: true, shield: 100, cd: 50, desc: '전체 200힐+부활+보호막' }, personality: 'kind' },
+  // 신화 (합성 전용 최강)
+  { id: 'merc_emperor',    name: '패왕',        icon: '👑', grade: 5, role: '전사', atk: 110, def: 70, hp: 1200, spd: 16, skill: { name: '패왕의 위엄', dmg: 12.0, aoe: true, stun: 5, cd: 35, desc: '전체 12배+5초기절' }, personality: 'noble', fusionOnly: true },
+  { id: 'merc_transcender',name: '초월자',      icon: '🌟', grade: 5, role: '마법', atk: 120, def: 45, hp: 800, spd: 25, skill: { name: '초월', dmg: 15.0, aoe: true, cd: 40, desc: '전체 15배!!! (궁극)' }, personality: 'scholar', fusionOnly: true },
 ];
+
+// ═══ v3.7 성격 시스템 ═══
+const PERSONALITIES = {
+  warlike:  { name: '호전적',   atkMod: 1.10, defMod: 0.95, spdMod: 1.0,  betrayBase: 0.02, likes: ['weapons','battle_records'], dislikes: ['peaceful'], synergy: { guardian: -3, berserker: 5 } },
+  guardian: { name: '수호자',   atkMod: 1.0,  defMod: 1.10, spdMod: 1.0,  betrayBase: 0.0,  likes: ['shields','holy_oath'],     dislikes: ['pk','betrayal'], synergy: { warlike: -3, healer: 5 } },
+  cunning:  { name: '교활한',   atkMod: 1.0,  defMod: 1.0,  spdMod: 1.0,  betrayBase: 0.05, likes: ['poisons','daggers'],       dislikes: ['frontal_combat'], synergy: { honest: -3, cunning: 3 }, critMod: 1.15 },
+  honest:   { name: '정직한',   atkMod: 1.0,  defMod: 1.0,  spdMod: 1.0,  betrayBase: 0.0,  likes: ['books','fine_swords'],     dislikes: ['assassination','pk'], synergy: { cunning: -3, guardian: 5 }, hitMod: 1.10 },
+  greedy:   { name: '탐욕스러운', atkMod: 1.0, defMod: 1.0,  spdMod: 1.0,  betrayBase: 0.03, likes: ['gold','gems','luxury'],    dislikes: ['cheap_gifts'], synergy: { merchant: 3, monk: -3 }, goldMod: 1.20 },
+  scholar:  { name: '수도자',   atkMod: 1.0,  defMod: 1.0,  spdMod: 1.0,  betrayBase: 0.0,  likes: ['books','mana_orbs'],       dislikes: ['violence','gambling'], synergy: { greedy: -3, sage: 5 }, magicMod: 1.10 },
+  cheerful: { name: '쾌활한',   atkMod: 1.0,  defMod: 1.0,  spdMod: 1.05, betrayBase: 0.01, likes: ['toys','instruments'],      dislikes: ['gloomy'], synergy: { all: 1 }, moraleMod: 1.10 },
+  gloomy:   { name: '우울한',   atkMod: 1.0,  defMod: 1.0,  spdMod: 1.0,  betrayBase: 0.02, likes: ['poetry','black_roses'],    dislikes: ['noisy'], synergy: { cheerful: 0, loner: 3 }, lowHpAtkMod: 1.25 },
+  wild:     { name: '야성적',   atkMod: 1.0,  defMod: 1.0,  spdMod: 1.0,  betrayBase: 0.02, likes: ['raw_meat','beast_hide'],   dislikes: ['city','confined'], synergy: { beast: 5 }, nightAtkMod: 1.20 },
+  noble:    { name: '고귀한',   atkMod: 1.0,  defMod: 1.0,  spdMod: 1.0,  betrayBase: 0.0,  likes: ['crown','fine_wine'],       dislikes: ['filth'], synergy: { knight: 3, thief: -3 }, teamDefMod: 1.05 },
+  mad:      { name: '광기의',   atkMod: 1.20, defMod: 1.0,  spdMod: 1.0,  betrayBase: 0.05, likes: ['cursed_items','blood'],    dislikes: ['healing','purify'], synergy: { dark: 3, holy: -5 }, friendlyFire: 0.05 },
+  loyal:    { name: '충직한',   atkMod: 1.0,  defMod: 1.0,  spdMod: 1.0,  betrayBase: 0.0,  likes: ['handmade','anything'],     dislikes: ['separation'], synergy: { all: 2 }, nearOwnerMod: 1.08 },
+  kind:     { name: '자비로운', atkMod: 0.95, defMod: 1.0,  spdMod: 1.0,  betrayBase: 0.0,  likes: ['flowers','healing_herbs'], dislikes: ['cruelty'], synergy: { healer: 5 }, healMod: 1.15 },
+};
+
+// ═══ v3.7 진급 트리 ═══
+const PROMOTION_TREE = {
+  merc_soldier:  { stage1: { name: '숙련 전사',  cost: 2000,  mats: { warrior_mark: 5 } },
+                   stage2: { name: '근위 전사',  cost: 10000, mats: { warrior_mark: 15, steel: 10 } },
+                   branchA: { name: '검성',     bonus: { atk: 1.3 } },
+                   branchB: { name: '철벽장군', bonus: { def: 1.3 } } },
+  merc_wizard:   { stage1: { name: '정식 마법사', cost: 2000,  mats: { mana_orb: 5 } },
+                   stage2: { name: '대마법사',   cost: 10000, mats: { mana_orb: 15, mana_stone: 10 } },
+                   branchA: { name: '원소의 현자', bonus: { atk: 1.2, elementalDmg: 1.3 } },
+                   branchB: { name: '시간의 주인', bonus: { cdReduction: 0.3 } } },
+  merc_assassin: { stage1: { name: '숙련 도적',  cost: 2000,  mats: { rogue_blade: 5 } },
+                   stage2: { name: '암살 마스터', cost: 10000, mats: { rogue_blade: 15, poison: 10 } },
+                   branchA: { name: '그림자 군주', bonus: { stealth: true, critDmg: 1.5 } },
+                   branchB: { name: '쾌도',       bonus: { spd: 1.4 } } },
+  merc_dragon_knight: { stage1: { name: '용기사', cost: 50000, mats: { dragon_scale: 30 } },
+                        stage2: { name: '드래곤 마스터', cost: 200000, mats: { dragon_scale: 80, dragon_heart: 5 } },
+                        branchA: { name: '용제',   bonus: { dragonMerge: true, atk: 1.5 } },
+                        branchB: { name: '용살자', bonus: { antiDragon: 3.0 } } },
+};
+
+// 성격 적용 함수
+function applyPersonality(merc, baseStat) {
+  const p = PERSONALITIES[merc.personality];
+  if (!p) return baseStat;
+  return {
+    atk: Math.floor(baseStat.atk * (p.atkMod || 1)),
+    def: Math.floor(baseStat.def * (p.defMod || 1)),
+    hp:  baseStat.hp,
+    spd: Math.floor(baseStat.spd * (p.spdMod || 1)),
+  };
+}
 
 // ═══ 용병 장비 (용병 전용) ═══
 const MERC_EQUIPMENT = {
@@ -494,4 +563,4 @@ function registerMercHandlers(socket, playerId, players, io) {
   });
 }
 
-module.exports = { MERCENARIES, MERC_EQUIPMENT, GRADES, GRADE_COLORS, addMercenary, addMercExp, getMercStatus, registerMercHandlers, calcCombatPower, getPlayerMercs };
+module.exports = { MERCENARIES, MERC_EQUIPMENT, GRADES, GRADE_COLORS, PERSONALITIES, PROMOTION_TREE, applyPersonality, addMercenary, addMercExp, getMercStatus, registerMercHandlers, calcCombatPower, getPlayerMercs };

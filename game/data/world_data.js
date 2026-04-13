@@ -137,6 +137,59 @@ const ATTENDANCE_REWARDS = [
     {day:27, reward:'2700G + 50D'}, {day:28, reward:'전설 장비 상자 + 칭호'},
 ];
 
+// ═══ v3.7 재앙 이벤트 데이터 ═══
+const DISASTER_EVENTS = {
+    meteor_shower:   { name: '유성우',       triggerMin: 5,  durationSec: 15, dmg: 300, warningMs: 2000, rewardType: 'meteor_fragment' },
+    plague_fog:      { name: '역병의 안개',   triggerMin: 3.5, durationSec: 60, dot: 30,  shrinkRate: 2,   rewardType: 'plague_crystal' },
+    dimension_rift:  { name: '차원 균열',     triggerMin: 4,  durationSec: 30, portalCount: 4, bossMultiplier: 2, rewardType: 'dimension_gear' },
+    demon_lord:      { name: '마왕 강림',     triggerMin: 7,  durationSec: 60, hpMultiplier: 5, ceasefire: true, rewardType: 'demon_loot' },
+    gold_rush:       { name: '골드 러시',     triggerMin: -1, durationSec: 20, monsterCount: 30, goldMultiplier: 10, rewardType: 'gold' },
+    time_rewind:     { name: '시간 역행',     triggerMin: 6,  durationSec: 1,  rewindSec: 30, rewardType: 'time_shard' },
+    elemental_storm: { name: '엘리멘탈 폭풍', triggerMin: 4.5, durationSec: 30, dmgMultiplier: 2, rewardType: 'elemental_crystal' },
+    gravity_anomaly: { name: '중력 이상',     triggerMin: -1, durationSec: 30, modes: ['reverse','low','high'], rewardType: null },
+    treasure_ship:   { name: '보물선 출현',   triggerMin: 5.5, durationSec: 30, rewardType: 'treasure_chest' },
+    divine_blessing: { name: '신들의 축복',   triggerMin: 2,  durationSec: 10, rare: true, rewardType: 'blessing_choice' },
+};
+
+// ═══ v3.7 차원 균열 데이터 ═══
+const DIMENSION_RIFTS = {
+    fire:      { name: '화염 차원',  color: '#ff4400', envDot: 10, bossName: '화염 군주',     weakness: 'water',    rewardEssence: 'fire_essence' },
+    ice:       { name: '빙결 차원',  color: '#4488ff', envEffect: 'slip', bossName: '빙결의 여왕', weakness: 'fire',  rewardEssence: 'ice_essence' },
+    lightning: { name: '번개 차원',  color: '#ffff44', envEffect: 'stun', bossName: '뇌신',       weakness: 'earth',   rewardEssence: 'lightning_essence' },
+    poison:    { name: '독 차원',    color: '#44cc44', envEffect: 'fog',  bossName: '독의 여제',   weakness: 'holy',    rewardEssence: 'poison_essence' },
+    void:      { name: '공허 차원',  color: '#8844ff', envEffect: 'float',bossName: '공허의 군주', weakness: null,      rewardEssence: 'void_essence' },
+    time:      { name: '시간 차원',  color: '#ffffff', envEffect: 'accel',bossName: '시간의 지배자',weakness: null,     rewardEssence: 'time_essence' },
+    mirror:    { name: '거울 차원',  color: '#cccccc', envEffect: 'clone',bossName: '미러 셀프',   weakness: null,      rewardEssence: 'mirror_shard' },
+    chaos:     { name: '혼돈 차원',  color: '#ff00ff', envEffect: 'random',bossName: '혼돈의 화신',weakness: null,     rewardEssence: 'chaos_essence' },
+};
+
+// ═══ v3.7 공성전 맵 테마 ═══
+const SIEGE_MAPS = {
+    plains:    { name: '초원의 성',     gridSize: [30,30], trapSlots: 15, structSlots: 20, specialEnv: null },
+    mountain:  { name: '산악 요새',     gridSize: [30,40], trapSlots: 20, structSlots: 15, specialEnv: 'rockfall' },
+    volcano:   { name: '화산 분화구',   gridSize: [35,35], trapSlots: 12, structSlots: 12, specialEnv: 'lava_eruption' },
+    pirate:    { name: '해적 섬 요새',  gridSize: [40,40], trapSlots: 18, structSlots: 18, specialEnv: 'waves' },
+    ruins:     { name: '고대 유적',     gridSize: [35,30], trapSlots: 25, structSlots: 10, specialEnv: 'ancient_traps' },
+    sky:       { name: '하늘 성',       gridSize: [30,30], trapSlots: 10, structSlots: 15, specialEnv: 'wind' },
+    underground:{ name: '지하 던전',    gridSize: [40,30], trapSlots: 22, structSlots: 12, specialEnv: 'darkness' },
+    glacier:   { name: '빙하 성',       gridSize: [35,35], trapSlots: 16, structSlots: 16, specialEnv: 'blizzard' },
+    demon:     { name: '마왕의 성',     gridSize: [50,50], trapSlots: 30, structSlots: 25, specialEnv: 'dark_aura' },
+};
+
+// ═══ v3.7 영토 데이터 ═══
+const TERRITORIES = {
+    grassland:   { name: '초원의 왕국',   taxPerHour: 1000,  specialty: ['grain','leather'],     danger: 1, bonus: 'food+50%' },
+    iron_peak:   { name: '철의 산맥',     taxPerHour: 2500,  specialty: ['iron','mithril'],      danger: 2, bonus: 'craft-30%' },
+    magic_forest:{ name: '마법의 숲',     taxPerHour: 2000,  specialty: ['mana_stone','herbs'],   danger: 2, bonus: 'research-30%' },
+    dragon_peak: { name: '용의 봉우리',   taxPerHour: 5000,  specialty: ['dragon_scale','firestone'], danger: 4, bonus: 'dragonMerc+30%' },
+    pirate_port: { name: '해적의 항구',   taxPerHour: 3000,  specialty: ['rum','seafood','contraband'], danger: 3, bonus: 'seaTrade x2' },
+    ancient_site:{ name: '고대 유적지',   taxPerHour: 3500,  specialty: ['relics','ancient_blueprints'], danger: 3, bonus: 'explore-50%' },
+    dark_city:   { name: '암흑 도시',     taxPerHour: 4000,  specialty: ['poison','curse_mats','intel'], danger: 4, bonus: 'spy+100%' },
+    celestial:   { name: '천공의 섬',     taxPerHour: 4500,  specialty: ['angel_feather','blessing_stone'], danger: 4, bonus: 'holy+20%' },
+    time_tower:  { name: '시간의 탑',     taxPerHour: 6000,  specialty: ['time_shard','history_book'], danger: 5, bonus: 'cooldown-15%' },
+    chaos_rift:  { name: '혼돈의 균열',   taxPerHour: 0,     specialty: ['chaos_essence','world_shard'], danger: 5, bonus: 'random', dynamic: true },
+};
+
 module.exports = {
     ELEMENT_BONUS,
     MONSTER_TIERS,
@@ -144,4 +197,8 @@ module.exports = {
     WORLD_BOSS_TYPES,
     DUNGEONS,
     ATTENDANCE_REWARDS,
+    DISASTER_EVENTS,
+    DIMENSION_RIFTS,
+    SIEGE_MAPS,
+    TERRITORIES,
 };

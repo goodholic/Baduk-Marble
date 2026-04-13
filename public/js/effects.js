@@ -869,6 +869,8 @@
         {label:'⚔️ 신화무기', action:()=>window.socket.emit('mythweapon_status')},
         {label:'🌀 차원여행', action:()=>window.socket.emit('dim_status')},
         {label:'부스트!', action:()=>window.socket.emit('active_tap')},
+        {label:'🏟️ 콜로세움', action:()=>{togglePanel('colosseum');window.socket.emit('colosseum_modes');}},
+        {label:'🏰 공성전', action:()=>{togglePanel('siege');window.socket.emit('siege_castle_info');}},
       ],
       items: [
         {label:'인벤토리', action:()=>{togglePanel('inventory');}, sub:'get_inventory'},
@@ -889,7 +891,8 @@
         {label:'투기장', action:()=>{togglePanel('arena');window.socket.emit('arena_rankings');}},
         {label:'친구', action:()=>{togglePanel('friends');window.socket.emit('get_friends');}},
         {label:'👥 접속자', action:()=>window.socket.emit('get_online_players')},
-        {label:'현상금', action:()=>{togglePanel('bounty');window.socket.emit('get_bounties');}},
+        {label:'현상금', action:()=>{togglePanel('bounty');window.socket.emit('bounty_board');}},
+        {label:'⚔️ 대전쟁', action:()=>{togglePanel('serverwar');window.socket.emit('war_status');}},
         {label:'도감', action:()=>{togglePanel('bestiary');window.socket.emit('get_bestiary');}},
       ],
       etc: [
@@ -922,9 +925,17 @@
           '<button class="btn" style="width:100%;margin:3px 0" onclick="window.socket.emit(\'evolve_pet\',\'pet_dragon\');closeModal();">미니 드래곤 → 고대 드래곤 (ATK+30%)</button>' +
           '<button class="btn" style="width:100%;margin:3px 0" onclick="window.socket.emit(\'evolve_pet\',\'pet_angel\');closeModal();">천사 → 세라핌 (자동 부활 강화)</button>' +
           '</div>',[{label:'닫기',type:'cancel',action:'closeModal()'}]);}},
+        {label:'🗡️ 로그라이크 던전', action:()=>{window.socket.emit('roguelike_status');}},
         {label:'🏰 SLG 모드', action:()=>{window.socket.emit('slg_status');}},
         {label:'💰 무역', action:()=>{window.socket.emit('trade_routes');}},
         {label:'⚔️ 용병 관리', action:()=>{window.socket.emit('merc_status');}},
+        {label:'🏚️ 용병 고용소', action:()=>{togglePanel('hire');window.socket.emit('hire_market_list');}},
+        {label:'💕 용병 친밀도', action:()=>{togglePanel('bond');}},
+        {label:'📖 용병 스토리', action:()=>{togglePanel('mercstory');window.socket.emit('merc_story_list');}},
+        {label:'🚢 무역 카라반', action:()=>{togglePanel('caravan');window.socket.emit('caravan_list');}},
+        {label:'💕 NPC 호감도', action:()=>{window.socket.emit('npc_favor_list');}},
+        {label:'🔬 혈맹 기술', action:()=>{window.socket.emit('guild_tech_list');}},
+        {label:'🔨 장인 크래프팅', action:()=>{window.socket.emit('craft_master_status');}},
         {label:'🎴 용병 소환 (30💎)', action:()=>{window.socket.emit('merc_gacha');}},
         {label:'⚔️ 오토배틀 서바이벌', action:()=>{window.socket.emit('as_join');}},
         {label:'🎮 서바이벌 IO', action:()=>{showModal('🎮 서바이벌 IO','<div style="text-align:center"><p style="color:#ffd700;font-size:18px">매판 리셋 서바이벌!</p><p style="color:#ddd;margin:8px 0">Lv.1부터 시작, 웨이브 생존<br>레벨업마다 업그레이드 선택<br>죽으면 끝! 얼마나 버틸 수 있나?</p><p style="color:#888;font-size:11px">보상: 골드 50% + 경험치 + 다이아</p></div>',[{label:'⚔️ 시작!',action:"window.socket.emit(\'survival_start\');closeModal();window._survivalMode=true;window._survivalTicker=setInterval(function(){if(window._survivalMode)window.socket.emit(\'survival_tick\');},1000);"},{label:'취소',type:'cancel',action:'closeModal()'}]);}},
@@ -1340,4 +1351,335 @@
       window.socket.emit('chat', msg);
       input.value = '';
     }
+
+    // ══════════════════════════════════════════
+    // ██  v3.7 신규 클라이언트 함수  ██
+    // ══════════════════════════════════════════
+
+    var starColors = {1:'#aaa',2:'#44ff44',3:'#4488ff',4:'#cc44ff',5:'#FFD700'};
+
+    // ─── 용병 고용소 ───
+    window.browseHireMarket = function(marketId) {
+      window.socket.emit('hire_market_browse', {marketId: marketId});
+    };
+    window.socket && window.socket.on('hire_market_lineup', function(data) {
+      var el = document.getElementById('hire-lineup');
+      if (!el) return;
+      if (!data.lineup || data.lineup.length === 0) {
+        el.innerHTML = '<p style="color:#888;text-align:center">현재 고용 가능한 용병이 없습니다</p>';
+        return;
+      }
+      var html = '';
+      data.lineup.forEach(function(m) {
+        var stars = '★'.repeat(m.star);
+        var col = starColors[m.star] || '#aaa';
+        html += '<div class="panel-item"><span class="name" style="color:'+col+'">'+stars+' 용병<br>';
+        html += '<small style="color:#888">특성: '+m.traits.join(', ')+'</small></span>';
+        html += '<button onclick="window.socket.emit(\'hire_mercenary\',{marketId:\''+data.marketId+'\',mercId:\''+m.id+'\'})">';
+        html += (m.currency==='gold' ? m.cost+'G' : m.cost+' '+m.currency)+'</button></div>';
+      });
+      el.innerHTML = html;
+    });
+    window.socket && window.socket.on('hire_result', function(data) {
+      if (data.success) showToast('새 용병 합류!', 'success');
+      else showToast('고용 실패: '+(data.reason||''), 'error');
+    });
+
+    // ─── 용병 친밀도 ───
+    window._selectedBondMerc = null;
+    window.bondAction = function(type) {
+      if (!window._selectedBondMerc) { showToast('용병을 먼저 선택하세요'); return; }
+      var data = {mercId: window._selectedBondMerc};
+      if (type === 'talk') window.socket.emit('bond_talk', data);
+      else if (type === 'gift') window.socket.emit('bond_gift', Object.assign(data, {itemId:'gift_general'}));
+      else if (type === 'cook') window.socket.emit('bond_cook', Object.assign(data, {dishId:'general_dish'}));
+      else if (type === 'train') window.socket.emit('bond_train_together', data);
+    };
+    window.socket && window.socket.on('bond_talk_result', function(d) {
+      if (d.success) showToast('대화 성공! 친밀도 +'+d.gain+' ('+d.stage+')', 'success');
+      else showToast('쿨타임 중...', 'error');
+    });
+    window.socket && window.socket.on('bond_gift_result', function(d) {
+      if (d.success) showToast('선물 '+(d.favorite?'취향 적중! ':'')+'친밀도 +'+d.gain, 'success');
+      else showToast(d.reason === 'cooldown' ? '쿨타임 중...' : '아이템 없음', 'error');
+    });
+
+    // ─── 콜로세움 ───
+    window.coloQueue = function(mode) {
+      showModal('용병 선택', '<p style="color:#aaa">편성할 용병 ID를 쉼표로 입력:</p><input id="colo-mercs" style="width:100%;padding:8px;background:#222;color:#fff;border:1px solid #555;border-radius:4px" placeholder="merc_id1, merc_id2, ...">',
+        [{label:'출전!', action:"var ids=getModalInput('colo-mercs').split(',').map(function(s){return s.trim();});window.socket.emit('colosseum_queue',{mode:'"+mode+"',mercIds:ids});closeModal();"},
+         {label:'취소', type:'cancel', action:'closeModal()'}]);
+    };
+    window.socket && window.socket.on('colosseum_result', function(d) {
+      var el = document.getElementById('colo-result');
+      if (!el) return;
+      var won = d.winnerId === d.perspective;
+      el.innerHTML = '<div style="text-align:center;padding:12px;background:'+(won?'rgba(0,180,0,0.2)':'rgba(180,0,0,0.2)')+';border-radius:8px">' +
+        '<div style="font-size:20px;font-weight:bold;color:'+(won?'#44ff44':'#ff4444')+'">'+(won?'승리!':'패배...')+'</div>' +
+        '<div style="color:#aaa;margin-top:4px">'+d.score[0]+' : '+d.score[1]+'</div></div>';
+    });
+    window.socket && window.socket.on('colosseum_ranking', function(data) {
+      var el = document.getElementById('colo-result');
+      if (!el) return;
+      var html = '<table style="width:100%;font-size:11px;border-collapse:collapse">';
+      html += '<tr style="color:#FFD700"><td>#</td><td>이름</td><td>랭크</td><td>점수</td><td>승/패</td></tr>';
+      data.forEach(function(r,i) {
+        html += '<tr style="color:'+(i<3?'#FFD700':'#ddd')+'"><td>'+(i+1)+'</td><td>'+r.name+'</td><td>'+r.rank+'</td><td>'+r.points+'</td><td>'+r.wins+'/'+r.losses+'</td></tr>';
+      });
+      html += '</table>';
+      el.innerHTML = html;
+    });
+
+    // ─── 공성전 ───
+    window.upgradeTrap = function(trapType) {
+      window.socket.emit('siege_upgrade_trap', {trapType: trapType});
+    };
+    window.siegeCmd = function(skillId) {
+      window.socket.emit('siege_commander_skill', {skillId: skillId});
+    };
+    window.showSiegeDeclare = function() {
+      showModal('선전포고', '<p style="color:#ff4444">적 혈맹에 선전포고합니다!</p><input id="siege-target" placeholder="적 혈맹 ID" style="width:100%;padding:8px;background:#222;color:#fff;border:1px solid #555;border-radius:4px">',
+        [{label:'선전포고!', action:"window.socket.emit('siege_declare_war',{targetClanId:getModalInput('siege-target')});closeModal();"},
+         {label:'취소', type:'cancel', action:'closeModal()'}]);
+    };
+    window.socket && window.socket.on('siege_castle_info', function(d) {
+      var el = document.getElementById('siege-castle-info');
+      if (!el) return;
+      var html = '<div style="color:#FFD700;font-weight:bold">내 성 정보</div>';
+      html += '<div style="color:#ddd;margin-top:4px">사기: <span style="color:'+(d.morale>50?'#44ff44':'#ff4444')+'">'+((d.morale||50))+'%</span></div>';
+      var traps = d.traps || {};
+      var trapCount = Object.keys(traps).length;
+      html += '<div style="color:#aaa">함정: '+trapCount+'종 설치</div>';
+      var structs = d.structures || {};
+      html += '<div style="color:#aaa">구조물: '+Object.keys(structs).length+'개</div>';
+      el.innerHTML = html;
+    });
+    window.socket && window.socket.on('siege_trap_upgraded', function(d) {
+      showToast(d.trapType+' 함정 Lv.'+d.level+(d.branch?' (분기 '+d.branch+': '+d.name+')':''), 'success');
+    });
+    window.socket && window.socket.on('siege_skill_executed', function(d) {
+      showToast('지휘 명령 실행: '+d.skillId, 'success');
+    });
+    window.socket && window.socket.on('siege_battle_start', function(d) {
+      showToast('공성전 시작! '+d.attacker+' vs '+d.defender, 'warning');
+    });
+    window.socket && window.socket.on('siege_battle_end', function(d) {
+      showModal('공성전 종료', '<div style="text-align:center"><div style="font-size:24px;color:#FFD700;font-weight:bold">'+d.winnerClan+' 승리!</div><div style="color:#aaa;margin-top:8px">왕좌 HP: '+d.throneHP+' / 전투 시간: '+Math.round(d.duration/1000)+'초</div></div>',
+        [{label:'확인', action:'closeModal()'}]);
+    });
+
+    // ─── 서버 대전쟁 ───
+    window.joinFaction = function(faction) {
+      window.socket.emit('war_join_faction', {faction: faction});
+    };
+    window.warContribute = function() {
+      showModal('자원 기부', '<p style="color:#FFD700">진영에 골드를 기부합니다</p><input id="war-gold" type="number" placeholder="기부할 골드" style="width:100%;padding:8px;background:#222;color:#fff;border:1px solid #555;border-radius:4px">',
+        [{label:'기부!', action:"window.socket.emit('war_contribute_resources',{amount:parseInt(getModalInput('war-gold'))||0});closeModal();"},
+         {label:'취소', type:'cancel', action:'closeModal()'}]);
+    };
+    window.socket && window.socket.on('war_status', function(d) {
+      var el = document.getElementById('war-status');
+      if (!el) return;
+      var html = '<div style="color:'+(d.active?'#ff4444':'#44ff44')+';font-weight:bold">'+(d.active?'전쟁 진행 중!':'평화 기간')+'</div>';
+      if (d.myFaction) html += '<div style="color:#FFD700;margin-top:4px">내 진영: '+d.myFaction+'</div>';
+      el.innerHTML = html;
+
+      var fEl = document.getElementById('war-factions');
+      if (!fEl || !d.factions) return;
+      var fhtml = '';
+      var colors = {light:'#FFD700',dark:'#8B0000',nature:'#228B22',chaos:'#8B008B'};
+      var names = {light:'빛의 군단',dark:'어둠의 결사',nature:'자연의 수호',chaos:'혼돈의 사도'};
+      for (var f in d.factions) {
+        var v = d.factions[f];
+        fhtml += '<div class="panel-item" style="border-left:3px solid '+colors[f]+'"><span class="name" style="color:'+colors[f]+'">'+names[f]+'<br><small style="color:#aaa">인원:'+v.members+' | 자원:'+v.resources+' | 영토:'+v.territory+'</small></span></div>';
+      }
+      fEl.innerHTML = fhtml;
+    });
+    window.socket && window.socket.on('war_faction_joined', function(d) {
+      showToast(d.name+' 진영 합류!', 'success');
+    });
+
+    // ─── 현상금 게시판 ───
+    window.socket && window.socket.on('bounty_board', function(d) {
+      var rEl = document.getElementById('assassin-rank');
+      var pEl = document.getElementById('assassin-pts');
+      if (rEl) rEl.textContent = d.rank+'등급 '+d.rankName;
+      if (pEl) pEl.textContent = d.points+' pts';
+
+      var el = document.getElementById('bounty-list');
+      if (!el) return;
+      var html = '';
+      if (d.wantedList && d.wantedList.length > 0) {
+        html += '<div style="color:#ff4444;font-weight:bold;margin-bottom:4px">현상수배</div>';
+        d.wantedList.forEach(function(w) {
+          html += '<div class="panel-item" style="border-left:3px solid #ff4444"><span class="name" style="color:#ff4444">'+w.name+'<br><small style="color:#aaa">카르마:'+w.karma+' | 현상금:'+w.bounty+'G</small></span>';
+          html += '<button onclick="window.socket.emit(\'bounty_accept\',{type:\'wanted\',target:\''+w.name+'\'})" style="color:#ff4444">수주</button></div>';
+        });
+      }
+      if (d.available) {
+        html += '<div style="color:#FFD700;font-weight:bold;margin:8px 0 4px">의뢰 목록</div>';
+        d.available.forEach(function(b) {
+          html += '<div class="panel-item"><span class="name">['+b.grade+'] '+b.type+'<br><small style="color:#aaa">보상:'+b.reward+'G</small></span>';
+          html += '<button onclick="window.socket.emit(\'bounty_accept\',{type:\''+b.type+'\'})">수주</button></div>';
+        });
+      }
+      el.innerHTML = html || '<p style="color:#888;text-align:center">의뢰가 없습니다</p>';
+    });
+    window.socket && window.socket.on('bounty_completed', function(d) {
+      showToast('의뢰 완료! +'+d.reward+'G, 포인트 +'+d.pointsGained, 'success');
+    });
+
+    // ─── IO 재앙 이벤트 (인게임 연출) ───
+    window.socket && window.socket.on('io_disaster_start', function(d) {
+      showToast('⚠️ '+d.name+' 발생!', 'warning');
+      // 화면 이펙트
+      var overlay = document.createElement('div');
+      overlay.id = 'disaster-overlay';
+      overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:9000;transition:opacity 1s;';
+      if (d.type === 'meteor_shower') overlay.style.background = 'radial-gradient(ellipse,transparent 60%,rgba(255,100,0,0.3))';
+      else if (d.type === 'plague_fog') overlay.style.background = 'radial-gradient(ellipse,transparent 40%,rgba(0,150,0,0.4))';
+      else if (d.type === 'demon_lord') overlay.style.background = 'linear-gradient(transparent,rgba(80,0,0,0.5))';
+      else if (d.type === 'time_rewind') overlay.style.background = 'radial-gradient(ellipse,rgba(200,200,255,0.2),transparent)';
+      else overlay.style.background = 'radial-gradient(ellipse,transparent 50%,rgba(100,0,200,0.2))';
+      document.body.appendChild(overlay);
+    });
+    window.socket && window.socket.on('io_disaster_end', function(d) {
+      var ov = document.getElementById('disaster-overlay');
+      if (ov) { ov.style.opacity = '0'; setTimeout(function(){ ov.remove(); }, 1000); }
+    });
+
+    // ─── v3.9 무역 카라반 ───
+    window.startCaravan = function(routeId) {
+      showModal('카라반 출발', '<p style="color:#FFD700">투자 금액을 입력하세요 (많을수록 이익↑ 위험↑)</p><input id="caravan-invest" type="number" placeholder="투자 골드" style="width:100%;padding:8px;background:#222;color:#fff;border:1px solid #555;border-radius:4px"><p style="color:#888;font-size:11px;margin-top:4px">호위 용병 ID (쉼표 구분):</p><input id="caravan-escorts" placeholder="merc_id1, merc_id2..." style="width:100%;padding:8px;background:#222;color:#fff;border:1px solid #555;border-radius:4px">',
+        [{label:'출발!', action:"var inv=parseInt(getModalInput('caravan-invest'))||0;var escorts=getModalInput('caravan-escorts').split(',').map(function(s){return s.trim();});window.socket.emit('caravan_start',{routeId:'"+routeId+"',investment:inv,mercIds:escorts});closeModal();"},
+         {label:'취소', type:'cancel', action:'closeModal()'}]);
+    };
+    window.socket && window.socket.on('caravan_list', function(data) {
+      var el = document.getElementById('caravan-list');
+      if (!el) return;
+      if (!data || data.length === 0) { el.innerHTML = '<p style="color:#888;text-align:center">활성 카라반 없음</p>'; return; }
+      var html = '';
+      data.forEach(function(c) {
+        var bar = '<div style="background:#333;border-radius:3px;height:8px;margin:4px 0"><div style="background:#FFD700;height:100%;border-radius:3px;width:'+c.progress+'%"></div></div>';
+        html += '<div class="panel-item" style="flex-direction:column;align-items:stretch">';
+        html += '<div style="display:flex;justify-content:space-between"><span style="color:#FFD700">'+c.ownerName+'</span><span style="color:#aaa;font-size:11px">'+c.route+'</span></div>';
+        html += bar;
+        html += '<div style="display:flex;justify-content:space-between;font-size:11px"><span style="color:#aaa">진행: '+c.progress+'%</span><span style="color:#ff4444">투자: '+c.investment+'G</span>';
+        html += '<button onclick="raidCaravan(\''+c.id+'\')" style="font-size:10px;padding:2px 6px;color:#ff4444">☠️약탈</button></div></div>';
+      });
+      el.innerHTML = html;
+    });
+    window.raidCaravan = function(caravanId) {
+      showModal('약탈 시도', '<p style="color:#ff4444">카라반을 약탈합니다! (카르마 +20)</p><p style="color:#888;font-size:11px">공격 용병 ID:</p><input id="raid-mercs" placeholder="merc_id1, merc_id2..." style="width:100%;padding:8px;background:#222;color:#fff;border:1px solid #555;border-radius:4px">',
+        [{label:'약탈!', action:"var ids=getModalInput('raid-mercs').split(',').map(function(s){return s.trim();});window.socket.emit('caravan_raid',{caravanId:'"+caravanId+"',mercIds:ids});closeModal();"},
+         {label:'취소', type:'cancel', action:'closeModal()'}]);
+    };
+    window.socket && window.socket.on('caravan_raid_result', function(d) {
+      showToast(d.success ? '약탈 성공! +'+d.loot+'G' : '약탈 실패: '+d.reason, d.success ? 'success' : 'error');
+    });
+    window.socket && window.socket.on('caravan_arrived', function(d) {
+      showModal('카라반 도착!', '<div style="text-align:center"><div style="font-size:24px;color:#FFD700">💰 무역 완료!</div><div style="margin-top:8px"><div style="color:#aaa">투자: '+d.investment+'G</div><div style="color:#44ff44;font-size:18px">수입: '+d.profit+'G</div><div style="color:#FFD700;font-size:14px">순이익: +'+(d.netProfit)+'G</div></div></div>',
+        [{label:'확인', action:'closeModal()'}]);
+    });
+    window.socket && window.socket.on('caravan_raided', function(d) {
+      showToast('카라반 약탈당함! '+d.raiderName+'에게 '+d.lootLost+'G 손실!', 'error');
+    });
+
+    // ─── v3.9 용병 스토리 ───
+    window.socket && window.socket.on('merc_story_list', function(data) {
+      var el = document.getElementById('mercstory-list');
+      if (!el) return;
+      var html = '';
+      data.forEach(function(s) {
+        var pct = Math.round((s.currentEpisode / s.totalEpisodes) * 100);
+        var col = s.completed ? '#44ff44' : (s.canStart ? '#FFD700' : '#888');
+        html += '<div class="panel-item" style="flex-direction:column;align-items:stretch">';
+        html += '<div style="display:flex;justify-content:space-between"><span style="color:'+col+'">'+s.mercName+'</span><span style="color:#aaa;font-size:11px">'+s.currentEpisode+'/'+s.totalEpisodes+' ('+(s.completed?'완료':pct+'%')+')</span></div>';
+        html += '<div style="background:#333;border-radius:3px;height:6px;margin:4px 0"><div style="background:'+col+';height:100%;border-radius:3px;width:'+pct+'%"></div></div>';
+        if (!s.completed && s.canStart) html += '<button onclick="window.socket.emit(\'merc_story_play\',{mercId:\''+s.mercId+'\'})" class="btn btn-sm" style="width:100%;font-size:11px">▶️ 다음 에피소드</button>';
+        else if (!s.canStart) html += '<span style="color:#ff8844;font-size:11px">친밀도 부족</span>';
+        html += '</div>';
+      });
+      el.innerHTML = html || '<p style="color:#888;text-align:center">스토리 가능한 용병이 없습니다</p>';
+    });
+    window.socket && window.socket.on('merc_story_episode', function(d) {
+      var ep = d.episode;
+      var html = '<div style="text-align:center"><div style="color:#FFD700;font-size:16px;font-weight:bold">EP'+d.episodeNum+': '+ep.title+'</div>';
+      if (ep.choices) {
+        html += '<div style="margin-top:12px">';
+        ep.choices.forEach(function(c, i) {
+          html += '<button class="btn" style="width:100%;margin:4px 0" onclick="window.socket.emit(\'merc_story_choice\',{mercId:\''+d.mercId+'\',choiceIndex:'+i+'});closeModal();">'+c+'</button>';
+        });
+        html += '</div>';
+      } else {
+        html += '<button class="btn" style="margin-top:12px" onclick="window.socket.emit(\'merc_story_choice\',{mercId:\''+d.mercId+'\',choiceIndex:0});closeModal();">계속</button>';
+      }
+      html += '</div>';
+      showModal('용병 스토리', html, []);
+    });
+    window.socket && window.socket.on('merc_story_reward', function(d) {
+      showToast('📖 '+d.mercName+' 스토리 완결! '+d.reward+' 해금!', 'success');
+    });
+    window.socket && window.socket.on('merc_active_bonds', function(data) {
+      var el = document.getElementById('mercstory-list');
+      if (!el) return;
+      var html = '<div style="color:#FFD700;font-weight:bold;margin-bottom:6px">활성 인연 보너스</div>';
+      data.forEach(function(b) {
+        html += '<div class="panel-item" style="border-left:3px solid '+(b.active?'#ff88cc':'#555')+'"><span class="name" style="color:'+(b.active?'#ff88cc':'#888')+'">'+b.name+'<br><small style="color:#aaa">'+b.ultimateName+(b.requirement?' — '+b.requirement:'')+'</small></span></div>';
+      });
+      el.innerHTML = html || '<p style="color:#888">인연 보유 없음</p>';
+    });
+
+    // ─── v4.0 로그라이크 던전 ───
+    window.socket && window.socket.on('roguelike_status', function(d) {
+      if (d.active) {
+        showModal('🗡️ 로그라이크 던전', '<div style="text-align:center"><div style="color:#FFD700;font-size:16px">진행 중: '+d.floor+'층</div><div style="margin-top:8px">'+d.team.map(function(m){return '<div style="color:'+(m.alive?'#44ff44':'#ff4444')+'">'+m.name+' HP:'+m.hp+'/'+m.maxHP+'</div>';}).join('')+'</div><div style="color:#aaa;margin-top:4px">최고 기록: '+d.bestRecord+'층</div></div>',
+          [{label:'다음 층!', action:"window.socket.emit('roguelike_advance');closeModal();"},{label:'포기 (보상 수령)', action:"window.socket.emit('roguelike_retreat');closeModal();"},{label:'닫기',type:'cancel',action:'closeModal()'}]);
+      } else {
+        showModal('🗡️ 로그라이크 던전', '<div style="text-align:center"><p style="color:#FFD700;font-size:16px">무한 던전에 도전하세요!</p><p style="color:#ddd">용병 팀으로 무한 층 돌파<br>랜덤 이벤트, 보스, 보물방<br>깊이 갈수록 위험↑ 보상↑</p><p style="color:#888;font-size:11px">입장료: 5,000G | 최고 기록: '+(d.bestRecord||0)+'층</p><input id="rl-mercs" placeholder="용병 ID (쉼표 구분, 1~5체)" style="width:100%;padding:8px;background:#222;color:#fff;border:1px solid #555;border-radius:4px;margin-top:8px"></div>',
+          [{label:'도전!', action:"var ids=getModalInput('rl-mercs').split(',').map(function(s){return s.trim();});window.socket.emit('roguelike_start',{mercIds:ids});closeModal();"},{label:'취소',type:'cancel',action:'closeModal()'}]);
+      }
+    });
+    window.socket && window.socket.on('roguelike_floor', function(d) {
+      var html = '<div style="text-align:center"><div style="color:#FFD700;font-size:18px;font-weight:bold">'+d.floor+'층 — '+d.label+'</div>';
+      if (d.result === 'victory') {
+        html += '<div style="color:#44ff44;margin:8px 0">승리! +'+d.goldReward+'G</div>';
+        if (d.mvp) html += '<div style="color:#FFD700;font-size:11px">MVP: '+d.mvp.name+' ('+d.mvp.totalDmg+' DMG)</div>';
+        if (d.casualties && d.casualties.length > 0) html += '<div style="color:#ff4444;font-size:11px">전사: '+d.casualties.join(', ')+'</div>';
+        if (d.bossLoot) html += '<div style="color:#cc44ff;margin:4px 0">보스 전리품 획득!</div>';
+      } else if (d.result === 'defeat') {
+        html += '<div style="color:#ff4444;margin:8px 0;font-size:20px">전멸...</div>';
+      } else if (d.type === 'treasure') {
+        html += '<div style="color:#FFD700;margin:8px 0">보물 발견! +'+d.treasure+'G</div>';
+        if (d.legendaryItem) html += '<div style="color:#cc44ff">전설 보물!</div>';
+      } else if (d.type === 'rest') {
+        html += '<div style="color:#44ff44;margin:8px 0">'+d.healed+'</div>';
+      } else if (d.type === 'event' && d.event) {
+        html += '<div style="color:#ffaa44;margin:8px 0">'+d.event.name+'</div>';
+        d.event.choices.forEach(function(c,i) {
+          html += '<button class="btn" style="width:100%;margin:3px 0" onclick="window.socket.emit(\'roguelike_event_choice\',{choiceIndex:'+i+'});closeModal();">'+c+'</button>';
+        });
+      } else if (d.type === 'shop' && d.shop) {
+        html += '<div style="color:#44aaff;margin:8px 0">떠돌이 상인</div>';
+        d.shop.forEach(function(item) {
+          html += '<button class="btn" style="width:100%;margin:3px 0;font-size:11px" onclick="window.socket.emit(\'roguelike_shop_buy\',{itemId:\''+item.id+'\'});closeModal();">'+item.name+' ('+item.cost+'G) — '+item.effect+'</button>';
+        });
+      }
+      // 팀 상태
+      html += '<div style="margin-top:8px;font-size:11px;color:#aaa">생존: '+d.aliveCount+'체 | 골드: '+d.totalGold+'</div>';
+      html += d.team.map(function(m){return '<div style="color:'+(m.alive?'#44ff44':'#ff4444')+';font-size:11px">'+m.name+' '+m.hp+'/'+m.maxHP+'</div>';}).join('');
+      html += '</div>';
+      var btns = [];
+      if (d.result !== 'defeat') {
+        btns.push({label:'다음 층', action:"window.socket.emit('roguelike_advance');closeModal();"});
+        btns.push({label:'포기', action:"window.socket.emit('roguelike_retreat');closeModal();"});
+      } else {
+        btns.push({label:'확인', action:'closeModal()'});
+      }
+      showModal('로그라이크 던전', html, btns);
+    });
+    window.socket && window.socket.on('roguelike_end', function(d) {
+      showModal('던전 종료', '<div style="text-align:center"><div style="color:#FFD700;font-size:20px">'+d.floor+'층 도달!</div><div style="margin:8px 0;color:#44ff44">획득 골드: +'+d.goldEarned+'G</div><div style="color:#aaa">최고 기록: '+d.bestRecord+'층</div>'+(d.items.length>0?'<div style="color:#cc44ff;margin:4px 0">아이템: '+d.items.map(function(i){return i.name;}).join(', ')+'</div>':'')+'</div>',
+        [{label:'확인', action:'closeModal()'}]);
+    });
 

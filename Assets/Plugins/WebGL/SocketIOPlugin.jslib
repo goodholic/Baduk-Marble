@@ -166,6 +166,125 @@ mergeInto(LibraryManager.library, {
             window.socket.on("combat_log", function (data) {
                 // HTML에서 처리
             });
+
+            // ═══ v4.2 신규 시스템 소켓 리스너 ═══
+
+            // 용병 시스템
+            window.socket.on("hire_market_lineup", function (data) {
+                SendMessage('SLGManager', 'OnHireMarketLineup', JSON.stringify(data));
+            });
+            window.socket.on("hire_result", function (data) {
+                SendMessage('SLGManager', 'OnHireResult', JSON.stringify(data));
+            });
+            window.socket.on("bond_info", function (data) {
+                SendMessage('SLGManager', 'OnBondInfo', JSON.stringify(data));
+            });
+            window.socket.on("bond_talk_result", function (data) {
+                SendMessage('SLGManager', 'OnBondTalkResult', JSON.stringify(data));
+            });
+            window.socket.on("colosseum_modes", function (data) {
+                SendMessage('SLGManager', 'OnColosseumModes', JSON.stringify(data));
+            });
+            window.socket.on("colosseum_result", function (data) {
+                SendMessage('SLGManager', 'OnColosseumResult', JSON.stringify(data));
+            });
+            window.socket.on("colosseum_ranking", function (data) {
+                SendMessage('SLGManager', 'OnColosseumRanking', JSON.stringify(data));
+            });
+            window.socket.on("merc_story_list", function (data) {
+                SendMessage('SLGManager', 'OnMercStoryList', JSON.stringify(data));
+            });
+            window.socket.on("merc_story_episode", function (data) {
+                SendMessage('SLGManager', 'OnMercStoryEpisode', JSON.stringify(data));
+            });
+            window.socket.on("merc_active_bonds", function (data) {
+                SendMessage('SLGManager', 'OnMercActiveBonds', JSON.stringify(data));
+            });
+            window.socket.on("merc_codex_status", function (data) {
+                SendMessage('SLGManager', 'OnMercCodexStatus', JSON.stringify(data));
+            });
+
+            // 공성전
+            window.socket.on("siege_castle_info", function (data) {
+                SendMessage('SiegeManager', 'OnSiegeCastleInfo', JSON.stringify(data));
+            });
+            window.socket.on("siege_trap_upgraded", function (data) {
+                SendMessage('SiegeManager', 'OnSiegeTrapUpgraded', JSON.stringify(data));
+            });
+            window.socket.on("siege_battle_start", function (data) {
+                SendMessage('SiegeManager', 'OnSiegeBattleStart', JSON.stringify(data));
+            });
+            window.socket.on("siege_phase_change", function (data) {
+                SendMessage('SiegeManager', 'OnSiegePhaseChange', JSON.stringify(data));
+            });
+            window.socket.on("siege_throne_update", function (data) {
+                SendMessage('SiegeManager', 'OnSiegeThroneUpdate', JSON.stringify(data));
+            });
+            window.socket.on("siege_skill_executed", function (data) {
+                SendMessage('SiegeManager', 'OnSiegeSkillExecuted', JSON.stringify(data));
+            });
+            window.socket.on("siege_battle_end", function (data) {
+                SendMessage('SiegeManager', 'OnSiegeBattleEnd', JSON.stringify(data));
+            });
+            window.socket.on("siege_morale_update", function (data) {
+                SendMessage('SiegeManager', 'OnSiegeMoraleUpdate', JSON.stringify(data));
+            });
+
+            // 카라반
+            window.socket.on("caravan_started", function (data) {
+                SendMessage('SiegeManager', 'OnCaravanStarted', JSON.stringify(data));
+            });
+            window.socket.on("caravan_position", function (data) {
+                SendMessage('SiegeManager', 'OnCaravanPosition', JSON.stringify(data));
+            });
+            window.socket.on("caravan_event", function (data) {
+                SendMessage('SiegeManager', 'OnCaravanEvent', JSON.stringify(data));
+            });
+            window.socket.on("caravan_arrived", function (data) {
+                SendMessage('SiegeManager', 'OnCaravanArrived', JSON.stringify(data));
+            });
+            window.socket.on("caravan_raid_result", function (data) {
+                SendMessage('SiegeManager', 'OnCaravanRaidResult', JSON.stringify(data));
+            });
+            window.socket.on("caravan_raided", function (data) {
+                SendMessage('SiegeManager', 'OnCaravanRaided', JSON.stringify(data));
+            });
+
+            // IO 재앙 & 로그라이크
+            window.socket.on("io_disaster_start", function (data) {
+                SendMessage('GameManager', 'OnDisasterStart', JSON.stringify(data));
+            });
+            window.socket.on("io_disaster_end", function (data) {
+                SendMessage('GameManager', 'OnDisasterEnd', JSON.stringify(data));
+            });
+            window.socket.on("io_mutant_wave", function (data) {
+                SendMessage('GameManager', 'OnMutantWave', JSON.stringify(data));
+            });
+            window.socket.on("roguelike_floor", function (data) {
+                SendMessage('SLGManager', 'OnRoguelikeFloor', JSON.stringify(data));
+            });
+            window.socket.on("roguelike_end", function (data) {
+                SendMessage('SLGManager', 'OnRoguelikeEnd', JSON.stringify(data));
+            });
+
+            // 서버 대전쟁
+            window.socket.on("war_status", function (data) {
+                SendMessage('SiegeManager', 'OnWarStatus', JSON.stringify(data));
+            });
+            window.socket.on("war_faction_joined", function (data) {
+                SendMessage('SiegeManager', 'OnWarFactionJoined', JSON.stringify(data));
+            });
+            window.socket.on("war_started", function (data) {
+                SendMessage('SiegeManager', 'OnWarStarted', JSON.stringify(data));
+            });
+            window.socket.on("war_ended", function (data) {
+                SendMessage('SiegeManager', 'OnWarEnded', JSON.stringify(data));
+            });
+
+            // 서버 토스트 (공용)
+            window.socket.on("server_toast", function (data) {
+                SendMessage('GameManager', 'OnServerToast', JSON.stringify(data));
+            });
         }
     },
 
