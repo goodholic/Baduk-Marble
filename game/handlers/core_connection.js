@@ -217,6 +217,7 @@ function registerCoreConnectionHandlers(socket, $) {
                         _gacha: ext._gacha || null,
                         _expedition: ext._expedition || null,
                         _arena: ext._arena || null,
+                        _captures: ext._captures || null,
                     });
                     if (pInfo.isAdvanced && pInfo.advancedClass) {
                         const adv = CLASS_ADVANCE[pInfo.baseClassName || pInfo.className];

@@ -766,6 +766,7 @@ async function savePlayer(player) {
         _gacha: player._gacha || null,
         _expedition: player._expedition || null,
         _arena: player._arena || null,
+        _captures: player._captures || null,
     });
 
     try {
