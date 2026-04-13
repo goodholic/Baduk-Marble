@@ -218,6 +218,8 @@ function registerCoreConnectionHandlers(socket, $) {
                         _expedition: ext._expedition || null,
                         _arena: ext._arena || null,
                         _captures: ext._captures || null,
+                        _faction: ext._faction || null,
+                        _factionCooldown: ext._factionCooldown || null,
                     });
                     if (pInfo.isAdvanced && pInfo.advancedClass) {
                         const adv = CLASS_ADVANCE[pInfo.baseClassName || pInfo.className];

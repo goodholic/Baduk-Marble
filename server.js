@@ -767,6 +767,8 @@ async function savePlayer(player) {
         _expedition: player._expedition || null,
         _arena: player._arena || null,
         _captures: player._captures || null,
+        _faction: player._faction || null,
+        _factionCooldown: player._factionCooldown || null,
     });
 
     try {

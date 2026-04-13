@@ -412,6 +412,12 @@ io.on("connection", (socket) => {
         mercArena.registerArenaHandlers(socket, playerId, players, io);
     } catch(e) {}
 
+    // v3.0: 진영 전쟁
+    try {
+        const factionWar = require('../faction_war');
+        factionWar.registerFactionHandlers(socket, playerId, players, io);
+    } catch(e) {}
+
     // v3.0: 포획 몬스터
     try {
         const capture = require('../monster_capture');
