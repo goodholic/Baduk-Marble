@@ -2326,6 +2326,30 @@ try {
   setInterval(() => { try { mercArena.tryMatch(io, players); } catch(e) {} }, 5000);
 } catch(e) {}
 
+// ── v3.0: 무역 도착 & 원정 완료 자동 알림 (10초마다) ──
+setInterval(() => {
+  try {
+    const trade = require('./game/trade_system');
+    const slg = require('./game/slg_view');
+    for (const pid in players) {
+      const p = players[pid];
+      if (!p || p.isBot || !p.deviceId) continue;
+
+      // 무역 도착 자동 체크
+      if (p._trade && p._trade.activeTrip && Date.now() >= p._trade.activeTrip.arrivalTime) {
+        const result = trade.checkTradeArrival ? null : null; // checkTradeArrival은 export 안 되어 있을 수 있음
+        // 대신 클라이언트에게 알림만 보냄
+        io.to(pid).emit('trade_ready', { msg: '🐴 교역품이 도착했습니다! 확인하세요.' });
+      }
+
+      // 원정 완료 자동 체크
+      if (p._expedition && p._expedition.active && Date.now() >= p._expedition.active.arrivalTime) {
+        io.to(pid).emit('expedition_ready', { msg: '🌍 원정대가 돌아왔습니다! 보상을 수령하세요.' });
+      }
+    }
+  } catch(e) {}
+}, 10000);
+
 // ── 월드 상태 복원 (서버 시작 시) ──
 async function loadWorldState() {
     try {

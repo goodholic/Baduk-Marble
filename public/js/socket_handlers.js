@@ -3052,6 +3052,10 @@
         playSFX(d.profit > 0 ? 'gold' : 'die');
       });
 
+      // v3.0: 서버 자동 알림
+      window.socket.on('trade_ready', (d) => { showToast(d.msg); playSFX('gold'); });
+      window.socket.on('expedition_ready', (d) => { showToast(d.msg); playSFX('levelup'); });
+
       window.socket.on('trade_raid_result', (d) => {
         if (d.lost) showToast('☠️ 캐러밴 약탈당함! ' + d.attackerName + '에게 ' + d.stolenGoods + '개 빼앗김');
         else if (d.success) showToast('☠️ 약탈 성공! +' + d.stolenValue + 'G');
