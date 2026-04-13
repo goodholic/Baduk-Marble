@@ -767,6 +767,8 @@ async function savePlayer(player) {
         _expedition: player._expedition || null,
         _arena: player._arena || null,
         _captures: player._captures || null,
+        _dimension: player._dimension || null,
+        _dimClears: player._dimClears || 0,
         _abyssTower: player._abyssTower || null,
         _abyssHighest: player._abyssHighest || 0,
         _rebirth: player._rebirth || null,

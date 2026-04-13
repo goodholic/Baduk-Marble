@@ -412,6 +412,12 @@ io.on("connection", (socket) => {
         mercArena.registerArenaHandlers(socket, playerId, players, io);
     } catch(e) {}
 
+    // v3.0: 차원 정복
+    try {
+        const dimension = require('../dimension');
+        dimension.registerDimensionHandlers(socket, playerId, players, io);
+    } catch(e) {}
+
     // v3.0: 심연의 탑
     try {
         const tower = require('../abyss_tower');
