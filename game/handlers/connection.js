@@ -412,6 +412,12 @@ io.on("connection", (socket) => {
         mercArena.registerArenaHandlers(socket, playerId, players, io);
     } catch(e) {}
 
+    // v3.0: 일일 퀘스트
+    try {
+        const dailyQuest = require('../daily_quest_v3');
+        dailyQuest.registerDailyQuestHandlers(socket, playerId, players, io);
+    } catch(e) {}
+
     // v3.0: 배틀패스
     try {
         const battlePass = require('../battle_pass');
