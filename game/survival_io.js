@@ -548,6 +548,14 @@ function registerSurvivalHandlers(socket, playerId, players, io) {
               }
             } catch(e) {}
           }
+          // v3.0: 배틀패스 EXP 지급
+          try {
+            const bp = require('./battle_pass');
+            const bpExp = 100 + result.wave * 10 + result.kills * 2;
+            const bpResult = bp.addBattlePassExp(p, bpExp, 'io_survival');
+            if (bpResult.leveled) socket.emit('bp_levelup', { level: bpResult.level });
+            bp.progressWeeklyMission(p, 'io_10', 1);
+          } catch(e) {}
         }
         io.emit('server_msg', { msg: '💀 서바이벌 종료! ' + (p?.displayName||'') + ' — 웨이브 ' + result.wave + ', ' + result.kills + '킬, 점수 ' + result.score + (result.rewards?.mercCardName ? ' 🎴 ' + result.rewards.mercCardName + ' 획득!' : ''), type: 'normal' });
       }

@@ -218,6 +218,7 @@ function registerCoreConnectionHandlers(socket, $) {
                         _expedition: ext._expedition || null,
                         _arena: ext._arena || null,
                         _captures: ext._captures || null,
+                        _battlePass: ext._battlePass || null,
                         _faction: ext._faction || null,
                         _factionCooldown: ext._factionCooldown || null,
                     });
