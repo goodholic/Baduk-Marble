@@ -406,6 +406,12 @@ io.on("connection", (socket) => {
         mercSystem.registerMercHandlers(socket, playerId, players, io);
     } catch(e) {}
 
+    // v3.0: 용병 아레나 PvP
+    try {
+        const mercArena = require('../merc_arena');
+        mercArena.registerArenaHandlers(socket, playerId, players, io);
+    } catch(e) {}
+
     // v2.60: 오토배틀 서바이벌 IO
     try {
         const autoSurvival = require('../auto_survival');

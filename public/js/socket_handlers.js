@@ -2788,6 +2788,7 @@
           '<button class="btn" onclick="window.socket.emit(\'slg_expedition_check\');">🌍 원정대</button>' +
           '<button class="btn" onclick="window.socket.emit(\'slg_upgrade_castle\');">⬆️ 성 업그레이드</button>' +
           '<button class="btn" onclick="window.socket.emit(\'siege_list\');">⚔️ 공성전</button>' +
+          '<button class="btn" onclick="window.socket.emit(\'arena_status\');">🏟️ 아레나</button>' +
           '<button class="btn" onclick="window.socket.emit(\'slg_status\');">🔄 새로고침</button></div>';
 
         // 진급 목록
@@ -2958,6 +2959,59 @@
       window.socket.on('siege_trap_triggered', (d) => {
         showToast(d.msg);
         addCombatLog('[공성] ' + d.msg, 'log-red');
+      });
+
+      // ═══ 용병 아레나 PvP v3.0 ═══
+      window.socket.on('arena_status', (d) => {
+        var html = '<div style="text-align:center;margin-bottom:8px">' +
+          '<p style="font-size:20px">' + d.rankIcon + ' ' + d.rank + '</p>' +
+          '<p style="color:#ffd700;font-size:16px">' + d.score + '점</p>' +
+          '<p style="color:#aaa;font-size:11px">' + d.wins + '승 ' + d.losses + '패 | 연승 ' + d.streak + ' | 오늘 ' + d.dailyCount + '/' + d.dailyMax + '</p></div>';
+        html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin:8px 0">' +
+          '<button class="btn" style="background:#2d2d5e" onclick="window.socket.emit(\'arena_join\');closeModal();">⚔️ 매칭 시작</button>' +
+          '<button class="btn" style="background:#1a3d1a" onclick="window.socket.emit(\'arena_cancel\');closeModal();">❌ 매칭 취소</button></div>';
+        if (d.seasonReward) html += '<p style="color:#888;font-size:10px;text-align:center">시즌 보상: ' + d.seasonReward.gold + 'G + ' + d.seasonReward.diamonds + '💎</p>';
+        html += '<p style="color:#666;font-size:9px;text-align:center">무료 ' + d.dailyFree + '회/일 | 대기 ' + (d.queueSize||0) + '명</p>';
+        showModal('🏟️ 용병 아레나', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+      });
+
+      window.socket.on('arena_result', (d) => { showToast(d.msg || (d.success ? '성공' : '실패')); });
+
+      window.socket.on('arena_match_start', (d) => {
+        showToast('⚔️ 아레나 매칭 성공! vs ' + d.opponent.name);
+        var el = document.getElementById('arena-hud');
+        if (!el) { el = document.createElement('div'); el.id = 'arena-hud'; el.style.cssText = 'position:fixed;top:10px;left:10px;background:rgba(0,0,0,0.85);border:1px solid #aa44ff;border-radius:8px;padding:8px;z-index:9999;font-size:11px;color:#fff;min-width:200px'; document.body.appendChild(el); }
+        el.innerHTML = '<div style="color:#aa44ff;text-align:center">🏟️ 아레나 vs ' + d.opponent.name + '</div><div style="display:flex;gap:2px;justify-content:center;margin:4px 0">' +
+          d.opponent.team.map(function(m){return '<span style="font-size:14px" title="'+m.name+'">'+m.icon+'</span>';}).join('') + '</div>';
+      });
+
+      window.socket.on('arena_match_update', (d) => {
+        var el = document.getElementById('arena-hud');
+        if (!el) return;
+        var myTeam = d.myRole === 'A' ? d.teamA : d.teamB;
+        var opTeam = d.myRole === 'A' ? d.teamB : d.teamA;
+        var myAlive = d.myRole === 'A' ? d.aliveA : d.aliveB;
+        var opAlive = d.myRole === 'A' ? d.aliveB : d.aliveA;
+        el.innerHTML = '<div style="color:#aa44ff;text-align:center">🏟️ 아레나 ' + d.remaining + '초</div>' +
+          '<div style="display:flex;justify-content:space-between;margin:4px 0">' +
+          '<div style="font-size:10px">나 ' + myAlive + '/' + myTeam.length + '</div>' +
+          '<div style="font-size:10px">적 ' + opAlive + '/' + opTeam.length + '</div></div>' +
+          '<div style="display:flex;gap:1px">' + myTeam.map(function(m){return '<div style="width:16px;height:4px;background:'+(m.alive?'#44ff44':'#ff4444')+';border-radius:2px"></div>';}).join('') + '</div>' +
+          '<div style="display:flex;gap:1px;margin-top:2px">' + opTeam.map(function(m){return '<div style="width:16px;height:4px;background:'+(m.alive?'#ff4444':'#333')+';border-radius:2px"></div>';}).join('') + '</div>';
+      });
+
+      window.socket.on('arena_match_end', (d) => {
+        var el = document.getElementById('arena-hud');
+        if (el) el.remove();
+        var isWin = (d.myRole === 'A' && d.winner === 'A') || (d.myRole === 'B' && d.winner === 'B');
+        var isDraw = d.winner === 'draw';
+        showModal('🏟️ 아레나 결과', '<div style="text-align:center">' +
+          '<p style="color:' + (isWin ? '#44ff44' : isDraw ? '#ffd700' : '#ff4444') + ';font-size:20px">' + (isWin ? '🏆 승리!' : isDraw ? '🤝 무승부' : '💀 패배') + '</p>' +
+          '<p style="color:#aaa">' + d.reason + ' (' + d.elapsed + '초)</p>' +
+          '<p style="color:#ffd700;font-size:14px;margin:6px 0">' + d.reward.scoreDelta + '점 | +' + d.reward.gold + 'G</p>' +
+          '<p style="color:#aa44ff">' + d.newRank + ' ' + d.newScore + '점</p></div>',
+          [{label:'확인',action:'closeModal()'}]);
+        playSFX(isWin ? 'boss' : isDraw ? 'gold' : 'die');
       });
 
       window.socket.on('slg_result', (d) => {

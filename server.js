@@ -765,6 +765,7 @@ async function savePlayer(player) {
         _lastSiege: player._lastSiege || null,
         _gacha: player._gacha || null,
         _expedition: player._expedition || null,
+        _arena: player._arena || null,
     });
 
     try {
@@ -2318,6 +2319,12 @@ async function saveWorldState() {
     } catch(e) { console.error('[WorldState] Save Error:', e.message); }
 }
 setInterval(saveWorldState, 120000);
+
+// ── v3.0: 아레나 매칭 시도 (5초마다) ──
+try {
+  const mercArena = require('./game/merc_arena');
+  setInterval(() => { try { mercArena.tryMatch(io, players); } catch(e) {} }, 5000);
+} catch(e) {}
 
 // ── 월드 상태 복원 (서버 시작 시) ──
 async function loadWorldState() {
