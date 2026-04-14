@@ -936,6 +936,7 @@
   <script src="js/effects.js"></script>
   <script src="js/minimap.js"></script>
   <script src="js/ui.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
   <script src="js/cardgame_ui.js"></script>
   <script src="js/socket_handlers.js"></script>
   <script>
@@ -988,8 +989,12 @@
           localStorage.setItem('deviceId', deviceId);
           document.getElementById('login-screen').style.display = 'none';
           msgEl.textContent = '';
-          // Unity 로드 시작 (이미 로드 중이면 무시)
-          startGame();
+          window._deviceId = deviceId;
+          // 소켓 연결 (Unity 없이, 카드게임용)
+          if (!window.socket) {
+            window.socket = io({ query: { deviceId: deviceId } });
+          }
+          waitForSocket();
         } else {
           msgEl.style.color = '#ff4444';
           msgEl.textContent = data.msg || '로그인 실패';
@@ -1031,22 +1036,46 @@
       document.head.appendChild(meta);
     }
 
-    createUnityInstance(canvas, config, (progress) => {
-      progressBarFill.style.width = (100 * progress) + "%";
-    }).then((unityInstance) => {
-      loadingScreen.style.display = "none";
-      window.myUnityInstance = unityInstance;
-      // 소켓 연결 후 클래스 선택 화면 표시
-      waitForSocket();
-    }).catch((msg) => {
-      document.querySelector("#loading-text").innerText = "로딩 에러: " + msg;
-    });
+    // ═══ Unity는 "IO 출전" 시에만 로드 (로그인 전 게임 실행 방지) ═══
+    window._unityConfig = config;
+    window._unityLoaded = false;
+
+    // Unity 로드 함수 (IO 출전 버튼 클릭 시 호출)
+    window.loadUnityForIO = function() {
+      if (window._unityLoaded) {
+        // 이미 로드됨 → 바로 IO 시작
+        switchScreen('io_battle');
+        return;
+      }
+      loadingScreen.style.display = 'flex';
+      document.querySelector("#loading-text").innerText = "IO 배틀로얄 로딩 중...";
+      createUnityInstance(canvas, config, (progress) => {
+        progressBarFill.style.width = (100 * progress) + "%";
+      }).then((unityInstance) => {
+        loadingScreen.style.display = "none";
+        window.myUnityInstance = unityInstance;
+        window._unityLoaded = true;
+        switchScreen('io_battle');
+        // IO에서 클래스 자동 선택
+        if (window.socket) {
+          window.socket.emit('init_request', JSON.stringify({ className: 'Warrior', deviceId: window._deviceId || myPlayerId }));
+        }
+      }).catch((msg) => {
+        loadingScreen.style.display = "none";
+        alert("IO 로딩 실패: " + msg);
+        switchScreen('cardgame');
+      });
+    };
+
+    // 페이지 로드 시 → 로그인 화면만 표시 (Unity 로드 안 함, 소켓 연결 안 함)
+    loadingScreen.style.display = "none";
+    // waitForSocket()은 doLogin() 성공 후에만 호출됨
 
     function waitForSocket() {
       if (window.socket && window.socket.connected) {
-        // 카드게임 메인 화면으로 전환 (기존 클래스 선택 스킵)
         setupSocketListeners();
         setupConnectionHandling();
+        // 로그인 후 카드게임 화면으로 (Unity 없이)
         switchScreen('cardgame');
       } else {
         setTimeout(waitForSocket, 500);

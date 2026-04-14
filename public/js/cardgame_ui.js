@@ -60,7 +60,11 @@
 
   // ── IO 출전 요청 ──
   window.requestIOMatch = function() {
-    if (!window.socket) return;
+    if (!window.socket) return alert('서버 연결 안됨');
+    // Unity를 이때 로드 (로그인 전 로드 방지)
+    if (typeof loadUnityForIO === 'function') {
+      loadUnityForIO();
+    }
     window.socket.emit('br_request_match');
     switchScreen('io_lobby');
   };
