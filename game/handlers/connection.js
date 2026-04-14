@@ -125,10 +125,10 @@ const { registerDragonRidingHandlers } = require('./dragon_riding_handlers');
 const { registerMercenaryHireHandlers } = require('./mercenary_hire_handlers');
 const { registerMercenaryBondHandlers } = require('./mercenary_bond_handlers');
 const { registerMercenaryColosseumHandlers } = require('./mercenary_colosseum_handlers');
-const { registerSiegeCommanderHandlers } = require('./siege_commander_handlers');
+    // [REMOVED] const { registerSiegeCommanderHandlers } = require('./siege_commander_handlers');
 const { registerIODisasterHandlers } = require('./io_disaster_handlers');
 // v3.7 신규 핸들러
-const { registerSiegeMatchHandlers } = require('./siege_match_handlers');
+    // [REMOVED] const { registerSiegeMatchHandlers } = require('./siege_match_handlers');
 const { registerServerWarHandlers } = require('./server_war_handlers');
 const { registerBountyExtendedHandlers } = require('./bounty_extended_handlers');
 // v3.9 신규 핸들러
@@ -434,8 +434,8 @@ io.on("connection", (socket) => {
 
     // v3.0: 공성전 IO 전투
     try {
-        const siegeBattle = require('../siege_battle');
-        siegeBattle.registerSiegeBattleHandlers(socket, playerId, players, io);
+    // [REMOVED] const siegeBattle = require('../siege_battle');
+    // [REMOVED] siegeBattle.registerSiegeBattleHandlers(socket, playerId, players, io);
     } catch(e) {}
 
     // v3.0: SLG 뷰 (진급/진화/배치)
@@ -584,8 +584,8 @@ io.on("connection", (socket) => {
 
     // v2.59: 공성전 핸들러
     try {
-        const guildSiege = require('../guild_siege');
-        guildSiege.registerSiegeHandlers(socket, playerId, players, io);
+    // [REMOVED] const guildSiege = require('../guild_siege');
+    // [REMOVED] guildSiege.registerSiegeHandlers(socket, playerId, players, io);
     } catch(e) {}
 
     // v2.59: 펫 진화 핸들러
@@ -600,6 +600,12 @@ io.on("connection", (socket) => {
         console.error(`[connection] players[${playerId}] is undefined, skipping v4+ handlers`);
         return;
     }
+
+    // ═══ 카드 시스템 (메인 화면) ═══
+    try {
+        const cardSys = $.cardSystem || require('../card_system');
+        cardSys.register(io, socket, _player);
+    } catch(e) { console.error('[CardSystem] Error:', e.message); }
 
     // v4.0: 혈통/연합스킬/영지자원/공성시즌/무역제국/용병전생
     try {
@@ -701,13 +707,13 @@ io.on("connection", (socket) => {
     } catch(e) { console.error('[v5.0] Summon IO error:', e.message); }
 
     try {
-        const siegeRT = $.siegeRealtime || require('../siege_realtime');
-        siegeRT.register(io, socket, _player);
+    // [REMOVED] const siegeRT = $.siegeRealtime || require('../siege_realtime');
+    // [REMOVED] siegeRT.register(io, socket, _player);
     } catch(e) { console.error('[v5.0] Siege realtime error:', e.message); }
 
     try {
-        const siegeWall = $.siegeMercWall || require('../siege_merc_wall');
-        siegeWall.register(io, socket, _player);
+    // [REMOVED] const siegeWall = $.siegeMercWall || require('../siege_merc_wall');
+    // [REMOVED] siegeWall.register(io, socket, _player);
     } catch(e) { console.error('[v5.0] Siege wall error:', e.message); }
 
     try {
@@ -732,7 +738,7 @@ io.on("connection", (socket) => {
     } catch(e) { console.error('[v5.1] Boss capture error:', e.message); }
 
     try {
-        const atkDeploy = $.siegeAttackerDeploy || require('../siege_attacker_deploy');
+    // [REMOVED] const atkDeploy = $.siegeAttackerDeploy || require('../siege_attacker_deploy');
         atkDeploy.register(io, socket, _player);
     } catch(e) { console.error('[v5.1] Attacker deploy error:', e.message); }
 
@@ -768,8 +774,8 @@ io.on("connection", (socket) => {
     } catch(e) { console.error('[v5.2] League error:', e.message); }
 
     try {
-        const gSiege = $.guildSiegeWar || require('../guild_siege_war');
-        gSiege.register(io, socket, _player);
+    // [REMOVED] const gSiege = $.guildSiegeWar || require('../guild_siege_war');
+    // [REMOVED] gSiege.register(io, socket, _player);
     } catch(e) { console.error('[v5.2] Guild siege error:', e.message); }
 
     try {
@@ -809,7 +815,7 @@ io.on("connection", (socket) => {
     } catch(e) { console.error('[v5.3] Coop raid error:', e.message); }
 
     try {
-        const spySys = $.siegeSpySystem || require('../siege_spy_system');
+    // [REMOVED] const spySys = $.siegeSpySystem || require('../siege_spy_system');
         spySys.register(io, socket, _player);
     } catch(e) { console.error('[v5.3] Spy system error:', e.message); }
 
@@ -826,7 +832,7 @@ io.on("connection", (socket) => {
     // v5.4: 전설의 시대 (Age of Legends)
     try { ($.mercTalentTree || require('../merc_talent_tree')).register(io, socket, _player); } catch(e) { console.error('[v5.4] Talent tree:', e.message); }
     try { ($.ioWeatherBattle || require('../io_weather_battle')).register(io, socket, _player); } catch(e) { console.error('[v5.4] Weather:', e.message); }
-    try { ($.siegeAllianceWar || require('../siege_alliance_war')).register(io, socket, _player); } catch(e) { console.error('[v5.4] Alliance:', e.message); }
+    // [REMOVED] try { ($.siegeAllianceWar || require('../siege_alliance_war')).register(io, socket, _player); } catch(e) { console.error('[v5.4] Alliance:', e.message); }
     try { ($.mercWantedSystem || require('../merc_wanted_system')).register(io, socket, _player); } catch(e) { console.error('[v5.4] Wanted:', e.message); }
     try { ($.kingdomDiplomacy || require('../kingdom_diplomacy')).register(io, socket, _player); } catch(e) { console.error('[v5.4] Diplomacy:', e.message); }
     try { ($.mercSoulLink || require('../merc_soul_link')).register(io, socket, _player); } catch(e) { console.error('[v5.4] Soul link:', e.message); }
@@ -836,7 +842,7 @@ io.on("connection", (socket) => {
     try { ($.mercAuctionHouse || require('../merc_auction_house')).register(io, socket, _player); } catch(e) { console.error('[v5.5] Auction:', e.message); }
     try { ($.ioBossRushEndless || require('../io_boss_rush_endless')).register(io, socket, _player); } catch(e) { console.error('[v5.5] Boss rush:', e.message); }
     try { ($.mercSecretSociety || require('../merc_secret_society')).register(io, socket, _player); } catch(e) { console.error('[v5.5] Secret society:', e.message); }
-    try { ($.siegeTrapWorkshop || require('../siege_trap_workshop')).register(io, socket, _player); } catch(e) { console.error('[v5.5] Trap workshop:', e.message); }
+    // [REMOVED] try { ($.siegeTrapWorkshop || require('../siege_trap_workshop')).register(io, socket, _player); } catch(e) { console.error('[v5.5] Trap workshop:', e.message); }
     try { ($.mercBattleReplay || require('../merc_battle_replay')).register(io, socket, _player); } catch(e) { console.error('[v5.5] Replay:', e.message); }
     try { ($.ioSeasonalEvent || require('../io_seasonal_event')).register(io, socket, _player); } catch(e) { console.error('[v5.5] Seasonal:', e.message); }
     try { ($.mercMentorSystem || require('../merc_mentor_system')).register(io, socket, _player); } catch(e) { console.error('[v5.5] Mentor:', e.message); }
@@ -844,7 +850,7 @@ io.on("connection", (socket) => {
     // v5.6: 신들의 전쟁 (War of Gods)
     try { ($.mercGodWar || require('../merc_god_war')).register(io, socket, _player); } catch(e) { console.error('[v5.6] God war:', e.message); }
     try { ($.ioMazeDungeon || require('../io_maze_dungeon')).register(io, socket, _player); } catch(e) { console.error('[v5.6] Maze:', e.message); }
-    try { ($.siegeNavalBattle || require('../siege_naval_battle')).register(io, socket, _player); } catch(e) { console.error('[v5.6] Naval:', e.message); }
+    // [REMOVED] try { ($.siegeNavalBattle || require('../siege_naval_battle')).register(io, socket, _player); } catch(e) { console.error('[v5.6] Naval:', e.message); }
     try { ($.mercReincarnationPlus || require('../merc_reincarnation_plus')).register(io, socket, _player); } catch(e) { console.error('[v5.6] Reincarnation:', e.message); }
     try { ($.kingdomFestival || require('../kingdom_festival')).register(io, socket, _player); } catch(e) { console.error('[v5.6] Festival:', e.message); }
     try { ($.mercCardBattle || require('../merc_card_battle')).register(io, socket, _player); } catch(e) { console.error('[v5.6] Card battle:', e.message); }
@@ -853,7 +859,7 @@ io.on("connection", (socket) => {
     // v5.7: 차원의 끝 (End of Dimensions)
     try { ($.mercBloodlineWar || require('../merc_bloodline_war')).register(io, socket, _player); } catch(e) { console.error('[v5.7] Bloodline:', e.message); }
     try { ($.ioBattleRoyalePlus || require('../io_battle_royale_plus')).register(io, socket, _player); } catch(e) { console.error('[v5.7] BR+:', e.message); }
-    try { ($.siegeUnderground || require('../siege_underground')).register(io, socket, _player); } catch(e) { console.error('[v5.7] Underground:', e.message); }
+    // [REMOVED] try { ($.siegeUnderground || require('../siege_underground')).register(io, socket, _player); } catch(e) { console.error('[v5.7] Underground:', e.message); }
     try { ($.mercJobSystem || require('../merc_job_system')).register(io, socket, _player); } catch(e) { console.error('[v5.7] Job:', e.message); }
     try { ($.kingdomBlackMarket || require('../kingdom_black_market')).register(io, socket, _player); } catch(e) { console.error('[v5.7] Black market:', e.message); }
     try { ($.mercDreamWorld || require('../merc_dream_world')).register(io, socket, _player); } catch(e) { console.error('[v5.7] Dream:', e.message); }
@@ -862,7 +868,7 @@ io.on("connection", (socket) => {
     // v5.8: 운명의 수레바퀴 (Wheel of Fate)
     try { ($.mercFateSystem || require('../merc_fate_system')).register(io, socket, _player); } catch(e) { console.error('[v5.8] Fate:', e.message); }
     try { ($.ioTowerClimb || require('../io_tower_climb')).register(io, socket, _player); } catch(e) { console.error('[v5.8] Tower:', e.message); }
-    try { ($.siegeWeatherWarfare || require('../siege_weather_warfare')).register(io, socket, _player); } catch(e) { console.error('[v5.8] Weather war:', e.message); }
+    // [REMOVED] try { ($.siegeWeatherWarfare || require('../siege_weather_warfare')).register(io, socket, _player); } catch(e) { console.error('[v5.8] Weather war:', e.message); }
     try { ($.mercCookingBattle || require('../merc_cooking_battle')).register(io, socket, _player); } catch(e) { console.error('[v5.8] Cooking:', e.message); }
     try { ($.kingdomEspionage || require('../kingdom_espionage')).register(io, socket, _player); } catch(e) { console.error('[v5.8] Espionage:', e.message); }
     try { ($.mercMonsterRanch || require('../merc_monster_ranch')).register(io, socket, _player); } catch(e) { console.error('[v5.8] Ranch:', e.message); }
@@ -871,7 +877,7 @@ io.on("connection", (socket) => {
     // v5.9: 최후의 심판 (Final Judgment) ★FINAL★
     try { ($.mercTimeTravel || require('../merc_time_travel')).register(io, socket, _player); } catch(e) { console.error('[v5.9] Time travel:', e.message); }
     try { ($.ioTeamDeathmatch || require('../io_team_deathmatch')).register(io, socket, _player); } catch(e) { console.error('[v5.9] TDM:', e.message); }
-    try { ($.siegeMechaWarfare || require('../siege_mecha_warfare')).register(io, socket, _player); } catch(e) { console.error('[v5.9] Mecha:', e.message); }
+    // [REMOVED] try { ($.siegeMechaWarfare || require('../siege_mecha_warfare')).register(io, socket, _player); } catch(e) { console.error('[v5.9] Mecha:', e.message); }
     try { ($.mercMusicBand || require('../merc_music_band')).register(io, socket, _player); } catch(e) { console.error('[v5.9] Band:', e.message); }
     try { ($.kingdomParliament || require('../kingdom_parliament')).register(io, socket, _player); } catch(e) { console.error('[v5.9] Parliament:', e.message); }
     try { ($.mercDimensionalRift || require('../merc_dimensional_rift')).register(io, socket, _player); } catch(e) { console.error('[v5.9] Rift:', e.message); }
@@ -880,7 +886,7 @@ io.on("connection", (socket) => {
     // v6.0: 새로운 여명 (New Dawn)
     try { ($.mercAutoChess || require('../merc_auto_chess')).register(io, socket, _player); } catch(e) { console.error('[v6.0] Auto chess:', e.message); }
     try { ($.ioParkourRace || require('../io_parkour_race')).register(io, socket, _player); } catch(e) { console.error('[v6.0] Parkour:', e.message); }
-    try { ($.siegeDragonAssault || require('../siege_dragon_assault')).register(io, socket, _player); } catch(e) { console.error('[v6.0] Dragon:', e.message); }
+    // [REMOVED] try { ($.siegeDragonAssault || require('../siege_dragon_assault')).register(io, socket, _player); } catch(e) { console.error('[v6.0] Dragon:', e.message); }
     try { ($.mercGamblingDen || require('../merc_gambling_den')).register(io, socket, _player); } catch(e) { console.error('[v6.0] Gambling:', e.message); }
     try { ($.kingdomTradeEmpire || require('../kingdom_trade_empire')).register(io, socket, _player); } catch(e) { console.error('[v6.0] Trade:', e.message); }
     try { ($.mercShapeshifter || require('../merc_shapeshifter')).register(io, socket, _player); } catch(e) { console.error('[v6.0] Shapeshifter:', e.message); }
@@ -889,7 +895,7 @@ io.on("connection", (socket) => {
     // v6.1: 천상의 전쟁 (Celestial War)
     try { ($.mercSpiritBeast || require('../merc_spirit_beast')).register(io, socket, _player); } catch(e) { console.error('[v6.1] Spirit:', e.message); }
     try { ($.ioSurvivalHorror || require('../io_survival_horror')).register(io, socket, _player); } catch(e) { console.error('[v6.1] Horror:', e.message); }
-    try { ($.siegeAirshipBattle || require('../siege_airship_battle')).register(io, socket, _player); } catch(e) { console.error('[v6.1] Airship:', e.message); }
+    // [REMOVED] try { ($.siegeAirshipBattle || require('../siege_airship_battle')).register(io, socket, _player); } catch(e) { console.error('[v6.1] Airship:', e.message); }
     try { ($.mercPrestigeSystem || require('../merc_prestige_system')).register(io, socket, _player); } catch(e) { console.error('[v6.1] Prestige:', e.message); }
     try { ($.kingdomUndergroundArena || require('../kingdom_underground_arena')).register(io, socket, _player); } catch(e) { console.error('[v6.1] Arena:', e.message); }
     try { ($.mercTimeCapsulePlus || require('../merc_time_capsule_plus')).register(io, socket, _player); } catch(e) { console.error('[v6.1] Capsule:', e.message); }
@@ -898,7 +904,7 @@ io.on("connection", (socket) => {
     // v6.2: 무한의 경계 (Infinite Frontier)
     try { ($.mercZodiacPower || require('../merc_zodiac_power')).register(io, socket, _player); } catch(e) { console.error('[v6.2] Zodiac:', e.message); }
     try { ($.ioHideAndSeek || require('../io_hide_and_seek')).register(io, socket, _player); } catch(e) { console.error('[v6.2] HnS:', e.message); }
-    try { ($.siegeGolemFactory || require('../siege_golem_factory')).register(io, socket, _player); } catch(e) { console.error('[v6.2] Golem:', e.message); }
+    // [REMOVED] try { ($.siegeGolemFactory || require('../siege_golem_factory')).register(io, socket, _player); } catch(e) { console.error('[v6.2] Golem:', e.message); }
     try { ($.mercEmotionMusic || require('../merc_emotion_music')).register(io, socket, _player); } catch(e) { console.error('[v6.2] Music:', e.message); }
     try { ($.kingdomSpyNetwork || require('../kingdom_spy_network')).register(io, socket, _player); } catch(e) { console.error('[v6.2] SpyNet:', e.message); }
     try { ($.mercWishSystem || require('../merc_wish_system')).register(io, socket, _player); } catch(e) { console.error('[v6.2] Wish:', e.message); }
@@ -907,7 +913,7 @@ io.on("connection", (socket) => {
     // v6.3: 영혼의 심판
     try { ($.mercProphecySystem || require('../merc_prophecy_system')).register(io, socket, _player); } catch(e) { console.error('[v6.3] Prophecy:', e.message); }
     try { ($.ioTreasureHunt || require('../io_treasure_hunt')).register(io, socket, _player); } catch(e) { console.error('[v6.3] Treasure:', e.message); }
-    try { ($.siegeEngineRace || require('../siege_engine_race')).register(io, socket, _player); } catch(e) { console.error('[v6.3] Engine:', e.message); }
+    // [REMOVED] try { ($.siegeEngineRace || require('../siege_engine_race')).register(io, socket, _player); } catch(e) { console.error('[v6.3] Engine:', e.message); }
     try { ($.mercMemoryPalacePlus || require('../merc_memory_palace_plus')).register(io, socket, _player); } catch(e) { console.error('[v6.3] Memory:', e.message); }
     try { ($.kingdomCultureSystem || require('../kingdom_culture_system')).register(io, socket, _player); } catch(e) { console.error('[v6.3] Culture:', e.message); }
     try { ($.mercContractSystem || require('../merc_contract_system')).register(io, socket, _player); } catch(e) { console.error('[v6.3] Contract:', e.message); }
@@ -916,7 +922,7 @@ io.on("connection", (socket) => {
     // v6.4: 절대자의 귀환 ★100모듈 돌파!★
     try { ($.mercNemesisSystem || require('../merc_nemesis_system')).register(io, socket, _player); } catch(e) { console.error('[v6.4] Nemesis:', e.message); }
     try { ($.ioRhythmBattle || require('../io_rhythm_battle')).register(io, socket, _player); } catch(e) { console.error('[v6.4] Rhythm:', e.message); }
-    try { ($.siegeWeatherMachine || require('../siege_weather_machine')).register(io, socket, _player); } catch(e) { console.error('[v6.4] WeatherMachine:', e.message); }
+    // [REMOVED] try { ($.siegeWeatherMachine || require('../siege_weather_machine')).register(io, socket, _player); } catch(e) { console.error('[v6.4] WeatherMachine:', e.message); }
     try { ($.mercInnerWorld || require('../merc_inner_world')).register(io, socket, _player); } catch(e) { console.error('[v6.4] Inner:', e.message); }
     try { ($.kingdomRailroad || require('../kingdom_railroad')).register(io, socket, _player); } catch(e) { console.error('[v6.4] Railroad:', e.message); }
     try { ($.mercFusionCuisine || require('../merc_fusion_cuisine')).register(io, socket, _player); } catch(e) { console.error('[v6.4] Cuisine:', e.message); }
@@ -925,7 +931,7 @@ io.on("connection", (socket) => {
     // v6.5: 끝없는 세계
     try { ($.mercShadowClone || require('../merc_shadow_clone')).register(io, socket, _player); } catch(e) { console.error('[v6.5] Clone:', e.message); }
     try { ($.ioSoccerBattle || require('../io_soccer_battle')).register(io, socket, _player); } catch(e) { console.error('[v6.5] Soccer:', e.message); }
-    try { ($.siegeVolcanoEruption || require('../siege_volcano_eruption')).register(io, socket, _player); } catch(e) { console.error('[v6.5] Volcano:', e.message); }
+    // [REMOVED] try { ($.siegeVolcanoEruption || require('../siege_volcano_eruption')).register(io, socket, _player); } catch(e) { console.error('[v6.5] Volcano:', e.message); }
     try { ($.mercAchievementTree || require('../merc_achievement_tree')).register(io, socket, _player); } catch(e) { console.error('[v6.5] AchTree:', e.message); }
     try { ($.kingdomMuseumExhibit || require('../kingdom_museum_exhibit')).register(io, socket, _player); } catch(e) { console.error('[v6.5] Museum:', e.message); }
     try { ($.mercBountyBoardPlus || require('../merc_bounty_board_plus')).register(io, socket, _player); } catch(e) { console.error('[v6.5] Bounty:', e.message); }
@@ -934,7 +940,7 @@ io.on("connection", (socket) => {
     // v6.6: 불멸의 왕좌
     try { ($.mercGeneticsLab || require('../merc_genetics_lab')).register(io, socket, _player); } catch(e) { console.error('[v6.6] Genetics:', e.message); }
     try { ($.ioCaptureFlag || require('../io_capture_flag')).register(io, socket, _player); } catch(e) { console.error('[v6.6] CTF:', e.message); }
-    try { ($.siegeTitanSummon || require('../siege_titan_summon')).register(io, socket, _player); } catch(e) { console.error('[v6.6] Titan:', e.message); }
+    // [REMOVED] try { ($.siegeTitanSummon || require('../siege_titan_summon')).register(io, socket, _player); } catch(e) { console.error('[v6.6] Titan:', e.message); }
     try { ($.mercEmotionDiary || require('../merc_emotion_diary')).register(io, socket, _player); } catch(e) { console.error('[v6.6] Diary:', e.message); }
     try { ($.kingdomWorldTree || require('../kingdom_world_tree')).register(io, socket, _player); } catch(e) { console.error('[v6.6] WorldTree:', e.message); }
     try { ($.mercLegacyWeapon || require('../merc_legacy_weapon')).register(io, socket, _player); } catch(e) { console.error('[v6.6] Legacy:', e.message); }
@@ -943,7 +949,7 @@ io.on("connection", (socket) => {
     // v6.7: 600시트 돌파!
     try { ($.mercAlterEgo || require('../merc_alter_ego')).register(io, socket, _player); } catch(e) { console.error('[v6.7] Alter:', e.message); }
     try { ($.ioMinigameFestival || require('../io_minigame_festival')).register(io, socket, _player); } catch(e) { console.error('[v6.7] Minigame:', e.message); }
-    try { ($.siegePlagueWarfare || require('../siege_plague_warfare')).register(io, socket, _player); } catch(e) { console.error('[v6.7] Plague:', e.message); }
+    // [REMOVED] try { ($.siegePlagueWarfare || require('../siege_plague_warfare')).register(io, socket, _player); } catch(e) { console.error('[v6.7] Plague:', e.message); }
     try { ($.mercConstellationUltimate || require('../merc_constellation_ultimate')).register(io, socket, _player); } catch(e) { console.error('[v6.7] ConstUlt:', e.message); }
     try { ($.kingdomPostalService || require('../kingdom_postal_service')).register(io, socket, _player); } catch(e) { console.error('[v6.7] Postal:', e.message); }
     try { ($.mercRewindSystem || require('../merc_rewind_system')).register(io, socket, _player); } catch(e) { console.error('[v6.7] Rewind:', e.message); }
@@ -952,7 +958,7 @@ io.on("connection", (socket) => {
     // v6.8: 심연의 메아리
     try { ($.mercPuppetMaster || require('../merc_puppet_master')).register(io, socket, _player); } catch(e) { console.error('[v6.8] Puppet:', e.message); }
     try { ($.ioGravityShift || require('../io_gravity_shift')).register(io, socket, _player); } catch(e) { console.error('[v6.8] Gravity:', e.message); }
-    try { ($.siegeUnderwaterBase || require('../siege_underwater_base')).register(io, socket, _player); } catch(e) { console.error('[v6.8] Underwater:', e.message); }
+    // [REMOVED] try { ($.siegeUnderwaterBase || require('../siege_underwater_base')).register(io, socket, _player); } catch(e) { console.error('[v6.8] Underwater:', e.message); }
     try { ($.mercEchoSystem || require('../merc_echo_system')).register(io, socket, _player); } catch(e) { console.error('[v6.8] Echo:', e.message); }
     try { ($.kingdomCasinoResort || require('../kingdom_casino_resort')).register(io, socket, _player); } catch(e) { console.error('[v6.8] Casino:', e.message); }
     try { ($.mercBloodPact || require('../merc_blood_pact')).register(io, socket, _player); } catch(e) { console.error('[v6.8] Pact:', e.message); }
@@ -961,7 +967,7 @@ io.on("connection", (socket) => {
     // v6.9: 최종장 — 영원의 서사 ★140모듈★
     try { ($.mercWishDragon || require('../merc_wish_dragon')).register(io, socket, _player); } catch(e) { console.error('[v6.9] Dragon:', e.message); }
     try { ($.ioPaintballWar || require('../io_paintball_war')).register(io, socket, _player); } catch(e) { console.error('[v6.9] Paint:', e.message); }
-    try { ($.siegeSpaceFortress || require('../siege_space_fortress')).register(io, socket, _player); } catch(e) { console.error('[v6.9] Space:', e.message); }
+    // [REMOVED] try { ($.siegeSpaceFortress || require('../siege_space_fortress')).register(io, socket, _player); } catch(e) { console.error('[v6.9] Space:', e.message); }
     try { ($.mercEmotionEvolution || require('../merc_emotion_evolution')).register(io, socket, _player); } catch(e) { console.error('[v6.9] EmoEvo:', e.message); }
     try { ($.kingdomColossus || require('../kingdom_colossus')).register(io, socket, _player); } catch(e) { console.error('[v6.9] Colossus:', e.message); }
     try { ($.mercMultiverse || require('../merc_multiverse')).register(io, socket, _player); } catch(e) { console.error('[v6.9] Multi:', e.message); }
@@ -970,7 +976,7 @@ io.on("connection", (socket) => {
     // v7.0: 세계의 재탄생
     try { ($.mercAvatarSystem || require('../merc_avatar_system')).register(io, socket, _player); } catch(e) { console.error('[v7.0] Avatar:', e.message); }
     try { ($.ioDodgeball || require('../io_dodgeball')).register(io, socket, _player); } catch(e) { console.error('[v7.0] Dodge:', e.message); }
-    try { ($.siegePhantomArmy || require('../siege_phantom_army')).register(io, socket, _player); } catch(e) { console.error('[v7.0] Phantom:', e.message); }
+    // [REMOVED] try { ($.siegePhantomArmy || require('../siege_phantom_army')).register(io, socket, _player); } catch(e) { console.error('[v7.0] Phantom:', e.message); }
     try { ($.mercEmotionResonanceField || require('../merc_emotion_resonance_field')).register(io, socket, _player); } catch(e) { console.error('[v7.0] Field:', e.message); }
     try { ($.kingdomGrandLibrary || require('../kingdom_grand_library')).register(io, socket, _player); } catch(e) { console.error('[v7.0] Library:', e.message); }
     try { ($.mercDestinyForge || require('../merc_destiny_forge')).register(io, socket, _player); } catch(e) { console.error('[v7.0] Forge:', e.message); }

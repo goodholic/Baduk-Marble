@@ -22,10 +22,46 @@
         } catch(e) { console.warn('[init error]', e); }
       });
 
-      // 외부 스코프 변수 초기화 (선언은 setupSocketListeners 밖, line 2778 근처)
+      // 외부 스코프 변수 초기화
       lastGold = 0; lastDiamonds = 0; lastZone = ''; lastKills = 0;
       gameStats = { kills:0, startTime:Date.now() };
       killStreak = 0; lastKillTime = 0;
+
+      // ═══ 카드게임 이벤트 ═══
+      window.socket.on('card_list', (data) => {
+        if (typeof renderCardHand === 'function') renderCardHand(data.cards || []);
+        $set('cg-gold', 'textContent', data.gold || 0);
+        $set('cg-diamonds', 'textContent', data.diamonds || 0);
+        $set('cg-card-count', 'textContent', (data.cards || []).length);
+      });
+      window.socket.on('card_detail', (data) => {
+        if (typeof renderCardDetail === 'function') renderCardDetail(data.card);
+        var ph = document.getElementById('card-placeholder');
+        if (ph) ph.style.display = 'none';
+      });
+      window.socket.on('card_upgrade_result', (d) => { showToast(d.msg || '강화 완료'); window.socket.emit('card_list_request'); });
+      window.socket.on('card_fuse_result', (d) => { showToast(d.msg || '합성 완료'); window.socket.emit('card_list_request'); });
+
+      // ═══ IO 배틀로얄 매칭 이벤트 ═══
+      window.socket.on('br_lobby_update', (data) => {
+        if (typeof renderIOLobby === 'function') renderIOLobby(data);
+      });
+      window.socket.on('br_match_start', (data) => {
+        showToast('⚔️ IO 배틀로얄 시작!');
+        switchScreen('io_battle');
+        // IO에서 클래스 자동 선택 (카드 로드아웃 기반)
+        window.socket.emit('init_request', JSON.stringify({ className: data.className || 'Warrior', deviceId: window._deviceId || myPlayerId }));
+      });
+      window.socket.on('br_eliminated', (data) => {
+        showToast('💀 탈락! ' + (data.reason || ''));
+        returnToCardgame(data.result);
+      });
+      window.socket.on('br_match_end', (data) => {
+        returnToCardgame(data);
+      });
+      window.socket.on('br_disconnect_warning', (data) => {
+        showToast('⚠️ ' + (data.remaining || 300) + '초 내 재접속하지 않으면 탈락!');
+      });
 
       window.socket.on('sync', (data) => {
         if (myPlayerId && data.players && data.players[myPlayerId]) {
