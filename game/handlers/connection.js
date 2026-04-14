@@ -640,6 +640,9 @@ io.on("connection", (socket) => {
     // ═══ 시즌 랭킹 ═══
     try { require('../card_season').register(io, socket, _player); } catch(e) { console.error('[Season]', e.message); }
 
+    // ═══ 도감/업적/칭호/스토리 ═══
+    try { require('../card_collection').register(io, socket, _player); } catch(e) { console.error('[Collection]', e.message); }
+
     // ═══ IO 카드 효과 ═══
     try {
         const cardIO = require('../card_io_effects');
