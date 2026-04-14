@@ -649,6 +649,15 @@ io.on("connection", (socket) => {
     // ═══ 우편 시스템 ═══
     try { require('../card_mail').register(io, socket, _player); } catch(e) { console.error('[Mail]', e.message); }
 
+    // ═══ 각성 ═══
+    try { require('../card_awakening').register(io, socket, _player); } catch(e) { console.error('[Awaken]', e.message); }
+
+    // ═══ 인챈트 ═══
+    try { require('../card_enchant').register(io, socket, _player); } catch(e) { console.error('[Enchant]', e.message); }
+
+    // ═══ 방치형 농장 ═══
+    try { require('../card_idle_farm').register(io, socket, _player); } catch(e) { console.error('[Farm]', e.message); }
+
     // ═══ 원정/탐험 ═══
     try { require('../card_expedition').register(io, socket, _player); } catch(e) { console.error('[Expedition]', e.message); }
 
