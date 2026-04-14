@@ -643,6 +643,22 @@ io.on("connection", (socket) => {
     // ═══ 도감/업적/칭호/스토리 ═══
     try { require('../card_collection').register(io, socket, _player); } catch(e) { console.error('[Collection]', e.message); }
 
+    // ═══ 원정/탐험 ═══
+    try { require('../card_expedition').register(io, socket, _player); } catch(e) { console.error('[Expedition]', e.message); }
+
+    // ═══ IO 매치 매니저 ═══
+    try {
+        const matchMgr = require('../io_match_manager');
+        socket.on('br_request_match', () => {
+            const result = matchMgr.joinMatch(socket.id, _player);
+            socket.emit('br_match_joined', result);
+            if (result.ok) io.emit('br_match_tick', matchMgr.getMatchInfo());
+        });
+        socket.on('br_heartbeat', () => matchMgr.playerHeartbeat(socket.id));
+        socket.on('br_match_status', () => socket.emit('br_match_tick', matchMgr.getMatchInfo()));
+        socket.on('disconnect', () => matchMgr.playerDisconnect(socket.id));
+    } catch(e) { console.error('[MatchMgr]', e.message); }
+
     // ═══ IO 카드 효과 ═══
     try {
         const cardIO = require('../card_io_effects');

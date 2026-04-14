@@ -1551,6 +1551,12 @@ function alertArmy(ownerId, attackerId) {
 }
 
 // ==========================================
+// IO 매치 매니저 틱 (30초마다)
+const ioMatchManager = require('./game/io_match_manager');
+setInterval(() => {
+  try { ioMatchManager.matchTick(io); } catch(e) { /* silent */ }
+}, 30000);
+
 // 게임 루프 (30 TPS)
 // ==========================================
 
