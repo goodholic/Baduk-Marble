@@ -1,6 +1,13 @@
 // Socket event handlers (extracted from index.html)
 
     function setupSocketListeners() {
+      // 이벤트 리스너 중복 등록 방지
+      if (window._socketListenersSetup) {
+        console.warn('[socket] Listeners already set up, skipping');
+        return;
+      }
+      window._socketListenersSetup = true;
+
       window.socket.on('init', (data) => {
         try {
           myPlayerId = data.id;
@@ -5157,4 +5164,635 @@
         // 내가 죽으면 클래스 선택 다시 표시
         // Unity 측에서 처리하므로 여기서는 패스
       });
+
+      // ═══ v4.0~v4.2 신규 시스템 UI ═══
+
+      // 진형 상태
+      socket.on('merc_formation', function(data) {
+        var html = '<p style="color:#ffd700;font-weight:bold;text-align:center">⚔️ 전투 진형</p>';
+        html += '<div style="margin:8px 0">';
+        // Formation presets
+        var presets = data.availableFormations || [
+          {id:'balanced',name:'균형 진형',icon:'⚖️'},
+          {id:'aggressive',name:'돌격 진형',icon:'⚔️'},
+          {id:'defensive',name:'철벽 진형',icon:'🏰'},
+          {id:'assassin',name:'암살 진형',icon:'🌙'},
+          {id:'healing',name:'지구전 진형',icon:'💚'},
+        ];
+        presets.forEach(function(f) {
+          var isCurrent = (data.current === f.id);
+          html += '<button class="btn' + (isCurrent ? ' btn-primary' : '') + '" style="width:100%;margin:3px 0;text-align:left" onclick="window.socket.emit(\'merc_set_formation\',\'' + f.id + '\')">' + f.icon + ' ' + f.name + (isCurrent ? ' ✅' : '') + '</button>';
+        });
+        html += '</div>';
+        // Current positions
+        if (data.positions && data.positions.length > 0) {
+          html += '<div style="margin-top:8px;font-size:11px;color:#aaa">';
+          var posIcons = {front:'🛡️전열',back:'🏹후열',flank:'🗡️유격',support:'💫지원'};
+          data.positions.forEach(function(p) {
+            html += '<div style="padding:2px 0">' + (posIcons[p.position]||p.position) + ' — ' + (p.mercName||'빈자리') + '</div>';
+          });
+          html += '</div>';
+        }
+        showModal('📊 진형 설정', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+      });
+
+      socket.on('merc_formation_result', function(data) {
+        showToast(data.msg || '진형 변경 완료');
+      });
+
+      // 용병 관계
+      socket.on('merc_relationships', function(data) {
+        var html = '<p style="color:#ffd700;font-weight:bold;text-align:center">💕 용병 관계</p>';
+        var typeIcons = {FRIENDSHIP:'💛우정',RIVALRY:'⚔️라이벌',ROMANCE:'💗인연',MENTOR:'📚사제',HATRED:'💢원한'};
+        if (data.relationships && data.relationships.length > 0) {
+          data.relationships.forEach(function(r) {
+            var icon = typeIcons[r.type] || r.type;
+            var color = r.type === 'HATRED' ? '#ff4444' : r.type === 'ROMANCE' ? '#ff88cc' : '#ffd700';
+            html += '<div class="panel-item" style="border-left:3px solid '+color+'"><span class="name">' + r.merc1Name + ' ↔ ' + r.merc2Name + '<br><small style="color:'+color+'">' + icon + ' Lv.' + r.level + '</small></span></div>';
+          });
+        } else {
+          html += '<p style="color:#888;text-align:center">아직 관계가 없습니다.<br>용병들을 함께 파티에 넣고 전투하세요!</p>';
+        }
+        html += '<div style="margin-top:8px"><button class="btn" style="width:100%" onclick="window.socket.emit(\'merc_force_train\');closeModal();">💪 합동 훈련 (500G)</button></div>';
+        showModal('💕 용병 관계', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+      });
+
+      socket.on('merc_relationship_event', function(data) {
+        showToast(data.msg || '용병 관계 이벤트!', 'event');
+      });
+
+      socket.on('merc_force_train_result', function(data) {
+        showToast(data.msg || '합동 훈련 완료');
+      });
+
+      // 유대 스토리
+      socket.on('bond_story_check', function(data) {
+        var html = '<p style="color:#ffd700;font-weight:bold;text-align:center">📖 유대 스토리</p>';
+        if (data.available && data.available.length > 0) {
+          data.available.forEach(function(s) {
+            html += '<div class="panel-item" style="border-left:3px solid #ff88cc"><span class="name">' + s.mercName + ' — ' + s.title + '<br><small style="color:#ffaa44">유대도 ' + s.bond + ' | 단계 ' + s.stage + '</small></span><button class="btn btn-sm" onclick="window.socket.emit(\'bond_story_start\',\'' + s.mercUid + '\')">읽기</button></div>';
+          });
+        } else {
+          html += '<p style="color:#888;text-align:center">현재 해금된 스토리가 없습니다.<br>용병과의 유대도를 올려보세요!</p>';
+        }
+        if (data.completed && data.completed.length > 0) {
+          html += '<p style="color:#888;margin-top:8px;font-size:11px">완료: ' + data.completed.length + '개</p>';
+        }
+        showModal('📖 유대 스토리', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+      });
+
+      socket.on('bond_story_start', function(data) {
+        var html = '<div style="text-align:center;margin-bottom:12px"><p style="color:#ffd700;font-size:16px;font-weight:bold">' + (data.title || '스토리') + '</p></div>';
+        if (data.dialogue) {
+          data.dialogue.forEach(function(line) {
+            html += '<p style="color:#ddd;margin:6px 0;font-size:12px;line-height:1.6">' + line + '</p>';
+          });
+        }
+        var buttons = [];
+        if (data.choiceA) {
+          buttons.push({label:'A: ' + data.choiceA.text, action:"window.socket.emit('bond_story_choose',{mercUid:'" + data.mercUid + "',choice:'A'});closeModal();"});
+        }
+        if (data.choiceB) {
+          buttons.push({label:'B: ' + data.choiceB.text, action:"window.socket.emit('bond_story_choose',{mercUid:'" + data.mercUid + "',choice:'B'});closeModal();"});
+        }
+        showModal('📖 ' + (data.mercName || '용병') + '의 이야기', html, buttons);
+      });
+
+      socket.on('bond_story_result', function(data) {
+        var html = '<div style="text-align:center">';
+        html += '<p style="color:#ffd700;font-size:14px;margin-bottom:8px">' + (data.msg || '선택 완료') + '</p>';
+        if (data.effects) {
+          html += '<div style="color:#44ff44;font-size:12px">';
+          if (data.effects.atk) html += '<div>ATK +' + data.effects.atk + '</div>';
+          if (data.effects.def) html += '<div>DEF +' + data.effects.def + '</div>';
+          if (data.effects.hp) html += '<div>HP +' + data.effects.hp + '</div>';
+          if (data.effects.skill) html += '<div>🌟 스킬 해금: ' + data.effects.skill + '</div>';
+          if (data.effects.title) html += '<div>🏅 칭호: ' + data.effects.title + '</div>';
+          html += '</div>';
+        }
+        html += '</div>';
+        showModal('📖 스토리 결과', html, [{label:'확인',action:'closeModal()'}]);
+      });
+
+      // 무역 시세
+      socket.on('trade_market', function(data) {
+        var html = '<p style="color:#ffd700;font-weight:bold;text-align:center">📈 실시간 무역 시세</p>';
+        if (data.event) {
+          html += '<div style="background:rgba(255,100,0,0.15);padding:6px;border-radius:4px;margin:6px 0;text-align:center;font-size:12px"><span style="font-size:16px">' + (data.event.icon||'📢') + '</span> <b style="color:#ff8800">' + data.event.name + '</b><br><small style="color:#ffaa66">' + data.event.desc + '</small></div>';
+        }
+        if (data.prices) {
+          html += '<table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:6px">';
+          html += '<tr style="color:#ffd700;border-bottom:1px solid #333"><td>물품</td><td>매입</td><td>매도</td><td>추세</td></tr>';
+          for (var routeId in data.prices) {
+            var p = data.prices[routeId];
+            var trendArrow = p.trend > 0 ? '📈' : p.trend < 0 ? '📉' : '➡️';
+            var trendColor = p.trend > 0 ? '#44ff44' : p.trend < 0 ? '#ff4444' : '#888';
+            html += '<tr style="border-bottom:1px solid #222"><td style="color:#ddd">' + (p.goods || routeId) + '</td><td style="color:#ff6b6b">' + p.buyPrice + 'G</td><td style="color:#44ff44">' + p.sellPrice + 'G</td><td style="color:' + trendColor + '">' + trendArrow + '</td></tr>';
+          }
+          html += '</table>';
+        }
+        showModal('📈 무역 시세', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+      });
+
+      socket.on('trade_market_update', function(data) {
+        showToast(data.msg || '📊 시장 시세 변동!', 'event');
+      });
+
+      // SLG 이벤트 알림
+      socket.on('slg_event', function(data) {
+        if (data.type === 'start' && data.event) {
+          showToast(data.event.icon + ' ' + data.event.name + ' 시작! (5분간)', 'event');
+          // Show banner
+          var banner = document.getElementById('world-event-display');
+          if (banner) {
+            banner.style.display = 'inline';
+            banner.textContent = data.event.icon + ' ' + data.event.name;
+            banner.style.background = 'rgba(255,100,0,0.2)';
+            banner.style.borderColor = 'rgba(255,100,0,0.6)';
+          }
+        } else if (data.type === 'end') {
+          showToast('이벤트 종료', 'normal');
+          var banner = document.getElementById('world-event-display');
+          if (banner) banner.style.display = 'none';
+        }
+      });
+
+      // 튜토리얼
+      socket.on('tutorial_status', function(data) {
+        if (!data || data.completed) {
+          showToast('튜토리얼 완료! 자유롭게 모험하세요!');
+          return;
+        }
+        var step = data.currentStep;
+        if (!step) return;
+        var html = '<div style="text-align:center">';
+        html += '<p style="color:#ffd700;font-size:18px;font-weight:bold">' + step.title + '</p>';
+        html += '<p style="color:#ddd;margin:10px 0;font-size:13px">' + step.desc + '</p>';
+        if (step.progress !== undefined) {
+          var pct = Math.min(100, Math.floor(step.progress * 100));
+          html += '<div style="width:100%;height:16px;background:#222;border-radius:8px;overflow:hidden;margin:8px 0"><div style="width:' + pct + '%;height:100%;background:linear-gradient(90deg,#ffd700,#ff8800);border-radius:8px"></div></div>';
+          html += '<p style="color:#ffaa44;font-size:11px">' + pct + '%</p>';
+        }
+        html += '<p style="color:#888;font-size:11px;margin-top:8px">💡 ' + step.hint + '</p>';
+        html += '</div>';
+        var buttons = [{label:'닫기',type:'cancel',action:'closeModal()'}];
+        if (data.claimable) {
+          buttons.unshift({label:'🎁 보상 수령', action:"window.socket.emit('tutorial_claim','" + step.id + "');closeModal();"});
+        }
+        showModal('🎯 튜토리얼 (' + (data.stepIndex+1) + '/7)', html, buttons);
+      });
+
+      socket.on('tutorial_reward', function(data) {
+        showToast(data.msg || '🎁 튜토리얼 보상 획득!', 'reward');
+      });
+
+      // 공성전 맵 선택
+      socket.on('siege_maps', function(data) {
+        var html = '<p style="color:#ffd700;font-weight:bold;text-align:center">🏰 공성전 맵 선택</p>';
+        var maps = data.maps || data;
+        if (Array.isArray(maps)) {
+          maps.forEach(function(m) {
+            html += '<div class="panel-item" style="border-left:3px solid #ff8800"><span class="name">' + m.icon + ' ' + m.name + '<br><small style="color:#888">' + m.desc + ' | 함정 ' + m.maxTraps + '개 | 방어 ' + m.maxDefenders + '명</small></span><button class="btn btn-sm" onclick="window.socket.emit(\'siege_attack\',{target:null,mapId:\'' + m.id + '\'});closeModal();">도전</button></div>';
+          });
+        }
+        showModal('🏰 공성전', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+      });
+
+      // 속성 상성 전투 표시
+      socket.on('combat_element', function(data) {
+        if (data.effective) showToast('🔥 속성 유리! 데미지 1.5배!', 'positive');
+        else if (data.weak) showToast('💧 속성 불리! 데미지 0.7배', 'negative');
+      });
+
+      // v4 시스템 결과 (공통)
+      socket.on('v4_result', function(data) {
+        showToast(data.msg || '완료');
+      });
+
+      // v4.4: 영지 자원 자동 수집 알림
+      socket.on('territory_collected', function(data) {
+        if (data && data.collected) {
+          var parts = [];
+          var icons = {gold:'💰',wood:'🪵',iron:'⛏️',mana_stone:'💎',food:'🍖',dragon_tear:'🐲'};
+          for (var k in data.collected) {
+            if (data.collected[k] > 0) parts.push((icons[k]||k) + '+' + data.collected[k]);
+          }
+          if (parts.length > 0) showToast('🏰 자원 수집: ' + parts.join(' '), 'reward');
+          // 자원 HUD 업데이트
+          var resHud = document.getElementById('slg-resources');
+          if (resHud && data.totals) {
+            resHud.style.display = 'flex';
+            ['wood','iron','mana_stone','food','dragon_tear'].forEach(function(r) {
+              var el = document.getElementById('res-' + r.replace('mana_stone','mana').replace('dragon_tear','tear'));
+              if (el && data.totals[r] !== undefined) el.textContent = data.totals[r];
+            });
+          }
+        }
+      });
+
+      // v4.4: 용병 목록에 속성 아이콘 표시 강화
+      socket.on('merc_status', function(data) {
+        if (!data || !data.roster) return;
+        var html = '<p style="color:#ffd700;font-weight:bold;text-align:center">⚔️ 용병 관리</p>';
+        html += '<div style="margin-bottom:6px;font-size:11px;color:#888">파티 시너지: <b style="color:#ffd700">' + (data.파티시너지 || '없음') + '</b> | 총 전투력: <b style="color:#44ff44">' + (data.partyPower?.totalPower || 0) + '</b></div>';
+        data.roster.forEach(function(m) {
+          var elemStr = m.elementIcon ? '<span title="'+m.elementName+'" style="font-size:14px">' + m.elementIcon + '</span>' : '';
+          var posStr = m.position ? ' <span style="font-size:10px;color:#aaa">[' + ({front:'🛡️전열',back:'🏹후열',flank:'🗡️유격',support:'💫지원'}[m.position] || m.position) + ']</span>' : '';
+          var partyMark = m.inParty ? '<span style="color:#44ff44;font-size:10px"> [파티]</span>' : '';
+          var gradeStars = '⭐'.repeat(Math.min(m.stars, 5));
+          html += '<div class="panel-item" style="border-left:3px solid ' + (m.gradeColor || '#888') + '">';
+          html += '<span class="name">' + m.icon + ' ' + elemStr + ' <b>' + m.name + '</b>' + partyMark + posStr;
+          html += '<br><small style="color:#aaa">Lv.' + m.level + ' ' + gradeStars + ' | ' + m.personalityName + ' | CP:' + m.combatPower + '</small>';
+          html += '<br><small style="color:#888">ATK:' + m.atk + ' DEF:' + m.def + ' HP:' + m.hp + ' | ' + m.skillName + '</small></span>';
+          html += '<div style="display:flex;gap:3px;flex-wrap:wrap">';
+          if (!m.inParty) html += '<button class="btn btn-sm" onclick="window.socket.emit(\'merc_set_party\',{add:\'' + m.uid + '\'})">파티+</button>';
+          else html += '<button class="btn btn-sm" style="opacity:0.5" onclick="window.socket.emit(\'merc_set_party\',{remove:\'' + m.uid + '\'})">파티-</button>';
+          html += '<button class="btn btn-sm" onclick="window.socket.emit(\'merc_level_up\',{uid:\'' + m.uid + '\'})">훈련</button>';
+          html += '</div></div>';
+        });
+        html += '<div style="margin-top:8px;font-size:10px;color:#666">보유: ' + data.roster.length + '/' + data.maxRoster + '명</div>';
+        showModal('⚔️ 용병 관리', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+      });
+
+// ═══ v4.5: 주간 도전 ═══
+socket.on('weekly_status', function(data) {
+  var html = '<p style="color:#ffd700;font-weight:bold;text-align:center">🏆 주간 도전 보드</p>';
+  if (data.dungeons) {
+    data.dungeons.forEach(function(d) {
+      var done = data.completed && data.completed.includes(d.id);
+      html += '<div class="panel-item" style="border-left:3px solid '+(done?'#44ff44':'#ff8800')+'"><span class="name">' + d.icon + ' ' + d.name + ' (전투력 ' + d.minPower + '+)<br><small style="color:#888">' + d.waves + '웨이브 | 보상: ' + d.reward.gold + 'G + ' + d.reward.diamonds + '💎</small></span>';
+      if (!done) html += '<div style="display:flex;gap:3px"><button class="btn btn-sm" onclick="window.socket.emit(\'weekly_start\',{dungeonId:\''+d.id+'\',teamSize:\'solo\'})">솔로</button><button class="btn btn-sm" onclick="window.socket.emit(\'weekly_start\',{dungeonId:\''+d.id+'\',teamSize:\'duo\'})">듀오</button><button class="btn btn-sm" onclick="window.socket.emit(\'weekly_start\',{dungeonId:\''+d.id+'\',teamSize:\'trio\'})">트리오</button></div>';
+      else html += '<span style="color:#44ff44;font-size:11px">✅ 완료</span>';
+      html += '</div>';
+    });
+  }
+  html += '<div style="margin-top:8px;font-size:11px;color:#888">내 점수: <b style="color:#ffd700">'+(data.score||0)+'</b> | 순위: <b style="color:#44ff44">'+(data.rank||'-')+'</b></div>';
+  html += '<button class="btn" style="width:100%;margin-top:6px" onclick="window.socket.emit(\'weekly_leaderboard\')">🏅 랭킹 보기</button>';
+  showModal('🏆 주간 도전', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+});
+
+socket.on('weekly_result', function(data) {
+  var html = '<div style="text-align:center"><p style="color:#ffd700;font-size:16px;font-weight:bold">' + (data.cleared ? '🎉 클리어!' : '💀 실패...') + '</p>';
+  html += '<p style="color:#ddd;margin:8px 0">점수: <b style="color:#ffaa00">' + (data.score||0) + '</b></p>';
+  if (data.reward) html += '<p style="color:#44ff44">' + data.reward.gold + 'G + ' + data.reward.diamonds + '💎 획득!</p>';
+  html += '</div>';
+  showModal('주간 도전 결과', html, [{label:'확인',action:'closeModal()'}]);
+});
+
+socket.on('weekly_leaderboard', function(data) {
+  var html = '<p style="color:#ffd700;font-weight:bold;text-align:center">🏅 주간 랭킹 TOP 20</p>';
+  if (data.rankings) {
+    data.rankings.forEach(function(r, i) {
+      var medal = i===0?'👑':i===1?'🥈':i===2?'🥉':'';
+      html += '<div class="panel-item"><span class="name">' + medal + ' #' + (i+1) + ' ' + r.name + '<br><small style="color:#ffd700">점수: ' + r.score + '</small></span></div>';
+    });
+  }
+  showModal('🏅 주간 랭킹', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+});
+
+// ═══ v4.5: 용병 쇼케이스 ═══
+socket.on('showcase_my', function(data) {
+  var html = '<p style="color:#ffd700;font-weight:bold;text-align:center">🖼️ 나의 쇼케이스</p>';
+  html += '<p style="color:#888;font-size:11px;text-align:center">평판: ⭐' + (data.reputation||0) + ' | 투표: 👍' + (data.weeklyVotes||0) + ' | 칭호: ' + (data.repTitle||'없음') + '</p>';
+  if (data.mercs && data.mercs.length > 0) {
+    data.mercs.forEach(function(m) {
+      html += '<div class="panel-item" style="border-left:3px solid #ff88cc"><span class="name">' + m.icon + ' ' + (m.elementIcon||'') + ' <b>' + m.name + '</b><br><small style="color:#aaa">Lv.' + m.level + ' ⭐' + m.stars + ' | CP:' + m.combatPower + ' | ' + m.personalityName + '</small></span></div>';
+    });
+  } else {
+    html += '<p style="color:#888;text-align:center">아직 진열한 용병이 없습니다</p>';
+  }
+  html += '<div style="margin-top:8px;display:flex;gap:4px"><button class="btn" style="flex:1" onclick="window.socket.emit(\'showcase_leaderboard\')">🏅 인기 TOP 10</button></div>';
+  showModal('🖼️ 쇼케이스', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+});
+
+socket.on('showcase_view', function(data) {
+  var html = '<p style="color:#ff88cc;font-weight:bold;text-align:center">🖼️ ' + (data.ownerName||'???') + '의 쇼케이스</p>';
+  if (data.message) html += '<p style="color:#ddd;text-align:center;font-style:italic;font-size:12px">"' + data.message + '"</p>';
+  html += '<p style="color:#888;font-size:11px;text-align:center">평판 ⭐' + (data.reputation||0) + '</p>';
+  if (data.mercs) data.mercs.forEach(function(m) {
+    html += '<div class="panel-item"><span class="name">' + m.icon + ' ' + (m.elementIcon||'') + ' ' + m.name + ' (Lv.' + m.level + ' ⭐' + m.stars + ')</span></div>';
+  });
+  showModal('쇼케이스 방문', html, [
+    {label:'👍 투표', action:"window.socket.emit('showcase_vote','" + data.ownerId + "');closeModal();"},
+    {label:'닫기',type:'cancel',action:'closeModal()'}
+  ]);
+});
+
+socket.on('showcase_result', function(data) { showToast(data.msg || '쇼케이스 업데이트'); });
+
+socket.on('showcase_leaderboard', function(data) {
+  var html = '<p style="color:#ffd700;font-weight:bold;text-align:center">🏅 인기 쇼케이스 TOP 10</p>';
+  if (data.rankings) data.rankings.forEach(function(r, i) {
+    html += '<div class="panel-item" style="cursor:pointer" onclick="window.socket.emit(\'showcase_view\',\'' + r.playerId + '\')"><span class="name">#' + (i+1) + ' ' + r.name + '<br><small style="color:#ff88cc">투표 👍' + r.votes + ' | 평판 ⭐' + r.rep + '</small></span></div>';
+  });
+  showModal('🏅 인기 쇼케이스', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+});
+
+// ═══ v4.5: 무역 투기 ═══
+socket.on('futures_status', function(data) {
+  var html = '<p style="color:#ffd700;font-weight:bold;text-align:center">📊 무역 투기</p>';
+  html += '<p style="color:#888;font-size:11px;text-align:center">칭호: ' + (data.tradeTitle||'초보 상인') + ' | 총수익: ' + (data.totalProfit||0) + 'G</p>';
+  if (data.futures && data.futures.length > 0) {
+    html += '<p style="color:#ffaa44;font-size:12px;margin:6px 0">진행중 계약:</p>';
+    data.futures.forEach(function(f) {
+      var remaining = Math.max(0, Math.ceil((f.settleTime - Date.now()) / 1000));
+      html += '<div class="panel-item"><span class="name">' + f.routeId + ' ' + (f.direction==='up'?'📈상승':'📉하락') + ' 베팅<br><small style="color:#ffd700">' + f.amount + 'G | ' + remaining + '초 남음</small></span></div>';
+    });
+  } else {
+    html += '<p style="color:#888;text-align:center;margin:8px 0">진행중인 계약이 없습니다</p>';
+  }
+  html += '<div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap">';
+  html += '<button class="btn" style="flex:1" onclick="showModal(\'선물 매수\',\'<p style=color:#ffd700>루트ID와 방향, 금액을 입력하세요</p><input id=fut-route placeholder=루트ID(r1~r10) style=width:100%;padding:6px;background:#222;color:#fff;border:1px__solid__#555;border-radius:4px;margin:3px__0><select id=fut-dir style=width:100%;padding:6px;background:#222;color:#fff;border:1px__solid__#555;border-radius:4px;margin:3px__0><option value=up>📈 상승</option><option value=down>📉 하락</option></select><input id=fut-amt type=number placeholder=베팅금액 value=1000 style=width:100%;padding:6px;background:#222;color:#fff;border:1px__solid__#555;border-radius:4px;margin:3px__0>\',[{label:\'매수!\',action:\"window.socket.emit(\\\'futures_buy\\\',{routeId:getModalInput(\\\'fut-route\\\'),direction:getModalInput(\\\'fut-dir\\\'),amount:parseInt(getModalInput(\\\'fut-amt\\\'))});closeModal();\"},{label:\'취소\',type:\'cancel\',action:\'closeModal()\'}]);">📝 선물 매수</button>';
+  html += '<button class="btn" style="flex:1" onclick="window.socket.emit(\'trade_ranking\')">🏅 무역왕 랭킹</button>';
+  html += '</div>';
+  showModal('📊 무역 투기', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+});
+
+socket.on('futures_settled', function(data) {
+  if (data.profit > 0) showToast('📈 선물 계약 성공! +' + data.profit + 'G', 'reward');
+  else showToast('📉 선물 계약 실패... ' + data.profit + 'G', 'negative');
+});
+
+socket.on('futures_result', function(data) { showToast(data.msg || '투기 결과'); });
+
+socket.on('trade_ranking', function(data) {
+  var html = '<p style="color:#ffd700;font-weight:bold;text-align:center">🏅 무역왕 랭킹</p>';
+  if (data.rankings) data.rankings.forEach(function(r, i) {
+    html += '<div class="panel-item"><span class="name">#' + (i+1) + ' ' + r.name + ' <small style="color:#ffd700">' + (r.title||'') + '</small><br><small style="color:#44ff44">총수익: ' + r.totalProfit + 'G</small></span></div>';
+  });
+  showModal('🏅 무역왕', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+});
+
+// ═══ v4.6: 카오스 존 ═══
+socket.on('chaos_zones', function(data) {
+  var html = '<p style="color:#ff0000;font-weight:bold;text-align:center">☠️ 카오스 존 — 위험 지역</p>';
+  html += '<p style="color:#ff6b6b;font-size:11px;text-align:center;margin-bottom:8px">⚠️ 사망 시 장비와 골드를 잃습니다!</p>';
+  if (data.zones) data.zones.forEach(function(z) {
+    var inZone = data.currentZone === z.id;
+    html += '<div class="panel-item" style="border-left:3px solid '+(inZone?'#ff0000':'#ff8800')+';background:'+(inZone?'rgba(255,0,0,0.1)':'')+'"><span class="name">' + z.icon + ' <b>' + z.name + '</b> (Lv.' + z.level + '+)<br>';
+    html += '<small style="color:#44ff44">보상: EXP ×' + z.bonuses.exp + ' 골드 ×' + z.bonuses.gold + ' 드롭 ×' + z.bonuses.dropRate + '</small><br>';
+    html += '<small style="color:#ff4444">☠️ ' + z.desc + '</small></span>';
+    if (!inZone) html += '<button class="btn btn-sm" style="background:#880000;border-color:#ff0000" onclick="if(confirm(\'정말 입장하시겠습니까? 사망 시 장비/골드를 잃습니다!\')){window.socket.emit(\'chaos_enter\',\''+z.id+'\')}">⚠️ 입장</button>';
+    else html += '<button class="btn btn-sm" onclick="window.socket.emit(\'chaos_exit\')">🚪 탈출</button>';
+    html += '</div>';
+  });
+  showModal('☠️ 카오스 존', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+});
+
+socket.on('chaos_enter_result', function(data) {
+  if (data.success) {
+    showToast('☠️ ' + data.zoneName + ' 입장! 조심하세요...', 'danger');
+    var banner = document.getElementById('slg-event-banner');
+    if (banner) { banner.style.display = 'inline'; banner.textContent = '☠️ ' + data.zoneName; banner.style.background = 'rgba(255,0,0,0.3)'; banner.style.borderColor = '#ff0000'; }
+  } else showToast(data.msg, 'negative');
+});
+
+socket.on('chaos_exit_result', function(data) {
+  showToast('🚪 카오스 존 탈출!');
+  var banner = document.getElementById('slg-event-banner');
+  if (banner) banner.style.display = 'none';
+});
+
+socket.on('chaos_death', function(data) {
+  var html = '<div style="text-align:center"><p style="color:#ff0000;font-size:20px;font-weight:bold">☠️ 카오스 존에서 사망!</p>';
+  if (data.goldLost) html += '<p style="color:#ff6b6b">💰 골드 -' + data.goldLost + 'G</p>';
+  if (data.itemsDropped && data.itemsDropped.length > 0) html += '<p style="color:#ff4444">🗡️ 장비 ' + data.itemsDropped.length + '개 드롭!</p>';
+  if (data.mercsDropped && data.mercsDropped.length > 0) html += '<p style="color:#ff0000">⚔️ 용병 ' + data.mercsDropped.join(', ') + ' 잃음!</p>';
+  if (data.killer) html += '<p style="color:#ffaa00">살해자: ' + data.killer + '</p>';
+  html += '</div>';
+  showModal('💀 사망', html, [{label:'확인',action:'closeModal()'}]);
+});
+
+socket.on('chaos_kill_notify', function(data) {
+  showToast('⚔️ ' + data.victim + '을(를) 처치! 전리품 확인!', 'reward');
+});
+
+socket.on('chaos_loot_nearby', function(data) {
+  showToast('💎 근처에 드롭된 전리품이 있습니다!', 'event');
+});
+
+socket.on('chaos_leaderboard', function(data) {
+  var html = '<p style="color:#ff4444;font-weight:bold;text-align:center">☠️ 카오스 존 랭킹</p>';
+  html += '<p style="color:#ffd700;font-size:11px">🗡️ PK 랭킹:</p>';
+  if (data.killers) data.killers.forEach(function(k, i) {
+    html += '<div class="panel-item"><span class="name">#' + (i+1) + ' ' + k.name + ' — ' + k.kills + '킬</span></div>';
+  });
+  html += '<p style="color:#44ff44;font-size:11px;margin-top:8px">🛡️ 생존 랭킹:</p>';
+  if (data.survivors) data.survivors.forEach(function(s, i) {
+    html += '<div class="panel-item"><span class="name">#' + (i+1) + ' ' + s.name + ' — ' + s.survivalTime + '분 생존</span></div>';
+  });
+  showModal('☠️ 카오스 랭킹', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+});
+
+// ═══ v4.6: 길드 무역 연합 ═══
+socket.on('guild_trade_status', function(data) {
+  var html = '<p style="color:#ffd700;font-weight:bold;text-align:center">🚢 길드 무역 연합</p>';
+  html += '<p style="color:#888;font-size:11px;text-align:center">길드 금고: <b style="color:#ffd700">' + (data.treasury||0) + 'G</b> | 총수익: <b style="color:#44ff44">' + (data.totalProfit||0) + 'G</b> | 명성: ' + (data.fame||0) + '</p>';
+  // Active caravans
+  if (data.activeCaravans && data.activeCaravans.length > 0) {
+    html += '<p style="color:#ffaa44;font-size:12px;margin:6px 0">운행 중:</p>';
+    data.activeCaravans.forEach(function(c) {
+      var remaining = Math.max(0, Math.ceil((c.arriveTime - Date.now()) / 1000));
+      html += '<div class="panel-item" style="border-left:3px solid #44ff44"><span class="name">' + c.tierIcon + ' ' + c.route + '<br><small style="color:#ffd700">' + remaining + '초 남음 | 호위 ' + c.escorts + '명</small></span></div>';
+    });
+  }
+  // Actions
+  html += '<div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap">';
+  html += '<button class="btn" style="flex:1" onclick="window.socket.emit(\'guild_treasury_deposit\',{amount:1000})">💰 1000G 입금</button>';
+  html += '<button class="btn" style="flex:1" onclick="window.socket.emit(\'guild_caravan_launch\',{routeId:\'r3\',tier:1})">🫏 캐러밴 출발</button>';
+  html += '<button class="btn" style="flex:1" onclick="window.socket.emit(\'guild_trade_ranking\')">🏅 랭킹</button>';
+  html += '</div>';
+  showModal('🚢 길드 무역', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+});
+
+socket.on('guild_caravan_alert', function(data) {
+  showToast(data.msg || '🚢 캐러밴 알림!', 'event');
+});
+
+socket.on('guild_caravan_result', function(data) {
+  if (data.success !== undefined) {
+    if (data.raided) showToast('⚔️ 캐러밴 약탈 ' + (data.success ? '성공!' : '실패!'), data.success ? 'reward' : 'negative');
+    else showToast(data.msg || '🚢 캐러밴 결과', 'normal');
+  } else showToast(data.msg || '길드 무역 결과');
+});
+
+socket.on('guild_active_caravans', function(data) {
+  var html = '<p style="color:#ff4444;font-weight:bold;text-align:center">⚔️ 약탈 가능한 캐러밴</p>';
+  if (data.caravans && data.caravans.length > 0) {
+    data.caravans.forEach(function(c) {
+      html += '<div class="panel-item" style="border-left:3px solid #ff8800"><span class="name">' + c.guildName + '의 ' + c.tierName + '<br><small style="color:#888">루트: ' + c.route + ' | 방어력: ' + c.defense + '</small></span><button class="btn btn-sm" style="background:#880000" onclick="if(confirm(\'정말 약탈하시겠습니까?\')){window.socket.emit(\'guild_caravan_raid\',\'' + c.id + '\')}">⚔️ 약탈</button></div>';
+    });
+  } else {
+    html += '<p style="color:#888;text-align:center">현재 운행 중인 적 캐러밴이 없습니다</p>';
+  }
+  showModal('⚔️ 캐러밴 약탈', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+});
+
+socket.on('guild_trade_ranking', function(data) {
+  var html = '<p style="color:#ffd700;font-weight:bold;text-align:center">🏅 길드 무역 랭킹</p>';
+  if (data.rankings) data.rankings.forEach(function(r, i) {
+    html += '<div class="panel-item"><span class="name">#' + (i+1) + ' ' + r.name + '<br><small style="color:#44ff44">수익: ' + r.totalProfit + 'G | 명성: ' + r.fame + '</small></span></div>';
+  });
+  showModal('🏅 길드 무역 랭킹', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+});
+
+// ═══ v4.7: 통합 성장 대시보드 ═══
+socket.on('growth_dashboard', function(data) {
+  var html = '<p style="color:#ffd700;font-weight:bold;text-align:center;font-size:14px">📊 통합 성장 대시보드</p>';
+
+  // IO↔SLG 순환 루프
+  html += '<div style="background:rgba(255,215,0,0.08);border:1px solid rgba(255,215,0,0.2);border-radius:6px;padding:8px;margin:6px 0;font-size:10px">';
+  html += '<p style="color:#ffd700;font-weight:bold;margin-bottom:4px">🔄 IO ↔ SLG 순환</p>';
+  if (data.loopStatus) {
+    html += '<p style="color:#88ff88">' + data.loopStatus.ioToSlg + '</p>';
+    html += '<p style="color:#88ccff">' + data.loopStatus.slgToIo + '</p>';
+    html += '<p style="color:#ffaa44">' + data.loopStatus.synergyInfo + '</p>';
+    html += '<p style="color:#ff8888">' + data.loopStatus.elementInfo + '</p>';
+  }
+  html += '</div>';
+
+  // IO 성과
+  html += '<div style="display:flex;gap:6px;margin:6px 0">';
+  html += '<div style="flex:1;background:rgba(255,100,100,0.1);border-radius:4px;padding:6px;font-size:11px"><b style="color:#ff6b6b">🎮 IO</b><br>Lv.' + (data.ioStats?.level||1) + '<br>최고 웨이브: ' + (data.ioStats?.bestWave||0) + '<br>총 킬: ' + (data.ioStats?.totalKills||0) + '</div>';
+  html += '<div style="flex:1;background:rgba(100,100,255,0.1);border-radius:4px;padding:6px;font-size:11px"><b style="color:#88ccff">🏰 SLG</b><br>용병: ' + (data.slgStats?.mercCount||0) + '/' + (data.slgStats?.maxRoster||20) + '<br>전투력: ' + (data.slgStats?.totalPower||0) + '<br>파티: ' + (data.slgStats?.partySize||0) + '명</div>';
+  html += '</div>';
+
+  // 재료
+  var mats = data.slgStats?.materials || {};
+  html += '<div style="font-size:10px;color:#aaa;margin:4px 0">재료: 🧱' + (mats.materials||0) + ' 🩸' + (mats.bloodlineFrags||0) + ' 💎' + (mats.evolutionStones||0) + '</div>';
+
+  // 추천
+  if (data.recommendations && data.recommendations.length > 0) {
+    html += '<div style="margin-top:6px"><p style="color:#ffd700;font-size:11px;font-weight:bold">💡 성장 추천:</p>';
+    data.recommendations.forEach(function(r) {
+      var color = r.priority === 'high' ? '#ff8800' : '#888';
+      html += '<div style="padding:3px 0;font-size:10px;color:' + color + '">' + r.icon + ' ' + r.text + '</div>';
+    });
+    html += '</div>';
+  }
+
+  showModal('📊 성장 대시보드', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+});
+
+// v4.7: IO→SLG 재료 획득 알림
+socket.on('io_slg_rewards', function(data) {
+  var parts = [];
+  if (data.materials > 0) parts.push('🧱재료 +' + data.materials);
+  if (data.bloodlineFrags > 0) parts.push('🩸혈통조각 +' + data.bloodlineFrags);
+  if (data.evolutionStones > 0) parts.push('💎진화석 +' + data.evolutionStones);
+  var resParts = [];
+  for (var k in (data.territoryResources || {})) {
+    if (data.territoryResources[k] > 0) resParts.push(k + '+' + data.territoryResources[k]);
+  }
+  if (resParts.length > 0) parts.push('🏰' + resParts.join(','));
+  if (parts.length > 0) showToast('🔄 IO→SLG: ' + parts.join(' | '), 'reward');
+});
+
+// ═══ v4.8: 메인 게임 SLG 드롭 알림 ═══
+socket.on('slg_drop', function(data) {
+  if (data.type === 'merc_card') {
+    showToast(data.msg || '🎴 용병 카드 획득!', 'legendary');
+  } else if (data.type === 'loot') {
+    showToast(data.msg || '🧱 약탈!', 'reward');
+  } else {
+    // 재료/혈통/진화석 — 조용한 알림 (너무 자주 뜨지 않도록)
+    var dropEl = document.getElementById('slg-event-banner');
+    if (dropEl) {
+      dropEl.style.display = 'inline';
+      dropEl.textContent = data.msg || '🧱 재료 획득';
+      dropEl.style.background = 'rgba(0,200,100,0.15)';
+      dropEl.style.borderColor = 'rgba(0,200,100,0.4)';
+      setTimeout(function() { dropEl.style.display = 'none'; }, 3000);
+    }
+  }
+});
+
+// ═══ v4.9: 한정 배너 가챠 ═══
+socket.on('banner_info', function(data) {
+  if (!data || !data.featured) { showToast('현재 진행 중인 배너가 없습니다'); return; }
+  var f = data.featured;
+  var html = '<div style="text-align:center;margin-bottom:10px">';
+  html += '<div style="font-size:40px">' + f.icon + '</div>';
+  html += '<p style="color:#ffd700;font-size:18px;font-weight:bold;margin:4px 0">' + f.name + '</p>';
+  html += '<p style="color:#ff88cc;font-size:12px;font-style:italic">"' + f.catchphrase + '"</p>';
+  html += '<p style="color:#ffaa44;font-size:11px">' + f.rarity + ' | ' + (f.elementIcon||'') + ' ' + (f.element||'') + '</p>';
+  html += '</div>';
+  // 카운트다운
+  html += '<div style="background:rgba(255,0,100,0.15);border:1px solid rgba(255,0,100,0.3);border-radius:6px;padding:6px;text-align:center;margin:6px 0">';
+  html += '<p style="color:#ff4488;font-size:11px;font-weight:bold">⏰ 남은 시간: ' + (data.countdown||'???') + '</p>';
+  html += '<p style="color:#888;font-size:10px">확률 3배 UP! 이번 배너에서만!</p>';
+  html += '</div>';
+  // 천장 정보
+  html += '<p style="color:#aaa;font-size:10px;text-align:center">내 소환 횟수: ' + (data.myPulls||0) + '회 | 50회 영웅 확정 | 90회 전설 확정(픽업)</p>';
+  // 소환 버튼
+  html += '<div style="display:flex;gap:6px;margin-top:8px">';
+  html += '<button class="btn" style="flex:1;background:linear-gradient(135deg,#6622aa,#ff4400);border:none;font-weight:bold" onclick="window.socket.emit(\'banner_pull\');closeModal();">🌟 소환 1회 (30💎)</button>';
+  html += '<button class="btn" style="flex:1;background:linear-gradient(135deg,#ffd700,#ff4400);border:none;font-weight:bold" onclick="window.socket.emit(\'banner_pull_10\');closeModal();">⭐ 10연차 (270💎)</button>';
+  html += '</div>';
+  showModal('🌟 한정 배너: ' + f.name, html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+});
+
+socket.on('banner_result', function(data) {
+  if (!data || !data.results) return;
+  var html = '<div style="text-align:center"><p style="color:#ffd700;font-size:16px;font-weight:bold;margin-bottom:8px">🌟 소환 결과!</p>';
+  var gradeColors = ['#aaa','#44ff44','#4488ff','#aa44ff','#ff8800','#ff4444'];
+  data.results.forEach(function(r) {
+    var color = gradeColors[r.grade] || '#ddd';
+    var pickup = r.isPickup ? ' <b style="color:#ff44ff">[PICKUP!]</b>' : '';
+    var pity = r.isPity ? ' <b style="color:#ffd700">[천장!]</b>' : '';
+    html += '<div style="padding:4px;margin:2px 0;border-left:3px solid ' + color + ';font-size:12px">' + r.icon + ' <b style="color:' + color + '">' + r.name + '</b> (' + r.rarity + ')' + pickup + pity + '</div>';
+  });
+  html += '</div>';
+  showModal('🌟 소환 결과', html, [{label:'확인',action:'closeModal()'}]);
+});
+
+socket.on('banner_announce', function(data) {
+  showToast('🌟 ' + (data.msg || '새 배너 등장!'), 'legendary');
+});
+
+// ═══ v4.9: 길드 보스 시즌 ═══
+socket.on('guild_season_info', function(data) {
+  var boss = data.boss || {};
+  var html = '<div style="text-align:center;margin-bottom:8px">';
+  html += '<p style="color:#ffd700;font-size:14px;font-weight:bold">🏆 시즌 ' + (data.seasonNumber||1) + '</p>';
+  html += '<div style="font-size:36px">' + (boss.icon||'👹') + '</div>';
+  html += '<p style="color:#ff6b6b;font-size:16px;font-weight:bold">' + (boss.name||'보스') + '</p>';
+  html += '<p style="color:#888;font-size:11px">HP: ' + (boss.hp||0) + ' | ATK: ' + (boss.atk||0) + ' | ' + (boss.element||'') + '</p>';
+  html += '<p style="color:#ffaa44;font-size:11px">남은 시간: ' + (data.remaining||'???') + '</p>';
+  html += '</div>';
+  // 길드 점수
+  html += '<div style="background:rgba(255,215,0,0.08);border-radius:4px;padding:6px;margin:6px 0;font-size:11px">';
+  html += '<p style="color:#ffd700">우리 길드 점수: <b>' + (data.guildScore||0) + '</b> | 순위: <b style="color:#44ff44">' + (data.rank||'-') + '</b></p>';
+  if (data.rankInfo) html += '<p style="color:#888">' + data.rankInfo.icon + ' ' + data.rankInfo.title + ' — ' + data.rankInfo.desc + '</p>';
+  html += '</div>';
+  html += '<div style="display:flex;gap:4px;margin-top:6px">';
+  html += '<button class="btn" style="flex:1;background:#880000;border-color:#ff4400;font-weight:bold" onclick="window.socket.emit(\'guild_season_attack\');closeModal();">⚔️ 보스 공격!</button>';
+  html += '<button class="btn" style="flex:1" onclick="window.socket.emit(\'guild_season_leaderboard\');">🏅 랭킹</button>';
+  html += '</div>';
+  showModal('🏆 길드 보스 시즌', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+});
+
+socket.on('guild_season_attack_result', function(data) {
+  var html = '<div style="text-align:center">';
+  html += '<p style="color:#ffd700;font-size:16px;font-weight:bold">' + (data.cleared ? '🎉 보스 격파!' : '⚔️ 전투 결과') + '</p>';
+  html += '<p style="color:#ddd;margin:6px 0">가한 데미지: <b style="color:#ff6b6b">' + (data.damage||0) + '</b></p>';
+  html += '<p style="color:#44ff44">점수: +<b>' + (data.score||0) + '</b></p>';
+  if (data.reward) html += '<p style="color:#ffd700">보상: ' + data.reward.gold + 'G + ' + data.reward.diamonds + '💎</p>';
+  html += '</div>';
+  showModal('⚔️ 보스 전투', html, [{label:'확인',action:'closeModal()'}]);
+});
+
+socket.on('guild_season_leaderboard', function(data) {
+  var html = '<p style="color:#ffd700;font-weight:bold;text-align:center">🏆 시즌 ' + (data.seasonNumber||1) + ' 길드 랭킹</p>';
+  if (data.rankings) data.rankings.forEach(function(r, i) {
+    var medal = i===0?'👑':i===1?'🥈':i===2?'🥉':r.icon||'';
+    html += '<div class="panel-item" style="border-left:3px solid ' + (r.frameColor||'#888') + '"><span class="name">' + medal + ' #' + (i+1) + ' ' + r.clanName + '<br><small style="color:#ffd700">점수: ' + r.score + ' | ' + (r.title||'') + '</small></span></div>';
+  });
+  showModal('🏆 길드 랭킹', html, [{label:'닫기',type:'cancel',action:'closeModal()'}]);
+});
+
+socket.on('guild_season_end', function(data) {
+  showToast('🏆 시즌 ' + (data.seasonNumber||'') + ' 종료! ' + (data.msg||''), 'legendary');
+});
+
     }

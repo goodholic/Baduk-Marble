@@ -339,17 +339,18 @@ function updatePassives() {
                 }
             }
             // 나이트 - 수호 오라: 주변 아군 DEF 증가 (매 틱 갱신)
+            // 최적화: auraRange² 사전 계산으로 Math.hypot 대신 제곱 비교
             if (skill.allyDefMulti && skill.auraRange) {
+                const r2 = skill.auraRange * skill.auraRange;
                 for (const aid in players) {
                     if (aid === id) continue;
                     const ally = players[aid];
                     if (!ally || !ally.isAlive) continue;
-                    // 같은 팀 또는 같은 소유주
                     const sameTeam = ally.team === p.team;
                     const sameOwner = ally.ownerId === p.ownerId || ally.ownerId === id || aid === p.ownerId;
                     if (!sameTeam && !sameOwner) continue;
-                    const auraDist = Math.hypot(ally.x - p.x, ally.y - p.y);
-                    if (auraDist <= skill.auraRange) {
+                    const dx = ally.x - p.x, dy = ally.y - p.y;
+                    if (dx * dx + dy * dy <= r2) {
                         ally.auraDefMulti = Math.max(ally.auraDefMulti || 1, skill.allyDefMulti);
                     }
                 }
@@ -360,6 +361,7 @@ function updatePassives() {
                 if (p.hp < p.maxHp) {
                     p.hp = Math.min(p.maxHp, p.hp + healAmt);
                 }
+                const r2 = skill.auraRange * skill.auraRange;
                 for (const aid in players) {
                     if (aid === id) continue;
                     const ally = players[aid];
@@ -367,8 +369,8 @@ function updatePassives() {
                     const sameTeam = ally.team === p.team;
                     const sameOwner = ally.ownerId === p.ownerId || ally.ownerId === id || aid === p.ownerId;
                     if (!sameTeam && !sameOwner) continue;
-                    const auraDist = Math.hypot(ally.x - p.x, ally.y - p.y);
-                    if (auraDist <= skill.auraRange) {
+                    const dx = ally.x - p.x, dy = ally.y - p.y;
+                    if (dx * dx + dy * dy <= r2) {
                         ally.hp = Math.min(ally.maxHp, ally.hp + healAmt);
                         io.to(aid).emit('combat_log', { msg: `클레릭의 치유 +${healAmt} HP` });
                     }
@@ -651,9 +653,11 @@ function updateBots() {
                                 if (dist <= (skill.range || 8)) {
                                     mob.tauntTarget = id;
                                     tauntCount++;
-                                    // 3초 후 도발 해제
-                                    setTimeout(() => {
-                                        if (monsters[monsterId]) monsters[monsterId].tauntTarget = null;
+                                    // 3초 후 도발 해제 (기존 타이머 정리)
+                                    if (mob._tauntTimer) clearTimeout(mob._tauntTimer);
+                                    const _mid = monsterId;
+                                    mob._tauntTimer = setTimeout(() => {
+                                        if (monsters[_mid]) { monsters[_mid].tauntTarget = null; monsters[_mid]._tauntTimer = null; }
                                     }, 3000);
                                 }
                             }

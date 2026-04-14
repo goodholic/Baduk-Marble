@@ -118,20 +118,20 @@ function init(deps) {
 }
 
 function calcDamage(atk, def, dmgMulti, critRate, attackerElement, defenderElement, attacker) {
-    // 날씨 ATK/DEF 보정
-    const currentWeather = _getCurrentWeather();
-    const we = currentWeather.effect || {};
+    // 날씨 ATK/DEF 보정 (null 방어)
+    const currentWeather = _getCurrentWeather ? _getCurrentWeather() : null;
+    const we = (currentWeather && currentWeather.effect) ? currentWeather.effect : {};
     if (we.atkUp) atk = Math.floor(atk * (1 + we.atkUp));
     if (we.defDown) def = Math.floor(def * (1 - we.defDown));
     // 액티브 부스트
     if (attacker?._activeBonus && Date.now() < attacker._activeBonus) dmgMulti *= 1.3;
 
-    let isCrit = Math.random() < critRate;
-    let baseDmg = Math.max(1, atk * dmgMulti - def * 0.3);
+    let isCrit = Math.random() < (critRate || 0);
+    let baseDmg = Math.max(1, (atk || 0) * (dmgMulti || 1) - (def || 0) * 0.3);
     if (isCrit) baseDmg *= 2.0;
-    // 속성 상성
-    if (attackerElement && defenderElement && _ELEMENT_BONUS[attackerElement] === defenderElement) baseDmg *= 1.25;
-    else if (defenderElement && attackerElement && _ELEMENT_BONUS[defenderElement] === attackerElement) baseDmg *= 0.8;
+    // 속성 상성 (null 방어)
+    if (attackerElement && defenderElement && _ELEMENT_BONUS && _ELEMENT_BONUS[attackerElement] === defenderElement) baseDmg *= 1.25;
+    else if (defenderElement && attackerElement && _ELEMENT_BONUS && _ELEMENT_BONUS[defenderElement] === attackerElement) baseDmg *= 0.8;
     // 날씨 속성 보너스
     if (we.element && attackerElement === we.element) baseDmg *= 1.15;
     return { damage: Math.floor(baseDmg), isCrit };

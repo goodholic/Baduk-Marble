@@ -248,6 +248,7 @@
       <button class="tab" onclick="openSubMenu('trade')" style="color:#ffd700">💰교역</button>
       <button class="tab" onclick="openSubMenu('social')" style="color:#44aaff">👥소셜</button>
       <button class="tab" onclick="openSubMenu('etc')" style="color:#aaa">⚙기타</button>
+      <button class="tab" onclick="openSubMenu('slg')" style="color:#ff44ff">🏰SLG</button>
     </div>
 
     <!-- 서브메뉴 -->
@@ -282,8 +283,10 @@
       <span class="stat" style="font-size:13px">💎<b class="diamond-val" id="diamond-val">100</b></span>
       <span class="stat" style="font-size:13px">💰<b class="gold-val" id="gold-val">0</b></span>
       <span class="stat zone-val" id="zone-display" style="font-size:12px">-</span>
+      <span class="stat" id="element-indicator" style="display:none;font-size:11px;padding:2px 4px;border-radius:3px"></span>
       <span class="stat" id="siege-display" style="display:none;color:#ff4444;font-weight:bold"></span>
       <span class="stat" id="world-event-display" style="display:none;font-size:11px;font-weight:bold;padding:2px 6px;border-radius:4px;background:rgba(255,215,0,0.15);border:1px solid rgba(255,215,0,0.4)"></span>
+      <span class="stat" id="slg-event-banner" style="display:none;font-size:11px;font-weight:bold;padding:2px 6px;border-radius:4px;background:rgba(255,0,255,0.15);border:1px solid rgba(255,0,255,0.4);cursor:pointer" onclick="window.socket.emit('slg_active_event')"></span>
       <span class="stat" id="world-clock" style="display:none;font-size:11px;font-weight:bold;padding:2px 6px;border-radius:4px;background:rgba(255,255,255,0.05)"></span>
     </div>
 
@@ -291,6 +294,15 @@
     <div id="levelup-overlay"><div class="lvl-flash"></div><div class="lvl-text"></div><div class="lvl-sub"></div></div>
     <!-- 존 진입 공지 -->
     <div id="zone-announce"><div class="zone-name"></div><div class="zone-info"></div></div>
+    <!-- 튜토리얼 가이드 오버레이 -->
+    <div id="tutorial-guide" style="display:none;position:fixed;top:60px;right:15px;z-index:50;background:rgba(0,0,0,0.85);border:1px solid rgba(255,215,0,0.4);border-radius:8px;padding:10px 14px;max-width:220px;backdrop-filter:blur(6px)">
+      <div style="color:#ffd700;font-size:12px;font-weight:bold" id="tutorial-title">🎯 튜토리얼</div>
+      <div style="color:#ddd;font-size:11px;margin:4px 0" id="tutorial-desc"></div>
+      <div style="width:100%;height:6px;background:#222;border-radius:3px;overflow:hidden;margin:6px 0">
+        <div id="tutorial-progress-fill" style="width:0%;height:100%;background:linear-gradient(90deg,#ffd700,#ff8800);border-radius:3px;transition:width 0.5s"></div>
+      </div>
+      <div style="color:#888;font-size:9px" id="tutorial-hint"></div>
+    </div>
     <!-- 킬 스트릭 -->
     <div id="kill-streak"></div>
 
@@ -298,6 +310,10 @@
     <div id="buff-bar" style="position:absolute;top:36px;left:15px;z-index:15;display:flex;gap:3px;flex-wrap:wrap;max-width:400px"></div>
     <!-- 스킬 쿨타임 바 -->
     <div id="skill-cooldown-bar" style="position:fixed;bottom:52px;left:50%;transform:translateX(-50%);z-index:16;display:flex;gap:4px;pointer-events:none"></div>
+    <!-- 진형 표시 -->
+    <div id="formation-indicator" style="display:none;position:fixed;bottom:80px;right:15px;z-index:16;background:rgba(0,0,0,0.7);padding:4px 8px;border-radius:4px;font-size:10px;color:#ffd700;border:1px solid rgba(255,215,0,0.2);cursor:pointer" onclick="window.socket.emit('merc_formation')">
+      ⚔️ 진형: <span id="formation-name">없음</span>
+    </div>
 
     <!-- 궁극기 게이지 -->
     <div id="ultimate-gauge" style="display:none;position:fixed;bottom:95px;left:50%;transform:translateX(-50%);z-index:17;text-align:center;pointer-events:auto">
@@ -315,6 +331,14 @@
 
     <!-- 도파민 UI 요소들 -->
     <div id="session-stats"><span id="ss-time">⏱ 0:00</span><span id="ss-kills">💀 0</span><span id="ss-gold">💰 +0G</span><span id="ss-deaths">☠ 0</span><span id="ss-online" style="color:#88ff88">👥 0</span></div>
+    <!-- SLG 자원 HUD -->
+    <div id="slg-resources" style="display:none;position:fixed;top:4px;right:15px;z-index:16;font-size:10px;color:#ddd;display:flex;gap:6px;background:rgba(0,0,0,0.6);padding:3px 8px;border-radius:4px;backdrop-filter:blur(4px)">
+      <span>🪵<b id="res-wood">0</b></span>
+      <span>⛏️<b id="res-iron">0</b></span>
+      <span>💎<b id="res-mana">0</b></span>
+      <span>🍖<b id="res-food">0</b></span>
+      <span>🐲<b id="res-tear">0</b></span>
+    </div>
     <div id="dps-meter">DPS: 0</div>
     <div id="combat-status"></div>
     <div id="next-milestone"><span id="nm-text" style="color:#ffd700"></span><div class="bar"><div class="fill" id="nm-fill" style="width:0%"></div></div></div>
@@ -988,6 +1012,8 @@
       window.socket.on('disconnect', function(reason) {
         console.log('[Socket] 연결 끊김:', reason);
         connEl.style.display = 'block';
+        // 재연결 시 리스너 재등록 허용
+        window._socketListenersSetup = false;
       });
       window.socket.on('connect', function() {
         console.log('[Socket] 재연결 성공');
