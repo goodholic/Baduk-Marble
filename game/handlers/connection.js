@@ -666,6 +666,12 @@ io.on("connection", (socket) => {
     try { require('../card_skins').register(io, socket, _player); } catch(e) { console.error('[Skins]', e.message); }
     try { require('../card_friends').register(io, socket, _player); } catch(e) { console.error('[Friends]', e.message); }
 
+    // ═══ IO 전투 이벤트 ═══
+    try { require('../io_battle_events').register(io, socket, _player); } catch(e) { console.error('[IOEvents]', e.message); }
+
+    // ═══ 레시피 북 ═══
+    try { require('../card_recipe_book').register(io, socket, _player); } catch(e) { console.error('[Recipe]', e.message); }
+
     // ═══ 원정/탐험 ═══
     try { require('../card_expedition').register(io, socket, _player); } catch(e) { console.error('[Expedition]', e.message); }
 
