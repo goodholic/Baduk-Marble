@@ -277,15 +277,19 @@
       <!-- 하단 버튼바 -->
       <!-- 메인 버튼바 (2줄) -->
       <div style="display:flex;gap:0;background:#151520;border-top:1px solid rgba(255,215,0,0.15)">
-        <button onclick="socket.emit('card_list_request')" style="flex:1;padding:7px;background:none;border:none;color:#88ccff;font-size:9px;cursor:pointer;font-weight:bold">🃏카드</button>
-        <button onclick="socket.emit('card_summon',{type:'single'})" style="flex:1;padding:7px;background:none;border:none;color:#aa44ff;font-size:9px;cursor:pointer;font-weight:bold">📜소환</button>
-        <button onclick="socket.emit('card_pvp_request')" style="flex:1;padding:7px;background:none;border:none;color:#ff4444;font-size:9px;cursor:pointer;font-weight:bold">⚔️대전</button>
-        <button onclick="socket.emit('shop_list')" style="flex:1;padding:7px;background:none;border:none;color:#ffd700;font-size:9px;cursor:pointer;font-weight:bold">🏪상점</button>
-        <button onclick="socket.emit('action_card_draw')" style="flex:1;padding:7px;background:none;border:none;color:#ff8844;font-size:9px;cursor:pointer;font-weight:bold">🎴행동</button>
-        <button onclick="socket.emit('daily_quests_request');socket.emit('attendance_check')" style="flex:1;padding:7px;background:none;border:none;color:#44ff44;font-size:9px;cursor:pointer;font-weight:bold">📋퀘스트</button>
+        <button onclick="socket.emit('card_list_request')" style="flex:1;padding:6px;background:none;border:none;color:#88ccff;font-size:9px;cursor:pointer;font-weight:bold">🃏카드</button>
+        <button onclick="socket.emit('card_summon',{type:'single'})" style="flex:1;padding:6px;background:none;border:none;color:#aa44ff;font-size:9px;cursor:pointer;font-weight:bold">📜소환</button>
+        <button onclick="socket.emit('card_pvp_request')" style="flex:1;padding:6px;background:none;border:none;color:#ff4444;font-size:9px;cursor:pointer;font-weight:bold">⚔️대전</button>
+        <button onclick="socket.emit('fortress_info')" style="flex:1;padding:6px;background:none;border:none;color:#ff8844;font-size:9px;cursor:pointer;font-weight:bold">🏰기지</button>
+        <button onclick="socket.emit('market_browse')" style="flex:1;padding:6px;background:none;border:none;color:#44ddaa;font-size:9px;cursor:pointer;font-weight:bold">🏪거래소</button>
+        <button onclick="socket.emit('shop_list')" style="flex:1;padding:6px;background:none;border:none;color:#ffd700;font-size:9px;cursor:pointer;font-weight:bold">💰상점</button>
+        <button onclick="socket.emit('action_card_draw')" style="flex:1;padding:6px;background:none;border:none;color:#ff8844;font-size:9px;cursor:pointer;font-weight:bold">🎴행동</button>
+        <button onclick="socket.emit('daily_quests_request');socket.emit('attendance_check')" style="flex:1;padding:6px;background:none;border:none;color:#44ff44;font-size:9px;cursor:pointer;font-weight:bold">📋퀘스트</button>
       </div>
       <div style="display:flex;gap:0;background:#111">
-        <button onclick="requestIOMatch()" style="flex:1;padding:12px;background:linear-gradient(135deg,#ff4400,#ff8800);border:none;color:#fff;font-size:14px;cursor:pointer;font-weight:bold;letter-spacing:2px">⚔️ IO 배틀로얄 출전!</button>
+        <button onclick="socket.emit('fortress_attack')" style="flex:1;padding:10px;background:rgba(255,68,68,0.2);border:none;color:#ff6644;font-size:11px;cursor:pointer;font-weight:bold">🏰 성 공략</button>
+        <button onclick="requestIOMatch()" style="flex:2;padding:12px;background:linear-gradient(135deg,#ff4400,#ff8800);border:none;color:#fff;font-size:14px;cursor:pointer;font-weight:bold;letter-spacing:2px">⚔️ IO 배틀로얄 출전!</button>
+        <button onclick="socket.emit('fortress_collect')" style="flex:1;padding:10px;background:rgba(255,215,0,0.15);border:none;color:#ffd700;font-size:11px;cursor:pointer;font-weight:bold">💰 수입 수집</button>
       </div>
     </div>
 

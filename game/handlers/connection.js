@@ -619,6 +619,24 @@ io.on("connection", (socket) => {
         cardMgmt.register(io, socket, _player);
     } catch(e) { console.error('[CardMgmt] Error:', e.message); }
 
+    // ═══ 기지(성) 시스템 ═══
+    try {
+        const cardFortress = require('../card_fortress');
+        cardFortress.register(io, socket, _player);
+    } catch(e) { console.error('[CardFortress] Error:', e.message); }
+
+    // ═══ 카드 거래소 ═══
+    try {
+        const cardMarket = require('../card_trade_market');
+        cardMarket.register(io, socket, _player);
+    } catch(e) { console.error('[CardMarket] Error:', e.message); }
+
+    // ═══ IO 카드 효과 ═══
+    try {
+        const cardIO = require('../card_io_effects');
+        cardIO.register(io, socket, _player);
+    } catch(e) { console.error('[CardIO] Error:', e.message); }
+
     // ═══ 카드 이벤트/퀘스트 ═══
     try {
         const cardEvents = require('../card_events');

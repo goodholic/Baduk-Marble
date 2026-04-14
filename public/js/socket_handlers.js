@@ -69,6 +69,25 @@
         window.socket.emit('card_list_request');
       });
 
+      // ═══ 기지(성) 시스템 ═══
+      window.socket.on('fortress_info', (d) => { showToast('🏰 기지: ' + (d.myFortress?.level || 1) + '레벨'); });
+      window.socket.on('fortress_build_result', (d) => { showToast(d.msg || (d.ok ? '건설!' : d.reason)); window.socket.emit('card_list_request'); });
+      window.socket.on('fortress_collect_result', (d) => { showToast(d.msg || '수입 수집'); window.socket.emit('card_list_request'); });
+      window.socket.on('fortress_attack_result', (d) => { showToast(d.msg || (d.win ? '승리!' : '패배'), 4000); window.socket.emit('card_list_request'); });
+
+      // ═══ 거래소 ═══
+      window.socket.on('market_browse', (d) => { showToast('🏪 거래소: ' + (d.listings || []).length + '개 매물'); });
+      window.socket.on('market_list_result', (d) => { showToast(d.msg || (d.ok ? '등록!' : d.reason)); window.socket.emit('card_list_request'); });
+      window.socket.on('market_buy_result', (d) => { showToast(d.msg || (d.ok ? '구매!' : d.reason)); window.socket.emit('card_list_request'); });
+
+      // ═══ IO 카드 효과 ═══
+      window.socket.on('io_card_effects', (d) => {
+        var count = (d.effects || []).length;
+        if (count > 0) showToast('🃏 IO 카드 효과 ' + count + '개 발동! ' + (d.effects || []).map(function(e){return e.icon}).join(''), 4000);
+      });
+      window.socket.on('io_kill_effects', (d) => { (d.results || []).forEach(function(r){ showToast(r.name + ': ' + r.msg); }); });
+      window.socket.on('io_summon_card_result', (d) => { showToast(d.msg || (d.ok ? '소환!' : d.reason), 3000); });
+
       // ═══ 카드 관리 (장비/스킬/편성/상점) ═══
       window.socket.on('card_equip_result', (d) => { showToast(d.msg || (d.ok ? '장착!' : d.reason)); window.socket.emit('card_list_request'); });
       window.socket.on('card_learn_skill_result', (d) => { showToast(d.msg || (d.ok ? '학습!' : d.reason)); window.socket.emit('card_list_request'); });
