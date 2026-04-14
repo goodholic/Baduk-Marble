@@ -1,20 +1,35 @@
 const mysql = require('mysql2/promise');
 
-// Railway에서 제공받은 MySQL 접속 정보로 아래 항목들을 교체해 주세요.
-// (나중에 Railway에 배포하실 때는 환경변수(process.env)가 자동으로 적용됩니다)
-const pool = mysql.createPool({
-    host: process.env.DB_HOST || 'Railway에서_발급받은_Host주소',      // 예: viaduct.proxy.rlwy.net
-    user: process.env.DB_USER || 'Railway에서_발급받은_User이름',       // 예: root
-    password: process.env.DB_PASSWORD || 'Railway에서_발급받은_비밀번호',
-    database: process.env.DB_NAME || 'Railway에서_발급받은_DB이름',     // 예: railway
-    port: process.env.DB_PORT || 3306,                              // Railway 포트는 3306이 아닐 수 있으니 꼭 확인하세요!
+// DB 환경변수 검증
+const DB_HOST = process.env.DB_HOST;
+const DB_USER = process.env.DB_USER;
+const DB_PASS = process.env.DB_PASSWORD;
+const DB_NAME = process.env.DB_NAME;
+const DB_PORT = process.env.DB_PORT || 3306;
+
+if (!DB_HOST || !DB_USER || !DB_PASS || !DB_NAME) {
+    console.warn('⚠️ DB 환경변수 미설정 — DB 없이 메모리 모드로 작동합니다.');
+    console.warn('  필요: DB_HOST, DB_USER, DB_PASSWORD, DB_NAME');
+}
+
+const pool = (DB_HOST && DB_USER) ? mysql.createPool({
+    host: DB_HOST,
+    user: DB_USER,
+    password: DB_PASS,
+    database: DB_NAME,
+    port: DB_PORT,
     waitForConnections: true,
     connectionLimit: 10,
-    queueLimit: 0
-});
+    queueLimit: 0,
+    connectTimeout: 10000, // 10초 타임아웃
+}) : null;
 
-// 시작 시 필요 테이블 자동 생성 (예: 유저 전적 테이블)
+// 시작 시 필요 테이블 자동 생성
 async function initDB() {
+    if (!pool) {
+        console.log('⚠️ DB pool 없음 — 메모리 모드로 작동합니다.');
+        return;
+    }
     try {
         const connection = await pool.getConnection();
         await connection.query(`
@@ -26,13 +41,20 @@ async function initDB() {
             )
         `);
         connection.release();
-        console.log("MySQL Database Connected & Checked.");
+        console.log('✅ MySQL Database Connected & Checked.');
     } catch (error) {
-        // DB 연결이 안 되더라도 서버가 멈추지 않도록 에러 메시지만 간략하게 띄웁니다.
-        console.log("⚠️ MySQL 연결 안 됨: DB 연결 없이 게임 서버 로직만 임시로 작동합니다.");
+        console.error('⚠️ MySQL 연결 실패:', error.message);
+        console.log('  → DB 없이 게임 서버 로직만 작동합니다.');
     }
 }
 
 initDB();
 
-module.exports = pool;
+// pool이 null이면 더미 pool 반환 (쿼리 시 silent fail)
+const safePool = pool || {
+    getConnection: async () => { throw new Error('DB not configured'); },
+    query: async () => { return [[], []]; },
+    execute: async () => { return [[], []]; },
+};
+
+module.exports = { pool: safePool, initDB };

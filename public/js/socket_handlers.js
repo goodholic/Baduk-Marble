@@ -1,5 +1,10 @@
 // Socket event handlers (extracted from index.html)
 
+    // 안전한 DOM 접근 헬퍼 (null 방어)
+    function $el(id) { return document.getElementById(id); }
+    function $set(id, prop, val) { var e = $el(id); if (e) e[prop] = val; }
+    function $style(id, prop, val) { var e = $el(id); if (e) e.style[prop] = val; }
+
     function setupSocketListeners() {
       // 이벤트 리스너 중복 등록 방지
       if (window._socketListenersSetup) {
@@ -39,24 +44,24 @@
             var diaDelta = me.diamonds - lastDiamonds;
             if (lastDiamonds > 0 && diaDelta > 0) showCurrencyPop('diamond-val', diaDelta, '#44aaff');
             lastDiamonds = me.diamonds;
-            document.getElementById('diamond-val').textContent = me.diamonds;
+            $set('diamond-val', 'textContent', me.diamonds);
           }
 
           // HP 바 (내부 텍스트 + 피격 플래시)
           if (me.hp !== undefined && me.maxHp) {
             var hpPct = Math.max(0, Math.min(100, me.hp / me.maxHp * 100));
-            var hpFill = document.getElementById('hp-bar-fill');
-            hpFill.style.width = hpPct + '%';
-            // HP 색상 그라데이션
-            if (hpPct > 60) hpFill.style.background = 'linear-gradient(90deg,#22aa22,#44cc44)';
-            else if (hpPct > 30) hpFill.style.background = 'linear-gradient(90deg,#ccaa00,#ffdd00)';
-            else hpFill.style.background = 'linear-gradient(90deg,#cc2222,#ff4444)';
-            document.getElementById('hp-text').textContent = Math.ceil(me.hp) + ' / ' + me.maxHp;
+            var hpFill = $el('hp-bar-fill');
+            if (hpFill) {
+              hpFill.style.width = hpPct + '%';
+              if (hpPct > 60) hpFill.style.background = 'linear-gradient(90deg,#22aa22,#44cc44)';
+              else if (hpPct > 30) hpFill.style.background = 'linear-gradient(90deg,#ccaa00,#ffdd00)';
+              else hpFill.style.background = 'linear-gradient(90deg,#cc2222,#ff4444)';
+            }
+            $set('hp-text', 'textContent', Math.ceil(me.hp) + ' / ' + me.maxHp);
             // 피격 플래시 (HP 감소 시)
             if (me.hp < (window._lastHp || me.maxHp)) {
-              var hpBg = document.getElementById('hp-bar-bg');
-              hpBg.style.boxShadow = '0 0 12px rgba(255,0,0,0.6)';
-              setTimeout(function(){ hpBg.style.boxShadow = ''; }, 300);
+              var hpBg = $el('hp-bar-bg');
+              if (hpBg) { hpBg.style.boxShadow = '0 0 12px rgba(255,0,0,0.6)'; setTimeout(function(){ hpBg.style.boxShadow = ''; }, 300); }
             }
             window._lastHp = me.hp;
           }
@@ -64,15 +69,15 @@
           // MP 바
           if (me.mp !== undefined && me.maxMp) {
             var mpPct = Math.max(0, Math.min(100, me.mp / me.maxMp * 100));
-            document.getElementById('mp-bar-fill').style.width = mpPct + '%';
-            document.getElementById('mp-text').textContent = Math.ceil(me.mp) + '/' + Math.ceil(me.maxMp);
+            $style('mp-bar-fill', 'width', mpPct + '%');
+            $set('mp-text', 'textContent', Math.ceil(me.mp) + '/' + Math.ceil(me.maxMp));
           }
 
           // EXP 바 (상세 — 바 내부에 수치)
           if (me.exp !== undefined && me.maxExp) {
             var expPct = Math.max(0, Math.min(100, me.exp / me.maxExp * 100));
-            document.getElementById('exp-bar-fill').style.width = expPct + '%';
-            document.getElementById('exp-text').textContent = Math.floor(me.exp) + ' / ' + me.maxExp;
+            $style('exp-bar-fill', 'width', expPct + '%');
+            $set('exp-text', 'textContent', Math.floor(me.exp) + ' / ' + me.maxExp);
           }
 
           // 레벨 표시 업데이트
@@ -1071,7 +1076,7 @@
       // 프레스티지
       window.socket.on('prestige_result', (d) => {
         showToast(d.msg); playSFX('boss'); playSFX('levelup');
-        if (d.perk) { var ol = document.getElementById('levelup-overlay'); ol.querySelector('.lvl-text').textContent = '환생!'; ol.querySelector('.lvl-sub').innerHTML = d.perk.name+' — '+d.perk.desc; ol.classList.add('show'); setTimeout(function(){ ol.classList.remove('show'); }, 3000); }
+        if (d.perk) { var ol = $el('levelup-overlay'); if (ol) { var lt = ol.querySelector('.lvl-text'); var ls = ol.querySelector('.lvl-sub'); if (lt) lt.textContent = '환생!'; if (ls) ls.innerHTML = d.perk.name+' — '+d.perk.desc; ol.classList.add('show'); setTimeout(function(){ ol.classList.remove('show'); }, 3000); } }
       });
       // 의뢰
       window.socket.on('contract_result', (d) => showToast(d.msg));
@@ -4912,16 +4917,17 @@
 
       window.socket.on('npc_dialog', (d) => {
         closeModal();
-        var dlg = document.getElementById('npc-dialog');
-        document.getElementById('npc-dialog-icon').textContent = d.icon || '👤';
-        document.getElementById('npc-dialog-name').textContent = d.name;
-        document.getElementById('npc-dialog-title').textContent = d.title || '';
-        document.getElementById('npc-dialog-greeting').textContent = d.greeting;
+        var dlg = $el('npc-dialog');
+        if (!dlg) return;
+        $set('npc-dialog-icon', 'textContent', d.icon || '👤');
+        $set('npc-dialog-name', 'textContent', d.name);
+        $set('npc-dialog-title', 'textContent', d.title || '');
+        $set('npc-dialog-greeting', 'textContent', d.greeting);
         var menuHtml = '';
-        d.menu.forEach(function(m) {
+        (d.menu || []).forEach(function(m) {
           menuHtml += '<button class="npc-menu-btn" onclick="npcAction(\'' + d.npcId + '\',\'' + m.action + '\')">' + m.label + '</button>';
         });
-        document.getElementById('npc-dialog-menu').innerHTML = menuHtml;
+        $set('npc-dialog-menu', 'innerHTML', menuHtml);
         dlg.classList.add('show');
         dlg.style.display = 'flex';
         if (typeof playSFX2 === 'function') playSFX2('equip');

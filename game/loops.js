@@ -21,37 +21,40 @@ function init(deps) {
 function expireMarketListings() {
     const players = $.getPlayers();
     const io = $.getIo();
-    const MARKET_FEE = $.MARKET_FEE;
+    if (!players || !io) return;
+    const MARKET_FEE = $.MARKET_FEE || 0.05;
     const marketListings = $.getMarketListings();
+    if (!marketListings || !Array.isArray(marketListings)) return;
+    const now = Date.now();
     const filtered = marketListings.filter(l => {
-        const now = Date.now();
-        if (l.expiresAt && now > l.expiresAt) {
+        if (!l || !l.expiresAt || now <= l.expiresAt) return true;
+        try {
             // 입찰자가 있으면 낙찰 처리
             if (l.bids && l.bids.length > 0) {
                 const winBid = l.bids[l.bids.length - 1];
+                if (!winBid || !winBid.bidderId || !winBid.amount) return false; // 손상 데이터 스킵
                 const winner = players[winBid.bidderId];
-                if (winner) {
+                if (winner && l.itemId) {
                     if (!winner.inventory) winner.inventory = {};
                     winner.inventory[l.itemId] = (winner.inventory[l.itemId] || 0) + 1;
-                    io.to(winBid.bidderId).emit('market_result', { msg: `${l.itemName} 낙찰! 경매장에서 획득` });
+                    io.to(winBid.bidderId).emit('market_result', { msg: `${l.itemName || '아이템'} 낙찰! 경매장에서 획득` });
                 }
-                const seller = players[l.sellerId];
+                const seller = l.sellerId ? players[l.sellerId] : null;
                 if (seller) {
-                    seller.gold = Math.min(999999999, seller.gold + Math.floor(winBid.amount * (1 - MARKET_FEE)));
-                    io.to(l.sellerId).emit('market_result', { msg: `${l.itemName} 낙찰 완료! +${Math.floor(winBid.amount * (1-MARKET_FEE))}G` });
+                    seller.gold = Math.min(999999999, (seller.gold || 0) + Math.floor(winBid.amount * (1 - MARKET_FEE)));
+                    io.to(l.sellerId).emit('market_result', { msg: `${l.itemName || '아이템'} 낙찰 완료! +${Math.floor(winBid.amount * (1-MARKET_FEE))}G` });
                 }
             } else {
                 // 입찰 없이 만료 → 판매자에게 반환
-                const seller = players[l.sellerId];
-                if (seller) {
+                const seller = l.sellerId ? players[l.sellerId] : null;
+                if (seller && l.itemId) {
                     if (!seller.inventory) seller.inventory = {};
                     seller.inventory[l.itemId] = (seller.inventory[l.itemId] || 0) + 1;
-                    io.to(l.sellerId).emit('market_result', { msg: `${l.itemName} 만료 반환` });
+                    io.to(l.sellerId).emit('market_result', { msg: `${l.itemName || '아이템'} 만료 반환` });
                 }
             }
-            return false;
-        }
-        return true;
+        } catch (e) { console.error('[expireMarket] Error processing listing:', e.message); }
+        return false;
     });
     $.setMarketListings(filtered);
 }

@@ -50,7 +50,7 @@ function handleRaidFinish(raidId, result) {
                 damage: data.damage,
                 reward: r,
             });
-        } catch (_) {}
+        } catch (e) { console.error(`[RaidFinish] Emit error for ${pid}:`, e.message); }
         if (data.tier === 'mvp') {
             _io().emit('server_msg', {
                 msg: `[레이드 MVP] ${p.displayName} (데미지 ${data.damage.toLocaleString()})`,
@@ -71,7 +71,7 @@ function codexDiscover(p, category, entryId) {
                 _io().to(p.id).emit('codex_milestone', {
                     category, name: m.name, count: m.count, reward: m.reward,
                 });
-            } catch (_) {}
+            } catch (e) { console.error('[ServerHelper] Emit error:', e.message); }
             _io().emit('server_msg', {
                 msg: `[도감] ${p.displayName}이(가) "${m.name}" 마일스톤 달성! (영구 보너스 획득)`,
                 type: 'normal',
@@ -125,7 +125,7 @@ function finishBossRush(playerId, isFullClear) {
             totalTime,
             cumulative,
         });
-    } catch (_) {}
+    } catch (e) { console.error('[ServerHelper] Emit error:', e.message); }
 
     if (isFullClear) {
         _io().emit('server_msg', {
