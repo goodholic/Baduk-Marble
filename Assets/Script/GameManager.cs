@@ -284,9 +284,26 @@ public class GameManager : MonoBehaviour
         }
         uiLoaded = uiTextures.Count > 0;
 
-        // 배경 설정
+        // 배경 설정 (없으면 자동 생성)
         GameObject bgObj = GameObject.Find("background");
-        if (bgObj != null) bgRenderer = bgObj.GetComponent<SpriteRenderer>();
+        if (bgObj == null)
+        {
+            bgObj = new GameObject("background");
+            bgObj.transform.position = new Vector3(0, 0, 10f); // 카메라 뒤에 배치
+            var sr = bgObj.AddComponent<SpriteRenderer>();
+            sr.sortingOrder = -100; // 가장 뒤
+            sr.color = new Color(0.08f, 0.12f, 0.08f); // 어두운 녹색 기본
+            // 기본 스프라이트 생성 (단색 큰 사각형)
+            Texture2D defaultTex = new Texture2D(64, 64);
+            Color[] colors = new Color[64 * 64];
+            for (int i = 0; i < colors.Length; i++) colors[i] = new Color(0.08f, 0.12f, 0.08f);
+            defaultTex.SetPixels(colors);
+            defaultTex.Apply();
+            sr.sprite = Sprite.Create(defaultTex, new Rect(0, 0, 64, 64), new Vector2(0.5f, 0.5f), 1f);
+            bgObj.transform.localScale = new Vector3(200f, 200f, 1f); // 맵 크기만큼 크게
+            Debug.Log("[GameManager] Background object auto-created");
+        }
+        bgRenderer = bgObj.GetComponent<SpriteRenderer>();
         ChangeBackground("map_village"); // 기본 배경
 
         SetupScrollableMiniScreens();
