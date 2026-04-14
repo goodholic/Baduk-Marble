@@ -1135,7 +1135,7 @@ let drops = {}; // 드롭 아이템
 
 let entityIdCounter = 0;
 const MAX_PLAYERS = 50;
-const MAX_MONSTERS = 600; // 2000x2000 맵에 몬스터 대량 배치
+const MAX_MONSTERS = 200; // 성능 최적화: 600→200 (렉 감소)
 let hasKing = false;
 
 // ── 클래스 정의 (판타지 RPG) ──
@@ -2548,9 +2548,9 @@ setInterval(() => {
             }
 
             let spawned = false;
-            const maxArmy = p.maxArmy || 30;
-            while (p.gold >= 200 && myArmyCount < maxArmy) {
-                p.gold -= 200;
+            const maxArmy = Math.min(p.maxArmy || 5, 8); // 최대 8마리로 제한 (성능+밸런스)
+            while (p.gold >= 500 && myArmyCount < maxArmy) { // 비용 200→500
+                p.gold -= 500;
                 createAutoArmy(pId);
                 myArmyCount++;
                 spawned = true;

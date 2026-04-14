@@ -342,8 +342,9 @@ function updatePassives() {
                 }
             }
             // 나이트 - 수호 오라: 주변 아군 DEF 증가 (매 틱 갱신)
-            // 최적화: auraRange² 사전 계산으로 Math.hypot 대신 제곱 비교
+            // 봇 오라는 약화 (그룹 뭉침 무적 방지)
             if (skill.allyDefMulti && skill.auraRange) {
+                const auraMul = p.isBot ? Math.min(skill.allyDefMulti, 1.1) : skill.allyDefMulti; // 봇 오라 최대 1.1배
                 const r2 = skill.auraRange * skill.auraRange;
                 for (const aid in players) {
                     if (aid === id) continue;
@@ -354,13 +355,14 @@ function updatePassives() {
                     if (!sameTeam && !sameOwner) continue;
                     const dx = ally.x - p.x, dy = ally.y - p.y;
                     if (dx * dx + dy * dy <= r2) {
-                        ally.auraDefMulti = Math.max(ally.auraDefMulti || 1, skill.allyDefMulti);
+                        ally.auraDefMulti = Math.min(Math.max(ally.auraDefMulti || 1, auraMul), 1.5); // 최대 1.5배 캡
                     }
                 }
             }
             // 클레릭 - 치유의 손길: 주변 아군 + 자기 자신 HP 회복
+            // 봇 힐은 약화 (뭉침 무적 방지)
             if (skill.healAuraTick && skill.auraRange) {
-                const healAmt = skill.healAuraTick;
+                const healAmt = p.isBot ? Math.floor(skill.healAuraTick * 0.3) : skill.healAuraTick; // 봇 힐 70% 감소
                 if (p.hp < p.maxHp) {
                     p.hp = Math.min(p.maxHp, p.hp + healAmt);
                 }
@@ -375,7 +377,7 @@ function updatePassives() {
                     const dx = ally.x - p.x, dy = ally.y - p.y;
                     if (dx * dx + dy * dy <= r2) {
                         ally.hp = Math.min(ally.maxHp, ally.hp + healAmt);
-                        io.to(aid).emit('combat_log', { msg: `클레릭의 치유 +${healAmt} HP` });
+                        if (!ally.isBot) io.to(aid).emit('combat_log', { msg: `클레릭의 치유 +${healAmt} HP` }); // 봇에게 emit 안 함
                     }
                 }
             }
@@ -501,29 +503,30 @@ function updateBots() {
         } else {
             p.targetId = null;
 
-            // 우선순위 2: 적 플레이어
+            // 우선순위 2: 적 플레이어 (탐색 범위 제한: 20 유닛)
+            const BOT_SEARCH_RANGE = (p.className === 'GuardianTower') ? 15 : 20;
+            const BOT_SEARCH_RANGE_SQ = BOT_SEARCH_RANGE * BOT_SEARCH_RANGE;
             if (p.team !== 'peace') {
                 for (let eId in players) {
                     const enemy = players[eId];
-                    if (enemy.isAlive && enemy.team !== 'peace' && enemy.team !== p.team) {
-                        const dist = Math.hypot(p.x - enemy.x, p.y - enemy.y);
-                        const rangeLimit = (p.className === 'GuardianTower') ? 15 : 9999;
-                        if (dist < minDist && dist <= rangeLimit) {
-                            minDist = dist;
-                            target = enemy;
-                        }
+                    if (!enemy || !enemy.isAlive || enemy.team === 'peace' || enemy.team === p.team) continue;
+                    const dx = p.x - enemy.x, dy = p.y - enemy.y;
+                    const distSq = dx * dx + dy * dy;
+                    if (distSq < minDist * minDist && distSq <= BOT_SEARCH_RANGE_SQ) {
+                        minDist = Math.sqrt(distSq);
+                        target = enemy;
                     }
                 }
             }
 
-            // 우선순위 3: 몬스터
+            // 우선순위 3: 몬스터 (탐색 범위 제한)
             if (!target) {
                 for (let mId in monsters) {
-                    if (!monsters[mId].isAlive) continue;
-                    const dist = Math.hypot(p.x - monsters[mId].x, p.y - monsters[mId].y);
-                    const rangeLimit = (p.className === 'GuardianTower') ? 15 : 9999;
-                    if (dist < minDist && dist <= rangeLimit) {
-                        minDist = dist;
+                    if (!monsters[mId] || !monsters[mId].isAlive) continue;
+                    const dx = p.x - monsters[mId].x, dy = p.y - monsters[mId].y;
+                    const distSq = dx * dx + dy * dy;
+                    if (distSq < minDist * minDist && distSq <= BOT_SEARCH_RANGE_SQ) {
+                        minDist = Math.sqrt(distSq);
                         target = monsters[mId];
                     }
                 }
