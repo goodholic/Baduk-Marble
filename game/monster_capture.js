@@ -2,16 +2,16 @@
 // 포켓몬 스타일: 포획 → 육성 → 진화 → IO 변신 전투
 
 const CAPTURABLE_MONSTERS = [
-  { id: 'slime',     name: '슬라임',     icon: '🟢', grade: 0, atk: 8,  hp: 60,  ability: '분열 — 사망 시 소형 2체', evo1: '킹슬라임', evo2: '슬라임 엠퍼러' },
-  { id: 'wolf',      name: '늑대',       icon: '🐺', grade: 0, atk: 12, hp: 80,  ability: '울부짖음 — 아군 ATK+10%', evo1: '디어울프', evo2: '펜리르' },
-  { id: 'bat',       name: '박쥐',       icon: '🦇', grade: 0, atk: 10, hp: 50,  ability: '흡혈 — 데미지의 20% 회복', evo1: '뱀파이어 배트', evo2: '블러드 로드' },
-  { id: 'spider',    name: '거미',       icon: '🕷️', grade: 0, atk: 9,  hp: 55,  ability: '거미줄 — 2초 속박', evo1: '독거미', evo2: '아라크네' },
-  { id: 'treant',    name: '트렌트',     icon: '🌿', grade: 0, atk: 6,  hp: 120, ability: '자연 치유 — HP 3%/초', evo1: '고대 트렌트', evo2: '세계수 수호자' },
-  { id: 'baby_dragon',name:'아기 드래곤', icon: '🐉', grade: 1, atk: 18, hp: 100, ability: '브레스 — 광역 2배', evo1: '드래곤', evo2: '에이션트 드래곤' },
-  { id: 'ghost',     name: '유령',       icon: '👻', grade: 1, atk: 15, hp: 70,  ability: '영혼 지배 — 적 1체 5초 조종', evo1: '리치', evo2: '데스 리치' },
-  { id: 'eagle',     name: '독수리',     icon: '🦅', grade: 1, atk: 14, hp: 80,  ability: '급강하 — 2배 선제 공격', evo1: '그리핀', evo2: '피닉스' },
-  { id: 'snake',     name: '뱀',         icon: '🐍', grade: 1, atk: 13, hp: 75,  ability: '독 — 5/초×4초', evo1: '나가', evo2: '히드라' },
-  { id: 'lightning',  name: '번개 정령',  icon: '⚡', grade: 2, atk: 20, hp: 90,  ability: '체인 라이트닝 — 3체 연쇄', evo1: '썬더버드', evo2: '라이트닝 드래곤' },
+  { id: 'slime',     name: '슬라임',     icon: '🟢', grade: 0, atk: 8,  hp: 60,  element: 'water', ability: '분열 — 사망 시 소형 2체', evo1: '킹슬라임', evo2: '슬라임 엠퍼러' },
+  { id: 'wolf',      name: '늑대',       icon: '🐺', grade: 0, atk: 12, hp: 80,  element: 'wind',  ability: '울부짖음 — 아군 ATK+10%', evo1: '디어울프', evo2: '펜리르' },
+  { id: 'bat',       name: '박쥐',       icon: '🦇', grade: 0, atk: 10, hp: 50,  element: 'dark',  ability: '흡혈 — 데미지의 20% 회복', evo1: '뱀파이어 배트', evo2: '블러드 로드' },
+  { id: 'spider',    name: '거미',       icon: '🕷️', grade: 0, atk: 9,  hp: 55,  element: 'earth', ability: '거미줄 — 2초 속박', evo1: '독거미', evo2: '아라크네' },
+  { id: 'treant',    name: '트렌트',     icon: '🌿', grade: 0, atk: 6,  hp: 120, element: 'earth', ability: '자연 치유 — HP 3%/초', evo1: '고대 트렌트', evo2: '세계수 수호자' },
+  { id: 'baby_dragon',name:'아기 드래곤', icon: '🐉', grade: 1, atk: 18, hp: 100, element: 'fire',  ability: '브레스 — 광역 2배', evo1: '드래곤', evo2: '에이션트 드래곤' },
+  { id: 'ghost',     name: '유령',       icon: '👻', grade: 1, atk: 15, hp: 70,  element: 'dark',  ability: '영혼 지배 — 적 1체 5초 조종', evo1: '리치', evo2: '데스 리치' },
+  { id: 'eagle',     name: '독수리',     icon: '🦅', grade: 1, atk: 14, hp: 80,  element: 'wind',  ability: '급강하 — 2배 선제 공격', evo1: '그리핀', evo2: '피닉스' },
+  { id: 'snake',     name: '뱀',         icon: '🐍', grade: 1, atk: 13, hp: 75,  element: 'earth', ability: '독 — 5/초×4초', evo1: '나가', evo2: '히드라' },
+  { id: 'lightning',  name: '번개 정령',  icon: '⚡', grade: 2, atk: 20, hp: 90,  element: 'light', ability: '체인 라이트닝 — 3체 연쇄', evo1: '썬더버드', evo2: '라이트닝 드래곤' },
 ];
 
 const PERSONALITIES = ['용맹','신중','민첩','강인','영리'];
@@ -22,6 +22,17 @@ const PERSONALITY_EFFECTS = {
   '강인': { hp: 1.10, atk: 0.95 },
   '영리': { skillDmg: 1.15, hp: 0.90 },
 };
+
+// ═══ 6속성 상성 시스템 ═══
+const ELEMENTS = {
+  fire:  { name: '화(火)', icon: '🔥', strong: 'wind',  weak: 'water', desc: '바람에 강하고 물에 약하다' },
+  water: { name: '수(水)', icon: '💧', strong: 'fire',   weak: 'earth', desc: '불에 강하고 땅에 약하다' },
+  earth: { name: '지(地)', icon: '🪨', strong: 'water',  weak: 'wind',  desc: '물에 강하고 바람에 약하다' },
+  wind:  { name: '풍(風)', icon: '🌪️', strong: 'earth',  weak: 'fire',  desc: '땅에 강하고 불에 약하다' },
+  light: { name: '광(光)', icon: '✨', strong: 'dark',   weak: 'dark',  desc: '어둠과 상극' },
+  dark:  { name: '암(暗)', icon: '🌑', strong: 'light',  weak: 'light', desc: '빛과 상극' },
+};
+const ELEMENT_DAMAGE_MULT = { strong: 1.5, weak: 0.7, neutral: 1.0, mirror: 1.3 }; // light vs dark = both 1.3x
 
 const BOND_LEVELS = [
   { name: '만남', need: 0, bonus: '' },
@@ -69,6 +80,7 @@ function attemptCapture(player, monsterId) {
     atk: Math.floor(template.atk * (effects.atk || 1)),
     hp: Math.floor(template.hp * (effects.hp || 1)),
     personality,
+    element: template.element || null,
     bond: 0,
     bondLevel: 0,
     stage: 1, // 1단계 (진화: 2, 3)
@@ -175,7 +187,7 @@ function getCaptureStatus(player) {
   return {
     monsters: captures.monsters.map(m => ({
       uid: m.uid, name: m.name, icon: m.icon, level: m.level,
-      atk: m.atk, hp: m.hp, personality: m.personality,
+      atk: m.atk, hp: m.hp, personality: m.personality, element: m.element,
       bond: m.bond, bondLevel: m.bondLevel, bondName: BOND_LEVELS[m.bondLevel]?.name,
       stage: m.stage, ability: m.ability,
       canEvolve: (m.stage === 1 && m.level >= 10) || (m.stage === 2 && m.level >= 25),
@@ -232,4 +244,4 @@ function registerCaptureHandlers(socket, playerId, players, io) {
   });
 }
 
-module.exports = { registerCaptureHandlers, attemptCapture, getCaptureStatus, getCaptures, addMonsterExp, CAPTURABLE_MONSTERS };
+module.exports = { registerCaptureHandlers, attemptCapture, getCaptureStatus, getCaptures, addMonsterExp, CAPTURABLE_MONSTERS, ELEMENTS, ELEMENT_DAMAGE_MULT };

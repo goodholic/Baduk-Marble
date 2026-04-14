@@ -99,6 +99,187 @@ const battleRoyale = require('./game/battle_royale');
 const combatEnhance = require('./game/combat_enhance');
 const worldRaid = require('./game/world_raid');
 const dragonRace = require('./game/dragon_race');
+const v4Systems = require('./game/v4_systems');
+const mercRelationships = require('./game/merc_relationships');
+const mercBondStory = require('./game/merc_bond_story');
+const mercFormation = require('./game/merc_formation');
+const tutorialGuide = require('./game/tutorial_guide');
+const weeklyChallenge = require('./game/weekly_challenge');
+const mercShowcase = require('./game/merc_showcase');
+const tradeSpeculation = require('./game/trade_speculation');
+const chaosZone = require('./game/chaos_zone');
+const growthDashboard = require('./game/growth_dashboard');
+const guildTrade = require('./game/guild_trade');
+const bannerGacha = require('./game/banner_gacha');
+const guildBossSeason = require('./game/guild_boss_season');
+// v5.0: 용병 대서사시 (Mercenary Epic) 모듈
+const mercEmotionAI = require('./game/merc_emotion_ai');
+const mercDynasty = require('./game/merc_dynasty');
+const mercRivalry = require('./game/merc_rivalry');
+const mercSummonIO = require('./game/merc_summon_io');
+const siegeRealtime = require('./game/siege_realtime');
+const siegeMercWall = require('./game/siege_merc_wall');
+const tradeIORaid = require('./game/trade_io_raid');
+// v5.1: 판타지 대전쟁 (Fantasy Grand War) 모듈
+const mercAwakeningQuest = require('./game/merc_awakening_quest');
+const mercFusionSummon = require('./game/merc_fusion_summon');
+const ioBossCapture = require('./game/io_boss_capture');
+const siegeAttackerDeploy = require('./game/siege_attacker_deploy');
+const mercExpeditionWar = require('./game/merc_expedition_war');
+const hiddenMercDiscovery = require('./game/hidden_merc_discovery');
+const mercEquipmentForge = require('./game/merc_equipment_forge');
+// v5.2: 왕국 건설 (Kingdom Builder) 모듈
+const kingdomManagement = require('./game/kingdom_management');
+const mercAcademy = require('./game/merc_academy');
+const ioTournamentLeague = require('./game/io_tournament_league');
+const guildSiegeWar = require('./game/guild_siege_war');
+const mercPetCompanion = require('./game/merc_pet_companion');
+const worldConquest = require('./game/world_conquest');
+const mercLegacyDungeon = require('./game/merc_legacy_dungeon');
+// v5.3: 어둠의 대륙 (Dark Continent) 모듈
+const mercArenaChampionship = require('./game/merc_arena_championship');
+const darkContinent = require('./game/dark_continent');
+const mercTransformation = require('./game/merc_transformation');
+const ioCoopRaid = require('./game/io_coop_raid');
+const siegeSpySystem = require('./game/siege_spy_system');
+const mercMarriage = require('./game/merc_marriage');
+const randomQuestGenerator = require('./game/random_quest_generator');
+// v5.4: 전설의 시대 (Age of Legends) 모듈
+const mercTalentTree = require('./game/merc_talent_tree');
+const ioWeatherBattle = require('./game/io_weather_battle');
+const siegeAllianceWar = require('./game/siege_alliance_war');
+const mercWantedSystem = require('./game/merc_wanted_system');
+const kingdomDiplomacy = require('./game/kingdom_diplomacy');
+const mercSoulLink = require('./game/merc_soul_link');
+const ioSurvivalRoguelike = require('./game/io_survival_roguelike');
+// v5.5: 영원의 왕좌 (Eternal Throne) 모듈
+const mercAuctionHouse = require('./game/merc_auction_house');
+const ioBossRushEndless = require('./game/io_boss_rush_endless');
+const mercSecretSociety = require('./game/merc_secret_society');
+const siegeTrapWorkshop = require('./game/siege_trap_workshop');
+const mercBattleReplay = require('./game/merc_battle_replay');
+const ioSeasonalEvent = require('./game/io_seasonal_event');
+const mercMentorSystem = require('./game/merc_mentor_system');
+// v5.6: 신들의 전쟁 (War of Gods) 모듈
+const mercGodWar = require('./game/merc_god_war');
+const ioMazeDungeon = require('./game/io_maze_dungeon');
+const siegeNavalBattle = require('./game/siege_naval_battle');
+const mercReincarnationPlus = require('./game/merc_reincarnation_plus');
+const kingdomFestival = require('./game/kingdom_festival');
+const mercCardBattle = require('./game/merc_card_battle');
+const ioInfectionMode = require('./game/io_infection_mode');
+// v5.7: 차원의 끝 (End of Dimensions) 모듈
+const mercBloodlineWar = require('./game/merc_bloodline_war');
+const ioBattleRoyalePlus = require('./game/io_battle_royale_plus');
+const siegeUnderground = require('./game/siege_underground');
+const mercJobSystem = require('./game/merc_job_system');
+const kingdomBlackMarket = require('./game/kingdom_black_market');
+const mercDreamWorld = require('./game/merc_dream_world');
+const ioPvpDuel = require('./game/io_pvp_duel');
+// v5.8: 운명의 수레바퀴 (Wheel of Fate) 모듈
+const mercFateSystem = require('./game/merc_fate_system');
+const ioTowerClimb = require('./game/io_tower_climb');
+const siegeWeatherWarfare = require('./game/siege_weather_warfare');
+const mercCookingBattle = require('./game/merc_cooking_battle');
+const kingdomEspionage = require('./game/kingdom_espionage');
+const mercMonsterRanch = require('./game/merc_monster_ranch');
+const ioCaptureTheCrown = require('./game/io_capture_the_crown');
+// v5.9: 최후의 심판 (Final Judgment) 모듈 ★FINAL★
+const mercTimeTravel = require('./game/merc_time_travel');
+const ioTeamDeathmatch = require('./game/io_team_deathmatch');
+const siegeMechaWarfare = require('./game/siege_mecha_warfare');
+const mercMusicBand = require('./game/merc_music_band');
+const kingdomParliament = require('./game/kingdom_parliament');
+const mercDimensionalRift = require('./game/merc_dimensional_rift');
+const ioGrandTournament = require('./game/io_grand_tournament');
+// v6.0: 새로운 여명 (New Dawn) 모듈
+const mercAutoChess = require('./game/merc_auto_chess');
+const ioParkourRace = require('./game/io_parkour_race');
+const siegeDragonAssault = require('./game/siege_dragon_assault');
+const mercGamblingDen = require('./game/merc_gambling_den');
+const kingdomTradeEmpire = require('./game/kingdom_trade_empire');
+const mercShapeshifter = require('./game/merc_shapeshifter');
+const ioWorldBossEvent = require('./game/io_world_boss_event');
+// v6.1: 천상의 전쟁 (Celestial War) 모듈
+const mercSpiritBeast = require('./game/merc_spirit_beast');
+const ioSurvivalHorror = require('./game/io_survival_horror');
+const siegeAirshipBattle = require('./game/siege_airship_battle');
+const mercPrestigeSystem = require('./game/merc_prestige_system');
+const kingdomUndergroundArena = require('./game/kingdom_underground_arena');
+const mercTimeCapsulePlus = require('./game/merc_time_capsule_plus');
+const ioElementalClash = require('./game/io_elemental_clash');
+// v6.2: 무한의 경계 (Infinite Frontier) 모듈
+const mercZodiacPower = require('./game/merc_zodiac_power');
+const ioHideAndSeek = require('./game/io_hide_and_seek');
+const siegeGolemFactory = require('./game/siege_golem_factory');
+const mercEmotionMusic = require('./game/merc_emotion_music');
+const kingdomSpyNetwork = require('./game/kingdom_spy_network');
+const mercWishSystem = require('./game/merc_wish_system');
+const ioKingOfTheHill = require('./game/io_king_of_the_hill');
+// v6.3: 영혼의 심판
+const mercProphecySystem = require('./game/merc_prophecy_system');
+const ioTreasureHunt = require('./game/io_treasure_hunt');
+const siegeEngineRace = require('./game/siege_engine_race');
+const mercMemoryPalacePlus = require('./game/merc_memory_palace_plus');
+const kingdomCultureSystem = require('./game/kingdom_culture_system');
+const mercContractSystem = require('./game/merc_contract_system');
+const ioEscortMission = require('./game/io_escort_mission');
+// v6.4: 절대자의 귀환 ★100모듈 돌파!★
+const mercNemesisSystem = require('./game/merc_nemesis_system');
+const ioRhythmBattle = require('./game/io_rhythm_battle');
+const siegeWeatherMachine = require('./game/siege_weather_machine');
+const mercInnerWorld = require('./game/merc_inner_world');
+const kingdomRailroad = require('./game/kingdom_railroad');
+const mercFusionCuisine = require('./game/merc_fusion_cuisine');
+const ioLastStand = require('./game/io_last_stand');
+// v6.5: 끝없는 세계
+const mercShadowClone = require('./game/merc_shadow_clone');
+const ioSoccerBattle = require('./game/io_soccer_battle');
+const siegeVolcanoEruption = require('./game/siege_volcano_eruption');
+const mercAchievementTree = require('./game/merc_achievement_tree');
+const kingdomMuseumExhibit = require('./game/kingdom_museum_exhibit');
+const mercBountyBoardPlus = require('./game/merc_bounty_board_plus');
+const ioDeathRace = require('./game/io_death_race');
+// v6.6: 불멸의 왕좌
+const mercGeneticsLab = require('./game/merc_genetics_lab');
+const ioCaptureFlag = require('./game/io_capture_flag');
+const siegeTitanSummon = require('./game/siege_titan_summon');
+const mercEmotionDiary = require('./game/merc_emotion_diary');
+const kingdomWorldTree = require('./game/kingdom_world_tree');
+const mercLegacyWeapon = require('./game/merc_legacy_weapon');
+const ioArenaRoyale = require('./game/io_arena_royale');
+// v6.7: 600시트 돌파!
+const mercAlterEgo = require('./game/merc_alter_ego');
+const ioMinigameFestival = require('./game/io_minigame_festival');
+const siegePlagueWarfare = require('./game/siege_plague_warfare');
+const mercConstellationUltimate = require('./game/merc_constellation_ultimate');
+const kingdomPostalService = require('./game/kingdom_postal_service');
+const mercRewindSystem = require('./game/merc_rewind_system');
+const ioSurvivalCrafting = require('./game/io_survival_crafting');
+// v6.8: 심연의 메아리
+const mercPuppetMaster = require('./game/merc_puppet_master');
+const ioGravityShift = require('./game/io_gravity_shift');
+const siegeUnderwaterBase = require('./game/siege_underwater_base');
+const mercEchoSystem = require('./game/merc_echo_system');
+const kingdomCasinoResort = require('./game/kingdom_casino_resort');
+const mercBloodPact = require('./game/merc_blood_pact');
+const ioMusicalChairs = require('./game/io_musical_chairs');
+// v6.9: 최종장 — 영원의 서사 ★140모듈★
+const mercWishDragon = require('./game/merc_wish_dragon');
+const ioPaintballWar = require('./game/io_paintball_war');
+const siegeSpaceFortress = require('./game/siege_space_fortress');
+const mercEmotionEvolution = require('./game/merc_emotion_evolution');
+const kingdomColossus = require('./game/kingdom_colossus');
+const mercMultiverse = require('./game/merc_multiverse');
+const ioFinalBossRaid = require('./game/io_final_boss_raid');
+// v7.0: 세계의 재탄생
+const mercAvatarSystem = require('./game/merc_avatar_system');
+const ioDodgeball = require('./game/io_dodgeball');
+const siegePhantomArmy = require('./game/siege_phantom_army');
+const mercEmotionResonanceField = require('./game/merc_emotion_resonance_field');
+const kingdomGrandLibrary = require('./game/kingdom_grand_library');
+const mercDestinyForge = require('./game/merc_destiny_forge');
+const ioChaosMode = require('./game/io_chaos_mode');
 const { handleRaidFinish, codexDiscover, finishBossRush, updateTownPrices, generateRandomOptions, logWorldEvent } = serverHelpers;
 const { expireMarketListings, destroyAxe, syncGameState, updatePassives, updatePlayerAutoSkills, updateBots, giveExp, handleCollisions, handleAoeDamage, handlePlayerDeath } = loops;
 // Phase 3 refactor: 전투/스폰/랭킹 모듈
@@ -831,6 +1012,17 @@ let townPrices = {};
 updateTownPrices();
 setInterval(updateTownPrices, 600000); // 10분마다 변동
 
+// v4.2: 동적 무역 가격 업데이트 (10분마다)
+try {
+  const tradeSystem = require('./game/trade_system');
+  if (tradeSystem.updateMarketPrices) {
+    setInterval(() => {
+      const prices = tradeSystem.updateMarketPrices();
+      io.emit('trade_market_update', { prices, msg: '📊 시장 시세가 변동되었습니다!' });
+    }, 600000);
+  }
+} catch(e) {}
+
 // ==========================================
 // 포켓몬 — 몬스터 테이밍
 // ==========================================
@@ -1110,7 +1302,49 @@ registerConnection(io, {
     createBot, createAutoArmy, alertArmy, executeThrow,
     generateRandomOptions, codexDiscover, handleRaidFinish, finishBossRush,
     SEASON_XP_MAP, ELEMENTS, FACTIONS, RUNES, RUNE_WORDS, TRAINING_DRILLS_NAMES,
-    questChain, bossSummon, weatherDungeon, pvpMatch, bountyHunter, raceSystem, relicFusion, skillWave, achievements, superBoss, territoryWar, wishTree, soulSystem, timeDungeon, mythicSummon, ancientRuins, worldChronicle, advGuild, magicLab, moonSanctuary, weaponSoul, floatingFortress, astralProjection, cursedDungeon, fateDuel, spiritForge, phantomColosseum, dreamArchitect, constellationWar, forbiddenLibrary, beastColossus, merchantCaravan, memoryPalace, demonThrone, celestialForge, livingGrimoire, worldSeed, fateWeaver, forbiddenGrimoire, bloodline, soulContract, ancientLanguage, divineBlessing, pastLife, mutation, cursedEquipment, forbiddenAlchemy, golemCraft, hallOfHeroes, spiritPact, mythicWeapon, dimensionTraveler, dragonRiding,
+    questChain, bossSummon, weatherDungeon, pvpMatch, bountyHunter, raceSystem, relicFusion, skillWave, achievements, superBoss, territoryWar, wishTree, soulSystem, timeDungeon, mythicSummon, ancientRuins, worldChronicle, advGuild, magicLab, moonSanctuary, weaponSoul, floatingFortress, astralProjection, cursedDungeon, fateDuel, spiritForge, phantomColosseum, dreamArchitect, constellationWar, forbiddenLibrary, beastColossus, merchantCaravan, memoryPalace, demonThrone, celestialForge, livingGrimoire, worldSeed, fateWeaver, forbiddenGrimoire, bloodline, soulContract, ancientLanguage, divineBlessing, pastLife, mutation, cursedEquipment, forbiddenAlchemy, golemCraft, hallOfHeroes, spiritPact, mythicWeapon, dimensionTraveler, dragonRiding, v4Systems,
+    // v5.0: 용병 대서사시
+    mercEmotionAI, mercDynasty, mercRivalry, mercSummonIO, siegeRealtime, siegeMercWall, tradeIORaid,
+    // v5.1: 판타지 대전쟁
+    mercAwakeningQuest, mercFusionSummon, ioBossCapture, siegeAttackerDeploy, mercExpeditionWar, hiddenMercDiscovery, mercEquipmentForge,
+    // v5.2: 왕국 건설
+    kingdomManagement, mercAcademy, ioTournamentLeague, guildSiegeWar, mercPetCompanion, worldConquest, mercLegacyDungeon,
+    // v5.3: 어둠의 대륙
+    mercArenaChampionship, darkContinent, mercTransformation, ioCoopRaid, siegeSpySystem, mercMarriage, randomQuestGenerator,
+    // v5.4: 전설의 시대
+    mercTalentTree, ioWeatherBattle, siegeAllianceWar, mercWantedSystem, kingdomDiplomacy, mercSoulLink, ioSurvivalRoguelike,
+    // v5.5: 영원의 왕좌
+    mercAuctionHouse, ioBossRushEndless, mercSecretSociety, siegeTrapWorkshop, mercBattleReplay, ioSeasonalEvent, mercMentorSystem,
+    // v5.6: 신들의 전쟁
+    mercGodWar, ioMazeDungeon, siegeNavalBattle, mercReincarnationPlus, kingdomFestival, mercCardBattle, ioInfectionMode,
+    // v5.7: 차원의 끝
+    mercBloodlineWar, ioBattleRoyalePlus, siegeUnderground, mercJobSystem, kingdomBlackMarket, mercDreamWorld, ioPvpDuel,
+    // v5.8: 운명의 수레바퀴
+    mercFateSystem, ioTowerClimb, siegeWeatherWarfare, mercCookingBattle, kingdomEspionage, mercMonsterRanch, ioCaptureTheCrown,
+    // v5.9: 최후의 심판
+    mercTimeTravel, ioTeamDeathmatch, siegeMechaWarfare, mercMusicBand, kingdomParliament, mercDimensionalRift, ioGrandTournament,
+    // v6.0: 새로운 여명
+    mercAutoChess, ioParkourRace, siegeDragonAssault, mercGamblingDen, kingdomTradeEmpire, mercShapeshifter, ioWorldBossEvent,
+    // v6.1: 천상의 전쟁
+    mercSpiritBeast, ioSurvivalHorror, siegeAirshipBattle, mercPrestigeSystem, kingdomUndergroundArena, mercTimeCapsulePlus, ioElementalClash,
+    // v6.2: 무한의 경계
+    mercZodiacPower, ioHideAndSeek, siegeGolemFactory, mercEmotionMusic, kingdomSpyNetwork, mercWishSystem, ioKingOfTheHill,
+    // v6.3: 영혼의 심판
+    mercProphecySystem, ioTreasureHunt, siegeEngineRace, mercMemoryPalacePlus, kingdomCultureSystem, mercContractSystem, ioEscortMission,
+    // v6.4: 절대자의 귀환 ★100모듈!★
+    mercNemesisSystem, ioRhythmBattle, siegeWeatherMachine, mercInnerWorld, kingdomRailroad, mercFusionCuisine, ioLastStand,
+    // v6.5: 끝없는 세계
+    mercShadowClone, ioSoccerBattle, siegeVolcanoEruption, mercAchievementTree, kingdomMuseumExhibit, mercBountyBoardPlus, ioDeathRace,
+    // v6.6: 불멸의 왕좌
+    mercGeneticsLab, ioCaptureFlag, siegeTitanSummon, mercEmotionDiary, kingdomWorldTree, mercLegacyWeapon, ioArenaRoyale,
+    // v6.7: 600시트 돌파!
+    mercAlterEgo, ioMinigameFestival, siegePlagueWarfare, mercConstellationUltimate, kingdomPostalService, mercRewindSystem, ioSurvivalCrafting,
+    // v6.8: 심연의 메아리
+    mercPuppetMaster, ioGravityShift, siegeUnderwaterBase, mercEchoSystem, kingdomCasinoResort, mercBloodPact, ioMusicalChairs,
+    // v6.9: 최종장 ★140모듈★
+    mercWishDragon, ioPaintballWar, siegeSpaceFortress, mercEmotionEvolution, kingdomColossus, mercMultiverse, ioFinalBossRaid,
+    // v7.0: 세계의 재탄생
+    mercAvatarSystem, ioDodgeball, siegePhantomArmy, mercEmotionResonanceField, kingdomGrandLibrary, mercDestinyForge, ioChaosMode,
     // mutable primitives via getters
     get isNight() { return isNight; },
     get currentWeather() { return currentWeather; },
@@ -1235,23 +1469,58 @@ function createAutoArmy(ownerId) {
     const p = players[ownerId];
     if (!p || !p.isAlive) return;
 
+    // v4.8: SLG 파티 용병이 있으면 파티 용병 스탯 기반 소환
+    let mercData = null;
+    try {
+        const mercSys = require('./game/mercenary_system');
+        const mercs = mercSys.getPlayerMercs(p);
+        const party = mercs.roster.filter(m => mercs.party.includes(m.uid));
+        // 아직 소환되지 않은 파티 용병 선택
+        const alreadySummoned = Object.values(players).filter(b => b.isBot && b.ownerId === ownerId && b._mercUid).map(b => b._mercUid);
+        const available = party.filter(m => !alreadySummoned.includes(m.uid));
+        if (available.length > 0) {
+            mercData = available[0]; // 첫 번째 미소환 용병
+        }
+    } catch(e) {}
+
     entityIdCounter++;
     const botId = 'bot_auto_' + entityIdCounter;
-    const classNames = ['Assassin', 'Warrior', 'Knight', 'Mage', 'Cleric'];
-    const randomClass = classNames[Math.floor(Math.random() * classNames.length)];
-    const cls = CLASSES[randomClass];
 
-    const botLevel = Math.max(1, Math.floor(p.level * 0.8));
-    const botHp = cls.maxHp + (botLevel - 1) * 25;
+    let botName, botAtk, botDef, botHp, botLevel, botElement, botIcon, mercUid;
+
+    if (mercData) {
+        // SLG 용병 기반 소환
+        botName = mercData.icon + ' ' + mercData.name;
+        botAtk = mercData.atk;
+        botDef = mercData.def;
+        botHp = mercData.hp;
+        botLevel = mercData.level || 1;
+        botElement = mercData.element || null;
+        botIcon = mercData.icon;
+        mercUid = mercData.uid;
+    } else {
+        // 기존 랜덤 클래스 방식 (SLG 용병 없으면)
+        const classNames = ['Assassin', 'Warrior', 'Knight', 'Mage', 'Cleric'];
+        const randomClass = classNames[Math.floor(Math.random() * classNames.length)];
+        const cls = CLASSES[randomClass];
+        botName = cls.displayName;
+        botLevel = Math.max(1, Math.floor(p.level * 0.8));
+        botHp = cls.maxHp + (botLevel - 1) * 25;
+        botAtk = cls.atk;
+        botDef = cls.def;
+        botElement = p.element;
+        mercUid = null;
+    }
+
     players[botId] = {
         id: botId, deviceId: 'bot',
-        className: randomClass,
-        displayName: cls.displayName,
+        className: mercData ? 'Mercenary' : 'Warrior',
+        displayName: botName,
         x: p.x + (Math.random() * 4 - 2),
         y: p.y + (Math.random() * 4 - 2),
         hp: botHp, maxHp: botHp,
-        atk: cls.atk, def: cls.def,
-        critRate: cls.critRate, dodgeRate: cls.dodgeRate,
+        atk: botAtk, def: botDef,
+        critRate: 0.05, dodgeRate: 0.02,
         dmgMulti: 1.0 + (botLevel - 1) * 0.08,
         dirX: 0, dirY: -1,
         gold: 0, level: botLevel, exp: 0,
@@ -1260,7 +1529,8 @@ function createAutoArmy(ownerId) {
         ownerId,
         targetId: null,
         isKing: false, isBot: true,
-        element: p.element,
+        element: botElement,
+        _mercUid: mercUid, // SLG 용병 UID 추적
         lastHpRegen: Date.now(), autoSkillCooldown: 0
     };
     io.emit('player_join', players[botId]);
@@ -2132,6 +2402,92 @@ setInterval(() => {
             }
         }
         ownerClan.exp += 50; // 혈맹 경험치도
+    }
+
+    // v4.1: SLG 이벤트 자동 발동 (60초마다)
+    if (tickCounter % (30 * 60) === 0) {
+        try {
+            const slg = require('./game/slg_view');
+            const evtResult = slg.tickSlgEvents();
+            if (evtResult) {
+                if (evtResult.type === 'activated') {
+                    io.emit('slg_event', { type: 'start', event: evtResult.event });
+                    io.emit('server_msg', { msg: `🎉 [SLG 이벤트] ${evtResult.event.icon} ${evtResult.event.name} 시작! (5분간)`, type: 'event' });
+                } else if (evtResult.type === 'expired') {
+                    io.emit('slg_event', { type: 'end', event: evtResult.event });
+                }
+            }
+        } catch(e) {}
+    }
+
+    // v4.4: 영지 자원 자동 수집 (5분마다)
+    if (tickCounter % (30 * 300) === 0) {
+        try {
+            const v4 = require('./game/v4_systems');
+            for (const pid in players) {
+                const p = players[pid];
+                if (!p || p.isBot || !p._territory) continue;
+                const result = v4.collectResources(p);
+                if (result && result.success && result.collected) {
+                    const total = Object.values(result.collected).reduce((s, v) => s + v, 0);
+                    if (total > 0) {
+                        io.to(pid).emit('territory_collected', result);
+                        io.to(pid).emit('combat_log', { msg: `[영지] 자원 수집: ${JSON.stringify(result.collected)}` });
+                    }
+                }
+            }
+        } catch(e) {}
+    }
+
+    // v4.1: 용병 관계 이벤트 (전투 중 파티원 관계 발생, 2분마다)
+    if (tickCounter % (30 * 120) === 0) {
+        try {
+            const mercRel = require('./game/merc_relationships');
+            for (const pid in players) {
+                const p = players[pid];
+                if (!p || p.isBot || !p._mercs || !p._mercs.party || p._mercs.party.length < 2) continue;
+                const party = p._mercs.party;
+                // 랜덤 2명 뽑아서 관계 이벤트 롤
+                const i = Math.floor(Math.random() * party.length);
+                let j = Math.floor(Math.random() * (party.length - 1));
+                if (j >= i) j++;
+                const evt = mercRel.rollRelationshipEvent(p, party[i], party[j]);
+                if (evt) {
+                    io.to(pid).emit('merc_relationship_event', evt);
+                }
+            }
+        } catch(e) {}
+    }
+
+    // v4.5: 선물 계약 자동 결산 (1분마다)
+    if (tickCounter % (30 * 60) === 0) {
+        try {
+            const spec = require('./game/trade_speculation');
+            for (const pid in players) {
+                const p = players[pid];
+                if (!p || p.isBot || !p._speculation || !p._speculation.futures.length) continue;
+                const results = spec.settleFutures(p);
+                if (results && results.length > 0) {
+                    for (const r of results) {
+                        io.to(pid).emit('futures_settled', r);
+                        if (r.profit > 0) io.to(pid).emit('combat_log', { msg: `[투기] ${r.routeId} ${r.direction === 'up' ? '📈' : '📉'} 성공! +${r.profit}G` });
+                        else io.to(pid).emit('combat_log', { msg: `[투기] ${r.routeId} 실패... ${r.profit}G` });
+                    }
+                }
+            }
+        } catch(e) {}
+    }
+
+    // v4.5: 주간 도전 월요일 리셋 (1분마다 체크)
+    if (tickCounter % (30 * 60) === 0) {
+        try {
+            const now = new Date();
+            if (now.getDay() === 1 && now.getHours() === 0 && now.getMinutes() < 2) {
+                const weekly = require('./game/weekly_challenge');
+                weekly.resetWeekly();
+                io.emit('server_msg', { msg: '🏆 [주간 도전] 새로운 던전 3개가 로테이션되었습니다!', type: 'event' });
+            }
+        } catch(e) {}
     }
 
     // 카르마 자연 감소 (매 분)

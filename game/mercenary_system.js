@@ -12,106 +12,106 @@ const EXP_PER_LEVEL = (lv) => Math.floor(50 * Math.pow(1.08, lv - 1));
 // ═══ 용병 목록 (수집형) ═══
 const MERCENARIES = [
   // ── 일반 (서바이벌에서 쉽게 획득) ──
-  { id: 'merc_soldier',  name: '보병',       icon: '🗡️', grade: 0, role: '전사',   atk: 12, def: 10, hp: 120, spd: 8,  skill: { name: '강타', dmg: 1.5, cd: 8,  desc: '단일 1.5배' } },
-  { id: 'merc_archer',   name: '궁수',       icon: '🏹', grade: 0, role: '사수',   atk: 14, def: 5,  hp: 80,  spd: 10, skill: { name: '연사', dmg: 0.8, hits: 3, cd: 6, desc: '3연사' } },
-  { id: 'merc_acolyte',  name: '수습 사제',  icon: '📿', grade: 0, role: '치유',   atk: 6,  def: 6,  hp: 90,  spd: 7,  skill: { name: '치유', heal: 30, cd: 10, desc: 'HP 30 회복' } },
+  { id: 'merc_soldier',  name: '보병',       icon: '🗡️', grade: 0, role: '전사',   atk: 12, def: 10, hp: 120, spd: 8,  element: null, skill: { name: '강타', dmg: 1.5, cd: 8,  desc: '단일 1.5배' } },
+  { id: 'merc_archer',   name: '궁수',       icon: '🏹', grade: 0, role: '사수',   atk: 14, def: 5,  hp: 80,  spd: 10, element: 'wind', skill: { name: '연사', dmg: 0.8, hits: 3, cd: 6, desc: '3연사' } },
+  { id: 'merc_acolyte',  name: '수습 사제',  icon: '📿', grade: 0, role: '치유',   atk: 6,  def: 6,  hp: 90,  spd: 7,  element: 'light', skill: { name: '치유', heal: 30, cd: 10, desc: 'HP 30 회복' } },
 
   // ── 고급 (서바이벌 보스 드롭) ──
-  { id: 'merc_knight',   name: '기사',       icon: '⚔️', grade: 1, role: '전사',   atk: 18, def: 16, hp: 180, spd: 7,  skill: { name: '방패 돌진', dmg: 2.0, stun: 2, cd: 12, desc: '2배+스턴 2초' } },
-  { id: 'merc_ranger',   name: '레인저',     icon: '🌿', grade: 1, role: '사수',   atk: 20, def: 8,  hp: 100, spd: 12, skill: { name: '독화살', dmg: 1.2, dot: 5, cd: 8, desc: '독 5초' } },
-  { id: 'merc_wizard',   name: '마법사',     icon: '🔮', grade: 1, role: '마법',   atk: 22, def: 4,  hp: 70,  spd: 9,  skill: { name: '파이어볼', dmg: 2.5, aoe: true, cd: 10, desc: '광역 2.5배' } },
+  { id: 'merc_knight',   name: '기사',       icon: '⚔️', grade: 1, role: '전사',   atk: 18, def: 16, hp: 180, spd: 7,  element: 'earth', skill: { name: '방패 돌진', dmg: 2.0, stun: 2, cd: 12, desc: '2배+스턴 2초' } },
+  { id: 'merc_ranger',   name: '레인저',     icon: '🌿', grade: 1, role: '사수',   atk: 20, def: 8,  hp: 100, spd: 12, element: 'earth', skill: { name: '독화살', dmg: 1.2, dot: 5, cd: 8, desc: '독 5초' } },
+  { id: 'merc_wizard',   name: '마법사',     icon: '🔮', grade: 1, role: '마법',   atk: 22, def: 4,  hp: 70,  spd: 9,  element: 'fire', skill: { name: '파이어볼', dmg: 2.5, aoe: true, cd: 10, desc: '광역 2.5배' } },
 
   // ── 희귀 (가챠/이벤트) ──
-  { id: 'merc_paladin',  name: '성기사',     icon: '✝️', grade: 2, role: '전사',   atk: 25, def: 22, hp: 250, spd: 8,  skill: { name: '신성 일격', dmg: 3.0, heal: 50, cd: 15, desc: '3배+자힐 50' } },
-  { id: 'merc_assassin',  name: '암살자',    icon: '🌙', grade: 2, role: '암살',   atk: 30, def: 6,  hp: 90,  spd: 16, skill: { name: '급소', dmg: 4.0, critGuarantee: true, cd: 14, desc: '확정 크리 4배' } },
-  { id: 'merc_priest',   name: '사제',       icon: '💚', grade: 2, role: '치유',   atk: 10, def: 12, hp: 140, spd: 8,  skill: { name: '전체 치유', healAll: 40, cd: 18, desc: '아군 전원 HP 40' } },
-  { id: 'merc_warlock',  name: '흑마법사',   icon: '☠️', grade: 2, role: '마법',   atk: 28, def: 5,  hp: 85,  spd: 9,  skill: { name: '저주', dmg: 2.0, debuff: 'atk-30%', cd: 12, desc: '2배+ATK감소' } },
+  { id: 'merc_paladin',  name: '성기사',     icon: '✝️', grade: 2, role: '전사',   atk: 25, def: 22, hp: 250, spd: 8,  element: 'light', skill: { name: '신성 일격', dmg: 3.0, heal: 50, cd: 15, desc: '3배+자힐 50' } },
+  { id: 'merc_assassin',  name: '암살자',    icon: '🌙', grade: 2, role: '암살',   atk: 30, def: 6,  hp: 90,  spd: 16, element: 'dark', skill: { name: '급소', dmg: 4.0, critGuarantee: true, cd: 14, desc: '확정 크리 4배' } },
+  { id: 'merc_priest',   name: '사제',       icon: '💚', grade: 2, role: '치유',   atk: 10, def: 12, hp: 140, spd: 8,  element: 'light', skill: { name: '전체 치유', healAll: 40, cd: 18, desc: '아군 전원 HP 40' } },
+  { id: 'merc_warlock',  name: '흑마법사',   icon: '☠️', grade: 2, role: '마법',   atk: 28, def: 5,  hp: 85,  spd: 9,  element: 'dark', skill: { name: '저주', dmg: 2.0, debuff: 'atk-30%', cd: 12, desc: '2배+ATK감소' } },
 
   // ── 영웅 (매우 희귀) ──
-  { id: 'merc_dragon_knight', name: '드래곤나이트', icon: '🐲', grade: 3, role: '전사', atk: 40, def: 30, hp: 400, spd: 10, skill: { name: '드래곤 브레스', dmg: 5.0, aoe: true, cd: 20, desc: '광역 5배 화염' } },
-  { id: 'merc_archmage', name: '대마법사',   icon: '🌟', grade: 3, role: '마법',   atk: 45, def: 8,  hp: 150, spd: 11, skill: { name: '메테오', dmg: 6.0, aoe: true, cd: 25, desc: '메테오 6배' } },
-  { id: 'merc_shadow_lord',name:'그림자 군주', icon: '🌑', grade: 3, role: '암살',  atk: 42, def: 15, hp: 200, spd: 18, skill: { name: '분신', summon: 2, cd: 22, desc: '분신 2체 소환' } },
+  { id: 'merc_dragon_knight', name: '드래곤나이트', icon: '🐲', grade: 3, role: '전사', atk: 40, def: 30, hp: 400, spd: 10, element: 'fire', skill: { name: '드래곤 브레스', dmg: 5.0, aoe: true, cd: 20, desc: '광역 5배 화염' } },
+  { id: 'merc_archmage', name: '대마법사',   icon: '🌟', grade: 3, role: '마법',   atk: 45, def: 8,  hp: 150, spd: 11, element: 'fire', skill: { name: '메테오', dmg: 6.0, aoe: true, cd: 25, desc: '메테오 6배' } },
+  { id: 'merc_shadow_lord',name:'그림자 군주', icon: '🌑', grade: 3, role: '암살',  atk: 42, def: 15, hp: 200, spd: 18, element: 'dark', skill: { name: '분신', summon: 2, cd: 22, desc: '분신 2체 소환' } },
 
   // ── 전설 (극히 희귀) ──
-  { id: 'merc_death_knight',name:'죽음의 기사', icon: '💀', grade: 4, role: '전사', atk: 55, def: 35, hp: 500, spd: 9,  skill: { name: '망자의 군대', summon: 5, dmg: 3.0, cd: 30, desc: '해골 5체+3배' } },
-  { id: 'merc_seraph',   name: '세라핌',     icon: '👼', grade: 4, role: '치유',   atk: 35, def: 25, hp: 400, spd: 12, skill: { name: '부활', revive: true, cd: 60, desc: '아군 1체 부활' } },
+  { id: 'merc_death_knight',name:'죽음의 기사', icon: '💀', grade: 4, role: '전사', atk: 55, def: 35, hp: 500, spd: 9,  element: 'dark', skill: { name: '망자의 군대', summon: 5, dmg: 3.0, cd: 30, desc: '해골 5체+3배' } },
+  { id: 'merc_seraph',   name: '세라핌',     icon: '👼', grade: 4, role: '치유',   atk: 35, def: 25, hp: 400, spd: 12, element: 'light', skill: { name: '부활', revive: true, cd: 60, desc: '아군 1체 부활' } },
 
   // ── 신화 (전설 중의 전설) ──
-  { id: 'merc_bahamut',  name: '용왕 바하무트', icon: '🐲', grade: 5, role: '전사', atk: 100, def: 60, hp: 1000, spd: 15, skill: { name: '멸망의 브레스', dmg: 10.0, aoe: true, cd: 35, desc: '전체 10배!' } },
-  { id: 'merc_god_of_war',name:'전쟁의 신',  icon: '⚡', grade: 5, role: '전사',   atk: 90, def: 50, hp: 800, spd: 20, skill: { name: '천둥 심판', dmg: 8.0, stun: 3, aoe: true, cd: 30, desc: '전체 8배+스턴' } },
+  { id: 'merc_bahamut',  name: '용왕 바하무트', icon: '🐲', grade: 5, role: '전사', atk: 100, def: 60, hp: 1000, spd: 15, element: 'fire', skill: { name: '멸망의 브레스', dmg: 10.0, aoe: true, cd: 35, desc: '전체 10배!' } },
+  { id: 'merc_god_of_war',name:'전쟁의 신',  icon: '⚡', grade: 5, role: '전사',   atk: 90, def: 50, hp: 800, spd: 20, element: 'light', skill: { name: '천둥 심판', dmg: 8.0, stun: 3, aoe: true, cd: 30, desc: '전체 8배+스턴' } },
 
   // ── v3.0 확장 용병 (50종 목표) ──
   // 일반 추가
-  { id: 'merc_spearman',  name: '창병',       icon: '🔱', grade: 0, role: '전사',   atk: 11, def: 12, hp: 130, spd: 7,  skill: { name: '찌르기', dmg: 1.8, cd: 7, desc: '관통 1.8배' } },
-  { id: 'merc_monk',      name: '수도승',     icon: '🙏', grade: 0, role: '전사',   atk: 13, def: 8,  hp: 110, spd: 11, skill: { name: '연타', dmg: 0.6, hits: 4, cd: 6, desc: '4연타' } },
-  { id: 'merc_thief',     name: '도둑',       icon: '💰', grade: 0, role: '암살',   atk: 10, def: 3,  hp: 65,  spd: 14, skill: { name: '금화 훔치기', steal: 50, cd: 12, desc: '골드 50 훔침' } },
+  { id: 'merc_spearman',  name: '창병',       icon: '🔱', grade: 0, role: '전사',   atk: 11, def: 12, hp: 130, spd: 7,  element: 'earth', skill: { name: '찌르기', dmg: 1.8, cd: 7, desc: '관통 1.8배' } },
+  { id: 'merc_monk',      name: '수도승',     icon: '🙏', grade: 0, role: '전사',   atk: 13, def: 8,  hp: 110, spd: 11, element: 'wind', skill: { name: '연타', dmg: 0.6, hits: 4, cd: 6, desc: '4연타' } },
+  { id: 'merc_thief',     name: '도둑',       icon: '💰', grade: 0, role: '암살',   atk: 10, def: 3,  hp: 65,  spd: 14, element: 'dark', skill: { name: '금화 훔치기', steal: 50, cd: 12, desc: '골드 50 훔침' } },
   // 고급 추가
-  { id: 'merc_cavalry',   name: '기마병',     icon: '🐴', grade: 1, role: '전사',   atk: 20, def: 10, hp: 160, spd: 14, skill: { name: '돌격', dmg: 2.5, cd: 10, desc: '돌진 2.5배' } },
-  { id: 'merc_crossbow',  name: '석궁병',     icon: '🏹', grade: 1, role: '사수',   atk: 22, def: 6,  hp: 85,  spd: 8,  skill: { name: '관통 사격', dmg: 3.0, pierce: true, cd: 12, desc: '관통 3배' } },
-  { id: 'merc_shaman',    name: '주술사',     icon: '🪬', grade: 1, role: '마법',   atk: 18, def: 5,  hp: 80,  spd: 9,  skill: { name: '저주', debuff: 'def-30%', cd: 14, desc: '적 DEF-30%' } },
-  { id: 'merc_dancer',    name: '무희',       icon: '💃', grade: 1, role: '치유',   atk: 8,  def: 6,  hp: 90,  spd: 13, skill: { name: '고무의 춤', buffAll: 'spd+20%', cd: 16, desc: '아군 SPD+20%' } },
+  { id: 'merc_cavalry',   name: '기마병',     icon: '🐴', grade: 1, role: '전사',   atk: 20, def: 10, hp: 160, spd: 14, element: 'wind', skill: { name: '돌격', dmg: 2.5, cd: 10, desc: '돌진 2.5배' } },
+  { id: 'merc_crossbow',  name: '석궁병',     icon: '🏹', grade: 1, role: '사수',   atk: 22, def: 6,  hp: 85,  spd: 8,  element: null, skill: { name: '관통 사격', dmg: 3.0, pierce: true, cd: 12, desc: '관통 3배' } },
+  { id: 'merc_shaman',    name: '주술사',     icon: '🪬', grade: 1, role: '마법',   atk: 18, def: 5,  hp: 80,  spd: 9,  element: 'dark', skill: { name: '저주', debuff: 'def-30%', cd: 14, desc: '적 DEF-30%' } },
+  { id: 'merc_dancer',    name: '무희',       icon: '💃', grade: 1, role: '치유',   atk: 8,  def: 6,  hp: 90,  spd: 13, element: 'wind', skill: { name: '고무의 춤', buffAll: 'spd+20%', cd: 16, desc: '아군 SPD+20%' } },
   // 희귀 추가
-  { id: 'merc_samurai',   name: '사무라이',   icon: '⚔️', grade: 2, role: '전사',   atk: 30, def: 14, hp: 190, spd: 12, skill: { name: '거합', dmg: 4.5, critGuarantee: true, cd: 16, desc: '확정크리 4.5배' } },
-  { id: 'merc_sniper',    name: '저격수',     icon: '🎯', grade: 2, role: '사수',   atk: 35, def: 3,  hp: 70,  spd: 8,  skill: { name: '헤드샷', dmg: 6.0, cd: 20, desc: '단일 6배!' } },
-  { id: 'merc_druid',     name: '드루이드',   icon: '🌿', grade: 2, role: '치유',   atk: 14, def: 10, hp: 150, spd: 9,  skill: { name: '자연 치유', healAll: 50, hpRegen: 3, cd: 18, desc: '전체 50+재생' } },
-  { id: 'merc_pyromancer', name: '화염술사',  icon: '🔥', grade: 2, role: '마법',   atk: 32, def: 4,  hp: 75,  spd: 10, skill: { name: '화염 폭풍', dmg: 3.5, aoe: true, dot: 8, cd: 14, desc: '광역 3.5배+화상' } },
+  { id: 'merc_samurai',   name: '사무라이',   icon: '⚔️', grade: 2, role: '전사',   atk: 30, def: 14, hp: 190, spd: 12, element: 'wind', skill: { name: '거합', dmg: 4.5, critGuarantee: true, cd: 16, desc: '확정크리 4.5배' } },
+  { id: 'merc_sniper',    name: '저격수',     icon: '🎯', grade: 2, role: '사수',   atk: 35, def: 3,  hp: 70,  spd: 8,  element: null, skill: { name: '헤드샷', dmg: 6.0, cd: 20, desc: '단일 6배!' } },
+  { id: 'merc_druid',     name: '드루이드',   icon: '🌿', grade: 2, role: '치유',   atk: 14, def: 10, hp: 150, spd: 9,  element: 'earth', skill: { name: '자연 치유', healAll: 50, hpRegen: 3, cd: 18, desc: '전체 50+재생' } },
+  { id: 'merc_pyromancer', name: '화염술사',  icon: '🔥', grade: 2, role: '마법',   atk: 32, def: 4,  hp: 75,  spd: 10, element: 'fire', skill: { name: '화염 폭풍', dmg: 3.5, aoe: true, dot: 8, cd: 14, desc: '광역 3.5배+화상' } },
   // 영웅 추가
-  { id: 'merc_demon_lord', name: '마왕',      icon: '👿', grade: 3, role: '마법',   atk: 48, def: 18, hp: 280, spd: 11, skill: { name: '지옥불', dmg: 6.0, aoe: true, cd: 22, desc: '광역 6배 암흑' } },
-  { id: 'merc_angel',     name: '수호천사',   icon: '😇', grade: 3, role: '치유',   atk: 20, def: 25, hp: 320, spd: 12, skill: { name: '천상의 빛', healAll: 80, shield: 50, cd: 24, desc: '전체 80힐+보호막' } },
-  { id: 'merc_blade_master',name:'검성',      icon: '🗡️', grade: 3, role: '전사',   atk: 46, def: 16, hp: 260, spd: 16, skill: { name: '천검', dmg: 3.0, hits: 5, cd: 18, desc: '5연참 3배' } },
+  { id: 'merc_demon_lord', name: '마왕',      icon: '👿', grade: 3, role: '마법',   atk: 48, def: 18, hp: 280, spd: 11, element: 'dark', skill: { name: '지옥불', dmg: 6.0, aoe: true, cd: 22, desc: '광역 6배 암흑' } },
+  { id: 'merc_angel',     name: '수호천사',   icon: '😇', grade: 3, role: '치유',   atk: 20, def: 25, hp: 320, spd: 12, element: 'light', skill: { name: '천상의 빛', healAll: 80, shield: 50, cd: 24, desc: '전체 80힐+보호막' } },
+  { id: 'merc_blade_master',name:'검성',      icon: '🗡️', grade: 3, role: '전사',   atk: 46, def: 16, hp: 260, spd: 16, element: 'wind', skill: { name: '천검', dmg: 3.0, hits: 5, cd: 18, desc: '5연참 3배' } },
   // 전설 추가
-  { id: 'merc_world_tree', name: '세계수 정령',icon: '🌳', grade: 4, role: '치유',  atk: 25, def: 30, hp: 600, spd: 8,  skill: { name: '생명의 나무', healAll: 150, revive: true, cd: 45, desc: '전체 150힐+부활' } },
-  { id: 'merc_void_king',  name: '공허의 왕', icon: '🌀', grade: 4, role: '마법',   atk: 65, def: 20, hp: 400, spd: 14, skill: { name: '차원 붕괴', dmg: 8.0, aoe: true, cd: 32, desc: '전체 8배 공허' } },
+  { id: 'merc_world_tree', name: '세계수 정령',icon: '🌳', grade: 4, role: '치유',  atk: 25, def: 30, hp: 600, spd: 8,  element: 'earth', skill: { name: '생명의 나무', healAll: 150, revive: true, cd: 45, desc: '전체 150힐+부활' } },
+  { id: 'merc_void_king',  name: '공허의 왕', icon: '🌀', grade: 4, role: '마법',   atk: 65, def: 20, hp: 400, spd: 14, element: 'dark', skill: { name: '차원 붕괴', dmg: 8.0, aoe: true, cd: 32, desc: '전체 8배 공허' } },
 
   // ── 50종 완성 추가분 ──
   // 일반
-  { id: 'merc_farmer',    name: '농부 전사',   icon: '🌾', grade: 0, role: '전사',   atk: 9,  def: 11, hp: 140, spd: 7,  skill: { name: '낫 휘두르기', dmg: 1.6, cd: 8, desc: '광역 1.6배' } },
+  { id: 'merc_farmer',    name: '농부 전사',   icon: '🌾', grade: 0, role: '전사',   atk: 9,  def: 11, hp: 140, spd: 7,  element: 'earth', skill: { name: '낫 휘두르기', dmg: 1.6, cd: 8, desc: '광역 1.6배' } },
   // 고급
-  { id: 'merc_pirate',    name: '해적',       icon: '🏴‍☠️', grade: 1, role: '암살',  atk: 19, def: 7,  hp: 110, spd: 13, skill: { name: '약탈', dmg: 2.0, steal: 30, cd: 10, desc: '2배+골드30' } },
-  { id: 'merc_templar',   name: '성전사',     icon: '⛪', grade: 1, role: '전사',   atk: 16, def: 15, hp: 170, spd: 8,  skill: { name: '신성 돌격', dmg: 2.2, heal: 20, cd: 12, desc: '2.2배+자힐' } },
+  { id: 'merc_pirate',    name: '해적',       icon: '🏴‍☠️', grade: 1, role: '암살',  atk: 19, def: 7,  hp: 110, spd: 13, element: 'water', skill: { name: '약탈', dmg: 2.0, steal: 30, cd: 10, desc: '2배+골드30' } },
+  { id: 'merc_templar',   name: '성전사',     icon: '⛪', grade: 1, role: '전사',   atk: 16, def: 15, hp: 170, spd: 8,  element: 'light', skill: { name: '신성 돌격', dmg: 2.2, heal: 20, cd: 12, desc: '2.2배+자힐' } },
   // 희귀
-  { id: 'merc_alchemist',  name: '연금술사',  icon: '⚗️', grade: 2, role: '치유',   atk: 16, def: 8,  hp: 110, spd: 9,  skill: { name: '만능약', healAll: 45, buffAll: 'atk+10%', cd: 16, desc: '전체힐+ATK↑' } },
-  { id: 'merc_beast_tamer', name: '맹수 조련사',icon: '🦁', grade: 2, role: '전사', atk: 27, def: 10, hp: 160, spd: 11, skill: { name: '맹수 소환', summon: 3, dmg: 1.5, cd: 14, desc: '맹수3+1.5배' } },
+  { id: 'merc_alchemist',  name: '연금술사',  icon: '⚗️', grade: 2, role: '치유',   atk: 16, def: 8,  hp: 110, spd: 9,  element: 'fire', skill: { name: '만능약', healAll: 45, buffAll: 'atk+10%', cd: 16, desc: '전체힐+ATK↑' } },
+  { id: 'merc_beast_tamer', name: '맹수 조련사',icon: '🦁', grade: 2, role: '전사', atk: 27, def: 10, hp: 160, spd: 11, element: 'earth', skill: { name: '맹수 소환', summon: 3, dmg: 1.5, cd: 14, desc: '맹수3+1.5배' } },
   // 영웅
-  { id: 'merc_time_mage',  name: '시간 마법사', icon: '⏳', grade: 3, role: '마법', atk: 42, def: 10, hp: 170, spd: 14, skill: { name: '시간 정지', stun: 4, aoe: true, cd: 24, desc: '전체 4초 정지!' } },
+  { id: 'merc_time_mage',  name: '시간 마법사', icon: '⏳', grade: 3, role: '마법', atk: 42, def: 10, hp: 170, spd: 14, element: 'wind', skill: { name: '시간 정지', stun: 4, aoe: true, cd: 24, desc: '전체 4초 정지!' } },
   // 전설
-  { id: 'merc_chaos_lord', name: '혼돈의 군주', icon: '🌀', grade: 4, role: '마법', atk: 62, def: 22, hp: 420, spd: 13, skill: { name: '차원 분열', dmg: 7.5, aoe: true, debuff: 'all-20%', cd: 30, desc: '7.5배+전스탯감소' } },
+  { id: 'merc_chaos_lord', name: '혼돈의 군주', icon: '🌀', grade: 4, role: '마법', atk: 62, def: 22, hp: 420, spd: 13, element: 'dark', skill: { name: '차원 분열', dmg: 7.5, aoe: true, debuff: 'all-20%', cd: 30, desc: '7.5배+전스탯감소' } },
   // 신화
-  { id: 'merc_world_ender',name: '세계의 끝',  icon: '💀', grade: 5, role: '전사',  atk: 95, def: 55, hp: 900, spd: 18, skill: { name: '종말', dmg: 12.0, aoe: true, cd: 40, desc: '전체 12배!!!' } },
+  { id: 'merc_world_ender',name: '세계의 끝',  icon: '💀', grade: 5, role: '전사',  atk: 95, def: 55, hp: 900, spd: 18, element: 'dark', skill: { name: '종말', dmg: 12.0, aoe: true, cd: 40, desc: '전체 12배!!!' } },
 
   // ── v3.0 추가 용병 ──
   // 고급
-  { id: 'merc_berserker', name: '광전사',     icon: '😤', grade: 1, role: '전사',   atk: 24, def: 4,  hp: 130, spd: 11, skill: { name: '분노', dmg: 3.0, selfDmg: 20, cd: 8, desc: '3배, 자해 20' } },
-  { id: 'merc_bard',      name: '음유시인',   icon: '🎵', grade: 1, role: '치유',   atk: 8,  def: 7,  hp: 95,  spd: 10, skill: { name: '전투가', buffAll: 'atk+15%', cd: 15, desc: '아군 ATK+15%' } },
+  { id: 'merc_berserker', name: '광전사',     icon: '😤', grade: 1, role: '전사',   atk: 24, def: 4,  hp: 130, spd: 11, element: 'fire', skill: { name: '분노', dmg: 3.0, selfDmg: 20, cd: 8, desc: '3배, 자해 20' } },
+  { id: 'merc_bard',      name: '음유시인',   icon: '🎵', grade: 1, role: '치유',   atk: 8,  def: 7,  hp: 95,  spd: 10, element: 'wind', skill: { name: '전투가', buffAll: 'atk+15%', cd: 15, desc: '아군 ATK+15%' } },
   // 희귀
-  { id: 'merc_ninja',     name: '닌자',       icon: '🥷', grade: 2, role: '암살',   atk: 32, def: 5,  hp: 85,  spd: 18, skill: { name: '분신술', summon: 2, cd: 16, desc: '분신 2체' } },
-  { id: 'merc_necro',     name: '강령술사',   icon: '💀', grade: 2, role: '마법',   atk: 26, def: 7,  hp: 100, spd: 8,  skill: { name: '해골 소환', summon: 4, cd: 20, desc: '해골 4체 소환' } },
-  { id: 'merc_valkyrie',  name: '발키리',     icon: '🦢', grade: 2, role: '전사',   atk: 28, def: 16, hp: 180, spd: 12, skill: { name: '창 돌진', dmg: 3.5, pierce: true, cd: 10, desc: '관통 3.5배' } },
+  { id: 'merc_ninja',     name: '닌자',       icon: '🥷', grade: 2, role: '암살',   atk: 32, def: 5,  hp: 85,  spd: 18, element: 'wind', skill: { name: '분신술', summon: 2, cd: 16, desc: '분신 2체' } },
+  { id: 'merc_necro',     name: '강령술사',   icon: '💀', grade: 2, role: '마법',   atk: 26, def: 7,  hp: 100, spd: 8,  element: 'dark', skill: { name: '해골 소환', summon: 4, cd: 20, desc: '해골 4체 소환' } },
+  { id: 'merc_valkyrie',  name: '발키리',     icon: '🦢', grade: 2, role: '전사',   atk: 28, def: 16, hp: 180, spd: 12, element: 'light', skill: { name: '창 돌진', dmg: 3.5, pierce: true, cd: 10, desc: '관통 3.5배' } },
   // 영웅
-  { id: 'merc_phoenix',   name: '불사조 기사',icon: '🔥', grade: 3, role: '전사',   atk: 38, def: 20, hp: 350, spd: 13, skill: { name: '불사', revive: true, cd: 60, desc: '사망 시 부활' } },
-  { id: 'merc_frost_queen',name:'서리 여왕',  icon: '❄️', grade: 3, role: '마법',   atk: 44, def: 12, hp: 180, spd: 10, skill: { name: '절대영도', dmg: 5.5, aoe: true, stun: 3, cd: 22, desc: '전체 빙결+5.5배' } },
+  { id: 'merc_phoenix',   name: '불사조 기사',icon: '🔥', grade: 3, role: '전사',   atk: 38, def: 20, hp: 350, spd: 13, element: 'fire', skill: { name: '불사', revive: true, cd: 60, desc: '사망 시 부활' } },
+  { id: 'merc_frost_queen',name:'서리 여왕',  icon: '❄️', grade: 3, role: '마법',   atk: 44, def: 12, hp: 180, spd: 10, element: 'water', skill: { name: '절대영도', dmg: 5.5, aoe: true, stun: 3, cd: 22, desc: '전체 빙결+5.5배' } },
   // 전설
-  { id: 'merc_celestial',  name: '천상의 기사',icon: '✨', grade: 4, role: '전사',  atk: 60, def: 40, hp: 550, spd: 14, skill: { name: '신성 심판', dmg: 7.0, aoe: true, heal: 100, cd: 28, desc: '7배+아군힐' } },
+  { id: 'merc_celestial',  name: '천상의 기사',icon: '✨', grade: 4, role: '전사',  atk: 60, def: 40, hp: 550, spd: 14, element: 'light', skill: { name: '신성 심판', dmg: 7.0, aoe: true, heal: 100, cd: 28, desc: '7배+아군힐' } },
 
   // ── v3.7 신규 용병 (60종 완성) ──
   // 일반 (고용소 전용)
-  { id: 'merc_militia',    name: '민병대원',   icon: '🪖', grade: 0, role: '전사', atk: 10, def: 9,  hp: 125, spd: 8,  skill: { name: '방패벽', def_buff: 20, cd: 10, desc: 'DEF+20 (5초)' }, personality: 'loyal' },
-  { id: 'merc_herbalist',  name: '약초사',     icon: '🌱', grade: 0, role: '치유', atk: 5,  def: 5,  hp: 85,  spd: 8,  skill: { name: '약초 치유', heal: 25, hpRegen: 2, cd: 8, desc: 'HP25+재생' }, personality: 'kind' },
+  { id: 'merc_militia',    name: '민병대원',   icon: '🪖', grade: 0, role: '전사', atk: 10, def: 9,  hp: 125, spd: 8,  element: null, skill: { name: '방패벽', def_buff: 20, cd: 10, desc: 'DEF+20 (5초)' }, personality: 'loyal' },
+  { id: 'merc_herbalist',  name: '약초사',     icon: '🌱', grade: 0, role: '치유', atk: 5,  def: 5,  hp: 85,  spd: 8,  element: 'earth', skill: { name: '약초 치유', heal: 25, hpRegen: 2, cd: 8, desc: 'HP25+재생' }, personality: 'kind' },
   // 고급 (지역별 고용소 전용)
-  { id: 'merc_pirate_cap',name: '해적 선장',   icon: '🏴', grade: 1, role: '암살', atk: 21, def: 8,  hp: 120, spd: 13, skill: { name: '포격', dmg: 2.8, aoe: true, cd: 12, desc: '광역 2.8배' }, personality: 'greedy', hireOnly: 'piratePort' },
-  { id: 'merc_elf_scout', name: '엘프 정찰병', icon: '🧝', grade: 1, role: '사수', atk: 19, def: 6,  hp: 90,  spd: 15, skill: { name: '정밀 사격', dmg: 2.2, critGuarantee: true, cd: 10, desc: '확크리 2.2배' }, personality: 'honest', hireOnly: 'spiritAltar' },
+  { id: 'merc_pirate_cap',name: '해적 선장',   icon: '🏴', grade: 1, role: '암살', atk: 21, def: 8,  hp: 120, spd: 13, element: 'water', skill: { name: '포격', dmg: 2.8, aoe: true, cd: 12, desc: '광역 2.8배' }, personality: 'greedy', hireOnly: 'piratePort' },
+  { id: 'merc_elf_scout', name: '엘프 정찰병', icon: '🧝', grade: 1, role: '사수', atk: 19, def: 6,  hp: 90,  spd: 15, element: 'wind', skill: { name: '정밀 사격', dmg: 2.2, critGuarantee: true, cd: 10, desc: '확크리 2.2배' }, personality: 'honest', hireOnly: 'spiritAltar' },
   // 희귀 (특수 조건 고용)
-  { id: 'merc_rune_knight',name: '룬 기사',    icon: '🔷', grade: 2, role: '전사', atk: 28, def: 18, hp: 210, spd: 10, skill: { name: '룬 폭발', dmg: 3.5, aoe: true, cd: 14, desc: '광역 3.5배+룬' }, personality: 'scholar' },
-  { id: 'merc_shadow_dancer',name:'그림자 무희',icon: '🌙', grade: 2, role: '암살', atk: 31, def: 5,  hp: 80,  spd: 19, skill: { name: '그림자 춤', dmg: 3.0, hits: 3, cd: 12, desc: '3연격 3배' }, personality: 'cheerful' },
+  { id: 'merc_rune_knight',name: '룬 기사',    icon: '🔷', grade: 2, role: '전사', atk: 28, def: 18, hp: 210, spd: 10, element: 'fire', skill: { name: '룬 폭발', dmg: 3.5, aoe: true, cd: 14, desc: '광역 3.5배+룬' }, personality: 'scholar' },
+  { id: 'merc_shadow_dancer',name:'그림자 무희',icon: '🌙', grade: 2, role: '암살', atk: 31, def: 5,  hp: 80,  spd: 19, element: 'dark', skill: { name: '그림자 춤', dmg: 3.0, hits: 3, cd: 12, desc: '3연격 3배' }, personality: 'cheerful' },
   // 영웅 (합성/이벤트 전용)
-  { id: 'merc_storm_lord', name: '폭풍의 군주', icon: '⛈️', grade: 3, role: '마법', atk: 47, def: 14, hp: 230, spd: 14, skill: { name: '뇌신의 창', dmg: 6.5, aoe: true, stun: 2, cd: 20, desc: '전체 6.5배+스턴' }, personality: 'warlike' },
-  { id: 'merc_blood_queen',name: '피의 여왕',  icon: '🩸', grade: 3, role: '암살', atk: 44, def: 12, hp: 250, spd: 16, skill: { name: '피의 갈증', dmg: 5.0, lifesteal: 50, cd: 18, desc: '5배+HP50% 흡수' }, personality: 'mad' },
+  { id: 'merc_storm_lord', name: '폭풍의 군주', icon: '⛈️', grade: 3, role: '마법', atk: 47, def: 14, hp: 230, spd: 14, element: 'wind', skill: { name: '뇌신의 창', dmg: 6.5, aoe: true, stun: 2, cd: 20, desc: '전체 6.5배+스턴' }, personality: 'warlike' },
+  { id: 'merc_blood_queen',name: '피의 여왕',  icon: '🩸', grade: 3, role: '암살', atk: 44, def: 12, hp: 250, spd: 16, element: 'dark', skill: { name: '피의 갈증', dmg: 5.0, lifesteal: 50, cd: 18, desc: '5배+HP50% 흡수' }, personality: 'mad' },
   // 전설 (최고 레어)
-  { id: 'merc_time_lord',  name: '시간의 지배자',icon:'⏰', grade: 4, role: '마법', atk: 58, def: 18, hp: 380, spd: 16, skill: { name: '시간 역행', rewind: true, aoe: true, cd: 45, desc: '3초 전 상태로 복원' }, personality: 'scholar' },
-  { id: 'merc_nature_god', name: '자연신',      icon: '🌳', grade: 4, role: '치유', atk: 30, def: 35, hp: 650, spd: 10, skill: { name: '대자연의 힘', healAll: 200, revive: true, shield: 100, cd: 50, desc: '전체 200힐+부활+보호막' }, personality: 'kind' },
+  { id: 'merc_time_lord',  name: '시간의 지배자',icon:'⏰', grade: 4, role: '마법', atk: 58, def: 18, hp: 380, spd: 16, element: 'wind', skill: { name: '시간 역행', rewind: true, aoe: true, cd: 45, desc: '3초 전 상태로 복원' }, personality: 'scholar' },
+  { id: 'merc_nature_god', name: '자연신',      icon: '🌳', grade: 4, role: '치유', atk: 30, def: 35, hp: 650, spd: 10, element: 'earth', skill: { name: '대자연의 힘', healAll: 200, revive: true, shield: 100, cd: 50, desc: '전체 200힐+부활+보호막' }, personality: 'kind' },
   // 신화 (합성 전용 최강)
-  { id: 'merc_emperor',    name: '패왕',        icon: '👑', grade: 5, role: '전사', atk: 110, def: 70, hp: 1200, spd: 16, skill: { name: '패왕의 위엄', dmg: 12.0, aoe: true, stun: 5, cd: 35, desc: '전체 12배+5초기절' }, personality: 'noble', fusionOnly: true },
-  { id: 'merc_transcender',name: '초월자',      icon: '🌟', grade: 5, role: '마법', atk: 120, def: 45, hp: 800, spd: 25, skill: { name: '초월', dmg: 15.0, aoe: true, cd: 40, desc: '전체 15배!!! (궁극)' }, personality: 'scholar', fusionOnly: true },
+  { id: 'merc_emperor',    name: '패왕',        icon: '👑', grade: 5, role: '전사', atk: 110, def: 70, hp: 1200, spd: 16, element: 'light', skill: { name: '패왕의 위엄', dmg: 12.0, aoe: true, stun: 5, cd: 35, desc: '전체 12배+5초기절' }, personality: 'noble', fusionOnly: true },
+  { id: 'merc_transcender',name: '초월자',      icon: '🌟', grade: 5, role: '마법', atk: 120, def: 45, hp: 800, spd: 25, element: 'light', skill: { name: '초월', dmg: 15.0, aoe: true, cd: 40, desc: '전체 15배!!! (궁극)' }, personality: 'scholar', fusionOnly: true },
 ];
 
 // ═══ v3.7 성격 시스템 ═══
@@ -326,31 +326,111 @@ function setParty(player, mercUids) {
   return { success: true, party: party.map(m => ({ uid: m.uid, name: m.name, icon: m.icon, level: m.level, stars: m.stars })) };
 }
 
-// 전투력 계산
+// 전투력 계산 (v3.8 — 성격 보정 + 유대 보너스 반영)
 function calcCombatPower(merc) {
   let atk = merc.atk, def = merc.def, hp = merc.hp;
   if (merc.equipment.weapon) { atk += merc.equipment.weapon.atk || 0; }
   if (merc.equipment.armor) { def += merc.equipment.armor.def || 0; hp += merc.equipment.armor.hp || 0; }
-  return Math.floor((atk * 2 + def * 1.5 + hp * 0.3) * (1 + merc.stars * 0.15));
+
+  // 성격 스탯 보정
+  const p = PERSONALITIES[merc.personality];
+  if (p) {
+    atk = Math.floor(atk * (p.atkMod || 1));
+    def = Math.floor(def * (p.defMod || 1));
+  }
+
+  // 유대 보너스 (loyalty / 1000, 최대 25%)
+  let bondMult = 1;
+  if (merc._bond && merc._bond.loyalty) {
+    bondMult = 1 + Math.min(merc._bond.loyalty / 1000, 0.25);
+  }
+
+  return Math.floor((atk * 2 + def * 1.5 + hp * 0.3) * (1 + merc.stars * 0.15) * bondMult);
+}
+
+// 파티 시너지 계산 (v3.8)
+function calcPartySynergy(party) {
+  let synergyScore = 0;
+  for (let i = 0; i < party.length; i++) {
+    for (let j = i + 1; j < party.length; j++) {
+      const pA = PERSONALITIES[party[i].personality];
+      const pB = PERSONALITIES[party[j].personality];
+      if (pA && pA.synergy) {
+        // 'all' 키는 모든 파트너에게 적용
+        if (pA.synergy.all !== undefined) synergyScore += pA.synergy.all;
+        if (pA.synergy[party[j].personality] !== undefined) synergyScore += pA.synergy[party[j].personality];
+      }
+      if (pB && pB.synergy) {
+        if (pB.synergy.all !== undefined) synergyScore += pB.synergy.all;
+        if (pB.synergy[party[i].personality] !== undefined) synergyScore += pB.synergy[party[i].personality];
+      }
+    }
+  }
+  return synergyScore;
+}
+
+// 파티 총 전투력 (시너지 반영) (v3.8)
+function calcPartyPower(player) {
+  const mercs = getPlayerMercs(player);
+  const partyMercs = mercs.roster.filter(m => mercs.party.includes(m.uid));
+  const basePower = partyMercs.reduce((s, m) => s + calcCombatPower(m), 0);
+  const synergy = calcPartySynergy(partyMercs);
+
+  let synergyMult = 1;
+  if (synergy > 0) {
+    synergyMult = 1 + synergy * 0.02; // +2% per positive point
+  } else if (synergy < 0) {
+    synergyMult = 1 + synergy * 0.01; // -1% per negative point (penalty)
+  }
+  synergyMult = Math.max(synergyMult, 0.5); // floor at 50%
+
+  return { basePower, synergyScore: synergy, synergyMult, totalPower: Math.floor(basePower * synergyMult) };
 }
 
 // 용병 상태 조회
 function getMercStatus(player) {
   const mercs = getPlayerMercs(player);
+  const partyMercs = mercs.roster.filter(m => mercs.party.includes(m.uid));
+  const synergyScore = calcPartySynergy(partyMercs);
+  const partyPowerInfo = calcPartyPower(player);
+
   return {
-    roster: mercs.roster.map(m => ({
-      uid: m.uid, id: m.id, name: m.name, icon: m.icon,
-      grade: m.grade, gradeColor: GRADE_COLORS[m.grade],
-      level: m.level, exp: m.exp, expToNext: EXP_PER_LEVEL(m.level),
-      atk: m.atk, def: m.def, hp: m.hp, spd: m.spd,
-      stars: m.stars, skillLevel: m.skillLevel, skillName: m.skill.name,
-      equipment: m.equipment, combatPower: calcCombatPower(m),
-      role: m.role,
-      inParty: mercs.party.includes(m.uid),
-    })),
+    roster: mercs.roster.map(m => {
+      const pInfo = PERSONALITIES[m.personality];
+      const bondBonus = (m._bond && m._bond.loyalty) ? Math.min(m._bond.loyalty / 1000, 0.25) : 0;
+      // 속성 정보
+      const baseDef = MERCENARIES.find(md => md.id === m.id);
+      const element = m.element || (baseDef ? baseDef.element : null);
+      const ELEM_ICONS = { fire: '🔥', water: '💧', earth: '🪨', wind: '🌪️', light: '✨', dark: '🌑' };
+      const ELEM_NAMES = { fire: '화', water: '수', earth: '지', wind: '풍', light: '광', dark: '암' };
+
+      // 진형 정보
+      const formation = player._mercFormation || {};
+      const posMap = formation.customPositions || {};
+      const myPos = posMap[m.uid] || null;
+
+      return {
+        uid: m.uid, id: m.id, name: m.name, icon: m.icon,
+        grade: m.grade, gradeColor: GRADE_COLORS[m.grade],
+        level: m.level, exp: m.exp, expToNext: EXP_PER_LEVEL(m.level),
+        atk: m.atk, def: m.def, hp: m.hp, spd: m.spd,
+        stars: m.stars, skillLevel: m.skillLevel, skillName: m.skill.name,
+        equipment: m.equipment, combatPower: calcCombatPower(m),
+        role: m.role,
+        personalityName: pInfo ? pInfo.name : '없음',
+        bondBonus: Math.floor(bondBonus * 100) + '%',
+        inParty: mercs.party.includes(m.uid),
+        // v4.4: 속성/진형
+        element, elementIcon: ELEM_ICONS[element] || '', elementName: ELEM_NAMES[element] || '무',
+        position: myPos,
+      };
+    }),
     party: mercs.party,
     maxRoster: mercs.maxRoster,
-    totalPower: mercs.roster.filter(m => mercs.party.includes(m.uid)).reduce((s, m) => s + calcCombatPower(m), 0),
+    synergyScore,
+    파티시너지: synergyScore > 0 ? `+${synergyScore} (ATK +${synergyScore * 2}%)` : synergyScore < 0 ? `${synergyScore} (DEF ${synergyScore}%)` : '0 (보통)',
+    partyPower: partyPowerInfo,
+    totalPower: partyPowerInfo.totalPower,
   };
 }
 
@@ -563,4 +643,4 @@ function registerMercHandlers(socket, playerId, players, io) {
   });
 }
 
-module.exports = { MERCENARIES, MERC_EQUIPMENT, GRADES, GRADE_COLORS, PERSONALITIES, PROMOTION_TREE, applyPersonality, addMercenary, addMercExp, getMercStatus, registerMercHandlers, calcCombatPower, getPlayerMercs };
+module.exports = { MERCENARIES, MERC_EQUIPMENT, GRADES, GRADE_COLORS, GRADE_STAT_MULT, PERSONALITIES, PROMOTION_TREE, applyPersonality, addMercenary, addMercExp, getMercStatus, registerMercHandlers, calcCombatPower, calcPartySynergy, calcPartyPower, getPlayerMercs };

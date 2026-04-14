@@ -1567,6 +1567,55 @@ function handleCollisions() {
                         io.to(realOwner.id).emit('ultimate_gauge', { gauge, max: ce.ULTIMATE_CONFIG.maxGauge, name: ult.name });
                     } catch(e) {}
 
+                    // v4.8: 메인 게임 몬스터 킬 → SLG 재료 드롭
+                    if (!realOwner.isBot) {
+                      try {
+                        if (!realOwner._slgMaterials) realOwner._slgMaterials = { materials: 0, bloodlineFrags: 0, evolutionStones: 0 };
+                        if (!realOwner._territory) realOwner._territory = { resources: {} };
+                        if (!realOwner._territory.resources) realOwner._territory.resources = {};
+                        const tierDrops = { normal: 0.1, elite: 0.25, rare: 0.5, boss: 1.0, legendary: 1.0, worldboss: 1.0 };
+                        const dropChance = tierDrops[mob.tier] || 0.1;
+                        // 재료 드롭 (확률 기반)
+                        if (Math.random() < dropChance) {
+                          const matAmount = mob.tier === 'boss' ? 5 : mob.tier === 'elite' ? 2 : 1;
+                          realOwner._slgMaterials.materials += matAmount;
+                          io.to(realOwner.id).emit('slg_drop', { type: 'material', amount: matAmount, msg: '🧱 재료 +' + matAmount });
+                        }
+                        // 혈통 조각 (엘리트+ 10%)
+                        if (['elite','rare','boss','legendary','worldboss'].includes(mob.tier) && Math.random() < 0.10) {
+                          realOwner._slgMaterials.bloodlineFrags++;
+                          io.to(realOwner.id).emit('slg_drop', { type: 'bloodline', amount: 1, msg: '🩸 혈통 조각 +1' });
+                        }
+                        // 진화석 (보스 20%)
+                        if (['boss','legendary','worldboss'].includes(mob.tier) && Math.random() < 0.20) {
+                          realOwner._slgMaterials.evolutionStones++;
+                          io.to(realOwner.id).emit('slg_drop', { type: 'evolution', amount: 1, msg: '💎 진화석 +1' });
+                        }
+                        // 용병 카드 (보스 5%, 월드보스 15%)
+                        if ((mob.tier === 'boss' && Math.random() < 0.05) || (mob.tier === 'worldboss' && Math.random() < 0.15)) {
+                          try {
+                            const mercSys = require('./mercenary_system');
+                            const pool = mercSys.MERCENARIES.filter(m => m.grade <= (mob.tier === 'worldboss' ? 3 : 1));
+                            if (pool.length > 0) {
+                              const picked = pool[Math.floor(Math.random() * pool.length)];
+                              const addResult = mercSys.addMercenary(realOwner, picked.id);
+                              if (addResult.success) {
+                                io.to(realOwner.id).emit('slg_drop', { type: 'merc_card', name: picked.name, icon: picked.icon, msg: '🎴 ' + picked.name + ' 카드 획득!' });
+                                io.emit('server_msg', { msg: '🎴 ' + realOwner.displayName + '이(가) ' + picked.icon + picked.name + ' 용병 카드를 획득!', type: 'rare' });
+                              }
+                            }
+                          } catch(e2) {}
+                        }
+                        // 영지 자원 (모든 몬스터, 30% 확률)
+                        if (Math.random() < 0.30) {
+                          const resTypes = ['wood', 'iron', 'food'];
+                          const resType = resTypes[Math.floor(Math.random() * resTypes.length)];
+                          const resAmt = mob.tier === 'boss' ? 10 : mob.tier === 'elite' ? 3 : 1;
+                          realOwner._territory.resources[resType] = (realOwner._territory.resources[resType] || 0) + resAmt;
+                        }
+                      } catch(e) {}
+                    }
+
                     // v2.59: 튜토리얼 진행 (킬)
                     try {
                         const tut = require('./tutorial');
@@ -1959,6 +2008,36 @@ function handlePlayerDeath(target, targetId, owner, attackerId) {
             expLoss,
             karma: target.karma
         });
+    }
+
+    // v4.8: PK 사망 → SLG 페널티 (용병 친밀도 하락 + 재료 손실)
+    if (!target.isBot && isPK) {
+      try {
+        // 용병 친밀도 하락 (파티 용병 -10)
+        const mercSys = require('./mercenary_system');
+        const mercs = mercSys.getPlayerMercs(target);
+        const partyMercs = mercs.roster.filter(m => mercs.party.includes(m.uid));
+        for (const m of partyMercs) {
+          if (m._bond && m._bond.loyalty > 0) {
+            m._bond.loyalty = Math.max(0, m._bond.loyalty - 10);
+          }
+        }
+        if (partyMercs.length > 0) {
+          io.to(targetId).emit('combat_log', { msg: `[SLG] PK 사망! 파티 용병 ${partyMercs.length}명의 친밀도가 하락했습니다 (-10)` });
+        }
+        // SLG 재료 10% 손실
+        if (target._slgMaterials) {
+          const matLoss = Math.floor((target._slgMaterials.materials || 0) * 0.1);
+          if (matLoss > 0) {
+            target._slgMaterials.materials -= matLoss;
+            io.to(targetId).emit('combat_log', { msg: `[SLG] 재료 -${matLoss} 손실!` });
+            // 킬러가 재료 획득
+            if (!realKiller._slgMaterials) realKiller._slgMaterials = { materials: 0, bloodlineFrags: 0, evolutionStones: 0 };
+            realKiller._slgMaterials.materials += matLoss;
+            io.to(realKiller.id).emit('slg_drop', { type: 'loot', amount: matLoss, msg: '🧱 약탈 재료 +' + matLoss });
+          }
+        }
+      } catch(e) {}
     }
 
     // 사망 패널티 (알비온 스타일 — 약탈)

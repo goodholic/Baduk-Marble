@@ -140,6 +140,41 @@ function applySLGBonus(player, session) {
     session._mercBonus.powerBonus = atkBonus;
     session._mercBonus.totalPower = totalPower;
   }
+
+  // v4.7: 파티 시너지 보너스 → IO 스탯 반영
+  if (party.length >= 2) {
+    const synergyInfo = mercSystem.calcPartySynergy(party);
+    if (synergyInfo > 0) {
+      const synergyAtk = Math.floor(session.atk * synergyInfo * 0.02);
+      session.atk += synergyAtk;
+      session._mercBonus.synergyBonus = synergyAtk;
+      session._mercBonus.synergyScore = synergyInfo;
+    }
+  }
+
+  // v4.7: 속성 보너스 — 파티에 다양한 속성이 있으면 추가 보너스
+  const elements = new Set(party.map(m => m.element).filter(Boolean));
+  if (elements.size >= 3) {
+    const elemBonus = elements.size * 3; // 3속성 이상: 속성 수 × ATK +3
+    session.atk += elemBonus;
+    session._mercBonus.elementDiversity = elements.size;
+    session._mercBonus.elementBonus = elemBonus;
+  }
+
+  // v4.7: 진형 프리셋 보너스 → IO 스탯 반영
+  try {
+    const formation = require('./merc_formation');
+    const formInfo = formation.getFormation(player);
+    if (formInfo && formInfo.formationId) {
+      const bonus = formation.getFormationBonuses(formInfo.formationId);
+      if (bonus) {
+        if (bonus.atkBonus) session.atk += Math.floor(session.atk * bonus.atkBonus);
+        if (bonus.defBonus) session.def += Math.floor(session.def * bonus.defBonus);
+        if (bonus.hpBonus) { session.maxHp += Math.floor(session.maxHp * bonus.hpBonus); session.hp += Math.floor(session.maxHp * bonus.hpBonus); }
+        session._mercBonus.formation = formInfo.formationId;
+      }
+    }
+  } catch(e) {}
 }
 
 // ═══ 서바이벌 세션 ═══
@@ -511,7 +546,7 @@ function getWaveBossName(wave) {
   return bosses[Math.floor(wave / 5) - 1] || '심연의 군주';
 }
 
-function registerSurvivalHandlers(socket, playerId, players, io) {
+function registerSurvivalHandlers(socket, playerId, players, io, savePlayer) {
   socket.on('survival_start', () => {
     const p = players[playerId];
     if (!p) return;
@@ -556,6 +591,44 @@ function registerSurvivalHandlers(socket, playerId, players, io) {
             if (bpResult.leveled) socket.emit('bp_levelup', { level: bpResult.level });
             bp.progressWeeklyMission(p, 'io_10', 1);
           } catch(e) {}
+
+          // v4.7: IO→SLG 재료 드롭 (핵심 순환 루프)
+          try {
+            const slgRewards = { materials: 0, bloodlineFrags: 0, evolutionStones: 0, territoryResources: {} };
+            // 웨이브 수에 비례한 재료
+            slgRewards.materials = Math.floor(result.wave * 2 + result.kills * 0.5);
+            if (result.wave >= 5) slgRewards.bloodlineFrags = Math.floor(result.wave / 5);
+            if (result.wave >= 10) slgRewards.evolutionStones = Math.floor(result.wave / 10);
+            // 영지 자원
+            if (result.wave >= 3) {
+              const resTypes = ['wood', 'iron', 'food'];
+              resTypes.forEach(r => { slgRewards.territoryResources[r] = Math.floor(result.wave * 3); });
+              if (result.wave >= 8) slgRewards.territoryResources.mana_stone = Math.floor(result.wave);
+              if (result.wave >= 15) slgRewards.territoryResources.dragon_tear = Math.floor(result.wave / 5);
+            }
+            // 재료 적용
+            if (!p._slgMaterials) p._slgMaterials = { materials: 0, bloodlineFrags: 0, evolutionStones: 0 };
+            p._slgMaterials.materials += slgRewards.materials;
+            p._slgMaterials.bloodlineFrags += slgRewards.bloodlineFrags;
+            p._slgMaterials.evolutionStones += slgRewards.evolutionStones;
+            // 영지 자원 적용
+            if (!p._territory) p._territory = { resources: {} };
+            if (!p._territory.resources) p._territory.resources = {};
+            for (const [resId, amt] of Object.entries(slgRewards.territoryResources)) {
+              p._territory.resources[resId] = (p._territory.resources[resId] || 0) + amt;
+            }
+            result.rewards.slgRewards = slgRewards;
+            socket.emit('io_slg_rewards', slgRewards);
+          } catch(e) {}
+
+          // v4.7: 튜토리얼 진행 체크
+          try {
+            const tutorial = require('./tutorial_guide');
+            tutorial.checkTutorialProgress(p, 'kill', { count: result.kills });
+          } catch(e) {}
+
+          // v4.7: ★ 핵심 수정 — 보상을 DB에 영속화!
+          try { if (savePlayer) savePlayer(p); } catch(e) {}
         }
         io.emit('server_msg', { msg: '💀 서바이벌 종료! ' + (p?.displayName||'') + ' — 웨이브 ' + result.wave + ', ' + result.kills + '킬, 점수 ' + result.score + (result.rewards?.mercCardName ? ' 🎴 ' + result.rewards.mercCardName + ' 획득!' : ''), type: 'normal' });
       }

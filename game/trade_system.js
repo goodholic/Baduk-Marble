@@ -15,6 +15,67 @@ const TRADE_ROUTES = [
   { id: 'r10',from: '별빛 항구',   to: '동쪽 항구',    goods: '비단',      buy: 250,  sell: 480,  risk: 25, time: 60,  desc: '해상 무역' },
 ];
 
+// ═══ 동적 시장 가격 시스템 ═══
+const marketPrices = {};
+function initMarketPrices() {
+  for (const route of TRADE_ROUTES) {
+    marketPrices[route.id] = {
+      buyPrice: route.buy,
+      sellPrice: route.sell,
+      supply: 100,     // 100% = normal
+      demand: 100,     // 100% = normal
+      trend: 0,        // -2~+2 trend direction
+      lastUpdate: Date.now(),
+    };
+  }
+}
+initMarketPrices();
+
+// ═══ 시장 이벤트 ═══
+const MARKET_EVENTS = [
+  { name: '풍년', icon: '🌾', effect: { routes: ['r1','r9'], supplyMod: +50 }, desc: '곡물/목재 공급 폭증! 매입가 하락' },
+  { name: '해적 출몰', icon: '🏴‍☠️', effect: { routes: ['r2','r10'], riskMod: +30, demandMod: +40 }, desc: '해상 루트 위험! 해산물/비단 수요 급등' },
+  { name: '마법 폭발', icon: '💥', effect: { routes: ['r5'], supplyMod: -40, demandMod: +60 }, desc: '마법 결정 품귀! 가격 급등' },
+  { name: '축제', icon: '🎊', effect: { routes: ['r3','r4'], demandMod: +30 }, desc: '축제로 향신료/광석 수요 증가' },
+  { name: '전쟁', icon: '⚔️', effect: { routes: ['r4','r8'], demandMod: +80, riskMod: +20 }, desc: '전쟁! 광석/용린 가격 폭등' },
+  { name: '역병', icon: '☠️', effect: { routes: ['r7'], demandMod: +100 }, desc: '역병! 성수 가격 폭등' },
+];
+let activeMarketEvent = null;
+
+function updateMarketPrices() {
+  // 5% 확률로 시장 이벤트 발생
+  if (Math.random() < 0.05) {
+    activeMarketEvent = MARKET_EVENTS[Math.floor(Math.random() * MARKET_EVENTS.length)];
+    activeMarketEvent.startTime = Date.now();
+    activeMarketEvent.duration = 10 * 60 * 1000; // 10분간 지속
+  } else if (activeMarketEvent && Date.now() > activeMarketEvent.startTime + activeMarketEvent.duration) {
+    activeMarketEvent = null;
+  }
+
+  for (const route of TRADE_ROUTES) {
+    const mp = marketPrices[route.id];
+    // Random supply/demand shift (-15 to +15)
+    mp.supply = Math.max(30, Math.min(200, mp.supply + (Math.random() * 30 - 15)));
+    mp.demand = Math.max(30, Math.min(200, mp.demand + (Math.random() * 30 - 15)));
+    // Trend momentum
+    mp.trend = Math.max(-2, Math.min(2, mp.trend + (Math.random() * 2 - 1)));
+    mp.supply = Math.max(30, Math.min(200, mp.supply + mp.trend * 3));
+
+    // 시장 이벤트 효과 적용
+    if (activeMarketEvent && activeMarketEvent.effect.routes.includes(route.id)) {
+      const eff = activeMarketEvent.effect;
+      if (eff.supplyMod) mp.supply = Math.max(30, Math.min(200, mp.supply + eff.supplyMod));
+      if (eff.demandMod) mp.demand = Math.max(30, Math.min(200, mp.demand + eff.demandMod));
+    }
+
+    // Price calculation: buy inversely proportional to supply, sell proportional to demand
+    mp.buyPrice = Math.floor(route.buy * (mp.supply / 100));
+    mp.sellPrice = Math.floor(route.sell * (mp.demand / 100));
+    mp.lastUpdate = Date.now();
+  }
+  return marketPrices;
+}
+
 const CARAVAN_UPGRADES = [
   { id: 'wagon',  name: '마차 확장',   icon: '🛒', cost: 5000,  effect: { capacity: 5 }, desc: '적재량 +5' },
   { id: 'guard',  name: '호위 강화',   icon: '⚔️', cost: 8000,  effect: { defense: 15 }, desc: '도적 방어 +15%' },
@@ -36,7 +97,9 @@ function startTrade(player, routeId, quantity) {
   if (!route) return { success: false, msg: '루트 없음' };
 
   quantity = Math.min(quantity || 1, trade.capacity);
-  const totalCost = route.buy * quantity;
+  const mp = marketPrices[route.id];
+  const currentBuyPrice = mp ? mp.buyPrice : route.buy;
+  const totalCost = currentBuyPrice * quantity;
   if ((player.gold || 0) < totalCost) return { success: false, msg: '골드 부족 (필요: ' + totalCost + 'G)' };
 
   player.gold -= totalCost;
@@ -76,15 +139,23 @@ function checkTradeArrival(player) {
     if (u && u.effect.defense) defenseBonus += u.effect.defense;
   }
 
-  const robbed = Math.random() * 100 < (route.risk - defenseBonus);
+  // 시장 이벤트에 의한 위험도 보정
+  let riskMod = 0;
+  if (activeMarketEvent && activeMarketEvent.effect.routes.includes(route.id) && activeMarketEvent.effect.riskMod) {
+    riskMod = activeMarketEvent.effect.riskMod;
+  }
+  const robbed = Math.random() * 100 < (route.risk + riskMod - defenseBonus);
   let profit = 0;
   let lostGoods = 0;
 
+  const mp = marketPrices[route.id];
+  const currentSellPrice = mp ? mp.sellPrice : route.sell;
+
   if (robbed) {
     lostGoods = Math.ceil(trip.quantity * 0.3); // 30% 손실
-    profit = (trip.quantity - lostGoods) * route.sell - trip.totalCost;
+    profit = (trip.quantity - lostGoods) * currentSellPrice - trip.totalCost;
   } else {
-    profit = trip.quantity * route.sell - trip.totalCost;
+    profit = trip.quantity * currentSellPrice - trip.totalCost;
     // 행운 보너스
     let bonusChance = 0;
     for (const upg of trade.upgrades) {
@@ -154,6 +225,31 @@ function registerTradeHandlers(socket, playerId, players, io) {
     if (!p) return;
     socket.emit('trade_result', upgradeCaravan(p, upgradeId));
   });
+
+  socket.on('trade_market', () => {
+    const prices = TRADE_ROUTES.map(r => {
+      const mp = marketPrices[r.id];
+      const trendArrow = mp.trend > 0.5 ? '📈' : mp.trend < -0.5 ? '📉' : '➡️';
+      return {
+        id: r.id,
+        goods: r.goods,
+        from: r.from,
+        to: r.to,
+        baseBuy: r.buy,
+        baseSell: r.sell,
+        buyPrice: mp.buyPrice,
+        sellPrice: mp.sellPrice,
+        supply: Math.round(mp.supply),
+        demand: Math.round(mp.demand),
+        trend: trendArrow,
+        risk: r.risk,
+      };
+    });
+    socket.emit('trade_market', {
+      prices,
+      event: activeMarketEvent ? { name: activeMarketEvent.name, icon: activeMarketEvent.icon, desc: activeMarketEvent.desc, remaining: Math.max(0, Math.ceil((activeMarketEvent.startTime + activeMarketEvent.duration - Date.now()) / 1000)) } : null,
+    });
+  });
 }
 
 // v3.0: 무역 중 PK — 다른 플레이어의 캐러밴 약탈!
@@ -214,4 +310,4 @@ function registerTradeHandlersV2(socket, playerId, players, io) {
   });
 }
 
-module.exports = { TRADE_ROUTES, CARAVAN_UPGRADES, registerTradeHandlers: registerTradeHandlersV2, raidCaravan };
+module.exports = { TRADE_ROUTES, CARAVAN_UPGRADES, registerTradeHandlers: registerTradeHandlersV2, raidCaravan, updateMarketPrices, marketPrices };

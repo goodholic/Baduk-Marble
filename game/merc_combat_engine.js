@@ -2,6 +2,16 @@
 // 콜로세움/공성전/호위전투/로그라이크 던전 공통 전투 코어
 const { MERCENARIES, PERSONALITIES, GRADE_STAT_MULT, applyPersonality } = require('./mercenary_system');
 
+// ═══ 속성 상성 (6속성) ═══
+const ELEMENTS = {
+  fire:  { strong: 'wind',  weak: 'water' },
+  water: { strong: 'fire',  weak: 'earth' },
+  earth: { strong: 'water', weak: 'wind' },
+  wind:  { strong: 'earth', weak: 'fire' },
+  light: { strong: 'dark',  weak: 'dark' },
+  dark:  { strong: 'light', weak: 'light' },
+};
+
 // ═══ 전투 유닛 생성 ═══
 function createCombatUnit(merc, owner) {
   const baseDef = MERCENARIES.find(m => m.id === merc.id) || merc;
@@ -43,6 +53,7 @@ function createCombatUnit(merc, owner) {
     id: merc.id,
     name: merc.name || baseDef.name || merc.id,
     owner,
+    element: merc.element || baseDef.element || null,
     maxHP: stats.hp,
     currentHP: stats.hp,
     atk: stats.atk,
@@ -82,8 +93,72 @@ function calcDamage(attacker, defender, isSkill, skillData) {
   for (const b of attacker.buffs) { if (b.type === 'atk') atkMult += b.value; }
   for (const d of defender.debuffs) { if (d.type === 'def') defMult -= d.value; }
 
-  const finalDmg = Math.max(1, Math.floor(rawDmg * critMult * atkMult * Math.max(0.1, defMult)));
-  return { dmg: finalDmg, dodged: false, crit: isCrit };
+  // 속성 상성 배율
+  let elementMult = 1.0;
+  let elementAdvantage = false;
+  if (attacker.element && defender.element) {
+    const atkEl = ELEMENTS[attacker.element];
+    if (atkEl) {
+      if (atkEl.strong === defender.element) { elementMult = 1.5; elementAdvantage = true; }
+      else if (atkEl.weak === defender.element) { elementMult = 0.7; elementAdvantage = true; }
+      else if (attacker.element === 'light' && defender.element === 'dark') { elementMult = 1.3; elementAdvantage = true; }
+      else if (attacker.element === 'dark' && defender.element === 'light') { elementMult = 1.3; elementAdvantage = true; }
+    }
+  }
+
+  const finalDmg = Math.max(1, Math.floor(rawDmg * critMult * atkMult * Math.max(0.1, defMult) * elementMult));
+  return { dmg: finalDmg, dodged: false, crit: isCrit, element: elementAdvantage };
+}
+
+// ═══ 진형 포지션 보정 ═══
+const POSITION_MODS = {
+  front:   { atkMod: 0.9, defMod: 1.2, tauntChance: 0.4 },
+  back:    { atkMod: 1.15, defMod: 0.8, protectedChance: 0.6 },
+  flank:   { atkMod: 1.3, defMod: 0.7, targetBackFirst: true },
+  support: { atkMod: 1.0, defMod: 0.9, healMod: 1.3 },
+};
+
+function applyPositionToUnit(unit, position) {
+  const mod = POSITION_MODS[position];
+  if (!mod) return;
+  unit.position = position;
+  unit.atk = Math.floor(unit.atk * mod.atkMod);
+  unit.def = Math.floor(unit.def * mod.defMod);
+  unit.tauntChance = mod.tauntChance || 0;
+  unit.protectedChance = mod.protectedChance || 0;
+  unit.targetBackFirst = mod.targetBackFirst || false;
+  unit.healMod = mod.healMod || 1.0;
+}
+
+// 진형 기반 타겟 선택
+function pickTarget(attacker, enemies) {
+  const frontAlive = enemies.filter(e => e.position === 'front' && e.alive);
+  const backAlive = enemies.filter(e => (e.position === 'back' || e.position === 'support') && e.alive);
+
+  // 유격: 적 후열 우선 공격
+  if (attacker.targetBackFirst && backAlive.length > 0) {
+    return backAlive[Math.floor(Math.random() * backAlive.length)];
+  }
+
+  // 전열 도발: 전열이 살아있으면 40% 확률로 전열이 대신 맞음
+  if (frontAlive.length > 0) {
+    for (const front of frontAlive) {
+      if (Math.random() < (front.tauntChance || 0)) return front;
+    }
+  }
+
+  // 후열 보호: 전열 살아있으면 후열 타겟 확률 60% 감소
+  if (frontAlive.length > 0) {
+    const exposed = enemies.filter(e => e.alive && e.position !== 'back' && e.position !== 'support');
+    const hidden = enemies.filter(e => e.alive && (e.position === 'back' || e.position === 'support'));
+    if (exposed.length > 0 && hidden.length > 0) {
+      // 80% 확률로 전열/유격 공격, 20% 확률로 후열 공격
+      if (Math.random() < 0.8) return exposed[Math.floor(Math.random() * exposed.length)];
+    }
+  }
+
+  // 기본: 랜덤 타겟
+  return enemies[Math.floor(Math.random() * enemies.length)];
 }
 
 // ═══ 턴제 전투 시뮬레이션 ═══
@@ -94,6 +169,13 @@ function simulateBattle(teamA, teamB, options = {}) {
   // 유닛 생성
   const unitsA = teamA.map(m => createCombatUnit(m, 'A'));
   const unitsB = teamB.map(m => createCombatUnit(m, 'B'));
+
+  // 진형 적용 (options.formationA / formationB = ['front','back','flank',...])
+  const positionsA = options.formationA || [];
+  const positionsB = options.formationB || [];
+  unitsA.forEach((u, i) => { if (positionsA[i]) applyPositionToUnit(u, positionsA[i]); });
+  unitsB.forEach((u, i) => { if (positionsB[i]) applyPositionToUnit(u, positionsB[i]); });
+
   const allUnits = [...unitsA, ...unitsB];
 
   for (let turn = 1; turn <= maxTurns; turn++) {
@@ -118,16 +200,17 @@ function simulateBattle(teamA, teamB, options = {}) {
       let action;
 
       if (canSkill && unit.skill.healAll && allies.some(a => a.currentHP < a.maxHP * 0.7)) {
-        // 치유 스킬
-        const healAmt = unit.skill.healAll || 0;
+        // 치유 스킬 (지원 포지션 보너스)
+        const baseHeal = unit.skill.healAll || 0;
+        const healAmt = Math.floor(baseHeal * (unit.healMod || 1.0));
         for (const ally of allies) {
           ally.currentHP = Math.min(ally.maxHP, ally.currentHP + healAmt);
         }
         unit.skillCooldown = unit.skill.cd || 10;
-        action = { type: 'heal', unit: unit.name, skill: unit.skill.name, healAmt, targets: allies.length };
+        action = { type: 'heal', unit: unit.name, skill: unit.skill.name, healAmt, targets: allies.length, position: unit.position };
       } else if (canSkill && unit.skill.dmg) {
         // 공격 스킬
-        const targets = unit.skill.aoe ? enemies : [enemies[0]];
+        const targets = unit.skill.aoe ? enemies : [pickTarget(unit, enemies)];
         const hits = unit.skill.hits || 1;
         let totalDmg = 0;
         for (const target of targets) {
@@ -149,14 +232,14 @@ function simulateBattle(teamA, teamB, options = {}) {
           unit.currentHP = Math.min(unit.maxHP, unit.currentHP + Math.floor(totalDmg * unit.skill.lifesteal / 100));
         }
         unit.skillCooldown = unit.skill.cd || 10;
-        action = { type: 'skill', unit: unit.name, skill: unit.skill.name, totalDmg, targets: targets.map(t => t.name), aoe: !!unit.skill.aoe };
+        action = { type: 'skill', unit: unit.name, skill: unit.skill.name, totalDmg, targets: targets.map(t => t.name), aoe: !!unit.skill.aoe, position: unit.position };
       } else {
-        // 일반 공격
-        const target = enemies[Math.floor(Math.random() * enemies.length)];
+        // 일반 공격 — 진형 기반 타겟 선택
+        const target = pickTarget(unit, enemies);
         const result = calcDamage(unit, target, false, null);
         target.currentHP -= result.dmg;
         if (target.currentHP <= 0) { target.alive = false; target.currentHP = 0; }
-        action = { type: 'attack', unit: unit.name, target: target.name, dmg: result.dmg, crit: result.crit, dodged: result.dodged };
+        action = { type: 'attack', unit: unit.name, target: target.name, dmg: result.dmg, crit: result.crit, dodged: result.dodged, position: unit.position };
       }
 
       log.push({ turn, ...action });
@@ -197,4 +280,4 @@ function findMVP(log) {
   return { name: mvp, totalDmg: maxDmg };
 }
 
-module.exports = { createCombatUnit, calcDamage, simulateBattle };
+module.exports = { createCombatUnit, calcDamage, simulateBattle, applyPositionToUnit, pickTarget, POSITION_MODS };

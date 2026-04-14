@@ -17,28 +17,148 @@ const SIEGE_CFG = {
   throneRadius: 1.5,
 };
 
-// 맵 장애물 (벽) — 5개 벽으로 우회 강제
-const WALLS = [
-  { x1: 3, y1: 5, x2: 10, y2: 5 },    // 좌측 수평 벽
-  { x1: 15, y1: 5, x2: 22, y2: 5 },   // 우측 수평 벽
-  { x1: 5, y1: 10, x2: 5, y2: 14 },   // 좌측 수직 벽
-  { x1: 20, y1: 10, x2: 20, y2: 14 }, // 우측 수직 벽
-  { x1: 8, y1: 15, x2: 17, y2: 15 },  // 왕좌 전 수평 벽 (가운데 통로 열림)
-];
+// ═══ 공성전 맵 변형 5종 ═══
+const SIEGE_MAPS = {
+  fortress: {
+    name: '철벽 요새', icon: '🏰', desc: '좁은 통로, 강력한 방어',
+    walls: [
+      // 좌측 외벽 — 좁은 통로만 남김
+      { x1: 0, y1: 4, x2: 10, y2: 4 },
+      { x1: 0, y1: 8, x2: 8, y2: 8 },
+      // 우측 외벽
+      { x1: 15, y1: 4, x2: 25, y2: 4 },
+      { x1: 17, y1: 8, x2: 25, y2: 8 },
+      // 중앙 미로 (S자 통로 강제)
+      { x1: 4, y1: 12, x2: 18, y2: 12 },
+      // 왕좌 전 이중 벽 — 가운데 2칸만 개방
+      { x1: 0, y1: 16, x2: 11, y2: 16 },
+      { x1: 14, y1: 16, x2: 25, y2: 16 },
+      { x1: 6, y1: 18, x2: 10, y2: 18 },
+      { x1: 15, y1: 18, x2: 19, y2: 18 },
+    ],
+    zones: [
+      { type: 'heal', x: 12, y: 6, radius: 1.5, hpPerTick: 3 },
+      { type: 'slow', x: 12, y: 10, radius: 2.5, slowRate: 0.4 },
+      { type: 'slow', x: 5, y: 14, radius: 2, slowRate: 0.5 },
+      { type: 'slow', x: 20, y: 14, radius: 2, slowRate: 0.5 },
+      { type: 'dark', x: 12, y: 17, radius: 2.5 },
+    ],
+    maxTraps: 12, maxDefenders: 10,
+    thronePos: { x: 12, y: 19 },
+  },
 
-// 특수 구역
-const ZONES = [
-  { type: 'heal', x: 12, y: 8, radius: 2, hpPerTick: 5 },       // 회복 지대
-  { type: 'slow', x: 6, y: 12, radius: 2.5, slowRate: 0.5 },    // 감속 지대
-  { type: 'slow', x: 18, y: 12, radius: 2.5, slowRate: 0.5 },   // 감속 지대
-  { type: 'dark', x: 12, y: 16, radius: 3 },                     // 어둠 구역 (시야 차단)
-];
+  plains: {
+    name: '광활한 평원', icon: '🌾', desc: '넓은 공간, 빠른 전투',
+    walls: [
+      // 최소한의 장애물 — 작은 바위 3개
+      { x1: 6, y1: 6, x2: 8, y2: 6 },
+      { x1: 17, y1: 6, x2: 19, y2: 6 },
+      { x1: 11, y1: 12, x2: 14, y2: 12 },
+    ],
+    zones: [
+      { type: 'heal', x: 5, y: 5, radius: 2, hpPerTick: 8 },
+      { type: 'heal', x: 20, y: 5, radius: 2, hpPerTick: 8 },
+      { type: 'heal', x: 12, y: 10, radius: 2, hpPerTick: 5 },
+      { type: 'slow', x: 12, y: 16, radius: 2, slowRate: 0.6 },
+    ],
+    maxTraps: 8, maxDefenders: 6,
+    thronePos: { x: 12, y: 19 },
+  },
+
+  mountain: {
+    name: '험준한 산악', icon: '⛰️', desc: '지그재그 통로, 수직 전투',
+    walls: [
+      // 지그재그 수평 벽 — 교대로 좌/우 개방
+      { x1: 0, y1: 3, x2: 18, y2: 3 },   // 우측 통로
+      { x1: 7, y1: 6, x2: 25, y2: 6 },   // 좌측 통로
+      { x1: 0, y1: 9, x2: 18, y2: 9 },   // 우측 통로
+      { x1: 7, y1: 12, x2: 25, y2: 12 },  // 좌측 통로
+      { x1: 0, y1: 15, x2: 18, y2: 15 },  // 우측 통로
+      // 왕좌 전 최종 관문
+      { x1: 5, y1: 18, x2: 10, y2: 18 },
+      { x1: 15, y1: 18, x2: 20, y2: 18 },
+    ],
+    zones: [
+      { type: 'wind', x: 20, y: 4, radius: 2, pushDx: -1, pushDy: 0 },  // 바람 (밀기)
+      { type: 'wind', x: 5, y: 7, radius: 2, pushDx: 1, pushDy: 0 },
+      { type: 'heal', x: 12, y: 10, radius: 1.5, hpPerTick: 6 },
+      { type: 'slow', x: 12, y: 14, radius: 3, slowRate: 0.3 },
+      { type: 'dark', x: 12, y: 17, radius: 2 },
+    ],
+    maxTraps: 10, maxDefenders: 8,
+    thronePos: { x: 12, y: 19 },
+  },
+
+  swamp: {
+    name: '독의 늪지', icon: '🐊', desc: '전체 감속, 독 지형',
+    walls: [
+      // 섬과 다리 구조 — 물 위 좁은 다리
+      { x1: 3, y1: 3, x2: 3, y2: 7 },   // 좌측 섬 경계
+      { x1: 9, y1: 3, x2: 9, y2: 7 },
+      { x1: 16, y1: 3, x2: 16, y2: 7 }, // 우측 섬 경계
+      { x1: 22, y1: 3, x2: 22, y2: 7 },
+      // 중앙 늪지 구획
+      { x1: 5, y1: 10, x2: 10, y2: 10 },
+      { x1: 15, y1: 10, x2: 20, y2: 10 },
+      // 하단 미로
+      { x1: 2, y1: 14, x2: 8, y2: 14 },
+      { x1: 17, y1: 14, x2: 23, y2: 14 },
+      { x1: 8, y1: 17, x2: 17, y2: 17 },
+    ],
+    zones: [
+      { type: 'slow', x: 6, y: 5, radius: 3, slowRate: 0.4 },
+      { type: 'slow', x: 19, y: 5, radius: 3, slowRate: 0.4 },
+      { type: 'poison', x: 12, y: 8, radius: 3, dotDmg: 4 },
+      { type: 'poison', x: 6, y: 12, radius: 2.5, dotDmg: 3 },
+      { type: 'poison', x: 19, y: 12, radius: 2.5, dotDmg: 3 },
+      { type: 'slow', x: 12, y: 15, radius: 4, slowRate: 0.3 },
+      { type: 'heal', x: 12, y: 12, radius: 1.5, hpPerTick: 10 },
+    ],
+    maxTraps: 10, maxDefenders: 8,
+    thronePos: { x: 12, y: 19 },
+  },
+
+  dragon_peak: {
+    name: '용봉', icon: '🐉', desc: '드래곤 브레스 구역, 최고 난이도',
+    walls: [
+      // 나선형 통로 — 바깥에서 안으로 진입
+      { x1: 2, y1: 2, x2: 23, y2: 2 },     // 최외곽 상
+      { x1: 23, y1: 2, x2: 23, y2: 10 },   // 최외곽 우
+      { x1: 2, y1: 2, x2: 2, y2: 10 },     // 최외곽 좌
+      // 내부 나선
+      { x1: 5, y1: 5, x2: 20, y2: 5 },     // 2층 상 (우측 입구)
+      { x1: 5, y1: 5, x2: 5, y2: 10 },     // 2층 좌
+      { x1: 5, y1: 10, x2: 16, y2: 10 },   // 2층 하 (우측 입구)
+      // 왕좌 앞 용 구역
+      { x1: 3, y1: 14, x2: 10, y2: 14 },
+      { x1: 15, y1: 14, x2: 22, y2: 14 },
+      { x1: 6, y1: 17, x2: 11, y2: 17 },
+      { x1: 14, y1: 17, x2: 19, y2: 17 },
+    ],
+    zones: [
+      { type: 'dragonBreath', x: 12, y: 7, radius: 3, dmgPerTick: 12 },
+      { type: 'dragonBreath', x: 8, y: 13, radius: 2.5, dmgPerTick: 8 },
+      { type: 'dragonBreath', x: 17, y: 13, radius: 2.5, dmgPerTick: 8 },
+      { type: 'dragonBreath', x: 12, y: 16, radius: 3, dmgPerTick: 15 },
+      { type: 'heal', x: 20, y: 8, radius: 1.5, hpPerTick: 8 },
+      { type: 'dark', x: 12, y: 19, radius: 2 },
+    ],
+    maxTraps: 15, maxDefenders: 12,
+    thronePos: { x: 12, y: 19 },
+  },
+};
+
+// 하위 호환용 기본 상수 (기존 코드 참조 시)
+const DEFAULT_MAP_ID = 'fortress';
+const WALLS = SIEGE_MAPS[DEFAULT_MAP_ID].walls;
+const ZONES = SIEGE_MAPS[DEFAULT_MAP_ID].zones;
 
 const activeSieges = {};
 
-// ── 벽 충돌 체크 ──
-function isWallBlocking(x, y) {
-  for (const w of WALLS) {
+// ── 벽 충돌 체크 (walls 파라미터 없으면 기본 WALLS 사용) ──
+function isWallBlocking(x, y, walls) {
+  const wallList = walls || WALLS;
+  for (const w of wallList) {
     const minX = Math.min(w.x1, w.x2) - 0.4;
     const maxX = Math.max(w.x1, w.x2) + 0.4;
     const minY = Math.min(w.y1, w.y2) - 0.4;
@@ -151,8 +271,8 @@ function tryDefenderSkill(def, atk, siege, now) {
   return events.length > 0 ? events : null;
 }
 
-// ── 공성전 시작 ──
-function startSiegeBattle(attackerId, defenderId, players, io) {
+// ── 공성전 시작 (mapId: 맵 선택, 미지정 시 랜덤) ──
+function startSiegeBattle(attackerId, defenderId, players, io, mapId) {
   const attacker = players[attackerId];
   const defender = players[defenderId];
   if (!attacker || !defender) return { success: false, msg: '플레이어 없음' };
@@ -169,6 +289,11 @@ function startSiegeBattle(attackerId, defenderId, players, io) {
 
   const siegeId = 'siege_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
   const castle = defender._castle;
+
+  // 맵 선택 — 지정된 mapId 사용, 없으면 랜덤
+  const mapKeys = Object.keys(SIEGE_MAPS);
+  const selectedMapId = (mapId && SIEGE_MAPS[mapId]) ? mapId : mapKeys[Math.floor(Math.random() * mapKeys.length)];
+  const selectedMap = SIEGE_MAPS[selectedMapId];
 
   // 공격자 스탯 (본인 + 파티 용병 합산)
   let mercSystem;
@@ -194,6 +319,12 @@ function startSiegeBattle(attackerId, defenderId, players, io) {
     attackerId, defenderId,
     attackerName: attacker.displayName || attacker.className,
     defenderName: defender.displayName || defender.className,
+    mapId: selectedMapId,
+    mapName: selectedMap.name,
+    mapIcon: selectedMap.icon,
+    walls: selectedMap.walls,
+    zones: selectedMap.zones,
+    thronePos: selectedMap.thronePos || SIEGE_CFG.thronePos,
 
     attacker: {
       x: SIEGE_CFG.attackerStart.x,
@@ -250,8 +381,9 @@ function startSiegeBattle(attackerId, defenderId, players, io) {
   if (io) {
     const mapInfo = {
       w: SIEGE_CFG.mapWidth, h: SIEGE_CFG.mapHeight,
-      walls: WALLS, zones: ZONES,
-      throne: SIEGE_CFG.thronePos,
+      walls: siege.walls, zones: siege.zones,
+      throne: siege.thronePos,
+      mapId: siege.mapId, mapName: siege.mapName, mapIcon: siege.mapIcon,
     };
     // 공격자: 함정 위치만 보임 (종류 숨김)
     io.to(attackerId).emit('siege_battle_start', {
@@ -270,7 +402,7 @@ function startSiegeBattle(attackerId, defenderId, players, io) {
       timeLimit: SIEGE_CFG.timeLimit,
     });
     io.emit('server_msg', {
-      msg: `🏰 공성전! ${siege.attackerName} → ${siege.defenderName}의 성!`,
+      msg: `${siege.mapIcon} 공성전! ${siege.attackerName} → ${siege.defenderName}의 성! [${siege.mapName}]`,
       type: 'boss',
     });
   }
@@ -313,7 +445,8 @@ function tickSiegeBattle(siegeId, io, players) {
 
   // ── 2. 감속 지대 체크 ──
   let inSlowZone = false;
-  for (const zone of ZONES) {
+  const siegeZones = siege.zones || ZONES;
+  for (const zone of siegeZones) {
     if (zone.type === 'slow' && dist(atk, zone) < zone.radius) {
       inSlowZone = true;
       break;
@@ -321,9 +454,37 @@ function tickSiegeBattle(siegeId, io, players) {
   }
 
   // ── 3. 회복 지대 체크 ──
-  for (const zone of ZONES) {
+  for (const zone of siegeZones) {
     if (zone.type === 'heal' && dist(atk, zone) < zone.radius) {
       atk.hp = Math.min(atk.maxHp, atk.hp + zone.hpPerTick);
+    }
+  }
+
+  // ── 3-1. 독 지대 체크 (늪지 맵) ──
+  for (const zone of siegeZones) {
+    if (zone.type === 'poison' && dist(atk, zone) < zone.radius) {
+      atk.hp -= (zone.dotDmg || 3);
+      if (atk.hp <= 0) { atk.alive = false; return endSiegeBattle(siegeId, 'defender', '독 지대로 사망', io, players); }
+    }
+  }
+
+  // ── 3-2. 드래곤 브레스 체크 (용봉 맵) ──
+  for (const zone of siegeZones) {
+    if (zone.type === 'dragonBreath' && dist(atk, zone) < zone.radius) {
+      atk.hp -= (zone.dmgPerTick || 10);
+      if (atk.hp <= 0) { atk.alive = false; return endSiegeBattle(siegeId, 'defender', '드래곤 브레스로 사망', io, players); }
+    }
+  }
+
+  // ── 3-3. 바람 구역 체크 (산악 맵) ──
+  for (const zone of siegeZones) {
+    if (zone.type === 'wind' && dist(atk, zone) < zone.radius) {
+      const pushX = atk.x + (zone.pushDx || 0) * 0.3;
+      const pushY = atk.y + (zone.pushDy || 0) * 0.3;
+      if (!isWallBlocking(pushX, pushY, siege.walls)) {
+        atk.x = Math.max(0, Math.min(SIEGE_CFG.mapWidth, pushX));
+        atk.y = Math.max(0, Math.min(SIEGE_CFG.mapHeight, pushY));
+      }
     }
   }
 
@@ -468,7 +629,7 @@ function tickSiegeBattle(siegeId, io, players) {
   siege.summons = siege.summons.filter(s => s.alive);
 
   // ── 6. 왕좌 도달 체크 ──
-  if (dist(atk, SIEGE_CFG.thronePos) < SIEGE_CFG.throneRadius) {
+  if (dist(atk, siege.thronePos || SIEGE_CFG.thronePos) < SIEGE_CFG.throneRadius) {
     return endSiegeBattle(siegeId, 'attacker', '왕좌 점령!', io, players);
   }
 
@@ -505,7 +666,8 @@ function siegeMove(siegeId, dx, dy) {
   let speed = SIEGE_CFG.moveSpeed;
   if (Date.now() < atk.slowUntil) speed *= atk.slowRate;
   // 감속 지대 체크
-  for (const zone of ZONES) {
+  const moveZones = siege.zones || ZONES;
+  for (const zone of moveZones) {
     if (zone.type === 'slow' && dist(atk, zone) < zone.radius) {
       speed *= zone.slowRate;
       break;
@@ -515,8 +677,8 @@ function siegeMove(siegeId, dx, dy) {
   const newX = Math.max(0, Math.min(SIEGE_CFG.mapWidth, atk.x + dx * speed));
   const newY = Math.max(0, Math.min(SIEGE_CFG.mapHeight, atk.y + dy * speed));
 
-  // 벽 충돌 체크
-  if (!isWallBlocking(newX, newY)) {
+  // 벽 충돌 체크 (해당 맵의 벽 사용)
+  if (!isWallBlocking(newX, newY, siege.walls)) {
     // 마법 장벽 충돌 체크
     let blocked = false;
     for (const trap of siege.traps) {
@@ -608,7 +770,7 @@ function siegeSpectate(siegeId, spectatorId) {
     success: true, msg: '공성전 관전 시작!',
     data: {
       siegeId, role: 'spectator',
-      map: { w: SIEGE_CFG.mapWidth, h: SIEGE_CFG.mapHeight, walls: WALLS, zones: ZONES, throne: SIEGE_CFG.thronePos },
+      map: { w: SIEGE_CFG.mapWidth, h: SIEGE_CFG.mapHeight, walls: siege.walls, zones: siege.zones, throne: siege.thronePos || SIEGE_CFG.thronePos, mapId: siege.mapId, mapName: siege.mapName, mapIcon: siege.mapIcon },
       attacker: siege.attacker,
       defenders: siege.defenders,
       traps: siege.traps.map(t => ({ icon: '?', x: t.x, y: t.y, triggered: t.triggered })),
@@ -641,11 +803,22 @@ function getActiveSiegeList() {
 
 // ══════ 소켓 핸들러 ══════
 function registerSiegeBattleHandlers(socket, playerId, players, io) {
-  // 공성전 신청
-  socket.on('siege_attack', (targetName) => {
+  // 공성전 맵 목록 조회
+  socket.on('siege_maps', () => {
+    const maps = Object.entries(SIEGE_MAPS).map(([id, m]) => ({
+      id, name: m.name, icon: m.icon, desc: m.desc,
+      maxTraps: m.maxTraps, maxDefenders: m.maxDefenders,
+    }));
+    socket.emit('siege_maps_result', { maps });
+  });
+
+  // 공성전 신청 (data 또는 문자열 지원)
+  socket.on('siege_attack', (data) => {
+    const targetName = typeof data === 'string' ? data : data.target;
+    const mapId = typeof data === 'object' ? data.mapId : undefined;
     const target = Object.entries(players).find(([, p]) => (p.displayName || p.className) === targetName && !p.isBot);
     if (!target) { socket.emit('siege_result', { success: false, msg: '대상 없음' }); return; }
-    const result = startSiegeBattle(playerId, target[0], players, io);
+    const result = startSiegeBattle(playerId, target[0], players, io, mapId);
     socket.emit('siege_result', result);
   });
 
@@ -680,4 +853,4 @@ function registerSiegeBattleHandlers(socket, playerId, players, io) {
   });
 }
 
-module.exports = { startSiegeBattle, siegeMove, siegeSpectate, siegeChat, getActiveSiegeList, registerSiegeBattleHandlers, activeSieges };
+module.exports = { SIEGE_MAPS, startSiegeBattle, siegeMove, siegeSpectate, siegeChat, getActiveSiegeList, registerSiegeBattleHandlers, activeSieges };

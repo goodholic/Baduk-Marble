@@ -64,6 +64,65 @@ const SLG_EVENTS = [
   { id: 'guild_rally',    name: '혈맹 집결',     icon: '🏴', interval: 14400, desc: '혈맹 공성 보상 5배! 전원 참여!', effect: { siegeRewardMult: 5 } },
 ];
 
+// ═══ SLG 이벤트 활성 시스템 (v3.8) ═══
+let activeSlgEvent = null; // { event, activatedAt, expiresAt }
+
+function tickSlgEvents() {
+  const now = Date.now();
+
+  // 이미 활성 이벤트가 있으면 만료 체크
+  if (activeSlgEvent) {
+    if (now >= activeSlgEvent.expiresAt) {
+      const expired = activeSlgEvent;
+      activeSlgEvent = null;
+      return { type: 'expired', event: expired.event };
+    }
+    return null; // 아직 활성 중, 변화 없음
+  }
+
+  // 10% 확률로 랜덤 이벤트 활성화
+  if (Math.random() < 0.10) {
+    const evt = SLG_EVENTS[Math.floor(Math.random() * SLG_EVENTS.length)];
+    activeSlgEvent = {
+      event: evt,
+      activatedAt: now,
+      expiresAt: now + 5 * 60 * 1000, // 5분간 지속
+    };
+    return { type: 'activated', event: evt, expiresAt: activeSlgEvent.expiresAt };
+  }
+
+  return null;
+}
+
+function getActiveEvent() {
+  if (!activeSlgEvent) return null;
+  if (Date.now() >= activeSlgEvent.expiresAt) {
+    activeSlgEvent = null;
+    return null;
+  }
+  const remaining = Math.ceil((activeSlgEvent.expiresAt - Date.now()) / 1000);
+  return { ...activeSlgEvent.event, remaining, expiresAt: activeSlgEvent.expiresAt };
+}
+
+function checkEventEffect(eventId, effectType) {
+  if (!activeSlgEvent || activeSlgEvent.event.id !== eventId) return null;
+  if (Date.now() >= activeSlgEvent.expiresAt) { activeSlgEvent = null; return null; }
+
+  const evt = activeSlgEvent.event;
+
+  // 직접 effect 필드에서 반환
+  if (evt.effect && evt.effect[effectType] !== undefined) {
+    return evt.effect[effectType];
+  }
+
+  // boss_invasion 특수 처리: spawn flag
+  if (eventId === 'boss_invasion' && effectType === 'spawnBoss') {
+    return true;
+  }
+
+  return null;
+}
+
 // ── 공성전 배치 시스템 (성주 방어) ──
 const SIEGE_PLACEMENT = {
   maxTraps: 10,
@@ -121,7 +180,11 @@ function getSlgStatus(player) {
     // 교역 상태
     trade: player._tradeState || { activeRoutes: [], gold: 0 },
     // 이벤트
-    events: SLG_EVENTS.map(e => ({ ...e, active: false })), // TODO: 활성 상태 체크
+    events: SLG_EVENTS.map(e => {
+      const active = activeSlgEvent && activeSlgEvent.event.id === e.id && Date.now() < activeSlgEvent.expiresAt;
+      return { ...e, active, remaining: active ? Math.ceil((activeSlgEvent.expiresAt - Date.now()) / 1000) : 0 };
+    }),
+    activeEvent: getActiveEvent(),
   };
 }
 
@@ -490,7 +553,13 @@ function registerSlgHandlers(socket, playerId, players, io) {
     socket.emit('slg_expeditions', { expeditions: EXPEDITIONS });
   });
 
-  // 함정/용�� 배치 초기화
+  // 활성 SLG 이벤트 조회
+  socket.on('slg_active_event', () => {
+    const evt = getActiveEvent();
+    socket.emit('slg_active_event', evt || { active: false, msg: '현재 활성 이벤트 없음' });
+  });
+
+  // 함정/용병 배치 초기화
   socket.on('slg_reset_defense', () => {
     const p = players[playerId];
     if (!p) return;
@@ -505,4 +574,4 @@ function registerSlgHandlers(socket, playerId, players, io) {
   });
 }
 
-module.exports = { PROMOTION_TREE, EVOLUTION_RECIPES, SLG_EVENTS, SIEGE_PLACEMENT, CASTLE_TIERS, BUILDINGS, EXPEDITIONS, getSlgStatus, registerSlgHandlers };
+module.exports = { PROMOTION_TREE, EVOLUTION_RECIPES, SLG_EVENTS, SIEGE_PLACEMENT, CASTLE_TIERS, BUILDINGS, EXPEDITIONS, getSlgStatus, registerSlgHandlers, tickSlgEvents, getActiveEvent, checkEventEffect };
