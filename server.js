@@ -1361,6 +1361,7 @@ registerConnection(io, {
     get todayDailyShop() { return todayDailyShop; },
     get entityIdCounter() { return entityIdCounter; },
     set entityIdCounter(v) { entityIdCounter = v; },
+    nextEntityId: () => ++entityIdCounter,
     get marketIdCounter() { return marketIdCounter; },
     set marketIdCounter(v) { marketIdCounter = v; },
     get bossRushRanking() { return bossRushRanking; },
