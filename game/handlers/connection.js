@@ -643,6 +643,12 @@ io.on("connection", (socket) => {
     // ═══ 도감/업적/칭호/스토리 ═══
     try { require('../card_collection').register(io, socket, _player); } catch(e) { console.error('[Collection]', e.message); }
 
+    // ═══ 도전의 탑 ═══
+    try { require('../card_tower').register(io, socket, _player); } catch(e) { console.error('[Tower]', e.message); }
+
+    // ═══ 우편 시스템 ═══
+    try { require('../card_mail').register(io, socket, _player); } catch(e) { console.error('[Mail]', e.message); }
+
     // ═══ 원정/탐험 ═══
     try { require('../card_expedition').register(io, socket, _player); } catch(e) { console.error('[Expedition]', e.message); }
 
