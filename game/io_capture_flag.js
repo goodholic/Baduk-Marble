@@ -22,7 +22,7 @@ const CTF_ROLES = {
   sniper:   { name: '저격수', icon: '🎯🚩', bonus: { range: 1.5, critDmg: 1.3 }, desc: '원거리 깃발 운반자 저격' },
   support:  { name: '서포터', icon: '💚🚩', bonus: { healPow: 1.3, teamBuff: 1.05 }, desc: '러너 호위+치유' },
   saboteur: { name: '파괴공작', icon: '💣🚩', bonus: { trapPow: 1.3 }, desc: '적 경로에 함정 설치' },
-];
+};
 
 // 깃발 운반 규칙
 const FLAG_RULES = {

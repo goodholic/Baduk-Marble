@@ -27,7 +27,7 @@ const SPACE_HAZARDS = [
   { id: 'space_debris', name: '우주 파편', icon: '🪨💫', effect: '랜덤 DMG+실드 감소', counter: '포인트 디펜스' },
   { id: 'nebula_gas', name: '성운 가스', icon: '🌌💨', effect: '시야 -80%+레이더 교란', counter: '탐지 장치' },
   { id: 'cosmic_ray', name: '우주선', icon: '☢️💫', effect: '용병 돌연변이! (랜덤 스탯 ±20%)', counter: '차폐 장갑' },
-],
+];
 
 // 보상
 const SPACE_REWARDS = {
