@@ -661,6 +661,11 @@ io.on("connection", (socket) => {
     // ═══ 인연/운명 ═══
     try { require('../card_bonds').register(io, socket, _player); } catch(e) { console.error('[Bonds]', e.message); }
 
+    // ═══ 랭킹/스킨/친구 ═══
+    try { require('../card_ranking').register(io, socket, _player, players); } catch(e) { console.error('[Ranking]', e.message); }
+    try { require('../card_skins').register(io, socket, _player); } catch(e) { console.error('[Skins]', e.message); }
+    try { require('../card_friends').register(io, socket, _player); } catch(e) { console.error('[Friends]', e.message); }
+
     // ═══ 원정/탐험 ═══
     try { require('../card_expedition').register(io, socket, _player); } catch(e) { console.error('[Expedition]', e.message); }
 
