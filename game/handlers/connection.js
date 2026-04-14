@@ -607,6 +607,21 @@ io.on("connection", (socket) => {
         cardSys.register(io, socket, _player);
     } catch(e) { console.error('[CardSystem] Error:', e.message); }
 
+    // ═══ IO 부활 시스템 ═══
+    const REVIVE_COST = 50; // 다이아
+    socket.on('br_revive_request', () => {
+        if (!_player) return;
+        if ((_player.diamonds || 0) < REVIVE_COST) {
+            return socket.emit('br_revive_fail', { reason: `다이아 부족 (필요: ${REVIVE_COST}, 보유: ${_player.diamonds || 0})` });
+        }
+        _player.diamonds -= REVIVE_COST;
+        _player.isAlive = true;
+        _player.hp = _player.maxHp || 200;
+        socket.emit('br_revive_success', { diamonds: _player.diamonds });
+        io.emit('player_update', _player);
+        console.log(`[BR] ${_player.displayName || playerId} revived for ${REVIVE_COST} diamonds`);
+    });
+
     // v4.0: 혈통/연합스킬/영지자원/공성시즌/무역제국/용병전생
     try {
         const v4 = $.v4Systems || require('../v4_systems');

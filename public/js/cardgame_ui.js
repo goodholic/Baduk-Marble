@@ -28,8 +28,11 @@
 
       case 'cardgame':
         show('cardgame-main', 'flex');
-        // 카드 목록 요청
-        if (window.socket) window.socket.emit('card_list_request');
+        // 카드 목록 + 매치 상태 요청
+        if (window.socket) {
+          window.socket.emit('card_list_request');
+          window.socket.emit('br_match_status'); // 현재 매치 진행 여부
+        }
         break;
 
       case 'io_lobby':
@@ -75,9 +78,51 @@
     switchScreen('cardgame');
   };
 
-  // ── IO 종료 → 카드게임 복귀 ──
+  // ── IO 사망 → 부활 or 카드게임 선택 ──
+  window.showDeathChoice = function(data) {
+    const el = document.getElementById('io-result');
+    if (!el) return;
+    const reviveCost = data.reviveCost || 50; // 다이아
+    const myDiamonds = data.diamonds || 0;
+    const canRevive = myDiamonds >= reviveCost;
+    const matchTimeLeft = data.matchTimeLeft || 0; // 남은 시간(초)
+    const matchMin = Math.floor(matchTimeLeft / 60);
+
+    el.innerHTML = `
+      <div style="background:rgba(0,0,0,0.95);padding:30px;border-radius:16px;text-align:center;color:#fff;max-width:420px;border:1px solid rgba(255,0,0,0.3)">
+        <h2 style="color:#ff4444">💀 사망!</h2>
+        <p style="color:#aaa;margin:8px 0">킬: ${data.kills || 0} | 생존: ${Math.floor((data.survivalTime || 0) / 60)}분</p>
+        <p style="color:#666;font-size:12px;margin-bottom:16px">현재 매치 남은 시간: ${matchMin}분</p>
+
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:12px">
+          <button onclick="requestRevive()" style="padding:14px;background:${canRevive ? 'linear-gradient(135deg,#ff4400,#ff8800)' : '#333'};border:none;border-radius:10px;color:#fff;font-size:16px;font-weight:bold;cursor:${canRevive ? 'pointer' : 'not-allowed'}" ${canRevive ? '' : 'disabled'}>
+            💎 ${reviveCost} 다이아로 부활!
+            <div style="font-size:11px;color:${canRevive ? '#ffd700' : '#666'};margin-top:4px">${canRevive ? `보유: ${myDiamonds}💎` : `부족! (보유: ${myDiamonds}💎)`}</div>
+          </button>
+
+          <button onclick="returnToCardgameFromDeath()" style="padding:12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:10px;color:#aaa;font-size:14px;cursor:pointer">
+            🃏 카드게임으로 돌아가기
+            <div style="font-size:11px;color:#666;margin-top:4px">매치 종료(${matchMin}분 후)까지 카드게임 플레이</div>
+          </button>
+        </div>
+      </div>
+    `;
+    switchScreen('io_result');
+  };
+
+  // 부활 요청
+  window.requestRevive = function() {
+    if (window.socket) window.socket.emit('br_revive_request');
+  };
+
+  // 사망 후 카드게임 복귀
+  window.returnToCardgameFromDeath = function() {
+    switchScreen('cardgame');
+    if (window.socket) window.socket.emit('card_list_request');
+  };
+
+  // ── IO 매치 완전 종료 → 결과 ──
   window.returnToCardgame = function(result) {
-    // 결과 표시
     if (result) {
       const el = document.getElementById('io-result');
       if (el) {

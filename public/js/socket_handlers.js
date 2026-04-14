@@ -52,12 +52,28 @@
         // IO에서 클래스 자동 선택 (카드 로드아웃 기반)
         window.socket.emit('init_request', JSON.stringify({ className: data.className || 'Warrior', deviceId: window._deviceId || myPlayerId }));
       });
+      // IO 사망 → 부활 or 카드게임 선택
       window.socket.on('br_eliminated', (data) => {
-        showToast('💀 탈락! ' + (data.reason || ''));
-        returnToCardgame(data.result);
+        showToast('💀 사망!');
+        if (typeof showDeathChoice === 'function') showDeathChoice(data);
       });
+      // 부활 성공
+      window.socket.on('br_revive_success', (data) => {
+        showToast('💎 부활 성공! 다시 전투!');
+        switchScreen('io_battle');
+      });
+      // 부활 실패 (다이아 부족 등)
+      window.socket.on('br_revive_fail', (data) => {
+        showToast('❌ ' + (data.reason || '부활 실패'));
+      });
+      // IO 매치 완전 종료 (1시간 만료 또는 최후 1인)
       window.socket.on('br_match_end', (data) => {
+        showToast('🏁 매치 종료!');
         returnToCardgame(data);
+      });
+      // 다음 매치 알림 (카드게임 중 수신)
+      window.socket.on('br_next_match', (data) => {
+        showToast('⚔️ 새 IO 매치가 곧 시작됩니다! (' + (data.countdown || 60) + '초 후)');
       });
       window.socket.on('br_disconnect_warning', (data) => {
         showToast('⚠️ ' + (data.remaining || 300) + '초 내 재접속하지 않으면 탈락!');
