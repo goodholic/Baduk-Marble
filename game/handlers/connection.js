@@ -613,6 +613,12 @@ io.on("connection", (socket) => {
         cardPvp.register(io, socket, _player);
     } catch(e) { console.error('[CardPvP] Error:', e.message); }
 
+    // ═══ 카드 관리 (장비/스킬/편성/상점/IO연동) ═══
+    try {
+        const cardMgmt = require('../card_management');
+        cardMgmt.register(io, socket, _player);
+    } catch(e) { console.error('[CardMgmt] Error:', e.message); }
+
     // ═══ 카드 이벤트/퀘스트 ═══
     try {
         const cardEvents = require('../card_events');

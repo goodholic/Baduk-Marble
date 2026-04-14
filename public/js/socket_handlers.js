@@ -69,6 +69,25 @@
         window.socket.emit('card_list_request');
       });
 
+      // ═══ 카드 관리 (장비/스킬/편성/상점) ═══
+      window.socket.on('card_equip_result', (d) => { showToast(d.msg || (d.ok ? '장착!' : d.reason)); window.socket.emit('card_list_request'); });
+      window.socket.on('card_learn_skill_result', (d) => { showToast(d.msg || (d.ok ? '학습!' : d.reason)); window.socket.emit('card_list_request'); });
+      window.socket.on('card_set_party_result', (d) => {
+        if (d.ok) showToast('⚔️ 파티 편성 완료! ' + (d.synergies || []).map(s => s.name).join(', '), 3000);
+        else showToast(d.reason || '편성 실패');
+      });
+      window.socket.on('shop_list', (d) => {
+        if (typeof renderShop === 'function') renderShop(d);
+      });
+      window.socket.on('shop_buy_result', (d) => {
+        showToast(d.msg || (d.ok ? '구매!' : d.reason), 3000);
+        window.socket.emit('card_list_request');
+      });
+      window.socket.on('io_reward_applied', (d) => {
+        showToast('🎁 IO 보상: ' + (d.goldGain || 0) + 'G, EXP ' + (d.expGain || 0) + (d.levelUps ? ', 레벨업 ' + d.levelUps + '명!' : ''), 4000);
+        window.socket.emit('card_list_request');
+      });
+
       // ═══ 일일 퀘스트/이벤트 ═══
       window.socket.on('daily_quests', (d) => { showToast('📋 일일 퀘스트 ' + (d.quests || []).length + '개'); });
       window.socket.on('attendance_result', (d) => {
