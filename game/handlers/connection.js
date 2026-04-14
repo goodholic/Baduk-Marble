@@ -658,6 +658,9 @@ io.on("connection", (socket) => {
     // ═══ 방치형 농장 ═══
     try { require('../card_idle_farm').register(io, socket, _player); } catch(e) { console.error('[Farm]', e.message); }
 
+    // ═══ 인연/운명 ═══
+    try { require('../card_bonds').register(io, socket, _player); } catch(e) { console.error('[Bonds]', e.message); }
+
     // ═══ 원정/탐험 ═══
     try { require('../card_expedition').register(io, socket, _player); } catch(e) { console.error('[Expedition]', e.message); }
 
