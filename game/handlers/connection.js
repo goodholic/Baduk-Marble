@@ -631,6 +631,15 @@ io.on("connection", (socket) => {
         cardMarket.register(io, socket, _player);
     } catch(e) { console.error('[CardMarket] Error:', e.message); }
 
+    // ═══ 종족/직업/히든 카드 ═══
+    try { require('../card_races_classes').register(io, socket, _player); } catch(e) { console.error('[Races]', e.message); }
+
+    // ═══ 길드 ═══
+    try { require('../card_guild').register(io, socket, _player); } catch(e) { console.error('[Guild]', e.message); }
+
+    // ═══ 시즌 랭킹 ═══
+    try { require('../card_season').register(io, socket, _player); } catch(e) { console.error('[Season]', e.message); }
+
     // ═══ IO 카드 효과 ═══
     try {
         const cardIO = require('../card_io_effects');
