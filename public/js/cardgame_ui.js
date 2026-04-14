@@ -187,14 +187,40 @@
           <span style="color:#4488ff">DEF ${card.def || 0}</span>
           <span style="color:#44ff44">HP ${card.hp || 0}</span>
         </div>
-        <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap">
-          <button onclick="socket.emit('card_upgrade',{cardId:'${card.id}'})" style="padding:6px 14px;background:#4488ff;border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:12px">⬆️ 강화</button>
-          <button onclick="socket.emit('card_fuse',{cardId:'${card.id}'})" style="padding:6px 14px;background:#aa44ff;border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:12px">🔄 합성</button>
-          <button onclick="socket.emit('card_set_loadout',{cardId:'${card.id}'})" style="padding:6px 14px;background:#ff8800;border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:12px">⚔️ 출전 세팅</button>
+        <div style="display:flex;gap:6px;justify-content:center;margin-top:12px;flex-wrap:wrap">
+          <button onclick="socket.emit('card_upgrade',{cardId:'${card.id}'})" style="padding:6px 12px;background:#4488ff;border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:11px">⬆️ 강화</button>
+          <button onclick="socket.emit('card_promote',{cardId:'${card.id}'})" style="padding:6px 12px;background:#22aa44;border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:11px">⭐ 진급</button>
+          <button onclick="socket.emit('card_evolve',{cardId:'${card.id}'})" style="padding:6px 12px;background:#ff4488;border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:11px">🔥 진화</button>
+          <button onclick="socket.emit('card_fuse',{cardIds:['${card.id}']})" style="padding:6px 12px;background:#aa44ff;border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:11px">🔄 합성</button>
+          <button onclick="socket.emit('card_set_loadout',{cardId:'${card.id}'})" style="padding:6px 12px;background:#ff8800;border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:11px">⚔️ 출전</button>
         </div>
+        ${card.stars ? '<div style="color:#ffd700;margin-top:6px">★'.repeat(card.stars || 0) + '</div>' : ''}
       </div>
     `;
     panel.style.display = 'block';
+  };
+
+  // ── 행동 카드 핸드 렌더링 (하단, 5장 선택) ──
+  window.renderActionHand = function(cards) {
+    const container = document.getElementById('action-hand');
+    if (!container) return;
+    if (!cards || cards.length === 0) {
+      container.innerHTML = '<div style="color:#666;text-align:center;width:100%;font-size:12px">행동 카드를 뽑아주세요</div>';
+      return;
+    }
+    const rarityColors = { common:'#888', uncommon:'#44aa44', rare:'#4488ff', epic:'#aa44ff', legend:'#ff8800' };
+    container.innerHTML = cards.map(c => `
+      <div onclick="socket.emit('action_card_play',{cardId:'${c.drawId}'})" style="
+        min-width:90px;height:120px;background:linear-gradient(180deg,${rarityColors[c.rarity] || '#444'}44,#0a0a1a);
+        border:1px solid ${rarityColors[c.rarity] || '#444'};border-radius:8px;padding:6px;
+        cursor:pointer;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:space-between;
+        transition:transform 0.15s;font-size:10px;color:#fff;text-align:center"
+        onmouseenter="this.style.transform='translateY(-8px) scale(1.05)'" onmouseleave="this.style.transform=''">
+        <div style="font-size:22px">${c.icon || '🃏'}</div>
+        <div style="font-size:10px;font-weight:bold">${c.name}</div>
+        <div style="font-size:8px;color:${rarityColors[c.rarity] || '#888'}">${c.desc || ''}</div>
+      </div>
+    `).join('');
   };
 
   // ── IO 로비 렌더링 ──

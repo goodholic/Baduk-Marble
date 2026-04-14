@@ -41,6 +41,23 @@
       });
       window.socket.on('card_upgrade_result', (d) => { showToast(d.msg || '강화 완료'); window.socket.emit('card_list_request'); });
       window.socket.on('card_fuse_result', (d) => { showToast(d.msg || '합성 완료'); window.socket.emit('card_list_request'); });
+      window.socket.on('card_promote_result', (d) => { showToast(d.msg || '진급!'); window.socket.emit('card_list_request'); });
+      window.socket.on('card_evolve_result', (d) => { showToast(d.msg || '진화!'); window.socket.emit('card_list_request'); });
+      window.socket.on('card_summon_result', (d) => {
+        showToast(d.msg || '소환 완료');
+        if (d.cards) d.cards.forEach(c => showToast(`${c.icon} ${c.name} (${c.grade})`, c.grade === 'legend' || c.grade === 'myth' ? 5000 : 2000));
+        window.socket.emit('card_list_request');
+      });
+
+      // ═══ 행동 카드 이벤트 ═══
+      window.socket.on('action_card_hand', (data) => {
+        if (typeof renderActionHand === 'function') renderActionHand(data.cards || []);
+      });
+      window.socket.on('action_card_result', (d) => {
+        showToast(d.msg || '카드 사용', d.negative ? 3000 : 2000);
+        window.socket.emit('action_card_draw'); // 다음 핸드
+        window.socket.emit('card_list_request');
+      });
 
       // ═══ IO 배틀로얄 매칭 이벤트 ═══
       window.socket.on('br_lobby_update', (data) => {
