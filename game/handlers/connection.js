@@ -607,6 +607,18 @@ io.on("connection", (socket) => {
         cardSys.register(io, socket, _player);
     } catch(e) { console.error('[CardSystem] Error:', e.message); }
 
+    // ═══ 카드 PvP 대전 ═══
+    try {
+        const cardPvp = require('../card_pvp');
+        cardPvp.register(io, socket, _player);
+    } catch(e) { console.error('[CardPvP] Error:', e.message); }
+
+    // ═══ 카드 이벤트/퀘스트 ═══
+    try {
+        const cardEvents = require('../card_events');
+        cardEvents.register(io, socket, _player);
+    } catch(e) { console.error('[CardEvents] Error:', e.message); }
+
     // ═══ IO 부활 시스템 ═══
     const REVIVE_COST = 50; // 다이아
     socket.on('br_revive_request', () => {

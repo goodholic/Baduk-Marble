@@ -59,6 +59,25 @@
         window.socket.emit('card_list_request');
       });
 
+      // ═══ 카드 PvP 대전 ═══
+      window.socket.on('card_pvp_result', (d) => {
+        if (!d.ok) return showToast(d.reason || 'PvP 실패');
+        var msg = d.win ? '🏆 승리!' : '💀 패배...';
+        msg += ' (' + (d.reward?.gold || 0) + 'G, +' + (d.reward?.pvpPoints || 0) + 'pts)';
+        if (d.streak >= 3) msg += ' 🔥' + d.streak + '연승!';
+        showToast(msg, 4000);
+        window.socket.emit('card_list_request');
+      });
+
+      // ═══ 일일 퀘스트/이벤트 ═══
+      window.socket.on('daily_quests', (d) => { showToast('📋 일일 퀘스트 ' + (d.quests || []).length + '개'); });
+      window.socket.on('attendance_result', (d) => {
+        if (d.ok) showToast('📅 출석 ' + d.day + '일차!', 3000);
+        else showToast(d.reason || '이미 출석');
+        window.socket.emit('card_list_request');
+      });
+      window.socket.on('weekly_event', (d) => { if (d) showToast('🎉 ' + d.name + ' — ' + d.desc, 5000); });
+
       // ═══ IO 배틀로얄 매칭 이벤트 ═══
       window.socket.on('br_lobby_update', (data) => {
         if (typeof renderIOLobby === 'function') renderIOLobby(data);
