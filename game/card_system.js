@@ -149,16 +149,28 @@ function register(io, socket, player) {
 
   // ── 행동 카드: 하단에서 카드 선택 → 행동 수행 ──
   socket.on('action_card_draw', () => {
-    const hand = drawActionCards(player);
-    socket.emit('action_card_hand', { cards: hand });
+    const result = drawActionCards(player);
+    if (result.cooldown) {
+      socket.emit('action_card_hand', { cooldown: true, remaining: result.remaining, msg: result.msg });
+    } else {
+      socket.emit('action_card_hand', { cards: result });
+    }
   });
 
   socket.on('action_card_play', (data) => {
     const result = playActionCard(player, data.cardId);
     socket.emit('action_card_result', result);
     if (result.ok) {
+      // 콤보 체크
+      const combo = checkCombo(player);
+      if (combo) socket.emit('action_combo_triggered', combo);
       socket.emit('card_list', { cards: player.cards, gold: player.gold, diamonds: player.diamonds });
     }
+  });
+
+  // 콤보 목록 조회
+  socket.on('action_combo_list', () => {
+    socket.emit('action_combo_list_result', { combos: COMBO_RECIPES });
   });
 
   // ── 소환 (가챠) ──
@@ -219,10 +231,31 @@ const ACTION_CARDS = [
   // PK 카드
   { id: 'ac_raid', name: '약탈', icon: '⚔️🏴', type: 'pk', effect: { stealGold: 500 }, desc: '다른 플레이어 골드 500 약탈', rarity: 'uncommon' },
   { id: 'ac_duel', name: '결투 신청', icon: '⚔️🔥', type: 'pk', effect: { duelBonus: true }, desc: '다음 IO에서 ATK+20%', rarity: 'rare' },
+
+  // ── 신규 카드 (콤보/전략) ──
+  { id: 'ac_combo_chain', name: '콤보 체인', icon: '🔗⚡', type: 'combo', effect: { extraPlay: 1 }, desc: '이번 턴 카드 2장 사용 가능!', rarity: 'epic' },
+  { id: 'ac_time_freeze', name: '시간 정지', icon: '⏱️❄️', type: 'pvp', effect: { skipOpponentTurn: true }, desc: '상대 다음 턴 스킵 (PvP)', rarity: 'legend' },
+  { id: 'ac_dimension_rift', name: '차원의 틈', icon: '🌀🌟', type: 'summon', effect: { dimensionRift: true }, desc: '다른 차원에서 전설 카드 소환!', rarity: 'legend' },
+  { id: 'ac_ambush', name: '매복', icon: '🗡️🌿', type: 'pk', effect: { doubleIoReward: true }, desc: '다음 IO 킬 시 보상 2배', rarity: 'rare' },
+  { id: 'ac_fortress_raid', name: '성 습격', icon: '🏰⚔️', type: 'pk', effect: { fortressRaid: 2000 }, desc: '랜덤 플레이어 요새에서 2000G 약탈', rarity: 'rare' },
+  { id: 'ac_dragon_summon', name: '용 소환', icon: '🐉🔥', type: 'summon', effect: { dragonSummon: true }, desc: 'Myth 등급 용 카드 소환!', rarity: 'legend' },
+  { id: 'ac_healing_spring', name: '치유의 샘', icon: '🌊💚', type: 'buff', effect: { healAll: true }, desc: '모든 용병 HP 완전 회복', rarity: 'uncommon' },
+  { id: 'ac_blacksmith', name: '대장장이', icon: '🔨⚒️', type: 'buff', effect: { blacksmith: 25 }, desc: '랜덤 용병 ATK/DEF+25', rarity: 'uncommon' },
+  { id: 'ac_curse', name: '저주', icon: '💀🌑', type: 'pvp', effect: { curseOpponent: 3 }, desc: '랜덤 상대 최강 카드 3턴간 봉인', rarity: 'epic', negative: false },
+  { id: 'ac_apocalypse', name: '종말', icon: '☄️💥', type: 'event', effect: { apocalypse: true }, desc: '전체 골드 30% 소멸, 본인 10% 획득!', rarity: 'legend' },
 ];
 
-// 카드 5장 뽑기 (매 턴 or 시간마다)
+// 카드 5장 뽑기 (60초 쿨다운)
+const ACTION_DRAW_COOLDOWN = 60000; // 60초
+
 function drawActionCards(player) {
+  const now = Date.now();
+  if (player._lastActionDraw && (now - player._lastActionDraw) < ACTION_DRAW_COOLDOWN) {
+    const remaining = Math.ceil((ACTION_DRAW_COOLDOWN - (now - player._lastActionDraw)) / 1000);
+    return { cooldown: true, remaining, msg: `${remaining}초 후 다시 뽑을 수 있습니다` };
+  }
+  player._lastActionDraw = now;
+
   const hand = [];
   for (let i = 0; i < 5; i++) {
     const roll = Math.random();
@@ -248,6 +281,9 @@ function playActionCard(player, drawId) {
   // 사용 후 핸드에서 제거
   player._actionHand = hand.filter(c => c.drawId !== drawId);
 
+  // 콤보 트래킹 (최근 5장)
+  trackComboCard(player, card.id);
+
   switch (card.type) {
     case 'resource':
       if (card.effect.gold) player.gold = (player.gold || 0) + card.effect.gold;
@@ -256,6 +292,20 @@ function playActionCard(player, drawId) {
 
     case 'buff': {
       const cards = player.cards || [];
+      // 치유의 샘: 모든 용병 HP 완전 회복
+      if (card.effect.healAll) {
+        const baseHp = { normal: 150, rare: 300, epic: 500, legend: 900, myth: 1500 };
+        cards.forEach(c => { c.hp = Math.max(c.hp || 0, baseHp[c.grade] || 200) * 1.5; c.hp = Math.floor(c.hp); });
+        return { ok: true, msg: `${card.name}: 모든 용병 HP 완전 회복!` };
+      }
+      // 대장장이: 랜덤 용병 ATK/DEF+25
+      if (card.effect.blacksmith) {
+        if (cards.length === 0) return { ok: false, reason: '용병 카드 없음' };
+        const target = cards[Math.floor(Math.random() * cards.length)];
+        target.atk = (target.atk || 0) + card.effect.blacksmith;
+        target.def = (target.def || 0) + card.effect.blacksmith;
+        return { ok: true, msg: `${card.name}: "${target.name}" ATK/DEF+${card.effect.blacksmith}!` };
+      }
       if (cards.length === 0) return { ok: false, reason: '용병 카드 없음' };
       const target = cards[Math.floor(Math.random() * cards.length)];
       if (card.effect.randomCardAtk) target.atk = (target.atk || 0) + card.effect.randomCardAtk;
@@ -266,6 +316,38 @@ function playActionCard(player, drawId) {
     }
 
     case 'summon': {
+      // 차원의 틈: 전설 등급 랜덤 카드
+      if (card.effect.dimensionRift) {
+        const dimensionNames = ['차원의 파수꾼', '시공간 여행자', '이세계의 영웅', '차원 균열자', '공허의 지배자'];
+        const name = dimensionNames[Math.floor(Math.random() * dimensionNames.length)];
+        const riftCard = {
+          id: `card_${Date.now()}_rift`,
+          name, icon: '🌀🌟', grade: 'legend',
+          atk: 180 + Math.floor(Math.random() * 60),
+          def: 130 + Math.floor(Math.random() * 40),
+          hp: 900 + Math.floor(Math.random() * 300),
+          level: 1, desc: '차원의 틈에서 소환됨',
+        };
+        player.cards = player.cards || [];
+        player.cards.push(riftCard);
+        return { ok: true, msg: `${card.name}: "${riftCard.name}" (LEGEND) 차원에서 소환!`, card: riftCard };
+      }
+      // 용 소환: Myth 등급 드래곤
+      if (card.effect.dragonSummon) {
+        const dragonNames = ['고대 흑룡', '천상의 백룡', '화염의 적룡', '심연의 청룡', '황금의 신룡'];
+        const name = dragonNames[Math.floor(Math.random() * dragonNames.length)];
+        const dragonCard = {
+          id: `card_${Date.now()}_dragon`,
+          name, icon: '🐉👑', grade: 'myth',
+          atk: 300 + Math.floor(Math.random() * 100),
+          def: 200 + Math.floor(Math.random() * 80),
+          hp: 1500 + Math.floor(Math.random() * 500),
+          level: 1, desc: '용 소환으로 강림!',
+        };
+        player.cards = player.cards || [];
+        player.cards.push(dragonCard);
+        return { ok: true, msg: `${card.name}: "${dragonCard.name}" (MYTH) 강림!!`, card: dragonCard };
+      }
       const newCards = generateRewardCard(card.effect.summonGrade === 'legend' ? 1 : card.effect.summonGrade === 'rare' ? 5 : 20, 100);
       if (newCards.length > 0) {
         player.cards = player.cards || [];
@@ -291,17 +373,130 @@ function playActionCard(player, drawId) {
         const cards = player.cards || [];
         if (cards.length > 0) { const best = cards.reduce((a, b) => (a.atk || 0) > (b.atk || 0) ? a : b); const copy = { ...best, id: `card_${Date.now()}_copy` }; cards.push(copy); return { ok: true, msg: `${card.name}: "${best.name}" 복제!` }; }
       }
+      // 종말: 전체 골드 30% 소멸, 본인 10% 획득
+      if (card.effect.apocalypse) {
+        const currentGold = player.gold || 0;
+        const lost = Math.floor(currentGold * 0.3);
+        const gained = Math.floor(lost * 0.33); // ~10% of original
+        player.gold = currentGold - lost + gained;
+        // In a multiplayer context the server would also deduct 30% from all other players
+        player._apocalypseActive = Date.now();
+        return { ok: true, msg: `${card.name}: 종말 발동! 전체 골드 30% 소멸, ${gained}G 획득!` };
+      }
       return { ok: true, msg: `${card.name} 발동` };
     }
 
     case 'pk':
       if (card.effect.stealGold) { player.gold = (player.gold || 0) + card.effect.stealGold; return { ok: true, msg: `${card.name}: 골드 +${card.effect.stealGold} 약탈!` }; }
       if (card.effect.duelBonus) { player._ioBuff = { atk: 1.2, expires: Date.now() + 3600000 }; return { ok: true, msg: `${card.name}: 다음 IO에서 ATK+20%!` }; }
+      if (card.effect.doubleIoReward) { player._ioRewardMult = 2; return { ok: true, msg: `${card.name}: 다음 IO 킬 보상 2배 활성화!` }; }
+      if (card.effect.fortressRaid) { player.gold = (player.gold || 0) + card.effect.fortressRaid; return { ok: true, msg: `${card.name}: 적 요새에서 ${card.effect.fortressRaid}G 약탈!` }; }
       return { ok: true, msg: card.name };
+
+    case 'combo': {
+      // 콤보 체인: 이번 턴 추가 카드 사용 허용
+      player._extraPlays = (player._extraPlays || 0) + (card.effect.extraPlay || 1);
+      return { ok: true, msg: `${card.name}: 추가 카드 ${card.effect.extraPlay}장 사용 가능!` };
+    }
+
+    case 'pvp': {
+      if (card.effect.skipOpponentTurn) {
+        player._pvpDebuff = { type: 'skipTurn', expires: Date.now() + 300000 };
+        return { ok: true, msg: `${card.name}: 상대의 다음 턴이 스킵됩니다!` };
+      }
+      if (card.effect.curseOpponent) {
+        player._pvpDebuff = { type: 'curse', duration: card.effect.curseOpponent, expires: Date.now() + card.effect.curseOpponent * 60000 };
+        return { ok: true, msg: `${card.name}: 상대 최강 카드 ${card.effect.curseOpponent}턴간 봉인!` };
+      }
+      return { ok: true, msg: card.name };
+    }
 
     default:
       return { ok: false, reason: '알 수 없는 카드' };
   }
+}
+
+// ═══════════════════════════════════════════
+// 콤보 시스템 — 특정 카드 조합 사용 시 보너스
+// ═══════════════════════════════════════════
+
+const COMBO_RECIPES = [
+  {
+    id: 'combo_train_elixir',
+    name: '극한 수련',
+    cards: ['ac_train', 'ac_elixir'],
+    desc: '훈련 + 엘릭서 = 모든 용병 ATK+20',
+    reward: { type: 'allAtkBoost', value: 20 },
+  },
+  {
+    id: 'combo_summon_blessing',
+    name: '축복받은 소환',
+    cards: ['ac_summon_normal', 'ac_blessing'],
+    altCards: [['ac_summon_rare', 'ac_blessing'], ['ac_summon_legend', 'ac_blessing']],
+    desc: '소환 + 축복 = 마지막 소환 카드 스탯 2배',
+    reward: { type: 'doubleLastSummon' },
+  },
+  {
+    id: 'combo_raid_duel',
+    name: '전면전',
+    cards: ['ac_raid', 'ac_duel'],
+    desc: '약탈 + 결투 = 다음 IO 진입 시 ATK+30%',
+    reward: { type: 'ioBuff', atkMult: 1.3 },
+  },
+];
+
+function trackComboCard(player, cardId) {
+  if (!player._playedComboCards) player._playedComboCards = [];
+  player._playedComboCards.push(cardId);
+  // 최근 5장만 유지
+  if (player._playedComboCards.length > 5) {
+    player._playedComboCards = player._playedComboCards.slice(-5);
+  }
+}
+
+function checkCombo(player) {
+  const played = player._playedComboCards || [];
+  if (played.length < 2) return null;
+
+  for (const recipe of COMBO_RECIPES) {
+    // 기본 카드 조합 체크
+    const cardSets = [recipe.cards, ...(recipe.altCards || [])];
+    for (const cardSet of cardSets) {
+      if (cardSet.every(c => played.includes(c))) {
+        // 콤보 발동! 사용된 카드 제거
+        for (const c of cardSet) {
+          const idx = played.indexOf(c);
+          if (idx !== -1) played.splice(idx, 1);
+        }
+        player._playedComboCards = played;
+
+        // 보상 적용
+        const reward = recipe.reward;
+        const cards = player.cards || [];
+
+        if (reward.type === 'allAtkBoost') {
+          cards.forEach(c => { c.atk = (c.atk || 0) + reward.value; });
+          return { combo: recipe.name, msg: `콤보 "${recipe.name}" 발동! 모든 용병 ATK+${reward.value}!` };
+        }
+        if (reward.type === 'doubleLastSummon') {
+          const last = cards[cards.length - 1];
+          if (last) {
+            last.atk = (last.atk || 0) * 2;
+            last.def = (last.def || 0) * 2;
+            last.hp = (last.hp || 0) * 2;
+            return { combo: recipe.name, msg: `콤보 "${recipe.name}" 발동! "${last.name}" 스탯 2배!` };
+          }
+        }
+        if (reward.type === 'ioBuff') {
+          player._ioBuff = { atk: reward.atkMult, expires: Date.now() + 3600000 };
+          return { combo: recipe.name, msg: `콤보 "${recipe.name}" 발동! 다음 IO ATK+30%!` };
+        }
+
+        return { combo: recipe.name, msg: `콤보 "${recipe.name}" 발동!` };
+      }
+    }
+  }
+  return null;
 }
 
 // ═══════════════════════════════════════════
@@ -401,6 +596,6 @@ function evolveCard(player, cardId) {
 
 module.exports = {
   getPlayerCards, upgradeCard, fuseCards, generateRewardCard, register, STARTER_CARDS,
-  drawActionCards, playActionCard, summonCard, promoteCard, evolveCard,
-  ACTION_CARDS, SUMMON_COST, SUMMON_RATES, EVOLUTION_TREE,
+  drawActionCards, playActionCard, checkCombo, trackComboCard, summonCard, promoteCard, evolveCard,
+  ACTION_CARDS, ACTION_DRAW_COOLDOWN, COMBO_RECIPES, SUMMON_COST, SUMMON_RATES, EVOLUTION_TREE,
 };

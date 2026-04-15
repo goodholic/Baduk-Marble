@@ -116,6 +116,284 @@
       });
       window.socket.on('weekly_event', (d) => { if (d) showToast('🎉 ' + d.name + ' — ' + d.desc, 5000); });
 
+      // ═══ 알림 센터 시스템 ═══
+      window._notifications = [];
+      window._notifCount = 0;
+
+      function addNotification(icon, text, action) {
+        window._notifications.unshift({ icon, text, action, time: Date.now(), read: false });
+        if (window._notifications.length > 30) window._notifications.pop();
+        window._notifCount = window._notifications.filter(n => !n.read).length;
+        updateNotifBadge();
+      }
+
+      function updateNotifBadge() {
+        var badge = document.getElementById('notif-badge');
+        if (badge) {
+          badge.textContent = window._notifCount;
+          badge.style.display = window._notifCount > 0 ? 'inline-block' : 'none';
+        }
+      }
+
+      window.toggleNotificationCenter = function() {
+        var el = document.getElementById('notif-center');
+        if (!el) return;
+        el.style.display = el.style.display === 'none' ? 'block' : 'none';
+        if (el.style.display === 'block') renderNotifications();
+      };
+
+      window.clearNotifications = function() {
+        window._notifications.forEach(n => n.read = true);
+        window._notifCount = 0;
+        updateNotifBadge();
+        renderNotifications();
+      };
+
+      function renderNotifications() {
+        var el = document.getElementById('notif-list');
+        if (!el) return;
+        if (window._notifications.length === 0) {
+          el.innerHTML = '<div style="color:#555;text-align:center;padding:20px">알림이 없습니다</div>';
+          return;
+        }
+        el.innerHTML = window._notifications.map(function(n) {
+          var ago = Math.floor((Date.now() - n.time) / 60000);
+          var timeStr = ago < 1 ? '방금' : ago < 60 ? ago + '분 전' : Math.floor(ago/60) + '시간 전';
+          return '<div style="padding:6px;margin:2px 0;background:' + (n.read ? 'transparent' : 'rgba(255,215,0,0.05)') + ';border-radius:4px;border-left:2px solid ' + (n.read ? '#333' : '#ffd700') + '">'
+            + '<span style="font-size:14px">' + n.icon + '</span> ' + n.text
+            + '<div style="color:#555;font-size:9px;text-align:right">' + timeStr + '</div></div>';
+        }).join('');
+      }
+
+      // 자동 알림 생성 (서버 이벤트 기반)
+      window.socket.on('server_msg', function(msg) { addNotification('📢', msg); });
+      window.socket.on('mail_inbox', function(d) { if (d.unread > 0) addNotification('📮', '미읽은 우편 ' + d.unread + '통'); });
+      window.socket.on('guide_status', function(d) { if (!d.graduated && d.currentDay) addNotification('📚', '가이드 ' + d.currentDay + '일차 미션 확인!'); });
+      window.socket.on('achievements_result', function(d) { if (d.newlyUnlocked && d.newlyUnlocked.length > 0) d.newlyUnlocked.forEach(function(a) { addNotification('🏅', '업적 달성! ' + a.name); }); });
+      window.socket.on('expedition_status', function(d) { (d.expeditions||[]).forEach(function(e) { if (e.ready) addNotification('🗺️', e.zoneName + ' 원정 완료!'); }); });
+      window.socket.on('weather_change', function(d) { addNotification('🌤️', '날씨 변경: ' + (d.name || '')); });
+      window.socket.on('br_event', function(d) { addNotification('⚔️', 'IO 이벤트: ' + (d.name || '')); });
+      window.socket.on('world_event', function(d) { addNotification('🌍', '월드: ' + (d.name || '')); });
+
+      // ═══ v8.0~v9.0 신규 시스템 응답 핸들러 ═══
+
+      // 도전의 탑
+      window.socket.on('tower_info', (d) => {
+        const el = document.getElementById('card-detail');
+        if (el) {
+          el.style.display = 'block';
+          document.getElementById('card-placeholder').style.display = 'none';
+          el.innerHTML = '<div style="padding:12px;color:#fff"><h3 style="color:#8888ff">🗼 도전의 탑</h3>'
+            + '<div style="color:#aaa">현재 층: <b style="color:#ffd700">' + (d.floor||0) + '</b> / ' + (d.maxFloor||100) + '</div>'
+            + (d.nextEnemy ? '<div style="margin:8px 0;color:#ff6666">다음 적: ' + (d.nextEnemy.name||'???') + ' (ATK:' + d.nextEnemy.atk + ' HP:' + d.nextEnemy.hp + ')</div>' : '')
+            + '<div style="color:#888">남은 도전: ' + (d.attemptsLeft||0) + '회</div>'
+            + '<button onclick="socket.emit(\'tower_attempt\')" style="margin-top:10px;padding:8px 20px;background:#4444ff;border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:12px">⚔️ 도전!</button>'
+            + '</div>';
+        }
+      });
+      window.socket.on('tower_result', (d) => {
+        showToast(d.msg || (d.win ? '🗼 클리어!' : '💀 실패'), 4000);
+        if (d.ok) socket.emit('tower_info');
+        if (d.ok) socket.emit('card_list_request');
+      });
+
+      // 원정
+      window.socket.on('expedition_zones', (d) => {
+        const el = document.getElementById('card-detail');
+        if (el) {
+          el.style.display = 'block';
+          document.getElementById('card-placeholder').style.display = 'none';
+          let html = '<div style="padding:12px;color:#fff"><h3 style="color:#cc9933">🗺️ 원정</h3>';
+          html += '<div style="color:#888;margin-bottom:8px">활성: ' + (d.active||[]).length + '/' + d.maxExpeditions + '</div>';
+          (d.zones||[]).forEach(z => {
+            html += '<div style="padding:6px;margin:4px 0;background:rgba(255,255,255,0.05);border-radius:4px">'
+              + '<span style="font-size:16px">' + z.icon + '</span> <b>' + z.name + '</b> (난이도:' + z.difficulty + ', ' + Math.floor(z.duration/60) + '분)'
+              + '<div style="color:#888;font-size:10px">' + z.desc + '</div></div>';
+          });
+          html += '</div>';
+          el.innerHTML = html;
+        }
+      });
+      window.socket.on('expedition_start_result', (d) => { showToast(d.msg || (d.ok ? '원정 시작!' : d.reason), 3000); });
+      window.socket.on('expedition_collect_result', (d) => { showToast(d.msg || '원정 완료!', 4000); socket.emit('card_list_request'); });
+
+      // 농장
+      window.socket.on('farm_info', (d) => {
+        const el = document.getElementById('card-detail');
+        if (el) {
+          el.style.display = 'block';
+          document.getElementById('card-placeholder').style.display = 'none';
+          let html = '<div style="padding:12px;color:#fff"><h3 style="color:#66cc66">🌿 방치 농장</h3>';
+          html += '<div style="color:#888">배치: ' + Object.keys(d.deployed||{}).length + '/' + d.maxSlots + '</div>';
+          (d.zones||[]).forEach(z => {
+            html += '<div style="padding:4px;margin:2px 0;background:rgba(100,200,100,0.1);border-radius:4px;font-size:11px">'
+              + z.icon + ' ' + z.name + ' (' + z.goldPerMin + 'G/분)</div>';
+          });
+          html += '<button onclick="socket.emit(\'farm_collect\')" style="margin-top:8px;padding:8px 20px;background:#44aa44;border:none;border-radius:6px;color:#fff;cursor:pointer">💰 수집</button></div>';
+          el.innerHTML = html;
+        }
+      });
+      window.socket.on('farm_collect_result', (d) => { showToast(d.msg || '농장 수집!', 3000); socket.emit('card_list_request'); });
+      window.socket.on('farm_deploy_result', (d) => { showToast(d.msg || (d.ok ? '배치!' : d.reason)); });
+
+      // 길드
+      window.socket.on('guild_info', (d) => { showToast('👥 길드: ' + (d.name || '미가입')); });
+      window.socket.on('guild_raid_status', (d) => { showToast('🐲 길드 레이드: ' + (d.boss?.name || '없음')); });
+
+      // 시즌
+      window.socket.on('season_status', (d) => {
+        showToast('🌟 시즌: ' + (d.rank?.name||'아이언') + ' (' + (d.points||0) + 'pts)', 3000);
+      });
+
+      // 도감/업적
+      window.socket.on('codex_info', (d) => { showToast('📖 도감: ' + (d.count||0) + '종 수집'); });
+      window.socket.on('achievements_result', (d) => {
+        if (d.newlyUnlocked?.length > 0) {
+          d.newlyUnlocked.forEach(a => showToast('🏅 업적 달성! ' + a.name + ' — ' + (a.reward.gold||0) + 'G', 5000));
+          socket.emit('card_list_request');
+        } else {
+          showToast('🏅 업적: ' + (d.unlocked?.length||0) + '/' + (d.all?.length||0) + ' 달성');
+        }
+      });
+      window.socket.on('titles_info', (d) => { showToast('🏷️ 칭호: ' + (d.owned?.length||0) + '개 보유'); });
+
+      // 각성
+      window.socket.on('card_awaken_info', (d) => { showToast('🌟 각성 가능: ' + (d.forms?.length||0) + '종'); });
+      window.socket.on('card_awaken_result', (d) => { showToast(d.msg || (d.ok ? '🌟 각성!' : d.reason), 5000); socket.emit('card_list_request'); });
+
+      // 인챈트
+      window.socket.on('card_enchant_list', (d) => { showToast('✨ 인챈트: ' + (d.enchants?.length||0) + '종 가능'); });
+      window.socket.on('card_enchant_result', (d) => { showToast(d.msg || '인챈트 결과', 4000); socket.emit('card_list_request'); });
+
+      // 인연
+      window.socket.on('card_bonds', (d) => { showToast('💞 활성 인연: ' + (d.bonds?.length||0) + '개'); });
+
+      // 종족/직업
+      window.socket.on('card_races_info', (d) => { showToast('🧬 종족 ' + Object.keys(d.races||{}).length + '종, 직업 ' + Object.keys(d.classes||{}).length + '종'); });
+
+      // PK
+      window.socket.on('pk_karma', (d) => { showToast('⚔️ 카르마: ' + (d.tier?.name||'중립') + ' (' + (d.karma||0) + ')'); });
+
+      // 현상금
+      window.socket.on('bounty_board', (d) => { showToast('🎯 현상금: ' + (d.bounties?.length||0) + '건'); });
+
+      // 랭킹
+      window.socket.on('ranking_result', (d) => {
+        const el = document.getElementById('card-detail');
+        if (el) {
+          el.style.display = 'block';
+          document.getElementById('card-placeholder').style.display = 'none';
+          let html = '<div style="padding:12px;color:#fff"><h3 style="color:#ffd700">🏆 랭킹 (' + (d.category||'') + ')</h3>';
+          html += '<div style="color:#888;margin-bottom:8px">내 순위: ' + (d.myRank||'순위 밖') + '</div>';
+          (d.rankings||[]).slice(0,10).forEach(r => {
+            html += '<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:11px">'
+              + '<span style="color:#ffd700">#' + r.rank + '</span><span>' + r.name + '</span><span style="color:#44ff44">' + r.score + '</span></div>';
+          });
+          html += '</div>';
+          el.innerHTML = html;
+        }
+      });
+
+      // 스킨
+      window.socket.on('skin_shop', (d) => { showToast('🎨 스킨샵: ' + (d.owned?.length||0) + '개 보유'); });
+
+      // 친구
+      window.socket.on('friends_list', (d) => { showToast('💙 친구: ' + (d.friends?.length||0) + '명'); });
+
+      // 우편
+      window.socket.on('mail_inbox', (d) => { showToast('📮 우편: ' + (d.inbox?.length||0) + '통' + (d.unread ? ' (미읽음:' + d.unread + ')' : '')); });
+      window.socket.on('mail_claim_result', (d) => { showToast(d.msg || '수령!'); socket.emit('card_list_request'); });
+      window.socket.on('mail_claim_all_result', (d) => { showToast(d.msg || '전체 수령!'); socket.emit('card_list_request'); });
+
+      // 가챠
+      window.socket.on('gacha_result', (d) => {
+        if (d.results?.length > 0) {
+          const legendCount = d.results.filter(r => r.grade === 'legendary' || r.grade === 'myth').length;
+          showToast('📜 소환! ' + d.results.length + '장' + (legendCount ? ' (전설+' + legendCount + '!)' : ''), 4000);
+          socket.emit('card_list_request');
+        }
+      });
+
+      // 보스 레이드
+      window.socket.on('boss_raid_info', (d) => {
+        showToast('🐲 보스: ' + (d.boss?.name||'없음') + ' HP:' + (d.boss?.hp||0) + '/' + (d.boss?.maxHp||0));
+      });
+      window.socket.on('boss_raid_result', (d) => { showToast(d.msg || '보스 공격!', 3000); });
+
+      // 복권
+      window.socket.on('lottery_result', (d) => { showToast('🎰 ' + (d.prize?.name||'결과'), 4000); socket.emit('card_list_request'); });
+
+      // 초보자 가이드
+      window.socket.on('guide_status', (d) => {
+        if (d.graduated) { showToast('📚 가이드 졸업!'); return; }
+        showToast('📚 가이드 ' + (d.currentDay||1) + '일차', 3000);
+      });
+      window.socket.on('guide_claim_result', (d) => { showToast(d.msg || '보상 수령!', 4000); socket.emit('card_list_request'); });
+
+      // 일일 활동
+      window.socket.on('activity_dashboard', (d) => {
+        showToast('📊 오늘 활동: ' + (d.activeSystems||0) + '/13 시스템' + (d.bonusTier ? ' (보너스: ×' + d.bonusTier.goldMul + ')' : ''));
+      });
+
+      // 로그라이크
+      window.socket.on('roguelike_status', (d) => {
+        if (d.run) showToast('🏰 던전 ' + d.run.roomCount + '/15층 진행 중');
+        else showToast('🏰 던전: 새 런 시작 가능 (1000G)');
+      });
+      window.socket.on('roguelike_room', (d) => {
+        showToast('🏰 ' + (d.room?.name||'방') + ' 발견!', 3000);
+      });
+      window.socket.on('roguelike_result', (d) => { showToast(d.msg || '던전 결과', 4000); socket.emit('card_list_request'); });
+
+      // 월드 이벤트
+      window.socket.on('world_state', (d) => {
+        showToast('🌍 월드: ' + (d.currentBuff?.name||'없음') + (d.activeEvents?.length ? ' + 이벤트 ' + d.activeEvents.length + '개' : ''));
+      });
+
+      // 오토체스
+      window.socket.on('chess_get_board', (d) => { showToast('♟️ 오토체스: ' + (d.units||0) + '/' + 5 + ' 유닛'); });
+      window.socket.on('chess_match_result', (d) => { showToast(d.msg || (d.win ? '♟️ 승리!' : '♟️ 패배'), 4000); socket.emit('card_list_request'); });
+
+      // 캠페인
+      window.socket.on('campaign_list', (d) => {
+        const completed = (d.episodes||[]).filter(e => e.completed).length;
+        showToast('📖 캠페인: ' + completed + '/' + (d.episodes?.length||12) + ' 완료');
+      });
+      window.socket.on('campaign_scene', (d) => { showToast('📖 ' + (d.scene?.text||'').substring(0,50) + '...', 5000); });
+      window.socket.on('campaign_result', (d) => { showToast(d.msg || '캠페인 결과', 4000); socket.emit('card_list_request'); });
+
+      // 전략 대결
+      window.socket.on('duel_state', (d) => {
+        if (d.active) showToast('🃏 대결 진행 중 (마나:' + d.myMana + ', HP:' + d.myHp + ')');
+        else showToast('🃏 대결: 새 게임 시작 가능');
+      });
+      window.socket.on('duel_finished', (d) => { showToast(d.msg || (d.win ? '🃏 승리!' : '🃏 패배'), 5000); socket.emit('card_list_request'); });
+
+      // 합체 변신
+      window.socket.on('fusion_recipes', (d) => { showToast('🔄 합체 레시피: ' + (d.discovered||0) + '/' + (d.total||8) + ' 발견'); });
+      window.socket.on('fusion_result', (d) => { showToast(d.msg || '🔄 합체!', 5000); });
+      window.socket.on('fusion_skill_result', (d) => { showToast('💥 합체 궁극기! DMG: ' + (d.damage||0), 5000); });
+
+      // 미니게임
+      window.socket.on('minigame_list', (d) => { showToast('🎮 미니게임: 오늘 ' + (d.remaining||10) + '회 남음'); });
+      window.socket.on('minigame_result', (d) => { showToast(d.msg || '🎮 결과!', 3000); socket.emit('card_list_request'); });
+
+      // 프레스티지
+      window.socket.on('prestige_status', (d) => { showToast('🔄 환생 Lv.' + (d.level||0) + (d.nextMilestone ? ' (다음: ' + d.nextMilestone.name + ')' : '')); });
+      window.socket.on('prestige_result', (d) => { showToast(d.msg || '🔄 환생!', 5000); socket.emit('card_list_request'); });
+
+      // 엔드게임
+      window.socket.on('abyss_status', (d) => { showToast('🌀 심연: 최고 ' + (d.bestFloor||0) + '층'); });
+      window.socket.on('abyss_fight_result', (d) => { showToast(d.msg || (d.win ? '🌀 클리어!' : '🌀 실패'), 4000); socket.emit('card_list_request'); });
+      window.socket.on('trial_list', (d) => {
+        const done = (d.trials||[]).filter(t => t.completed).length;
+        showToast('⚔️ 시련: ' + done + '/' + (d.trials?.length||8) + ' 완료');
+      });
+      window.socket.on('endgame_status', (d) => { showToast('👑 엔드게임: ' + Math.floor(d.progressPercent||0) + '% 완료'); });
+
+      // 서버 메시지 (방송)
+      window.socket.on('server_msg', (msg) => { showToast(msg, 5000); });
+
       // ═══ IO 배틀로얄 매칭 이벤트 ═══
       window.socket.on('br_lobby_update', (data) => {
         if (typeof renderIOLobby === 'function') renderIOLobby(data);

@@ -250,7 +250,19 @@
           <span style="color:#ffd700">💰 <span id="cg-gold">0</span></span>
           <span style="color:#44aaff">💎 <span id="cg-diamonds">0</span></span>
           <span style="color:#ff88aa">🃏 <span id="cg-card-count">0</span>장</span>
+          <button onclick="toggleNotificationCenter()" id="notif-bell" style="background:none;border:none;color:#ff8844;font-size:14px;cursor:pointer;position:relative">
+            🔔<span id="notif-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:#ff0000;color:#fff;border-radius:50%;font-size:8px;width:14px;height:14px;line-height:14px;text-align:center">0</span>
+          </button>
         </div>
+      </div>
+
+      <!-- 알림 센터 -->
+      <div id="notif-center" style="display:none;position:absolute;right:10px;top:40px;width:300px;max-height:400px;overflow-y:auto;background:rgba(10,10,30,0.95);border:1px solid rgba(255,215,0,0.2);border-radius:8px;z-index:30;padding:8px">
+        <div style="color:#ffd700;font-size:12px;font-weight:bold;margin-bottom:8px;display:flex;justify-content:space-between">
+          <span>🔔 알림</span>
+          <button onclick="clearNotifications()" style="background:none;border:none;color:#888;font-size:10px;cursor:pointer">모두 읽음</button>
+        </div>
+        <div id="notif-list" style="font-size:11px;color:#ccc"></div>
       </div>
 
       <!-- 중앙: 카드 상세 패널 -->
@@ -274,22 +286,73 @@
         <div style="color:#555;text-align:center;width:100%;font-size:12px">행동 카드를 뽑아주세요</div>
       </div>
 
-      <!-- 하단 버튼바 -->
-      <!-- 메인 버튼바 (2줄) -->
-      <div style="display:flex;gap:0;background:#151520;border-top:1px solid rgba(255,215,0,0.15)">
-        <button onclick="socket.emit('card_list_request')" style="flex:1;padding:6px;background:none;border:none;color:#88ccff;font-size:9px;cursor:pointer;font-weight:bold">🃏카드</button>
-        <button onclick="socket.emit('card_summon',{type:'single'})" style="flex:1;padding:6px;background:none;border:none;color:#aa44ff;font-size:9px;cursor:pointer;font-weight:bold">📜소환</button>
-        <button onclick="socket.emit('card_pvp_request')" style="flex:1;padding:6px;background:none;border:none;color:#ff4444;font-size:9px;cursor:pointer;font-weight:bold">⚔️대전</button>
-        <button onclick="socket.emit('fortress_info')" style="flex:1;padding:6px;background:none;border:none;color:#ff8844;font-size:9px;cursor:pointer;font-weight:bold">🏰기지</button>
-        <button onclick="socket.emit('market_browse')" style="flex:1;padding:6px;background:none;border:none;color:#44ddaa;font-size:9px;cursor:pointer;font-weight:bold">🏪거래소</button>
-        <button onclick="socket.emit('shop_list')" style="flex:1;padding:6px;background:none;border:none;color:#ffd700;font-size:9px;cursor:pointer;font-weight:bold">💰상점</button>
-        <button onclick="socket.emit('action_card_draw')" style="flex:1;padding:6px;background:none;border:none;color:#ff8844;font-size:9px;cursor:pointer;font-weight:bold">🎴행동</button>
-        <button onclick="socket.emit('daily_quests_request');socket.emit('attendance_check')" style="flex:1;padding:6px;background:none;border:none;color:#44ff44;font-size:9px;cursor:pointer;font-weight:bold">📋퀘스트</button>
+      <!-- 카테고리 탭 바 -->
+      <div id="nav-tabs" style="display:flex;gap:0;background:#0d0d1a;border-top:2px solid rgba(255,215,0,0.2);overflow-x:auto">
+        <button onclick="showNavTab('battle')" class="nav-tab active" id="tab-battle" style="flex:1;padding:8px 4px;background:rgba(255,68,68,0.15);border:none;border-bottom:2px solid #ff4444;color:#ff4444;font-size:10px;cursor:pointer;font-weight:bold;white-space:nowrap">⚔️전투</button>
+        <button onclick="showNavTab('growth')" class="nav-tab" id="tab-growth" style="flex:1;padding:8px 4px;background:none;border:none;border-bottom:2px solid transparent;color:#888;font-size:10px;cursor:pointer;font-weight:bold;white-space:nowrap">📈성장</button>
+        <button onclick="showNavTab('economy')" class="nav-tab" id="tab-economy" style="flex:1;padding:8px 4px;background:none;border:none;border-bottom:2px solid transparent;color:#888;font-size:10px;cursor:pointer;font-weight:bold;white-space:nowrap">💰경제</button>
+        <button onclick="showNavTab('social')" class="nav-tab" id="tab-social" style="flex:1;padding:8px 4px;background:none;border:none;border-bottom:2px solid transparent;color:#888;font-size:10px;cursor:pointer;font-weight:bold;white-space:nowrap">👥소셜</button>
+        <button onclick="showNavTab('collect')" class="nav-tab" id="tab-collect" style="flex:1;padding:8px 4px;background:none;border:none;border-bottom:2px solid transparent;color:#888;font-size:10px;cursor:pointer;font-weight:bold;white-space:nowrap">📖수집</button>
       </div>
-      <div style="display:flex;gap:0;background:#111">
-        <button onclick="socket.emit('fortress_attack')" style="flex:1;padding:10px;background:rgba(255,68,68,0.2);border:none;color:#ff6644;font-size:11px;cursor:pointer;font-weight:bold">🏰 성 공략</button>
-        <button onclick="requestIOMatch()" style="flex:2;padding:12px;background:linear-gradient(135deg,#ff4400,#ff8800);border:none;color:#fff;font-size:14px;cursor:pointer;font-weight:bold;letter-spacing:2px">⚔️ IO 배틀로얄 출전!</button>
-        <button onclick="socket.emit('fortress_collect')" style="flex:1;padding:10px;background:rgba(255,215,0,0.15);border:none;color:#ffd700;font-size:11px;cursor:pointer;font-weight:bold">💰 수입 수집</button>
+
+      <!-- 전투 탭 (기본) -->
+      <div id="nav-battle" class="nav-content" style="display:flex;flex-wrap:wrap;gap:0;background:#111">
+        <button onclick="requestIOMatch()" style="flex:2;padding:12px;background:linear-gradient(135deg,#ff4400,#ff8800);border:none;color:#fff;font-size:13px;cursor:pointer;font-weight:bold;letter-spacing:1px">⚔️ IO 배틀로얄</button>
+        <button onclick="socket.emit('card_pvp_request')" style="flex:1;padding:8px;background:rgba(255,68,68,0.15);border:none;color:#ff4444;font-size:10px;cursor:pointer;font-weight:bold">⚔️PvP</button>
+        <button onclick="socket.emit('fortress_attack',{})" style="flex:1;padding:8px;background:rgba(255,136,0,0.15);border:none;color:#ff8844;font-size:10px;cursor:pointer;font-weight:bold">🏰공략</button>
+        <button onclick="socket.emit('tower_info')" style="flex:1;padding:8px;background:rgba(100,100,255,0.15);border:none;color:#8888ff;font-size:10px;cursor:pointer;font-weight:bold">🗼탑</button>
+        <button onclick="socket.emit('boss_raid_info')" style="flex:1;padding:8px;background:rgba(255,68,68,0.15);border:none;color:#ff6666;font-size:10px;cursor:pointer;font-weight:bold">🐲보스</button>
+        <button onclick="socket.emit('pk_karma')" style="flex:1;padding:8px;background:rgba(255,0,0,0.15);border:none;color:#ff0000;font-size:10px;cursor:pointer;font-weight:bold">⚔️PK</button>
+        <button onclick="socket.emit('chess_get_board')" style="flex:1;padding:8px;background:rgba(200,150,50,0.15);border:none;color:#cc9933;font-size:10px;cursor:pointer;font-weight:bold">♟️체스</button>
+        <button onclick="socket.emit('duel_state')" style="flex:1;padding:8px;background:rgba(170,68,255,0.15);border:none;color:#aa44ff;font-size:10px;cursor:pointer;font-weight:bold">🃏대결</button>
+        <button onclick="socket.emit('roguelike_status')" style="flex:1;padding:8px;background:rgba(100,100,100,0.15);border:none;color:#999;font-size:10px;cursor:pointer;font-weight:bold">🏰던전</button>
+      </div>
+
+      <!-- 성장 탭 -->
+      <div id="nav-growth" class="nav-content" style="display:none;flex-wrap:wrap;gap:0;background:#111">
+        <button onclick="socket.emit('card_list_request')" style="flex:1;padding:8px;background:rgba(136,204,255,0.15);border:none;color:#88ccff;font-size:10px;cursor:pointer;font-weight:bold">🃏카드</button>
+        <button onclick="socket.emit('card_summon',{type:'single'})" style="flex:1;padding:8px;background:rgba(170,68,255,0.15);border:none;color:#aa44ff;font-size:10px;cursor:pointer;font-weight:bold">📜소환</button>
+        <button onclick="socket.emit('action_card_draw')" style="flex:1;padding:8px;background:rgba(255,136,68,0.15);border:none;color:#ff8844;font-size:10px;cursor:pointer;font-weight:bold">🎴행동</button>
+        <button onclick="socket.emit('card_enchant_list')" style="flex:1;padding:8px;background:rgba(100,200,255,0.15);border:none;color:#66ccff;font-size:10px;cursor:pointer;font-weight:bold">✨인챈트</button>
+        <button onclick="socket.emit('card_awaken_info')" style="flex:1;padding:8px;background:rgba(255,215,0,0.15);border:none;color:#ffd700;font-size:10px;cursor:pointer;font-weight:bold">🌟각성</button>
+        <button onclick="socket.emit('card_races_info')" style="flex:1;padding:8px;background:rgba(100,255,100,0.15);border:none;color:#66ff66;font-size:10px;cursor:pointer;font-weight:bold">🧬종족</button>
+        <button onclick="socket.emit('shop_list')" style="flex:1;padding:8px;background:rgba(255,215,0,0.15);border:none;color:#ffd700;font-size:10px;cursor:pointer;font-weight:bold">💰상점</button>
+        <button onclick="socket.emit('card_bonds_check')" style="flex:1;padding:8px;background:rgba(255,100,200,0.15);border:none;color:#ff66cc;font-size:10px;cursor:pointer;font-weight:bold">💞인연</button>
+        <button onclick="socket.emit('fusion_recipes')" style="flex:1;padding:8px;background:rgba(255,100,100,0.15);border:none;color:#ff6666;font-size:10px;cursor:pointer;font-weight:bold">🔄합체</button>
+      </div>
+
+      <!-- 경제 탭 -->
+      <div id="nav-economy" class="nav-content" style="display:none;flex-wrap:wrap;gap:0;background:#111">
+        <button onclick="socket.emit('market_browse')" style="flex:1;padding:8px;background:rgba(68,221,170,0.15);border:none;color:#44ddaa;font-size:10px;cursor:pointer;font-weight:bold">🏪거래소</button>
+        <button onclick="socket.emit('fortress_info')" style="flex:1;padding:8px;background:rgba(255,136,68,0.15);border:none;color:#ff8844;font-size:10px;cursor:pointer;font-weight:bold">🏰기지</button>
+        <button onclick="socket.emit('fortress_collect')" style="flex:1;padding:8px;background:rgba(255,215,0,0.15);border:none;color:#ffd700;font-size:10px;cursor:pointer;font-weight:bold">💰수입</button>
+        <button onclick="socket.emit('farm_info')" style="flex:1;padding:8px;background:rgba(100,200,100,0.15);border:none;color:#66cc66;font-size:10px;cursor:pointer;font-weight:bold">🌿농장</button>
+        <button onclick="socket.emit('expedition_zones')" style="flex:1;padding:8px;background:rgba(200,150,50,0.15);border:none;color:#cc9933;font-size:10px;cursor:pointer;font-weight:bold">🗺️원정</button>
+        <button onclick="socket.emit('lottery_draw',{paid:false})" style="flex:1;padding:8px;background:rgba(255,215,0,0.15);border:none;color:#ffcc00;font-size:10px;cursor:pointer;font-weight:bold">🎰복권</button>
+        <button onclick="socket.emit('minigame_list')" style="flex:1;padding:8px;background:rgba(255,200,50,0.15);border:none;color:#ffcc33;font-size:10px;cursor:pointer;font-weight:bold">🎮미니</button>
+      </div>
+
+      <!-- 소셜 탭 -->
+      <div id="nav-social" class="nav-content" style="display:none;flex-wrap:wrap;gap:0;background:#111">
+        <button onclick="socket.emit('guild_info')" style="flex:1;padding:8px;background:rgba(100,150,255,0.15);border:none;color:#6699ff;font-size:10px;cursor:pointer;font-weight:bold">👥길드</button>
+        <button onclick="socket.emit('friends_list')" style="flex:1;padding:8px;background:rgba(255,100,200,0.15);border:none;color:#ff66cc;font-size:10px;cursor:pointer;font-weight:bold">💙친구</button>
+        <button onclick="socket.emit('mail_inbox')" style="flex:1;padding:8px;background:rgba(200,200,100,0.15);border:none;color:#cccc66;font-size:10px;cursor:pointer;font-weight:bold">📮우편</button>
+        <button onclick="socket.emit('ranking_request',{category:'power'})" style="flex:1;padding:8px;background:rgba(255,215,0,0.15);border:none;color:#ffd700;font-size:10px;cursor:pointer;font-weight:bold">🏆랭킹</button>
+        <button onclick="socket.emit('bounty_board')" style="flex:1;padding:8px;background:rgba(255,100,0,0.15);border:none;color:#ff6600;font-size:10px;cursor:pointer;font-weight:bold">🎯현상금</button>
+        <button onclick="socket.emit('skin_shop')" style="flex:1;padding:8px;background:rgba(200,100,255,0.15);border:none;color:#cc66ff;font-size:10px;cursor:pointer;font-weight:bold">🎨스킨</button>
+      </div>
+
+      <!-- 수집 탭 -->
+      <div id="nav-collect" class="nav-content" style="display:none;flex-wrap:wrap;gap:0;background:#111">
+        <button onclick="socket.emit('daily_quests_request');socket.emit('attendance_check')" style="flex:1;padding:8px;background:rgba(68,255,68,0.15);border:none;color:#44ff44;font-size:10px;cursor:pointer;font-weight:bold">📋퀘스트</button>
+        <button onclick="socket.emit('achievements_check')" style="flex:1;padding:8px;background:rgba(255,215,0,0.15);border:none;color:#ffd700;font-size:10px;cursor:pointer;font-weight:bold">🏅업적</button>
+        <button onclick="socket.emit('codex_info')" style="flex:1;padding:8px;background:rgba(200,150,100,0.15);border:none;color:#cc9966;font-size:10px;cursor:pointer;font-weight:bold">📖도감</button>
+        <button onclick="socket.emit('season_status')" style="flex:1;padding:8px;background:rgba(100,200,255,0.15);border:none;color:#66ccff;font-size:10px;cursor:pointer;font-weight:bold">🌟시즌</button>
+        <button onclick="socket.emit('titles_info')" style="flex:1;padding:8px;background:rgba(255,100,255,0.15);border:none;color:#ff66ff;font-size:10px;cursor:pointer;font-weight:bold">🏷️칭호</button>
+        <button onclick="socket.emit('guide_status')" style="flex:1;padding:8px;background:rgba(100,255,200,0.15);border:none;color:#66ffcc;font-size:10px;cursor:pointer;font-weight:bold">📚가이드</button>
+        <button onclick="socket.emit('campaign_list')" style="flex:1;padding:8px;background:rgba(255,150,50,0.15);border:none;color:#ff9933;font-size:10px;cursor:pointer;font-weight:bold">📖캠페인</button>
+        <button onclick="socket.emit('world_state')" style="flex:1;padding:8px;background:rgba(100,200,255,0.15);border:none;color:#66ccff;font-size:10px;cursor:pointer;font-weight:bold">🌍월드</button>
+        <button onclick="socket.emit('activity_dashboard')" style="flex:1;padding:8px;background:rgba(255,100,255,0.15);border:none;color:#ff66ff;font-size:10px;cursor:pointer;font-weight:bold">📊활동</button>
       </div>
     </div>
 
@@ -968,6 +1031,25 @@
     var gameStarted = false;
     var deviceId = null; // 로그인 후 설정됨
     var loginMode = 'login'; // 'login' or 'register'
+
+    // 하단 네비게이션 탭 전환
+    function showNavTab(tab) {
+      document.querySelectorAll('.nav-content').forEach(el => el.style.display = 'none');
+      document.querySelectorAll('.nav-tab').forEach(el => {
+        el.style.background = 'none';
+        el.style.borderBottom = '2px solid transparent';
+        el.style.color = '#888';
+      });
+      const content = document.getElementById('nav-' + tab);
+      const tabBtn = document.getElementById('tab-' + tab);
+      if (content) content.style.display = 'flex';
+      if (tabBtn) {
+        const colors = { battle: '#ff4444', growth: '#44ff44', economy: '#ffd700', social: '#44aaff', collect: '#ff88ff' };
+        tabBtn.style.background = 'rgba(255,255,255,0.05)';
+        tabBtn.style.borderBottom = '2px solid ' + (colors[tab] || '#fff');
+        tabBtn.style.color = colors[tab] || '#fff';
+      }
+    }
 
     // 로그인 탭 전환
     function switchLoginTab(mode) {

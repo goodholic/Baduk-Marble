@@ -622,29 +622,29 @@ io.on("connection", (socket) => {
     // ═══ 기지(성) 시스템 ═══
     try {
         const cardFortress = require('../card_fortress');
-        cardFortress.register(io, socket, _player);
+        cardFortress.register(io, socket, _player, players);
     } catch(e) { console.error('[CardFortress] Error:', e.message); }
 
     // ═══ 카드 거래소 ═══
     try {
         const cardMarket = require('../card_trade_market');
-        cardMarket.register(io, socket, _player);
+        cardMarket.register(io, socket, _player, players);
     } catch(e) { console.error('[CardMarket] Error:', e.message); }
 
     // ═══ 종족/직업/히든 카드 ═══
     try { require('../card_races_classes').register(io, socket, _player); } catch(e) { console.error('[Races]', e.message); }
 
     // ═══ 길드 ═══
-    try { require('../card_guild').register(io, socket, _player); } catch(e) { console.error('[Guild]', e.message); }
+    try { require('../card_guild').register(io, socket, _player, players); } catch(e) { console.error('[Guild]', e.message); }
 
     // ═══ 시즌 랭킹 ═══
-    try { require('../card_season').register(io, socket, _player); } catch(e) { console.error('[Season]', e.message); }
+    try { require('../card_season').register(io, socket, _player, players); } catch(e) { console.error('[Season]', e.message); }
 
     // ═══ 도감/업적/칭호/스토리 ═══
     try { require('../card_collection').register(io, socket, _player); } catch(e) { console.error('[Collection]', e.message); }
 
     // ═══ 도전의 탑 ═══
-    try { require('../card_tower').register(io, socket, _player); } catch(e) { console.error('[Tower]', e.message); }
+    try { require('../card_tower').register(io, socket, _player, players); } catch(e) { console.error('[Tower]', e.message); }
 
     // ═══ 우편 시스템 ═══
     try { require('../card_mail').register(io, socket, _player); } catch(e) { console.error('[Mail]', e.message); }
@@ -664,7 +664,64 @@ io.on("connection", (socket) => {
     // ═══ 랭킹/스킨/친구 ═══
     try { require('../card_ranking').register(io, socket, _player, players); } catch(e) { console.error('[Ranking]', e.message); }
     try { require('../card_skins').register(io, socket, _player); } catch(e) { console.error('[Skins]', e.message); }
-    try { require('../card_friends').register(io, socket, _player); } catch(e) { console.error('[Friends]', e.message); }
+    try { require('../card_friends').register(io, socket, _player, players); } catch(e) { console.error('[Friends]', e.message); }
+
+    // ═══ PK 시스템 (카르마/현상금/복수) ═══
+    try { require('../card_pk_system').register(io, socket, _player, players); } catch(e) { console.error('[PK]', e.message); }
+
+    // ═══ 가챠 소환 (프리미엄/우정 배너) ═══
+    try { require('../gacha_summon').registerGachaHandlers(io, socket, _player); } catch(e) { console.error('[Gacha]', e.message); }
+
+    // ═══ 초보자 7일 가이드 ═══
+    try { require('../card_beginner_guide').register(io, socket, _player); } catch(e) { console.error('[Guide]', e.message); }
+
+    // ═══ 일일 활동 & 크로스 시스템 보너스 ═══
+    try { require('../card_daily_activity').register(io, socket, _player); } catch(e) { console.error('[Activity]', e.message); }
+
+    // ═══ 로그라이크 카드 던전 ═══
+    try { require('../card_roguelike').register(io, socket, _player); } catch(e) { console.error('[Roguelike]', e.message); }
+
+    // ═══ 오토체스 카드 배틀 ═══
+    try { require('../card_auto_chess').register(io, socket, _player, players); } catch(e) { console.error('[AutoChess]', e.message); }
+
+    // ═══ 스토리 캠페인 ═══
+    try { require('../card_story_campaign').register(io, socket, _player); } catch(e) { console.error('[Campaign]', e.message); }
+
+    // ═══ 전략 카드 대결 ═══
+    try { require('../card_strategic_duel').register(io, socket, _player, players); } catch(e) { console.error('[Duel]', e.message); }
+
+    // ═══ 카드 합체 변신 ═══
+    try { require('../card_fusion_transform').register(io, socket, _player); } catch(e) { console.error('[Fusion]', e.message); }
+
+    // ═══ 미니게임 컬렉션 ═══
+    try { require('../card_minigames').registerMinigameHandlers(io, socket, () => _player); } catch(e) { console.error('[Minigames]', e.message); }
+
+    // ═══ 펫 동반자 ═══
+    try { require('../card_pet_companion').register(io, socket, _player); } catch(e) { console.error('[Pet]', e.message); }
+
+    // ═══ 하우징 ═══
+    try { require('../card_housing').register(io, socket, _player, players); } catch(e) { console.error('[Housing]', e.message); }
+
+    // ═══ 날씨/시간 ═══
+    try { require('../card_weather_time').register(io, socket, _player); } catch(e) { console.error('[Weather]', e.message); }
+
+    // ═══ 프레스티지(환생) ═══
+    try { require('../card_prestige').register(io, socket, _player, players); } catch(e) { console.error('[Prestige]', e.message); }
+
+    // ═══ 엔드게임 도전 ═══
+    try { require('../card_endgame').register(io, socket, _player); } catch(e) { console.error('[Endgame]', e.message); }
+
+    // ═══ 주간 레이드 보스 ═══
+    try { require('../card_weekly_raid').register(io, socket, _player); } catch(e) { console.error('[WeeklyRaid]', e.message); }
+
+    // ═══ 토너먼트 허브 ═══
+    try { require('../card_tournament_hub').register(io, socket, _player); } catch(e) { console.error('[Tournament]', e.message); }
+
+    // ═══ 플레이어 프로필 ═══
+    try { require('../card_player_profile').register(io, socket, _player, players); } catch(e) { console.error('[Profile]', e.message); }
+
+    // ═══ 월드 이벤트 ═══
+    try { require('../card_world_events').register(io, socket, _player); } catch(e) { console.error('[WorldEvents]', e.message); }
 
     // ═══ IO 전투 이벤트 ═══
     try { require('../io_battle_events').register(io, socket, _player); } catch(e) { console.error('[IOEvents]', e.message); }
@@ -1090,6 +1147,16 @@ io.on("connection", (socket) => {
     try { ($.mercDestinyForge || require('../merc_destiny_forge')).register(io, socket, _player); } catch(e) { console.error('[v7.0] Forge:', e.message); }
     try { ($.ioChaosMode || require('../io_chaos_mode')).register(io, socket, _player); } catch(e) { console.error('[v7.0] Chaos:', e.message); }
 });
+
+// Start tick manager once (inside registerConnection where io is available)
+if (!global._tickManagerStarted) {
+  global._tickManagerStarted = true;
+  try {
+    const tickManager = require('../card_tick_manager');
+    setTimeout(() => tickManager.startTickLoop(io, {}), 3000); // 3s delay for modules to load
+    console.log('[Connection] Tick manager scheduled');
+  } catch(e) { console.error('[Connection] Tick manager error:', e.message); }
+}
 }
 
 module.exports = { registerConnection };

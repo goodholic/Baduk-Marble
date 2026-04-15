@@ -151,20 +151,26 @@
     }
 
     const gradeColors = { normal:'#888', rare:'#4488ff', epic:'#aa44ff', legend:'#ff8800', myth:'#ff4444' };
-    container.innerHTML = cards.map(c => `
-      <div class="card-item" onclick="selectCard('${c.id}')" style="
-        min-width:120px;height:170px;background:linear-gradient(180deg,${gradeColors[c.grade] || '#444'}33,#1a1a2e);
-        border:2px solid ${gradeColors[c.grade] || '#444'};border-radius:12px;padding:8px;
-        cursor:pointer;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:space-between;
-        transition:transform 0.2s;user-select:none"
-        onmouseenter="this.style.transform='translateY(-10px)'" onmouseleave="this.style.transform=''">
-        <div style="font-size:28px">${c.icon || '⚔️'}</div>
-        <div style="font-size:11px;font-weight:bold;color:#fff;text-align:center">${c.name}</div>
-        <div style="font-size:9px;color:${gradeColors[c.grade] || '#888'}">${(c.grade || 'normal').toUpperCase()}</div>
-        <div style="font-size:9px;color:#aaa">ATK ${c.atk || 0} / DEF ${c.def || 0}</div>
-        <div style="font-size:9px;color:#ffd700">Lv.${c.level || 1}</div>
-      </div>
-    `).join('');
+    const gradeBgs = { normal:'#33333344', rare:'#4488ff22', epic:'#aa44ff22', legend:'#ff880022', myth:'#ff444422' };
+    container.innerHTML = cards.map(c => {
+      var gc = gradeColors[c.grade] || '#444';
+      var gb = gradeBgs[c.grade] || '#33333344';
+      var starsStr = c.stars ? '\u2605'.repeat(c.stars) : '';
+      return '<div class="card-item" onclick="selectCard(\'' + c.id + '\')" style="' +
+        'min-width:120px;height:180px;background:linear-gradient(180deg,' + gc + '33,#1a1a2e);' +
+        'border:2px solid ' + gc + ';border-radius:12px;padding:8px;' +
+        'cursor:pointer;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:space-between;' +
+        'transition:transform 0.2s;user-select:none;position:relative"' +
+        ' onmouseenter="this.style.transform=\'translateY(-10px)\'" onmouseleave="this.style.transform=\'\'">' +
+        (c.awakened ? '<div style="position:absolute;top:4px;right:6px;font-size:10px">✨</div>' : '') +
+        '<div style="font-size:28px">' + (c.icon || '\u2694\uFE0F') + '</div>' +
+        '<div style="font-size:11px;font-weight:bold;color:' + gc + ';text-align:center">' + c.name + '</div>' +
+        '<div style="font-size:9px;color:#aaa">' + (c.raceIcon || '') + ' ' + (c.classIcon || '') + ' Lv.' + (c.level || 1) + ' ' + starsStr + '</div>' +
+        '<div style="font-size:9px;color:#ff8844">ATK:' + (c.atk || 0) + ' DEF:' + (c.def || 0) + '</div>' +
+        (c.hp ? '<div style="font-size:9px;color:#44ff44">HP:' + c.hp + '</div>' : '') +
+        '<div style="font-size:8px;color:' + gc + '">' + (c.grade || 'normal').toUpperCase() + '</div>' +
+      '</div>';
+    }).join('');
   };
 
   // ── 카드 선택 ──
@@ -177,26 +183,95 @@
     const panel = document.getElementById('card-detail');
     if (!panel || !card) return;
     const gradeColors = { normal:'#888', rare:'#4488ff', epic:'#aa44ff', legend:'#ff8800', myth:'#ff4444' };
-    panel.innerHTML = `
-      <div style="text-align:center;padding:15px">
-        <div style="font-size:48px">${card.icon || '⚔️'}</div>
-        <h3 style="color:${gradeColors[card.grade] || '#fff'};margin:8px 0">${card.name}</h3>
-        <div style="color:#aaa;font-size:12px">${card.desc || ''}</div>
-        <div style="margin:10px 0;display:flex;gap:15px;justify-content:center">
-          <span style="color:#ff6644">ATK ${card.atk || 0}</span>
-          <span style="color:#4488ff">DEF ${card.def || 0}</span>
-          <span style="color:#44ff44">HP ${card.hp || 0}</span>
-        </div>
-        <div style="display:flex;gap:6px;justify-content:center;margin-top:12px;flex-wrap:wrap">
-          <button onclick="socket.emit('card_upgrade',{cardId:'${card.id}'})" style="padding:6px 12px;background:#4488ff;border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:11px">⬆️ 강화</button>
-          <button onclick="socket.emit('card_promote',{cardId:'${card.id}'})" style="padding:6px 12px;background:#22aa44;border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:11px">⭐ 진급</button>
-          <button onclick="socket.emit('card_evolve',{cardId:'${card.id}'})" style="padding:6px 12px;background:#ff4488;border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:11px">🔥 진화</button>
-          <button onclick="socket.emit('card_fuse',{cardIds:['${card.id}']})" style="padding:6px 12px;background:#aa44ff;border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:11px">🔄 합성</button>
-          <button onclick="socket.emit('card_set_loadout',{cardId:'${card.id}'})" style="padding:6px 12px;background:#ff8800;border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:11px">⚔️ 출전</button>
-        </div>
-        ${card.stars ? '<div style="color:#ffd700;margin-top:6px">★'.repeat(card.stars || 0) + '</div>' : ''}
-      </div>
-    `;
+    var gc = gradeColors[card.grade] || '#fff';
+    var starsStr = card.stars ? '\u2605'.repeat(card.stars) : '\u2606';
+    var raceName = card.raceName || card.race || '';
+    var className = card.className || card.class || '';
+    var raceIcon = card.raceIcon || '';
+    var classIcon = card.classIcon || '';
+
+    // Equipment slots
+    var equipSlots = ['weapon','armor','accessory'];
+    var equipHTML = equipSlots.map(function(s) {
+      var eq = card.equipment && card.equipment[s];
+      var icon = eq ? (eq.icon || '\u2B1C') : '\u2B1C';
+      var name = eq ? (eq.name || s) : '\uBE48\uCE78';
+      return '<div style="flex:1;padding:4px;background:rgba(255,255,255,0.05);border-radius:4px;text-align:center;font-size:10px">' + icon + ' ' + name + '</div>';
+    }).join('');
+
+    // Skills
+    var skillsArr = card.skills || [];
+    var skillsHTML = skillsArr.length > 0
+      ? skillsArr.map(function(s) {
+          return '<div style="padding:4px 8px;background:rgba(170,68,255,0.15);border-radius:4px;font-size:10px">' + (s.icon || '\u2728') + ' ' + s.name + '</div>';
+        }).join('')
+      : '<div style="color:#555;font-size:10px">\uC2A4\uD0AC \uC5C6\uC74C</div>';
+
+    // Enchants
+    var enchantsArr = card.enchants || [];
+    var enchantsHTML = enchantsArr.length > 0
+      ? '<div style="color:#888;font-size:10px;margin-bottom:4px">\uC778\uCC48\uD2B8</div>' +
+        '<div style="display:flex;gap:4px;margin-bottom:8px">' +
+        enchantsArr.map(function(e) {
+          return '<div style="padding:3px 6px;background:rgba(100,200,255,0.15);border-radius:4px;font-size:9px">' + (e.icon || '\u2728') + ' ' + e.name + '</div>';
+        }).join('') + '</div>'
+      : '';
+
+    // MATK row (if exists)
+    var matkHTML = card.matk
+      ? '<div style="text-align:center;background:rgba(170,68,255,0.15);padding:6px 12px;border-radius:6px"><div style="color:#aa44ff;font-size:14px;font-weight:bold">' + card.matk + '</div><div style="color:#888;font-size:9px">MATK</div></div>'
+      : '';
+
+    // Awakening / Transcendence
+    var awakeHTML = '';
+    if (card.awakened || card.transcendence) {
+      awakeHTML = '<div style="text-align:center;margin-bottom:8px;font-size:10px">';
+      if (card.awakened) awakeHTML += '<span style="color:#aa44ff">\u2728 \uAC01\uC131\uC644\uB8CC</span> ';
+      if (card.transcendence) awakeHTML += '<span style="color:#ffd700">\uD83C\uDF1F \uCD08\uC6D4 ' + card.transcendence + '\uB2E8\uACC4</span>';
+      awakeHTML += '</div>';
+    }
+
+    panel.innerHTML =
+      '<div style="padding:12px">' +
+        // Header
+        '<div style="text-align:center;margin-bottom:12px">' +
+          '<div style="font-size:36px">' + (card.icon || '\u2694\uFE0F') + '</div>' +
+          '<div style="font-size:16px;color:' + gc + ';font-weight:bold">' + card.name + (card.awakened ? ' \u2728' : '') + '</div>' +
+          '<div style="color:#aaa;font-size:11px">' + raceIcon + ' ' + raceName + ' ' + classIcon + ' ' + className + ' | Lv.' + (card.level || 1) + ' | ' + starsStr + ' | ' + (card.grade || 'normal').toUpperCase() + '</div>' +
+          (card.desc ? '<div style="color:#666;font-size:10px;margin-top:4px">' + card.desc + '</div>' : '') +
+          (card.destiny ? '<div style="color:#ffd700;font-size:10px;margin-top:4px">\u2728 ' + (card.destiny.name || card.destiny) + '</div>' : '') +
+        '</div>' +
+        // Awakening status
+        awakeHTML +
+        // Stats
+        '<div style="display:flex;gap:8px;justify-content:center;margin-bottom:12px;flex-wrap:wrap">' +
+          '<div style="text-align:center;background:rgba(255,68,68,0.15);padding:6px 12px;border-radius:6px"><div style="color:#ff4444;font-size:14px;font-weight:bold">' + (card.atk || 0) + '</div><div style="color:#888;font-size:9px">ATK</div></div>' +
+          '<div style="text-align:center;background:rgba(68,170,255,0.15);padding:6px 12px;border-radius:6px"><div style="color:#44aaff;font-size:14px;font-weight:bold">' + (card.def || 0) + '</div><div style="color:#888;font-size:9px">DEF</div></div>' +
+          '<div style="text-align:center;background:rgba(68,255,68,0.15);padding:6px 12px;border-radius:6px"><div style="color:#44ff44;font-size:14px;font-weight:bold">' + (card.hp || 0) + '</div><div style="color:#888;font-size:9px">HP</div></div>' +
+          matkHTML +
+        '</div>' +
+        // Equipment
+        '<div style="color:#888;font-size:10px;margin-bottom:4px">\uC7A5\uBE44</div>' +
+        '<div style="display:flex;gap:4px;margin-bottom:8px">' + equipHTML + '</div>' +
+        // Skills
+        '<div style="color:#888;font-size:10px;margin-bottom:4px">\uC2A4\uD0AC</div>' +
+        '<div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap">' + skillsHTML + '</div>' +
+        // Enchants
+        enchantsHTML +
+        // Action Buttons
+        '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px">' +
+          '<button onclick="socket.emit(\'card_upgrade\',{cardId:\'' + card.id + '\'})" style="flex:1;padding:6px;background:rgba(68,255,68,0.2);border:1px solid #44ff44;border-radius:6px;color:#44ff44;font-size:10px;cursor:pointer">\u2B06\uFE0F\uAC15\uD654</button>' +
+          '<button onclick="socket.emit(\'card_evolve\',{cardId:\'' + card.id + '\'})" style="flex:1;padding:6px;background:rgba(255,136,0,0.2);border:1px solid #ff8800;border-radius:6px;color:#ff8800;font-size:10px;cursor:pointer">\uD83D\uDD25\uC9C4\uD654</button>' +
+          '<button onclick="socket.emit(\'card_promote\',{cardId:\'' + card.id + '\'})" style="flex:1;padding:6px;background:rgba(255,215,0,0.2);border:1px solid #ffd700;border-radius:6px;color:#ffd700;font-size:10px;cursor:pointer">\u2B50\uC9C4\uAE09</button>' +
+          '<button onclick="socket.emit(\'card_awaken\',{cardId:\'' + card.id + '\'})" style="flex:1;padding:6px;background:rgba(170,68,255,0.2);border:1px solid #aa44ff;border-radius:6px;color:#aa44ff;font-size:10px;cursor:pointer">\uD83C\uDF1F\uAC01\uC131</button>' +
+        '</div>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">' +
+          '<button onclick="socket.emit(\'card_fuse\',{cardIds:[\'' + card.id + '\']})" style="flex:1;padding:6px;background:rgba(136,136,255,0.2);border:1px solid #8888ff;border-radius:6px;color:#8888ff;font-size:10px;cursor:pointer">\uD83D\uDD04\uD569\uC131</button>' +
+          '<button onclick="socket.emit(\'card_set_loadout\',{cardId:\'' + card.id + '\'})" style="flex:1;padding:6px;background:rgba(255,136,0,0.2);border:1px solid #ff8800;border-radius:6px;color:#ff8800;font-size:10px;cursor:pointer">\u2694\uFE0F\uCD9C\uC804</button>' +
+          '<button onclick="socket.emit(\'card_enchant\',{cardId:\'' + card.id + '\'})" style="flex:1;padding:6px;background:rgba(100,200,255,0.2);border:1px solid #64c8ff;border-radius:6px;color:#64c8ff;font-size:10px;cursor:pointer">\u2728\uC778\uCC48</button>' +
+          '<button onclick="socket.emit(\'card_equip_open\',{cardId:\'' + card.id + '\'})" style="flex:1;padding:6px;background:rgba(200,200,200,0.15);border:1px solid #aaa;border-radius:6px;color:#aaa;font-size:10px;cursor:pointer">\uD83D\uDEE1\uFE0F\uC7A5\uCC29</button>' +
+        '</div>' +
+      '</div>';
     panel.style.display = 'block';
   };
 
