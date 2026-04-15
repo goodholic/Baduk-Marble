@@ -726,6 +726,12 @@ io.on("connection", (socket) => {
     // ═══ IO 전리품 ═══
     try { require('../card_io_loot').register(io, socket, _player); } catch(e) { console.error('[IOLoot]', e.message); }
 
+    // ═══ 실시간 카드 교환 ═══
+    try { require('../card_trading').register(io, socket, _player, players); } catch(e) { console.error('[Trading]', e.message); }
+
+    // ═══ 업적 쇼케이스 ═══
+    try { require('../card_showcase').register(io, socket, _player, players); } catch(e) { console.error('[Showcase]', e.message); }
+
     // ═══ 월드 이벤트 ═══
     try { require('../card_world_events').register(io, socket, _player); } catch(e) { console.error('[WorldEvents]', e.message); }
 
