@@ -720,6 +720,12 @@ io.on("connection", (socket) => {
     // ═══ 플레이어 프로필 ═══
     try { require('../card_player_profile').register(io, socket, _player, players); } catch(e) { console.error('[Profile]', e.message); }
 
+    // ═══ IO 클래스 빌드 ═══
+    try { require('../card_io_builds').register(io, socket, _player); } catch(e) { console.error('[IOBuilds]', e.message); }
+
+    // ═══ IO 전리품 ═══
+    try { require('../card_io_loot').register(io, socket, _player); } catch(e) { console.error('[IOLoot]', e.message); }
+
     // ═══ 월드 이벤트 ═══
     try { require('../card_world_events').register(io, socket, _player); } catch(e) { console.error('[WorldEvents]', e.message); }
 
