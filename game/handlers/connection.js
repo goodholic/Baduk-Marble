@@ -732,6 +732,12 @@ io.on("connection", (socket) => {
     // ═══ 업적 쇼케이스 ═══
     try { require('../card_showcase').register(io, socket, _player, players); } catch(e) { console.error('[Showcase]', e.message); }
 
+    // ═══ 연맹 전쟁 ═══
+    try { require('../card_alliance').register(io, socket, _player, players); } catch(e) { console.error('[Alliance]', e.message); }
+
+    // ═══ 관전 & 리플레이 ═══
+    try { require('../card_spectator').register(io, socket, _player); } catch(e) { console.error('[Spectator]', e.message); }
+
     // ═══ 월드 이벤트 ═══
     try { require('../card_world_events').register(io, socket, _player); } catch(e) { console.error('[WorldEvents]', e.message); }
 
